@@ -63,78 +63,54 @@ function entr_detr(
 
     N_up = n_updrafts(m.turbconv)
     ρ_inv = 1 / gm.ρ
-# <<<<<<< HEAD
-    if up[i].ρa*ρ_inv>m.turbconv.subdomains.a_min
-        a_up_i = up[i].ρa * ρ_inv
-        lim_E = entr.lim_ϵ
-        lim_amp = entr.lim_amp
-        w_min = entr.w_min
-        # precompute vars
-        w_up_i = up[i].ρaw / up[i].ρa
-        sqrt_tke = sqrt(max(en.ρatke, 0) * ρ_inv / env.a)
-        # ensure far from zero
-        Δw = filter_w(w_up_i - env.w, w_min)
-        w_up_i = filter_w(w_up_i, w_min)
-        Δb = buoy.up[i] - buoy.en
-        D_E, D_δ, M_δ, M_E = nondimensional_exchange_functions(
-            m,
-            entr,
-            state,
-            aux,
-            ts_up,
-            ts_en,
-            env,
-            buoy,
-            i,
-        )
-# =======
-#     a_up_i = up[i].ρa * ρ_inv
-#     lim_E = entr.lim_ϵ
-#     lim_amp = entr.lim_amp
-#     w_min = entr.w_min
-#     # precompute vars
-#     w_up_i = fix_void_up(up[i].ρa, up[i].ρaw / up[i].ρa)
-#     sqrt_tke = sqrt(max(en.ρatke, 0) * ρ_inv / env.a)
-#     # ensure far from zero
-#     Δw = filter_w(w_up_i - env.w, w_min)
-#     w_up_i = filter_w(w_up_i, w_min)
-#     Δb = buoy.up[i] - buoy.en
-#     D_E, D_δ, M_δ, M_E = nondimensional_exchange_functions(
-#         m,
-#         entr,
-#         state,
-#         aux,
-#         ts_up,
-#         ts_en,
-#         env,
-#         buoy,
-#         i,
-#     )
-# >>>>>>> master
+    # if up[i].ρa*ρ_inv>m.turbconv.subdomains.a_min
+    a_up_i = fix_void_up(up[i].ρa, up[i].ρa * ρ_inv)
+    liM_ε = entr.lim_ϵ
+    lim_amp = entr.lim_amp
+    w_min = entr.w_min
+    # precompute vars
+    w_up_i = fix_void_up(up[i].ρa, up[i].ρaw / up[i].ρa)
+    sqrt_tke = sqrt(max(en.ρatke, 0) * ρ_inv / env.a)
+    # ensure far from zero
+    Δw = filter_w(fix_void_up(up[i].ρa, w_up_i - env.w, w_min), w_min)
+    # w_up_i = filter_w(w_up_i, w_min)
+    Δb = buoy.up[i] - buoy.en
+    D_ε, D_δ, M_δ, M_ε = nondimensional_exchange_functions(
+        m,
+        entr,
+        state,
+        aux,
+        ts_up,
+        ts_en,
+        env,
+        buoy,
+        i,
+    )
 
-        # I am commenting this out for now, to make sure there is no slowdown here
-        Λ_w = abs(Δb / Δw)
-        Λ_tke = entr.c_λ * abs(Δb / (max(en.ρatke * ρ_inv, 0) + w_min))
-        λ = lamb_smooth_minimum(
-            SVector(Λ_w, Λ_tke),
-            m.turbconv.mix_len.smin_ub,
-            m.turbconv.mix_len.smin_rm,
-        )
+    Λ_w = abs(Δb / Δw)
+    Λ_tke = entr.c_λ * abs(Δb / (max(en.ρatke * ρ_inv, 0) + w_min))
+    λ = lamb_smooth_minimum(
+        SVector(Λ_w, Λ_tke),
+        m.turbconv.mix_len.smin_ub,
+        m.turbconv.mix_len.smin_rm,
+    )
+    # compute entrainment/detrainment components
+    E_trb =
+        2 * up[i].ρa * entr.c_t * sqrt_tke /
+        max(m.turbconv.pressure.H_up, entr.H_up_min)
+    E_dyn = up[i].ρa * λ * (D_ε + M_ε)
+    Δ_dyn = up[i].ρa * λ * (D_δ + M_δ)
+    println("in entr")
+    @show(up[i].ρa , E_dyn, Δ_dyn)
+    @show(λ, Λ_tke,  Λ_w, Δb , Δw, D_ε, M_ε)
 
-        # compute entrainment/detrainment components
-        E_trb =
-            2 * up[i].ρa * entr.c_t * sqrt_tke /
-            max(m.turbconv.pressure.H_up, entr.H_up_min)
-        E_dyn = up[i].ρa * λ * (D_E + M_E)
-        Δ_dyn = up[i].ρa * λ * (D_δ + M_δ)
-
-        E_dyn = max(E_dyn, FT(0))
-        Δ_dyn = max(Δ_dyn, FT(0))
-        E_trb = max(E_trb, FT(0))
-    else
-        E_dyn = FT(0)
-        Δ_dyn = FT(0)
-        E_trb = FT(0)
-    end
+    E_dyn = max(E_dyn, FT(0))
+    Δ_dyn = max(Δ_dyn, FT(0))
+    E_trb = max(E_trb, FT(0))
+    # else
+    #     E_dyn = FT(0)
+    #     Δ_dyn = FT(0)
+    #     E_trb = FT(0)
+    # end
     return E_dyn, Δ_dyn, E_trb
 end;

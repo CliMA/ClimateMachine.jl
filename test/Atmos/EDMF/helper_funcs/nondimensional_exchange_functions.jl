@@ -45,15 +45,15 @@ function nondimensional_exchange_functions(
     # precompute vars
     w_min = entr.w_min
     N_up = n_updrafts(m.turbconv)
-    ρinv = 1 / gm.ρ
-    a_up_i = up[i].ρa * ρinv
-    w_up_i = fix_void_up(up[i].ρa, up[i].ρaw / up[i].ρa)
+    ρ_inv = 1 / gm.ρ
+    a_up_i = fix_void_up(up[i].ρa, up[i].ρa * ρ_inv)
+    w_up_i = fix_void_up(up[i].ρa, up[i].ρaw / up[i].ρa, w_min)
 
     # thermodynamic variables
     RH_up = relative_humidity(ts_up[i])
     RH_en = relative_humidity(ts_en)
 
-    Δw = filter_w(w_up_i - env.w, w_min)
+    Δw = filter_w(fix_void_up(up[i].ρa, w_up_i - env.w, w_min), w_min)
     Δb = buoy.up[i] - buoy.en
 
     c_δ = sign(condensate(ts_en) + condensate(ts_up[i])) * entr.c_δ
@@ -64,5 +64,7 @@ function nondimensional_exchange_functions(
     M_ε = c_δ * (max((RH_en^entr.β - RH_up^entr.β), 0))^(1 / entr.β)
     D_δ = entr.c_ε / (1 + exp(μ_ij / entr.μ_0))
     M_δ = c_δ * (max((RH_up^entr.β - RH_en^entr.β), 0))^(1 / entr.β)
+    # println("in nondimensional")
+    # @show(μ_ij, D_δ, D_ε,Δb, Δw)
     return D_ε, D_δ, M_δ, M_ε
 end;
