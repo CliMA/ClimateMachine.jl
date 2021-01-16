@@ -60,11 +60,21 @@ function nondimensional_exchange_functions(
 
     # compute dry and moist aux functions
     μ_ij = (entr.χ - a_up_i / (a_up_i + env.a)) * Δb / Δw
-    D_ε = entr.c_ε / (1 + exp(-μ_ij / entr.μ_0))
-    M_ε = c_δ * (max((RH_en^entr.β - RH_up^entr.β), 0))^(1 / entr.β)
-    D_δ = entr.c_ε / (1 + exp(μ_ij / entr.μ_0))
-    M_δ = c_δ * (max((RH_up^entr.β - RH_en^entr.β), 0))^(1 / entr.β)
     # println("in nondimensional")
+    M_ε = c_δ * (max((RH_en^entr.β - RH_up^entr.β), 0))^(1 / entr.β)
+    M_δ = c_δ * (max((RH_up^entr.β - RH_en^entr.β), 0))^(1 / entr.β)
+
+    if up[i].ρa*ρ_inv>m.turbconv.subdomains.a_min
+        D_ε = entr.c_ε / (1 + exp(-μ_ij / entr.μ_0))
+        D_δ = entr.c_ε / (1 + exp(μ_ij / entr.μ_0))
+    else
+        @show(μ_ij,exp(-μ_ij / entr.μ_0) )
+        @show(a_up_i)
+        D_ε = entr.c_ε / (1 + exp(-μ_ij / entr.μ_0))
+        D_δ = entr.c_ε / (1 + exp(μ_ij / entr.μ_0))
+        # M_δ = FT(0)
+        # M_ε = FT(0)
+    end
     # @show(μ_ij, D_δ, D_ε,Δb, Δw)
     return D_ε, D_δ, M_δ, M_ε
 end;

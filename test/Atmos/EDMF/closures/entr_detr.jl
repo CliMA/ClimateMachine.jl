@@ -63,7 +63,6 @@ function entr_detr(
 
     N_up = n_updrafts(m.turbconv)
     ρ_inv = 1 / gm.ρ
-    # if up[i].ρa*ρ_inv>m.turbconv.subdomains.a_min
     a_up_i = fix_void_up(up[i].ρa, up[i].ρa * ρ_inv)
     liM_ε = entr.lim_ϵ
     lim_amp = entr.lim_amp
@@ -100,17 +99,12 @@ function entr_detr(
         max(m.turbconv.pressure.H_up, entr.H_up_min)
     E_dyn = up[i].ρa * λ * (D_ε + M_ε)
     Δ_dyn = up[i].ρa * λ * (D_δ + M_δ)
-    println("in entr")
-    @show(up[i].ρa , E_dyn, Δ_dyn)
-    @show(λ, Λ_tke,  Λ_w, Δb , Δw, D_ε, M_ε)
+    # println("in entr")
+    # @show(up[i].ρa , E_dyn, Δ_dyn)
+    # @show(λ, Λ_tke,  Λ_w, Δb , Δw, D_ε, M_ε)
 
     E_dyn = max(E_dyn, FT(0))
     Δ_dyn = max(Δ_dyn, FT(0))
     E_trb = max(E_trb, FT(0))
-    # else
-    #     E_dyn = FT(0)
-    #     Δ_dyn = FT(0)
-    #     E_trb = FT(0)
-    # end
     return E_dyn, Δ_dyn, E_trb
 end;
