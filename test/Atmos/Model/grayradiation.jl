@@ -534,6 +534,10 @@ function init_to_ref_state!(problem, bl, state, aux, localgeo, t)
     state.ρe = aux.ref_state.ρe
 end
 
+function radiationflux(state, aux, t)
+    return aux.radiation.flux
+end
+
 function config_balanced(
     FT,
     poly_order,
@@ -544,12 +548,19 @@ function config_balanced(
     model = AtmosModel{FT}(
         config_type,
         param_set;
+        init_state_prognostic = init_to_ref_state!,
+        # problem = AtmosProblem(
+        #     boundaryconditions = (
+        #         AtmosBC(energy = PrescribedEnergyFlux(radiationflux)),
+        #         AtmosBC(energy = PrescribedEnergyFlux(radiationflux)),
+        #     ),
+        #     init_state_prognostic = init_to_ref_state!,
+        # ),
         ref_state = HydrostaticState(temp_profile),
         turbulence = ConstantDynamicViscosity(FT(0)),
         moisture = DryModel(),
         radiation = RRTMGPModel(),
         source = (Gravity(),),
-        init_state_prognostic = init_to_ref_state!,
     )
 
     config = config_fun(
@@ -628,7 +639,6 @@ function main()
                         #CFL_direction = EveryDirection(),
                         #diffdir = HorizontalDirection(),
                         modeldata = (RRTMGPstruct = create_rrtmgp(driver_config.grid),),
-                        skip_update_aux = true,
                     )
 
                     print_debug(solver_config.Q, solver_config.dg, timestart)
