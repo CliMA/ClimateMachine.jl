@@ -43,3 +43,22 @@ function primitive_to_prognostic!(bl, prog::Vars, prim::Vars, aux)
     prog_arr = parent(prog)
     prog_arr .= prim_arr
 end
+
+"""
+    construct_face_auxiliary_state!(bl::AtmosModel, aux_face::AbstractArray, aux_cell::AbstractArray, Δz::FT)
+
+Default constructor
+
+ - `bl` balance law
+ - `aux_face` face auxiliary variables to be constructed 
+ - `aux_cell` cell center auxiliary variable
+ - `Δz` cell vertical size 
+"""
+function construct_face_auxiliary_state!(
+    bl,
+    aux_face::AbstractArray,
+    aux_cell::AbstractArray,
+    Δz::FT,
+) where {FT}
+    aux_face .= aux_cell
+end

@@ -15,20 +15,12 @@ variables `prim` for the atmos model `atmos`.
 !!! note
     The only field in `aux` required for this
     method is the geo-potential.
+    The other states in `aux` have been 
+    computed in update_auxiliary_state, 
+    which can be used to speed up the compuation
 """
-prognostic_to_primitive!(atmos::AtmosModel, prim::Vars, prog::Vars, aux) =
-    prognostic_to_primitive!(
-        atmos,
-        atmos.moisture,
-        prim,
-        prog,
-        Thermodynamics.internal_energy(
-            prog.ρ,
-            prog.ρe,
-            prog.ρu,
-            gravitational_potential(atmos.orientation, aux),
-        ),
-    )
+prognostic_to_primitive!(atmos::AtmosModel, prim::Vars, prog::Vars, aux::Vars) =
+    prognostic_to_primitive!(atmos, atmos.moisture, prim, prog, aux)
 
 """
     primitive_to_prognostic!(atmos::AtmosModel, prog::Vars, prim::Vars, aux::Vars)
@@ -38,16 +30,44 @@ variables `prog` for the atmos model `atmos`.
 
 !!! note
     The only field in `aux` required for this
-    method is the geo-potential.
+    method is the geo-potential, which is in `aux`
+    The other states in `aux`, which are required for
+    flux computations are filled
 """
-primitive_to_prognostic!(atmos::AtmosModel, prog::Vars, prim::Vars, aux) =
+primitive_to_prognostic!(atmos::AtmosModel, prog::Vars, prim::Vars, aux::Vars) =
     primitive_to_prognostic!(
         atmos,
         atmos.moisture,
         prog,
         prim,
+        aux,
         gravitational_potential(atmos.orientation, aux),
     )
+
+"""
+    construct_face_auxiliary_state!(bl::AtmosModel, aux_face::AbstractArray, aux_cell::AbstractArray, Δz::FT)
+
+ - `bl` balance law
+ - `aux_face` face auxiliary variables to be constructed 
+ - `aux_cell` cell center auxiliary variable
+ - `Δz` cell vertical size 
+"""
+function construct_face_auxiliary_state!(
+    bl::AtmosModel,
+    aux_face::AbstractArray,
+    aux_cell::AbstractArray,
+    Δz::FT,
+) where {FT}
+    _grav = grav(bl.param_set)
+    var_aux = Vars{vars_state(bl, Auxiliary(), FT)}
+    aux_face .= aux_cell
+
+    if bl.orientation != NoOrientation()
+        var_aux(aux_face).orientation.Φ =
+            var_aux(aux_cell).orientation.Φ + _grav * Δz / 2
+    end
+end
+
 
 ####
 #### prognostic to primitive
@@ -58,9 +78,9 @@ function prognostic_to_primitive!(
     moist::DryModel,
     prim::Vars,
     prog::Vars,
-    e_int::AbstractFloat,
+    aux::Vars,
 )
-    ts = PhaseDry(atmos.param_set, e_int, prog.ρ)
+    ts = recover_thermo_state(atmos, prog, aux)
     prim.ρ = prog.ρ
     prim.u = prog.ρu ./ prog.ρ
     prim.p = air_pressure(ts)
@@ -71,17 +91,11 @@ function prognostic_to_primitive!(
     moist::EquilMoist,
     prim::Vars,
     prog::Vars,
-    e_int::AbstractFloat,
+    aux::Vars,
 )
     FT = eltype(prim)
-    ts = PhaseEquil(
-        atmos.param_set,
-        e_int,
-        prog.ρ,
-        prog.moisture.ρq_tot / prog.ρ,
-        # 20,       # can improve test error with better convergence
-        # FT(1e-3), # can improve test error with better convergence
-    )
+    ts = recover_thermo_state(atmos, prog, aux)
+
     prim.ρ = prog.ρ
     prim.u = prog.ρu ./ prog.ρ
     prim.p = air_pressure(ts)
@@ -93,14 +107,10 @@ function prognostic_to_primitive!(
     moist::NonEquilMoist,
     prim::Vars,
     prog::Vars,
-    e_int::AbstractFloat,
+    aux::Vars,
 )
-    q_pt = PhasePartition(
-        prog.moisture.ρq_tot / prog.ρ,
-        prog.moisture.ρq_liq / prog.ρ,
-        prog.moisture.ρq_ice / prog.ρ,
-    )
-    ts = PhaseNonEquil(atmos.param_set, e_int, prog.ρ, q_pt)
+    ts = recover_thermo_state(atmos, prog, aux)
+
     prim.ρ = prog.ρ
     prim.u = prog.ρu ./ prog.ρ
     prim.p = air_pressure(ts)
@@ -118,6 +128,7 @@ function primitive_to_prognostic!(
     moist::DryModel,
     prog::Vars,
     prim::Vars,
+    aux::Vars,
     e_pot::AbstractFloat,
 )
     ts = PhaseDry_ρp(atmos.param_set, prim.ρ, prim.p)
@@ -133,6 +144,7 @@ function primitive_to_prognostic!(
     moist::EquilMoist,
     prog::Vars,
     prim::Vars,
+    aux::Vars,
     e_pot::AbstractFloat,
 )
     ts = PhaseEquil_ρpq(
@@ -148,6 +160,8 @@ function primitive_to_prognostic!(
     prog.ρu = prim.ρ .* prim.u
     prog.ρe = prim.ρ * total_energy(e_kin, e_pot, ts)
     prog.moisture.ρq_tot = prim.ρ * PhasePartition(ts).tot
+
+    aux.moisture.temperature = air_temperature(ts)
 end
 
 function primitive_to_prognostic!(
@@ -155,6 +169,7 @@ function primitive_to_prognostic!(
     moist::NonEquilMoist,
     prog::Vars,
     prim::Vars,
+    aux::Vars,
     e_pot::AbstractFloat,
 )
     q_pt = PhasePartition(
@@ -171,4 +186,6 @@ function primitive_to_prognostic!(
     prog.moisture.ρq_tot = prim.ρ * PhasePartition(ts).tot
     prog.moisture.ρq_liq = prim.ρ * PhasePartition(ts).liq
     prog.moisture.ρq_ice = prim.ρ * PhasePartition(ts).ice
+
+    aux.moisture.temperature = air_temperature(ts)
 end
