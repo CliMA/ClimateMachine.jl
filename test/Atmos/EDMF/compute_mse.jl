@@ -1,12 +1,5 @@
 using ClimateMachine
 
-# path to download artifacts
-const ARTIFACT_DIR = if isempty(get(ENV, "CI", ""))
-    @__DIR__
-else
-    mktempdir(@__DIR__; prefix = "artifact_")
-end
-
 if parse(Bool, get(ENV, "CLIMATEMACHINE_PLOT_EDMF_COMPARISON", "false"))
     using Plots
 end
@@ -21,7 +14,8 @@ using ClimateMachine.ArtifactWrappers
 # Get PyCLES_output dataset folder:
 #! format: off
 PyCLES_output_dataset = ArtifactWrapper(
-    joinpath(ARTIFACT_DIR, "Artifacts.toml"),
+    @__DIR__,
+    isempty(get(ENV, "CI", "")),
     "PyCLES_output",
     ArtifactFile[
     # ArtifactFile(url = "https://caltech.box.com/shared/static/johlutwhohvr66wn38cdo7a6rluvz708.nc", filename = "Rico.nc",),

@@ -114,15 +114,16 @@ function ref_state_finalize_init!(
 
     # Update temperature to be exactly consistent with
     # p, ρ, and q_pt
-    T = TD.air_temperature_from_ideal_gas_law(atmos.param_set, p, ρ, q_pt)
+    if atmos.moisture isa DryModel
+        ts = PhaseDry_ρp(atmos.param_set, ρ, p)
+    else
+        ts = PhaseEquil_ρpq(atmos.param_set, ρ, p, q_pt.tot)
+    end
+    T = air_temperature(ts)
+    q_pt = PhasePartition(ts)
     q_tot = q_pt.tot
     q_liq = q_pt.liq
     q_ice = q_pt.ice
-    if atmos.moisture isa DryModel
-        ts = PhaseDry_ρT(atmos.param_set, ρ, T)
-    else
-        ts = PhaseEquil_ρTq(atmos.param_set, ρ, T, q_tot)
-    end
 
     aux.ref_state.ρq_tot = ρ * q_tot
     aux.ref_state.ρq_liq = ρ * q_liq
@@ -154,7 +155,7 @@ function atmos_init_aux!(
     vertical_fvm = polynomialorders(grid)[end] == 0
 
     if vertical_fvm
-        # Vertical finite volume scheme 
+        # Vertical finite volume scheme
         # pᵢ - pᵢ₊₁ =  g ρᵢ₊₁ Δzᵢ₊₁/2 + g ρᵢ Δzᵢ/2
         fvm_balance!(fvm_balance_init!, atmos, state_auxiliary, grid)
     else
@@ -257,15 +258,15 @@ end
 
 function fvm_balance_init!(
     m::AtmosModel,
-    aux_bot::Vars,
     aux::Vars,
+    aux_top::Vars,
     Δz::MArray{Tuple{2}, FT},
 ) where {FT}
-    # ρᵢ  = (pᵢ₋₁ - pᵢ - g ρᵢ₋₁ Δzᵢ₋₁/2) / (g  Δzᵢ/2)
+    # ρᵢ₋₁  = (pᵢ₋₁ - pᵢ - g ρᵢ Δzᵢ/2) / (g  Δzᵢ₋₁/2)
     _grav::FT = grav(m.param_set)
     aux.ref_state.ρ =
         (
-            aux_bot.ref_state.p - aux.ref_state.p -
-            _grav * aux_bot.ref_state.ρ * Δz[1] / 2
-        ) / (_grav * Δz[2] / 2)
+            aux.ref_state.p - aux_top.ref_state.p -
+            _grav * aux_top.ref_state.ρ * Δz[2] / 2
+        ) / (_grav * Δz[1] / 2)
 end

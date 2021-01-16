@@ -12,7 +12,7 @@ mutable struct SolverConfiguration{FT}
     name::String
     mpicomm::MPI.Comm
     param_set::AbstractParameterSet
-    dg::DGModel
+    dg::SpaceDiscretization
     Q::MPIStateArray
     t0::FT
     timeend::FT
@@ -126,7 +126,7 @@ function SolverConfiguration(
 
             dg.state_auxiliary .= state_auxiliary
         else
-            dg = DGModel(
+            dg = SpaceDiscretization(
                 driver_config;
                 state_auxiliary = state_auxiliary,
                 direction = direction,
@@ -145,7 +145,7 @@ function SolverConfiguration(
         if hasproperty(driver_config.config_info, :dg)
             dg = driver_config.config_info.dg
         else
-            dg = DGModel(
+            dg = SpaceDiscretization(
                 driver_config;
                 fill_nan = Settings.debug_init,
                 direction = direction,
@@ -293,3 +293,5 @@ function write_debug_init_vtk_and_pvtu(
         writepvtu(pvtuprefix, prefixes, state_names, eltype(state))
     end
 end
+
+include("solver_config_wrappers.jl")

@@ -559,7 +559,7 @@ end
             end
             @inbounds v[off[1] + i, st_idx] = vout_jk[1, 1] * fac[off[1] + i]
         end
-
+        @synchronize
     end
 end
 #---------------------------------------------------------------

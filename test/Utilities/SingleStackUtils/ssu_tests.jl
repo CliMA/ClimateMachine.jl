@@ -210,5 +210,32 @@ function main()
         vars_state(m, Prognostic(), FT),
     )
 
+    # Test NodalStack iterator (without interpolation)
+    nodal_stack = NodalStack(solver_config; interp = false)
+    ρ_iter = [local_states.prog.ρ for local_states in nodal_stack]
+    dons = get_vars_from_nodal_stack(
+        solver_config.dg.grid,
+        solver_config.Q,
+        vars_state(m, Prognostic(), FT);
+        interp = false,
+    )
+    ρ_vfns = dons["ρ"]
+    @test all(ρ_iter .≈ ρ_vfns)
+
+    # Test NodalStack iterator (with interpolation)
+    nodal_stack = NodalStack(solver_config; interp = true)
+    ρ_iter = [local_states.prog.ρ for local_states in nodal_stack]
+    dons = get_vars_from_nodal_stack(
+        solver_config.dg.grid,
+        solver_config.Q,
+        vars_state(m, Prognostic(), FT);
+        interp = true,
+    )
+    ρ_vfns_interp = dons["ρ"]
+    @test all(ρ_iter .≈ ρ_vfns_interp)
+    return nothing
 end
-main()
+
+@testset "Single Stack Utils" begin
+    main()
+end

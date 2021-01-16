@@ -139,4 +139,19 @@ using ClimateMachine.VariableTemplates: wrap_val
               getproperty(v, (:ntuple_model, unval(i), :scalar_model, :x))
     end
 
+    # Test converting to flattened NamedTuple
+    fnt = flattened_named_tuple(v)
+    @test fnt.ntuple_model_1_scalar_model_x == 1.0f0
+    @test fnt.ntuple_model_1_vector_model_x == Float32[2.0, 3.0, 4.0]
+    @test fnt.ntuple_model_2_scalar_model_x == 5.0f0
+    @test fnt.ntuple_model_2_vector_model_x == Float32[6.0, 7.0, 8.0]
+    @test fnt.ntuple_model_3_scalar_model_x == 9.0f0
+    @test fnt.ntuple_model_3_vector_model_x == Float32[10.0, 11.0, 12.0]
+    @test fnt.ntuple_model_4_scalar_model_x == 13.0f0
+    @test fnt.ntuple_model_4_vector_model_x == Float32[14.0, 15.0, 16.0]
+    @test fnt.ntuple_model_5_scalar_model_x == 17.0f0
+    @test fnt.ntuple_model_5_vector_model_x == Float32[18.0, 19.0, 20.0]
+    @test fnt.vector_model_x == Float32[21.0, 22.0, 23.0]
+    @test fnt.scalar_model_x == 24.0f0
+
 end

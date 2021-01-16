@@ -107,13 +107,6 @@ using ClimateMachine.BalanceLaws:
 import ClimateMachine.DGMethods: calculate_dt
 using ClimateMachine.ArtifactWrappers
 
-# path to download artifacts
-const ARTIFACT_DIR = if isempty(get(ENV, "CI", ""))
-    @__DIR__
-else
-    mktempdir(@__DIR__; prefix = "artifact_")
-end
-
 # # Preliminary set-up
 # Get the parameter set, which holds constants used across CliMA models.
 struct EarthParameterSet <: AbstractEarthParameterSet end
@@ -435,7 +428,8 @@ plot(
 plot!(T_init.(z), z, label = "Initial condition")
 filename = "bonan_heat_data.csv"
 bonan_dataset = ArtifactWrapper(
-    joinpath(ARTIFACT_DIR, "Artifacts.toml"),
+    @__DIR__,
+    isempty(get(ENV, "CI", "")),
     "bonan_soil_heat",
     ArtifactFile[ArtifactFile(
         url = "https://caltech.box.com/shared/static/99vm8q8tlyoulext6c35lnd3355tx6bu.csv",

@@ -42,6 +42,9 @@ using ClimateMachine.TurbulenceClosures
 using ClimateMachine.VariableTemplates
 using ClimateMachine.Spectra: compute_gaussian!
 
+using ClimateMachine.BalanceLaws
+import ClimateMachine.BalanceLaws: source
+
 using CLIMAParameters
 using CLIMAParameters.Planet
 using CLIMAParameters.Atmos.SubgridScale

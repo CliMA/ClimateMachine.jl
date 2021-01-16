@@ -81,15 +81,15 @@ struct VectorGradients{
 end
 
 """
-    VectorGradients(dg::DGModel, Q::MPIStateArray)
+    VectorGradients(dg::SpaceDiscretization, Q::MPIStateArray)
 
 This constructor computes the spatial gradients of the velocity field.
 
 # Arguments
- - `dg`: DGModel
+ - `dg`: SpaceDiscretization
  - `Q`: MPIStateArray containing the prognostic state variables
 """
-function VectorGradients(dg::DGModel, Q::MPIStateArray)
+function VectorGradients(dg::SpaceDiscretization, Q::MPIStateArray)
     bl = dg.balance_law
     FT = eltype(dg.grid)
     Nq = polynomialorders(dg.grid) .+ 1 #N + 1
@@ -343,17 +343,17 @@ end
 
 """
     Vorticity(
-        dg::DGModel,
+        dg::SpaceDiscretization,
         vgrad::VectorGradients,
     )
 
 This function computes the vorticity of the velocity field.
 
 # Arguments
- - `dg`: DGModel
+ - `dg`: SpaceDiscretization
  - `vgrad`: vector gradients
 """
-function Vorticity(dg::DGModel, vgrad::VectorGradients)
+function Vorticity(dg::SpaceDiscretization, vgrad::VectorGradients)
     bl = dg.balance_law
     FT = eltype(dg.grid)
     npoints = prod(polynomialorders(dg.grid) .+ 1)

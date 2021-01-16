@@ -1,11 +1,15 @@
 # Standalone test file that tests spectra visually
 #using Plots # uncomment when using the plotting code below
 
+using ClimateMachine.ConfigTypes
+
 using ClimateMachine.Spectra:
     compute_gaussian!,
     compute_legendre!,
     SpectralSphericalMesh,
     trans_grid_to_spherical!,
+    power_spectrum_1d,
+    power_spectrum_2d,
     compute_wave_numbers
 using FFTW
 
@@ -13,7 +17,7 @@ using FFTW
 include("spherical_helper_test.jl")
 
 FT = Float64
-# -- TEST 1: power_spectrum_gcm_1d(AtmosGCMConfigType(), var_grid, z, lat, lon, weight)
+# -- TEST 1: power_spectrum_1d(AtmosGCMConfigType(), var_grid, z, lat, lon, weight)
 nlats = 32
 
 # Setup grid
@@ -37,7 +41,7 @@ var_grid =
         length(yarray),
         1,
     )
-nm_spectrum, wave_numbers = power_spectrum_gcm_1d(
+nm_spectrum, wave_numbers = power_spectrum_1d(
     AtmosGCMConfigType(),
     var_grid,
     z,
@@ -71,7 +75,7 @@ var_grid =
 
 mass_weight = ones(Float64, z);
 spectrum, wave_numbers, spherical, mesh =
-    power_spectrum_gcm_2d(AtmosGCMConfigType(), var_grid, mass_weight)
+    power_spectrum_2d(AtmosGCMConfigType(), var_grid, mass_weight)
 
 # Grid to spherical to grid reconstruction
 reconstruction = trans_spherical_to_grid!(mesh, spherical)
@@ -91,8 +95,12 @@ contourf(
 )
 
 # Check magnitude
-println(sum(spectrum))
-println(sum(
-    0.5 .* var_grid[:, :, 1] .^ 2 *
-    reshape(sqrt.(1 .- sinθ .^ 2), (length(sinθ), 1)),
-))
+println(0.5 .* sum(spectrum))
+
+dθ = π / length(wts)
+cosθ = sqrt.(1 .- sinθ .^ 2)
+area_factor = reshape(cosθ .* dθ .^ 2 / 4π, (1, length(cosθ)))
+
+println(sum(0.5 .* var_grid[:, :, 1] .^ 2 .* area_factor))
+
+# NB: can verify against published packages, e.g., https://github.com/jswhit/pyspharm 

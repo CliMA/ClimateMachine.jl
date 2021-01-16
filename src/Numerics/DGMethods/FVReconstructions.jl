@@ -1,4 +1,5 @@
 module FVReconstructions
+export AbstractReconstruction
 using KernelAbstractions.Extras: @unroll
 import StaticArrays: SUnitRange, SVector
 
@@ -171,6 +172,23 @@ function (::VanLeer)(Δ_top, Δ_bot)
     else
         return FT(0)
     end
+end
+
+
+"""
+    NoLimiter <: AbstractSlopeLimiter
+
+No Limiter: 
+1) smooth case, no dissipation is added
+2) linear case, which guarantee the discreted equation is linear
+```
+   ϕ(r) = r
+```
+"""
+struct NoLimiter <: AbstractSlopeLimiter end
+
+function (::NoLimiter)(Δ_top, Δ_bot)
+    return (Δ_top + Δ_bot) / 2
 end
 
 end

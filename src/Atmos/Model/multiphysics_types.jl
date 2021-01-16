@@ -93,7 +93,9 @@ end
 
 export WarmRain_1M
 """
-    WarmRain_1M{FT} <: AbstractSource
+    WarmRain_1M{PV <: Union{Mass, Energy, TotalMoisture, LiquidMoisture, Rain},
+        } <: TendencyDef{Source, PV}
+
 A collection of source/sink terms related to 1-moment warm rain microphysics.
 """
 struct WarmRain_1M{
@@ -155,7 +157,9 @@ end
 
 export RainSnow_1M
 """
-    RainSnow_1M{FT} <: AbstractSource
+    RainSnow_1M{PV <: Union{Mass, Energy, Moisture, Rain, Snow}} <:
+       TendencyDef{Source, PV}
+
 A collection of source/sink terms related to 1-moment rain and snow microphysics
 """
 struct RainSnow_1M{PV <: Union{Mass, Energy, Moisture, Rain, Snow}} <:

@@ -1,5 +1,4 @@
-# using FileIO
-# using JLD2
+using JLD2, FileIO
 using ClimateMachine
 ClimateMachine.init(;
     parse_clargs = true,
@@ -248,23 +247,7 @@ function main(::Type{FT}) where {FT}
         nothing
     end
 
-    # State variable
-    Q = solver_config.Q
-    # Volume geometry information
-    vgeo = driver_config.grid.vgeo
-    M = vgeo[:, Grids._M, :]
-    # Unpack prognostic vars
-    ρ₀ = Q.ρ
-    ρe₀ = Q.ρe
-    # DG variable sums
-    Σρ₀ = sum(ρ₀ .* M)
-    Σρe₀ = sum(ρe₀ .* M)
-
-    grid = driver_config.grid
-
-    # state_types = (Prognostic(), Auxiliary(), GradientFlux())
-    state_types = (Prognostic(), Auxiliary(), GradientFlux())
-    dons_arr = [dict_of_nodal_states(solver_config, state_types; interp = true)]
+    diag_arr = [single_stack_diagnostics(solver_config)]
     time_data = FT[0]
 
     # Define the number of outputs from `t0` to `timeend`
@@ -274,24 +257,21 @@ function main(::Type{FT}) where {FT}
 
     cb_data_vs_time =
         GenericCallbacks.EveryXSimulationTime(every_x_simulation_time) do
-            push!(
-                dons_arr,
-                dict_of_nodal_states(solver_config, state_types; interp = true),
-            )
+            diag_vs_z = single_stack_diagnostics(solver_config)
+
+            nstep = getsteps(solver_config.solver)
+            # Save to disc (for debugging):
+            # @save "bomex_edmf_nstep=$nstep.jld2" diag_vs_z
+
+            push!(diag_arr, diag_vs_z)
             push!(time_data, gettime(solver_config.solver))
             nothing
         end
 
-    cb_check_cons = GenericCallbacks.EveryXSimulationSteps(3000) do
-        Q = solver_config.Q
-        δρ = (sum(Q.ρ .* M) - Σρ₀) / Σρ₀
-        δρe = (sum(Q.ρe .* M) .- Σρe₀) ./ Σρe₀
-        @show (abs(δρ))
-        @show (abs(δρe))
-        @test (abs(δρ) <= 0.001)
-        @test (abs(δρe) <= 0.1)
-        nothing
-    end
+    check_cons = (
+        ClimateMachine.ConservationCheck("ρ", "3000steps", FT(0.001)),
+        ClimateMachine.ConservationCheck("ρe", "3000steps", FT(0.1)),
+    )
 
     cb_print_step = GenericCallbacks.EveryXSimulationSteps(100) do
         @show getsteps(solver_config.solver)
@@ -301,23 +281,19 @@ function main(::Type{FT}) where {FT}
     result = ClimateMachine.invoke!(
         solver_config;
         diagnostics_config = dgn_config,
-        user_callbacks = (
-            cbtmarfilter,
-            cb_check_cons,
-            cb_data_vs_time,
-            cb_print_step,
-        ),
+        check_cons = check_cons,
+        user_callbacks = (cbtmarfilter, cb_data_vs_time, cb_print_step),
         check_euclidean_distance = true,
     )
 
-    dons = dict_of_nodal_states(solver_config, state_types; interp = true)
-    push!(dons_arr, dons)
+    diag_vs_z = single_stack_diagnostics(solver_config)
+    push!(diag_arr, diag_vs_z)
     push!(time_data, gettime(solver_config.solver))
 
-    return solver_config, dons_arr, time_data, state_types
+    return solver_config, diag_arr, time_data
 end
 
-solver_config, dons_arr, time_data, state_types = main(Float64)
+solver_config, diag_arr, time_data = main(Float64)
 
 ## Uncomment lines to save output using JLD2
 #
@@ -334,3 +310,5 @@ solver_config, dons_arr, time_data, state_types = main(Float64)
 #     "z",
 #     z,
 # )
+
+nothing

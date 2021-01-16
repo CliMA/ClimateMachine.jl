@@ -4,7 +4,6 @@ ClimateMachine.init(;
     output_dir = get(ENV, "CLIMATEMACHINE_SETTINGS_OUTPUT_DIR", "output"),
     fix_rng_seed = true,
 )
-@show ClimateMachine.array_type()
 using ClimateMachine.SingleStackUtils
 using ClimateMachine.Checkpoint
 using ClimateMachine.DGMethods
@@ -12,6 +11,7 @@ using ClimateMachine.SystemSolvers
 import ClimateMachine.DGMethods: custom_filter!
 using ClimateMachine.Mesh.Filters: apply!
 using ClimateMachine.BalanceLaws: vars_state
+using JLD2, FileIO
 const clima_dir = dirname(dirname(pathof(ClimateMachine)));
 
 include(joinpath(clima_dir, "experiments", "AtmosLES", "bomex_model.jl"))
@@ -201,9 +201,7 @@ function main(::Type{FT}) where {FT}
         nothing
     end
 
-    # state_types = (Prognostic(), Auxiliary(), GradientFlux())
-    state_types = (Prognostic(), Auxiliary())
-    dons_arr = [dict_of_nodal_states(solver_config, state_types; interp = true)]
+    diag_arr = [single_stack_diagnostics(solver_config)]
     time_data = FT[0]
 
     # Define the number of outputs from `t0` to `timeend`
@@ -213,10 +211,13 @@ function main(::Type{FT}) where {FT}
 
     cb_data_vs_time =
         GenericCallbacks.EveryXSimulationTime(every_x_simulation_time) do
-            push!(
-                dons_arr,
-                dict_of_nodal_states(solver_config, state_types; interp = true),
-            )
+            diag_vs_z = single_stack_diagnostics(solver_config)
+
+            nstep = getsteps(solver_config.solver)
+            # Save to disc (for debugging):
+            # @save "bomex_edmf_nstep=$nstep.jld2" diag_vs_z
+
+            push!(diag_arr, diag_vs_z)
             push!(time_data, gettime(solver_config.solver))
             nothing
         end
@@ -239,13 +240,15 @@ function main(::Type{FT}) where {FT}
         check_euclidean_distance = true,
     )
 
-    dons = dict_of_nodal_states(solver_config, state_types; interp = true)
-    push!(dons_arr, dons)
+    diag_vs_z = single_stack_diagnostics(solver_config)
+    push!(diag_arr, diag_vs_z)
     push!(time_data, gettime(solver_config.solver))
 
-    return solver_config, dons_arr, time_data, state_types
+    return solver_config, diag_arr, time_data
 end
 
-solver_config, dons_arr, time_data, state_types = main(Float64)
+solver_config, diag_arr, time_data = main(Float64)
 
 include(joinpath(@__DIR__, "report_mse_bomex.jl"))
+
+nothing

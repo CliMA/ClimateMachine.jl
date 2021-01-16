@@ -17,6 +17,9 @@ Topologies.BoxElementTopology
 Topologies.BrickTopology
 Topologies.StackedBrickTopology
 Topologies.CubedShellTopology
+Topologies.AnalyticalTopography
+Topologies.NoTopography
+Topologies.DCMIPMountain
 Topologies.StackedCubedSphereTopology
 Topologies.SingleExponentialStretching
 ```
@@ -37,6 +40,8 @@ Topologies.cubedshellmesh
 Topologies.cubedshellwarp
 Topologies.hasboundary
 Topologies.cubedshellunwarp
+Topologies.compute_lat_long
+Topologies.cubedshelltopowarp
 Topologies.grid1d
 ```
 

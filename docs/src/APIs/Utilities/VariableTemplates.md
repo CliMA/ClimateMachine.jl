@@ -18,6 +18,7 @@ Vars
 vuntuple
 unroll_map
 flattened_tup_chain
+flattened_named_tuple
 varsize
 varsindices
 varsindex

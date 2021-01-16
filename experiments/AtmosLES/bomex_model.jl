@@ -30,7 +30,6 @@ using Distributions
 using DocStringExtensions
 using LinearAlgebra
 using Printf
-using Random
 using StaticArrays
 using Test
 
@@ -250,6 +249,8 @@ function source(s::BomexTendencies{TotalMoisture}, m, args)
     return ρ∂qt∂t - state.ρ * w_s * dot(k̂, diffusive.moisture.∇q_tot)
 end
 
+add_perturbations!(state, localgeo) = nothing
+
 """
   Initial Condition for BOMEX LES
 """
@@ -343,10 +344,7 @@ function init_bomex!(problem, bl, state, aux, localgeo, t)
         state.moisture.ρq_ice = FT(0)
     end
 
-    if z <= FT(400) # Add random perturbations to bottom 400m of model
-        state.ρe += rand() * ρe_tot / 100
-        state.moisture.ρq_tot += rand() * ρ * q_tot / 100
-    end
+    add_perturbations!(state, localgeo)
     init_state_prognostic!(bl.turbconv, bl, state, aux, localgeo, t)
 end
 

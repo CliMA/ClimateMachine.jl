@@ -1,8 +1,8 @@
 #### Pressure model kernels
 
-function perturbation_pressure(bl::AtmosModel{FT}, args, env) where {FT}
+function perturbation_pressure(bl::AtmosModel{FT}, args, env, buoy) where {FT}
     dpdz = ntuple(n_updrafts(bl.turbconv)) do i
-        perturbation_pressure(bl, bl.turbconv.pressure, args, env, i)
+        perturbation_pressure(bl, bl.turbconv.pressure, args, env, buoy, i)
     end
     return dpdz
 end
@@ -13,6 +13,7 @@ end
         press::PressureModel,
         args,
         env,
+        buoy,
         i,
     ) where {FT}
 
@@ -23,6 +24,7 @@ for updraft i following He et al. (JAMES, 2020), given:
  - `press`, a `PressureModel`
  - `args`, top-level arguments
  - `env`, NamedTuple of environment variables
+ - `buoy`, NamedTuple of environment and updraft buoyancies
  - `i`, index of the updraft
 """
 function perturbation_pressure(
@@ -30,22 +32,33 @@ function perturbation_pressure(
     press::PressureModel,
     args,
     env,
+    buoy,
     i,
 ) where {FT}
     @unpack state, diffusive, aux = args
-
     # Alias convention:
     up = state.turbconv.updraft
     up_aux = aux.turbconv.updraft
     up_dif = diffusive.turbconv.updraft
 
+# <<<<<<< HEAD
     if up[i].ρa/state.ρ>m.turbconv.subdomains.a_min
         w_up_i = up[i].ρaw / up[i].ρa
 
-        nh_press_buoy = press.α_b * up_aux[i].buoyancy
+        nh_press_buoy = press.α_b * buoy.up[i]
         nh_pressure_adv = -press.α_a * w_up_i * up_dif[i].∇w[3]
         nh_pressure_drag =
             press.α_d * (w_up_i - env.w) * abs(w_up_i - env.w) / press.H_up
+# =======
+#     w_up_i = fix_void_up(up[i].ρa, up[i].ρaw / up[i].ρa)
+
+#     nh_press_buoy = press.α_b * buoy.up[i]
+#     nh_pressure_adv = -press.α_a * w_up_i * up_dif[i].∇w[3]
+#     nh_pressure_drag =
+#         press.α_d * (w_up_i - env.w) * abs(w_up_i - env.w) / press.H_up
+
+#     dpdz = nh_press_buoy + nh_pressure_adv + nh_pressure_drag
+# >>>>>>> master
 
         dpdz = nh_press_buoy + nh_pressure_adv + nh_pressure_drag
     else

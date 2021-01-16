@@ -430,6 +430,20 @@ end
     q_tot = FT(0.23)
     @test TD.exner_given_pressure(param_set, p, PhasePartition(q_tot)) isa
           typeof(p)
+
+    q_tot = 0.1
+    q_liq = 0.05
+    q_ice = 0.01
+    mr = shum_to_mixing_ratio(q_tot, q_tot)
+    @test mr == q_tot / (1 - q_tot)
+    mr = shum_to_mixing_ratio(q_liq, q_tot)
+    @test mr == q_liq / (1 - q_tot)
+
+    q = PhasePartition(q_tot, q_liq, q_ice)
+    mrs = mixing_ratios(q)
+    @test mrs.tot == q_tot / (1 - q_tot)
+    @test mrs.liq == q_liq / (1 - q_tot)
+    @test mrs.ice == q_ice / (1 - q_tot)
 end
 
 
@@ -1086,6 +1100,10 @@ end
     @test PhasePartition(ts_eq).tot ≈ PhasePartition(ts_dry).tot
     @test PhasePartition(ts_eq).liq ≈ PhasePartition(ts_dry).liq
     @test PhasePartition(ts_eq).ice ≈ PhasePartition(ts_dry).ice
+
+    @test mixing_ratios(ts_eq).tot ≈ mixing_ratios(ts_dry).tot
+    @test mixing_ratios(ts_eq).liq ≈ mixing_ratios(ts_dry).liq
+    @test mixing_ratios(ts_eq).ice ≈ mixing_ratios(ts_dry).ice
 
     ts_dry = PhaseDry.(param_set, e_int, ρ)
     ts_eq = PhaseEquil.(param_set, e_int, ρ, q_tot .* 0)

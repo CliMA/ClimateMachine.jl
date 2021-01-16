@@ -139,12 +139,12 @@ end
 ####
 
 function new_thermo_state_up(
-    m::AtmosModel,
+    m::AtmosModel{FT},
     moist::DryModel,
     state::Vars,
     aux::Vars,
     ts::ThermodynamicState,
-)
+) where {FT}
     N_up = n_updrafts(m.turbconv)
     up = state.turbconv.updraft
     p = air_pressure(ts)
@@ -153,20 +153,21 @@ function new_thermo_state_up(
     ts_up = vuntuple(N_up) do i
         ρa_up = up[i].ρa
         ρaθ_liq_up = up[i].ρaθ_liq
-        θ_liq_up = ρaθ_liq_up / ρa_up
-
+        θ_liq_up =
+            fix_void_up(ρa_up, ρaθ_liq_up / ρa_up, liquid_ice_pottemp(ts))
         PhaseDry_pθ(m.param_set, p, θ_liq_up)
     end
     return ts_up
 end
 
 function new_thermo_state_up(
-    m::AtmosModel,
+    m::AtmosModel{FT},
     moist::EquilMoist,
     state::Vars,
     aux::Vars,
     ts::ThermodynamicState,
-)
+) where {FT}
+
     N_up = n_updrafts(m.turbconv)
     up = state.turbconv.updraft
     p = air_pressure(ts)
@@ -176,9 +177,13 @@ function new_thermo_state_up(
         ρa_up = up[i].ρa
         ρaθ_liq_up = up[i].ρaθ_liq
         ρaq_tot_up = up[i].ρaq_tot
-        θ_liq_up = ρaθ_liq_up / ρa_up
-        q_tot_up = ρaq_tot_up / ρa_up
-
+        θ_liq_up =
+            fix_void_up(ρa_up, ρaθ_liq_up / ρa_up, liquid_ice_pottemp(ts))
+        q_tot_up = fix_void_up(
+            ρa_up,
+            ρaq_tot_up / ρa_up,
+            total_specific_humidity(ts),
+        )
         PhaseEquil_pθq(m.param_set, p, θ_liq_up, q_tot_up)
     end
     return ts_up
@@ -198,11 +203,13 @@ function new_thermo_state_en(
     ρ_inv = 1 / state.ρ
     p = air_pressure(ts)
     θ_liq = liquid_ice_pottemp(ts)
-    a_en = environment_area(state, aux, N_up)
+    a_en = environment_area(state, N_up)
     θ_liq_en = (θ_liq - sum(vuntuple(j -> up[j].ρaθ_liq * ρ_inv, N_up))) / a_en
     a_min = m.turbconv.subdomains.a_min
     a_max = m.turbconv.subdomains.a_max
     if !(0 <= θ_liq_en)
+        @print("ρaθ_liq_up = ", up[1].ρaθ_liq, "\n")
+        @print("θ_liq = ", θ_liq, "\n")
         @print("θ_liq_en = ", θ_liq_en, "\n")
         error("Environment θ_liq_en out-of-bounds in new_thermo_state_en")
     end
@@ -226,7 +233,7 @@ function new_thermo_state_en(
     p = air_pressure(ts)
     θ_liq = liquid_ice_pottemp(ts)
     q_tot = total_specific_humidity(ts)
-    a_en = environment_area(state, aux, N_up)
+    a_en = environment_area(state, N_up)
     θ_liq_en = (θ_liq - sum(vuntuple(j -> up[j].ρaθ_liq * ρ_inv, N_up))) / a_en
     q_tot_en = (q_tot - sum(vuntuple(j -> up[j].ρaq_tot * ρ_inv, N_up))) / a_en
     a_min = m.turbconv.subdomains.a_min
@@ -309,7 +316,7 @@ function recover_thermo_state_en(
     T_en = aux.turbconv.environment.T
     ρ_inv = 1 / state.ρ
     q_tot = total_specific_humidity(ts)
-    a_en = environment_area(state, aux, N_up)
+    a_en = environment_area(state, N_up)
     q_tot_en = (q_tot - sum(vuntuple(i -> up[i].ρaq_tot, N_up)) * ρ_inv) / a_en
     ρ_en = air_density(param_set, T_en, p, PhasePartition(q_tot_en))
     q_en = PhasePartition_equil(param_set, T_en, ρ_en, q_tot_en, PhaseEquil)
