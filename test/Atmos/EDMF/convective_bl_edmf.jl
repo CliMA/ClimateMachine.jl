@@ -173,7 +173,7 @@ function main(::Type{FT}) where {FT}
     t0 = FT(0)
 
     # Simulation time
-    timeend = FT(700.0)
+    timeend = FT(3600.0)
     CFLmax = FT(1.0)
 
     config_type = SingleStackConfigType
@@ -216,60 +216,60 @@ function main(::Type{FT}) where {FT}
 
     #################### Change the ode_solver to implicit solver
 
-    dg = solver_config.dg
-    Q = solver_config.Q
+    # dg = solver_config.dg
+    # Q = solver_config.Q
 
 
-    vdg = DGModel(
-        driver_config;
-        state_auxiliary = dg.state_auxiliary,
-        direction = VerticalDirection(),
-    )
+    # vdg = DGModel(
+    #     driver_config;
+    #     state_auxiliary = dg.state_auxiliary,
+    #     direction = VerticalDirection(),
+    # )
 
 
-    # linear solver relative tolerance rtol which should be slightly smaller than the nonlinear solver tol
-    linearsolver = BatchedGeneralizedMinimalResidual(
-        dg,
-        Q;
-        max_subspace_size = 30,
-        atol = -1.0,
-        rtol = 5e-5,
-    )
+    # # linear solver relative tolerance rtol which should be slightly smaller than the nonlinear solver tol
+    # linearsolver = BatchedGeneralizedMinimalResidual(
+    #     dg,
+    #     Q;
+    #     max_subspace_size = 30,
+    #     atol = -1.0,
+    #     rtol = 5e-5,
+    # )
 
-    """
-    N(q)(Q) = Qhat  => F(Q) = N(q)(Q) - Qhat
+    # """
+    # N(q)(Q) = Qhat  => F(Q) = N(q)(Q) - Qhat
 
-    F(Q) == 0
-    ||F(Q^i) || / ||F(Q^0) || < tol
+    # F(Q) == 0
+    # ||F(Q^i) || / ||F(Q^0) || < tol
 
-    """
-    # ϵ is a sensity parameter for this problem, it determines the finite difference Jacobian dF = (F(Q + ϵdQ) - F(Q))/ϵ
-    # I have also try larger tol, but tol = 1e-3 does not work
-    nonlinearsolver =
-        JacobianFreeNewtonKrylovSolver(Q, linearsolver; tol = 1e-4, ϵ = 1.e-10)
+    # """
+    # # ϵ is a sensity parameter for this problem, it determines the finite difference Jacobian dF = (F(Q + ϵdQ) - F(Q))/ϵ
+    # # I have also try larger tol, but tol = 1e-3 does not work
+    # nonlinearsolver =
+    #     JacobianFreeNewtonKrylovSolver(Q, linearsolver; tol = 1e-4, ϵ = 1.e-10)
 
-    # this is a second order time integrator, to change it to a first order time integrator
-    # change it ARK1ForwardBackwardEuler, which can reduce the cost by half at the cost of accuracy 
-    # and stability
-    # preconditioner_update_freq = 50 means updating the preconditioner every 50 Newton solves, 
-    # update it more freqent will accelerate the convergence of linear solves, but updating it 
-    # is very expensive
-    ode_solver = ARK2ImplicitExplicitMidpoint(
-        dg,
-        vdg,
-        NonLinearBackwardEulerSolver(
-            nonlinearsolver;
-            isadjustable = true,
-            preconditioner_update_freq = 50,
-        ),
-        Q;
-        dt = solver_config.dt,
-        t0 = 0,
-        split_explicit_implicit = false,
-        variant = NaiveVariant(),
-    )
+    # # this is a second order time integrator, to change it to a first order time integrator
+    # # change it ARK1ForwardBackwardEuler, which can reduce the cost by half at the cost of accuracy 
+    # # and stability
+    # # preconditioner_update_freq = 50 means updating the preconditioner every 50 Newton solves, 
+    # # update it more freqent will accelerate the convergence of linear solves, but updating it 
+    # # is very expensive
+    # ode_solver = ARK2ImplicitExplicitMidpoint(
+    #     dg,
+    #     vdg,
+    #     NonLinearBackwardEulerSolver(
+    #         nonlinearsolver;
+    #         isadjustable = true,
+    #         preconditioner_update_freq = 50,
+    #     ),
+    #     Q;
+    #     dt = solver_config.dt,
+    #     t0 = 0,
+    #     split_explicit_implicit = false,
+    #     variant = NaiveVariant(),
+    # )
 
-    solver_config.solver = ode_solver
+    # solver_config.solver = ode_solver
 
     #######################################
     # --- Zero-out horizontal variations:
