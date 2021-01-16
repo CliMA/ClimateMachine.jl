@@ -9,7 +9,7 @@ function entr_detr(
     env,
     buoy,
 ) where {FT}
-    EΔ_up = ntuple(n_updrafts(bl.turbconv)) do i
+    EΔ_up = vuntuple(n_updrafts(bl.turbconv)) do i
         entr_detr(bl, bl.turbconv.entr_detr, state, aux, ts_up, ts_en, env, buoy, i)
     end
     E_dyn, Δ_dyn, E_trb = ntuple(i -> map(x -> x[i], EΔ_up), 3)

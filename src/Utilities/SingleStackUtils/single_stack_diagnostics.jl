@@ -54,31 +54,16 @@ function single_stack_diagnostics(
 
             z = altitude(bl, aux)
 
-            # TODO: Use flatten_named_tuple = true, and flatten arrays
-            flatten_named_tuple = false
-            if flatten_named_tuple
-                nt = (;
-                    z = altitude(bl, aux),
-                    prog = flattened_named_tuple(prog), # Vars -> flattened NamedTuples
-                    aux = flattened_named_tuple(aux), # Vars -> flattened NamedTuples
-                    ∇flux = flattened_named_tuple(∇flux), # Vars -> flattened NamedTuples
-                    hyperdiff = flattened_named_tuple(hyperdiff), # Vars -> flattened NamedTuples
-                    cache = cache,
-                )
-                # Flatten top level:
-                flattened_named_tuple(nt)
-            else
-                nt = (;
-                    z = altitude(bl, aux),
-                    prog = prog,
-                    aux = aux,
-                    ∇flux = ∇flux,
-                    hyperdiff = hyperdiff,
-                    cache = cache,
-                )
-                nt
-            end
-            nt
+            nt = (;
+                z = altitude(bl, aux),
+                prog = flattened_named_tuple(prog), # Vars -> flattened NamedTuples
+                aux = flattened_named_tuple(aux), # Vars -> flattened NamedTuples
+                ∇flux = flattened_named_tuple(∇flux), # Vars -> flattened NamedTuples
+                hyperdiff = flattened_named_tuple(hyperdiff), # Vars -> flattened NamedTuples
+                cache = cache,
+            )
+            # Flatten top level:
+            flattened_named_tuple(nt)
         end for local_states in NodalStack(bl, grid; kwargs...)
     ]
 end

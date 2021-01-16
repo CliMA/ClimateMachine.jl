@@ -858,6 +858,8 @@ end
     end
 end
 
+bracket_index(i::Int) = "[$i]"
+bracket_index(i) = string(i)
 """
     show_not_finite_fields(Q::MPIStateArray)
 
@@ -874,16 +876,10 @@ function show_not_finite_fields(Q::MPIStateArray)
         Array(reshape(mapreduce(x -> !isfinite(x), |, Q; dims = (1, 3)), :))
     for ftc in flattened_tup_chain(vs)
         i_vars = varsindex(vs, wrap_val.(ftc)...)
-        if length(i_vars) > 1 # variable is an array
-            for (j, i_var) in enumerate(i_vars)
-                if not_finite[i_var]
-                    push!(not_finite_fields, join(string.(ftc), ".") * "[$j]")
-                end
-            end
-        else # variable is a scalar
-            if not_finite[i_vars[1]]
-                push!(not_finite_fields, join(string.(ftc), "."))
-            end
+        if not_finite[i_vars[1]]
+            s = join(bracket_index.(ftc), ".")
+            s = replace(s, ".[" => "[")
+            push!(not_finite_fields, s)
         end
     end
     if !isempty(not_finite_fields)

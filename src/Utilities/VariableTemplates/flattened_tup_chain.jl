@@ -1,15 +1,52 @@
 export flattened_tup_chain, flattened_named_tuple
+export FlattenArr, RetainArr
 
-flattened_tup_chain(::Type{NamedTuple{(), Tuple{}}}; prefix = (Symbol(),)) = ()
-flattened_tup_chain(::Type{T}; prefix = (Symbol(),)) where {T <: Real} =
-    (prefix,)
-flattened_tup_chain(::Type{T}; prefix = (Symbol(),)) where {T <: SArray} =
-    (prefix,)
+abstract type FlattenType end
+
+"""
+    FlattenArr
+
+Flatten arrays in `flattened_tup_chain`
+and `flattened_named_tuple`.
+"""
+struct FlattenArr <: FlattenType end
+
+"""
+    RetainArr
+
+Do _not_ flatten arrays in `flattened_tup_chain`
+and `flattened_named_tuple`.
+"""
+struct RetainArr <: FlattenType end
+
 flattened_tup_chain(
-    ::Type{T};
+    ::Type{NamedTuple{(), Tuple{}}},
+    ::FlattenType = FlattenArr();
+    prefix = (Symbol(),),
+) = ()
+flattened_tup_chain(
+    ::Type{T},
+    ::FlattenType;
+    prefix = (Symbol(),),
+) where {T <: Real} = (prefix,)
+flattened_tup_chain(
+    ::Type{T},
+    ::RetainArr;
+    prefix = (Symbol(),),
+) where {T <: SArray} = (prefix,)
+flattened_tup_chain(
+    ::Type{T},
+    ::FlattenArr;
+    prefix = (Symbol(),),
+) where {T <: SArray} = ntuple(i -> (prefix..., i), length(T))
+
+flattened_tup_chain(
+    ::Type{T},
+    ::FlattenType;
     prefix = (Symbol(),),
 ) where {T <: SHermitianCompact} = (prefix,)
-flattened_tup_chain(::Type{T}; prefix = (Symbol(),)) where {T} = (prefix,)
+flattened_tup_chain(::Type{T}, ::FlattenType; prefix = (Symbol(),)) where {T} =
+    (prefix,)
 
 """
     flattened_tup_chain(::Type{T}) where {T <: Union{NamedTuple,NTuple}}
@@ -19,7 +56,8 @@ and integers for every combination of
 each field in the `Vars` array.
 """
 function flattened_tup_chain(
-    ::Type{T};
+    ::Type{T},
+    ft::FlattenType = FlattenArr();
     prefix = (Symbol(),),
 ) where {T <: Union{NamedTuple, NTuple}}
     map(1:fieldcount(T)) do i
@@ -28,16 +66,20 @@ function flattened_tup_chain(
         sname = name isa Int ? name : Symbol(name)
         flattened_tup_chain(
             Ti,
+            ft;
             prefix = prefix == (Symbol(),) ? (sname,) : (prefix..., sname),
         )
     end |>
     Iterators.flatten |>
     collect
 end
-flattened_tup_chain(::AbstractVars{S}) where {S} = flattened_tup_chain(S)
+flattened_tup_chain(
+    ::AbstractVars{S},
+    ft::FlattenType = FlattenArr(),
+) where {S} = flattened_tup_chain(S, ft)
 
 """
-    flattened_named_tuple(v::AbstractVars)
+    flattened_named_tuple(v::AbstractVars, ::FlattenType)
 
 A flattened NamedTuple, given a `Vars` instance.
 
@@ -60,16 +102,16 @@ fnt = flattened_named_tuple(nt);
 """
 function flattened_named_tuple end
 
-function flattened_named_tuple(v::AbstractVars)
-    ftc = flattened_tup_chain(v)
+function flattened_named_tuple(v::AbstractVars, ft::FlattenType = FlattenArr())
+    ftc = flattened_tup_chain(v, ft)
     keys_ = Symbol.(join.(ftc, :_))
-    vals = map(x -> getproperty(v, x), ftc)
+    vals = map(x -> getproperty(v, wrap_val.(x)), ftc)
     return (; zip(keys_, vals)...)
 end
-flattened_named_tuple(v::Nothing) = NamedTuple()
+flattened_named_tuple(v::Nothing, ft::FlattenType = FlattenArr()) = NamedTuple()
 
-function flattened_named_tuple(nt::NamedTuple)
-    ftc = flattened_tup_chain(typeof(nt))
+function flattened_named_tuple(nt::NamedTuple, ft::FlattenType = FlattenArr())
+    ftc = flattened_tup_chain(typeof(nt), ft)
     keys_ = Symbol.(join.(ftc, :_))
     vals = flattened_nt_vals(nt)
     return (; zip(keys_, vals)...)
