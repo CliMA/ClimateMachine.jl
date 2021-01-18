@@ -176,6 +176,7 @@ function AtmosLESConfiguration(
     numerical_flux_second_order = CentralNumericalFluxSecondOrder(),
     numerical_flux_gradient = CentralNumericalFluxGradient(),
     fv_reconstruction = nothing,
+    grid_stretching = (nothing, nothing, nothing),
 ) where {FT <: AbstractFloat}
 
     (polyorder_horz, polyorder_vert) = get_polyorders(N)
@@ -183,9 +184,24 @@ function AtmosLESConfiguration(
     print_model_info(model, mpicomm)
 
     brickrange = (
-        grid1d(xmin, xmax, elemsize = Δx * max(polyorder_horz, 1)),
-        grid1d(ymin, ymax, elemsize = Δy * max(polyorder_horz, 1)),
-        grid1d(zmin, zmax, elemsize = Δz * max(polyorder_vert, 1)),
+        grid1d(
+            xmin,
+            xmax,
+            grid_stretching[1],
+            elemsize = Δx * max(polyorder_horz, 1),
+        ),
+        grid1d(
+            ymin,
+            ymax,
+            grid_stretching[2],
+            elemsize = Δy * max(polyorder_horz, 1),
+        ),
+        grid1d(
+            zmin,
+            zmax,
+            grid_stretching[3],
+            elemsize = Δz * max(polyorder_vert, 1),
+        ),
     )
     topology = StackedBrickTopology(
         mpicomm,
@@ -267,6 +283,7 @@ function AtmosGCMConfiguration(
     numerical_flux_second_order = CentralNumericalFluxSecondOrder(),
     numerical_flux_gradient = CentralNumericalFluxGradient(),
     fv_reconstruction = nothing,
+    grid_stretching = nothing,
 ) where {FT <: AbstractFloat}
 
     (polyorder_horz, polyorder_vert) = get_polyorders(N)
@@ -277,6 +294,7 @@ function AtmosGCMConfiguration(
     vert_range = grid1d(
         _planet_radius,
         FT(_planet_radius + domain_height),
+        grid_stretching,
         nelem = nelem_vert,
     )
 
