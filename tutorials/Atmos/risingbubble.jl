@@ -225,8 +225,7 @@ function config_risingbubble(
     ref_state = HydrostaticState(T_profile)
 
     ## Here we assemble the `AtmosModel`.
-    # _C_smag = FT(C_smag(param_set))
-    _C_smag = FT(0)
+     _C_smag = FT(C_smag(param_set))
     model = AtmosModel{FT}(
         AtmosLESConfigType,                            ## Flow in a box, requires the AtmosLESConfigType
         param_set;                                     ## Parameter set corresponding to earth parameters

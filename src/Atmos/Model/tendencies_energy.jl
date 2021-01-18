@@ -33,8 +33,8 @@ end
 
 function flux(::ViscousFlux{ρθ_liq_ice}, atmos, args)
     @unpack state, diffusive = args
-    @unpack ν = args.precomputed.turbulence
-    return state.ρ * ν * diffusive.energy.∇θ_liq_ice
+    @unpack D_t = args.precomputed.turbulence
+    return state.ρ * (-D_t) .* diffusive.energy.∇θ_liq_ice
 end
 
 function flux(::HyperdiffViscousFlux{Energy}, atmos, args)
