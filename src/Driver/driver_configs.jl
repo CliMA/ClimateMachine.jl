@@ -267,6 +267,7 @@ function AtmosGCMConfiguration(
     numerical_flux_second_order = CentralNumericalFluxSecondOrder(),
     numerical_flux_gradient = CentralNumericalFluxGradient(),
     fv_reconstruction = nothing,
+    grid_stretching = nothing,
 ) where {FT <: AbstractFloat}
 
     (polyorder_horz, polyorder_vert) = get_polyorders(N)
@@ -277,6 +278,7 @@ function AtmosGCMConfiguration(
     vert_range = grid1d(
         _planet_radius,
         FT(_planet_radius + domain_height),
+        grid_stretching,
         nelem = nelem_vert,
     )
 
