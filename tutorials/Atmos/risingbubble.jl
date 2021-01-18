@@ -170,7 +170,7 @@ function init_risingbubble!(problem, bl, state, aux, localgeo, t)
     state.ρ = ρ
     state.ρu = ρu
     # state.ρe = ρe_tot
-    state.energy.ρθ_liq_ice = θ
+    state.energy.ρθ_liq_ice = ρ * θ
     state.tracers.ρχ = ρχ
 end
 
@@ -294,7 +294,7 @@ function main()
     ymax = FT(500)
     zmax = FT(10000)
     t0 = FT(0)
-    timeend = FT(100)
+    timeend = FT(1000)
     ## For full simulation set `timeend = 1000`
 
     ## Use up to 1.7 if ode_solver is the single rate LSRK144.
