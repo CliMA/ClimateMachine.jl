@@ -113,6 +113,43 @@ function atmos_energy_normal_boundary_flux_second_order!(
 end
 
 """
+    AdiabaticTheta(fn) :: EnergyBC
+
+Prescribe the net inward potential temperature flux across the boundary by `fn`, a function
+with signature `fn(state, aux, t)`, returning the flux (in kgK/m^2).
+"""
+struct AdiabaticTheta{FN} <: EnergyBC
+    fn::FN
+end
+function atmos_energy_boundary_state!(
+    nf,
+    bc_energy::AdiabaticTheta,
+    atmos,
+    args...,
+) end
+function atmos_energy_normal_boundary_flux_second_order!(
+    nf,
+    bc_energy::AdiabaticTheta,
+    atmos,
+    fluxᵀn,
+    n⁻,
+    state⁻,
+    diffusive⁻,
+    hyperdiffusive⁻,
+    aux⁻,
+    state⁺,
+    diffusive⁺,
+    hyperdiffusive⁺,
+    aux⁺,
+    t,
+    args...,
+)
+    # DG normal is defined in the outward direction
+    # we want to prescribe the inward flux
+    fluxᵀn.ρθ_liq_ice -= bc_energy.fn(state⁻, aux⁻, t)
+end
+
+"""
     BulkFormulaEnergy(fn) :: EnergyBC
 
 Calculate the net inward energy flux across the boundary. The drag
