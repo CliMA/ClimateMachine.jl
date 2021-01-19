@@ -144,9 +144,7 @@ function atmos_energy_normal_boundary_flux_second_order!(
     t,
     args...,
 )
-    # DG normal is defined in the outward direction
-    # we want to prescribe the inward flux
-    fluxᵀn.ρθ_liq_ice -= bc_energy.fn(state⁻, aux⁻, t)
+    fluxᵀn.energy.ρθ_liq_ice -= bc_energy.fn(state⁻, aux⁻, t)
 end
 
 """

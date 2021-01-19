@@ -225,21 +225,35 @@ function config_densitycurrent(
     T_min_ref = FT(0)
     T_profile = DryAdiabaticProfile{FT}(param_set, T_surface, T_min_ref)
     ref_state = HydrostaticState(T_profile)
+    
+    ΘFlux = FT(0)
 
-    ## Here we assemble the `AtmosModel`.
-    #_C_smag = FT(C_smag(param_set))
+    problem = AtmosProblem(
+        boundaryconditions = (
+            AtmosBC(
+                momentum = Impenetrable(FreeSlip()),
+                energy = AdiabaticTheta((state, aux, t) -> θFlux) 
+            ),
+            AtmosBC(
+                momentum = Impenetrable(FreeSlip()),
+                energy = AdiabaticTheta((state, aux, t) -> θFlux) 
+            ),
+        ),
+        init_state_prognostic = init_densitycurrent,
+    )
+
     _C_smag = FT(0.0)
+    
     model = AtmosModel{FT}(
-        AtmosLESConfigType,                            ## Flow in a box, requires the AtmosLESConfigType
-        param_set;                                     ## Parameter set corresponding to earth parameters
-        init_state_prognostic = init_densitycurrent!,    ## Apply the initial condition
-        # ref_state = ref_state,                       ## Reference state
-        ref_state = NoReferenceState(),                ## Reference state
-        energy = θModel(),                             ## Energy model
-        turbulence = Vreman(_C_smag),                  ## Turbulence closure model
-        moisture = DryModel(),                         ## Exclude moisture variables
-        source = (Gravity(),),                         ## Gravity is the only source term here
-        tracers = NTracers{ntracers, FT}(δ_χ),         ## Tracer model with diffusivity coefficients
+        AtmosLESConfigType,                              ## Flow in a box, requires the AtmosLESConfigType
+        param_set;                                       ## Parameter set corresponding to earth parameters
+        problem = problem, 
+        ref_state = NoReferenceState(),                  ## Reference state
+        energy = θModel(),                               ## Energy model
+        turbulence = ConstantKinematicViscosity(FT(75)), ## Turbulence closure model
+        moisture = DryModel(),                           ## Exclude moisture variables
+        source = (Gravity(),),                           ## Gravity is the only source term here
+        tracers = NTracers{ntracers, FT}(δ_χ),           ## Tracer model with diffusivity coefficients
     )
 
     ## Finally, we pass a `Problem Name` string, the mesh information, and the
@@ -342,8 +356,7 @@ function main()
     result = ClimateMachine.invoke!(
         solver_config;
         diagnostics_config = dgn_config,
-        #user_callbacks = (cbfilter,),
-        user_callbacks = (cbtmarfilter),
+        user_callbacks = (cbtmarfilter,),
         check_euclidean_distance = true,
     )
 
