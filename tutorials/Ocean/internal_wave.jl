@@ -185,7 +185,7 @@ solve!(
     (slow = model.baroclinic.state, fast = model.barotropic.state),
     model.solver,
     timeend = 6 * 2π / ω,
-    callbacks = [tiny_progress_printer, data_fetcher],
+    callbacks = (tiny_progress_printer, data_fetcher),
 )
 
 # # Animating the result
