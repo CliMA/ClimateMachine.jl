@@ -128,7 +128,14 @@ function MPIStateArray{FT, V}(
         )
     end
 
-    Q = MPIStateArray{FT, V}(
+    Q = MPIStateArray{
+        FT,
+        V,
+        typeof(data),
+        typeof(vmaprecv),
+        typeof(realdata),
+        typeof(send_buffer)
+    }(
         # Make sure that each MPIStateArray has its own MPI context.  This
         # allows multiple MPIStateArrays to be communicating asynchronously
         # at the same time without having to explicitly manage tags.
