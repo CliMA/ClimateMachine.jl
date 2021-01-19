@@ -97,7 +97,8 @@ function init_problem!(problem, bl, state, aux, localgeo, t)
     ρe_tot = ρ * (e_int + e_pot + e_kin)
     state.ρ = ρ
     state.ρu = SVector(ρu, ρv, ρw)
-    state.ρe = ρe_tot
+    #state.ρe = ρe_tot
+    state.energy.ρθ_liq_ice =  ρ * liquid_ice_pottemp_given_pressure(bl.param_set, T, P, q_pt_0(FT))      
     state.moisture.ρq_tot = FT(0)
     ρχ = zero(FT)
     if z <= 100
@@ -140,11 +141,11 @@ function config_problem(::Type{FT}, N, resolution, xmax, ymax, zmax) where {FT}
         boundaryconditions = (
             AtmosBC(
                 momentum = Impenetrable(NoSlip()),
-                energy = PrescribedTemperature((state, aux, t) -> T_bot),
+                energy = PrescribedTheta((state, aux, t) -> T_bot),
             ),
             AtmosBC(
                 momentum = Impenetrable(NoSlip()),
-                energy = PrescribedTemperature((state, aux, t) -> T_top),
+                energy = PrescribedTheta((state, aux, t) -> T_top),
             ),
         ),
         init_state_prognostic = init_problem!,
@@ -155,7 +156,8 @@ function config_problem(::Type{FT}, N, resolution, xmax, ymax, zmax) where {FT}
         AtmosLESConfigType,
         param_set;
         problem = problem,
-        turbulence = Vreman(C_smag),
+        energy = θModel(),
+        turbulence = SmagorinskyLilly(C_smag),
         source = (Gravity(),),
         tracers = NTracers{ntracers, FT}(δ_χ),
         data_config = data_config,

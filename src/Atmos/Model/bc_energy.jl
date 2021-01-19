@@ -113,6 +113,52 @@ function atmos_energy_normal_boundary_flux_second_order!(
 end
 
 """
+    PrescribedTheta(fn) :: EnergyBC
+
+Prescribe the net inward potential temperature flux across the boundary by `fn`, a function
+with signature `fn(state, aux, t)`, returning the flux (in kgK/m^2).
+"""
+struct PrescribedTheta{FN} <: EnergyBC
+    fn::FN
+end
+function atmos_energy_boundary_state!(
+    nf,
+    bc_energy::PrescribedTemperature,
+    atmos,
+    state⁺,
+    aux⁺,
+    n,
+    state⁻,
+    aux⁻,
+    t,
+    args...,
+)
+
+    T = bc_energy.fn(state⁻, aux⁻, t)
+    θ_bc = liquid_ice_pottemp(atmos.param_set, T, state⁺.ρ, q_pt_0(FT))
+    state⁺.energy.ρθ_liq_ice = 2 * state⁺.ρ * θ_bc - state⁻.energy.ρθ_liq_ice
+end
+function atmos_energy_normal_boundary_flux_second_order!(
+    nf,
+    bc_energy::PrescribedTheta,
+    atmos,
+    fluxᵀn,
+    n⁻,
+    state⁻,
+    diffusive⁻,
+    hyperdiffusive⁻,
+    aux⁻,
+    state⁺,
+    diffusive⁺,
+    hyperdiffusive⁺,
+    aux⁺,
+    t,
+    args...,
+)
+    #fluxᵀn.energy.ρθ_liq_ice -= bc_energy.fn(state⁻, aux⁻, t)
+end
+
+"""
     PrescribedThetaFlux(fn) :: EnergyBC
 
 Prescribe the net inward potential temperature flux across the boundary by `fn`, a function
