@@ -1,13 +1,16 @@
 ##### Prognostic variable
 
-export Mass, Momentum, Energy
+export Mass, Momentum, Energy, ρθ_liq_ice
 export Moisture, TotalMoisture, LiquidMoisture, IceMoisture
 export Precipitation, Rain, Snow
 export Tracers
 
 struct Mass <: PrognosticVariable end
 struct Momentum <: PrognosticVariable end
-struct Energy <: PrognosticVariable end
+
+abstract type AbstractEnergy <: PrognosticVariable end
+struct Energy <: AbstractEnergy end
+struct ρθ_liq_ice <: AbstractEnergy end
 
 abstract type Moisture <: PrognosticVariable end
 struct TotalMoisture <: Moisture end
