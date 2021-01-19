@@ -728,48 +728,6 @@ function numerical_flux_first_order!(
     )
 end
 
-function numerical_boundary_flux_first_order!(
-    numerical_flux_first_order,
-    bctag::Int,
-    balance_law,
-    flux::AbstractArray,
-    normal_vector::AbstractArray,
-    state_prognostic⁻::AbstractArray,
-    state_auxiliary⁻::AbstractArray,
-    state_prognostic⁺::AbstractArray,
-    state_auxiliary⁺::AbstractArray,
-    t,
-    face_direction,
-    state_prognostic_bottom1::AbstractArray,
-    state_auxiliary_bottom1::AbstractArray,
-)
-    FT = eltype(flux)
-    bcs = boundary_conditions(balance_law)
-    # TODO: there is probably a better way to unroll this loop
-    Base.Cartesian.@nif 7 d -> bctag == d <= length(bcs) d -> begin
-        bc = bcs[d]
-        numerical_boundary_flux_first_order!(
-            numerical_flux_first_order,
-            bc,
-            balance_law,
-            Vars{vars_state(balance_law, Prognostic(), FT)}(flux),
-            SVector(normal_vector),
-            Vars{vars_state(balance_law, Prognostic(), FT)}(state_prognostic⁻),
-            Vars{vars_state(balance_law, Auxiliary(), FT)}(state_auxiliary⁻),
-            Vars{vars_state(balance_law, Prognostic(), FT)}(state_prognostic⁺),
-            Vars{vars_state(balance_law, Auxiliary(), FT)}(state_auxiliary⁺),
-            t,
-            face_direction,
-            Vars{vars_state(balance_law, Prognostic(), FT)}(
-                state_prognostic_bottom1,
-            ),
-            Vars{vars_state(balance_law, Auxiliary(), FT)}(
-                state_auxiliary_bottom1,
-            ),
-        )
-    end
-end
-
 function numerical_flux_second_order!(
     numerical_flux_second_order,
     balance_law,
