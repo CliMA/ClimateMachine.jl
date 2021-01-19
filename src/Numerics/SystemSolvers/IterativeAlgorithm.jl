@@ -98,8 +98,10 @@ function initialize!(
         args...,
     )
 
-Performs an iteration of `solver` and updates the solution vector, returning
-the whether the solver converged and the number of times `f` was evaluated.
+Performs an iteration of `solver` and updates the solution vector.
+
+Returns whether the solver converged, the number of times `f` was evaluated,
+and the number of inner solver iterations (for restarted methods).
 """
 function doiteration!(
     solver::IterativeSolver,
@@ -118,7 +120,7 @@ solver algorithm being used. Returns the number of iterations taken by `solver`
 and the number of times `solver` called `f`.
 """
 function solve!(solver::IterativeSolver, args...)
-    iters = 0
+    iters = 0 # total iterations of solver
 
     initial_residual_norm, has_converged, fcalls =
         initialize!(solver, atol(solver), iters, args...)
@@ -126,9 +128,9 @@ function solve!(solver::IterativeSolver, args...)
     threshold = max(atol(solver), rtol(solver) * initial_residual_norm) # TODO: make this a min after comparison testing.
 
     while !has_converged && iters < maxiters(solver)
-        has_converged, newfcalls =
+        has_converged, newfcalls, newiters =
             doiteration!(solver, threshold, iters, args...)
-        iters += 1
+        iters += newiters # newiters = 1 unless using a restarted algorithm
         fcalls += newfcalls
     end
 
@@ -216,8 +218,8 @@ include("ConjugateGradientAlgorithm.jl")
 #       - "Right preconditioning is, in general, more reliable than left preconditioning for large-scale systems."
 #   - Testing of the IterativeAlgorithm Interface
 #       - [DONE] Convert CG and GCR to new interface
-#       - Comparison testing with old code
-#       - More thorough tests following example of test/Numerics/SystemSolvers/iterativesolvers.jl
+#       - [DONE] Comparison testing with old code
+#       - [DONE] More thorough tests following example of test/Numerics/SystemSolvers/iterativesolvers.jl
 #           - No iterations if initial value is the solution
 #           - Test expected number of iterations
 #           - Convert these tests to use the new interface
@@ -225,3 +227,6 @@ include("ConjugateGradientAlgorithm.jl")
 #       - Test Accelerator has <= number of iterations as non-accelerated version
 #       - Correctness testing with large and small problems
 #       - Organize test directory
+#       - Remove `sarrays` param after benchmarking
+#       - Some solvers break in tests when switching to min threshold;
+#           this seems to be when atol and rtol are related to eps(FT), as defaulted.

@@ -23,7 +23,7 @@ end
         groupsize::Union{Int, Nothing} = nothing,
     )
 
-Constructor for a `GeneralizedMinimalResidualAlgorithm`, which solves a linear system
+Constructor for a `GeneralizedConjugateResidualAlgorithm`, which solves a linear system
 `f(Q) = rhs`.
 
 This uses the restarted Generalized Conjugate Residual method of Eisenstat (1983),
@@ -76,16 +76,16 @@ end
 struct GeneralizedConjugateResidualSolver{PT, FT, AT1, AT2, AT3} <: IterativeSolver
     preconditioner::PT
     residual::AT1
-    L_residual::AT1                      # L(residual)
-    p::AT2                     # descent direction
-    L_p::AT2                   # L(p): linear operator applied to p
-    α::AT3                               # descent update weights
-    normsq::AT3                          # stores ||L_p||^2
-    atol::FT                             # relative tolerance
-    rtol::FT                             # absolute tolerance
-    maxrestarts::Int                     # maximum number of restarts
-    M::Int                               # number of steps before restart
-    groupsize::Int                       # group size for kernel abstractions
+    L_residual::AT1         # L(residual)
+    p::AT2                  # descent direction
+    L_p::AT2                # L(p): linear operator applied to p
+    α::AT3                  # descent update weights
+    normsq::AT3             # stores ||L_p||^2
+    atol::FT                # relative tolerance
+    rtol::FT                # absolute tolerance
+    maxrestarts::Int        # maximum number of restarts
+    M::Int                  # number of steps before restart
+    groupsize::Int          # group size for kernel abstractions
 end
 
 function IterativeSolver(
@@ -96,9 +96,8 @@ function IterativeSolver(
     args...;
 )
     @assert(size(Q) == size(rhs), string(
-        "Krylov subspace methods can only solve square linear systems, so Q ",
-        "must have the same dimensions as rhs,\nbut their dimensions are ",
-        size(Q), " and ", size(rhs), ", respectively"
+        "Must solve a square system, Q must have the same dimensions as rhs,",
+        "\nbut their dimensions are $(size(Q)) and $(size(rhs)), respectively."
     ))
 
     FT = eltype(Q)
@@ -130,7 +129,7 @@ end
 
 atol(solver::GeneralizedConjugateResidualSolver) = solver.atol
 rtol(solver::GeneralizedConjugateResidualSolver) = solver.rtol
-maxiters(solver::GeneralizedConjugateResidualSolver) = solver.maxrestarts
+maxiters(solver::GeneralizedConjugateResidualSolver) = solver.maxrestarts * solver.M
 
 function residual!(
     solver::GeneralizedConjugateResidualSolver,
@@ -192,9 +191,9 @@ function doiteration!(
     α = solver.α
     M = solver.M
     
-    # residual_norm = typemax(eltype(Q)) why is this here
     fcalls = 0
-    for k in 1:M
+    k = 1
+    for outer k in 1:M
         # update Q
         normsq[k] = norm(L_p[k], weighted_norm)^2
         β = -dot(residual, L_p[k], weighted_norm) / normsq[k]
@@ -205,7 +204,7 @@ function doiteration!(
         # convergence check
         residual_norm, converged, fcalls1 = residual!(solver, threshold, iters, Q, f!, rhs, args...)
         fcalls += fcalls1
-        if converged return converged, fcalls end
+        if converged return converged, fcalls, k end
 
         # update descent direction
         f!(L_residual, residual, args...)
@@ -252,5 +251,5 @@ function doiteration!(
         wait(array_device(Q), event)
     end
 
-    return false, fcalls
+    return false, fcalls, k
 end

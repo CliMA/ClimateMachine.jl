@@ -223,12 +223,6 @@ function IterativeSolver(
     autodiff = isnothing(algorithm.autodiff) ? false : algorithm.autodiff
     β = isnothing(algorithm.β) ? FT(1e-4) : FT(algorithm.β)
 
-    @assert(size(Q) == size(rhs), string(
-        "Krylov subspace methods can only solve square linear systems, so Q ",
-        "must have the same dimensions as rhs,\nbut their dimensions are ",
-        size(Q), " and ", size(rhs), ", respectively"
-    ))
-
     jvp! = JacobianVectorProduct(Q, f!, autodiff, β)
     ΔQ = similar(Q)
     Δf = similar(Q)
@@ -304,5 +298,5 @@ function doiteration!(
 
     residual_norm, has_converged, fcalls3 =
         residual!(solver, threshold, iters, Q, f!, rhs, args...)
-    return has_converged, fcalls1 + fcalls2 + fcalls3
+    return has_converged, fcalls1 + fcalls2 + fcalls3, 1
 end

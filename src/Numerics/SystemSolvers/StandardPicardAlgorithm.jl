@@ -107,6 +107,6 @@ function doiteration!(
     args...,
 )
     Q .= solver.fQ
-    _, has_converged, fcalls = residual!(solver, threshold, iters, Q, f!, args...)
-    return has_converged, fcalls
+    residual_norm, has_converged, fcalls = residual!(solver, threshold, iters, Q, f!, args...)
+    return has_converged, fcalls, 1
 end

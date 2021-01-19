@@ -21,17 +21,11 @@ end
         groupsize::Union{Int, Nothing} = nothing,
     )
 
-Constructor for a `GeneralizedMinimalResidualAlgorithm`, which solves an
-equation of the form `f(Q) = rhs`, where `f` is assumed to be a linear function
-of `Q`.
+Constructor for a `GeneralizedMinimalResidualAlgorithm`, which solves a linear system
+`f(Q) = rhs`.
 
 This algorithm uses the restarted Generalized Minimal Residual method of Saad
-and Schultz (1986). As a Krylov subspace method, it can only solve square
-linear systems, so `rhs` must have the same size as `Q`.
-
-## References
-
- - [Saad1986](@cite)
+and Schultz (1986).
 
 # Keyword Arguments
 - `preconditioner`: right preconditioner; defaults to NoPreconditioner
@@ -42,6 +36,10 @@ linear systems, so `rhs` must have the same size as `Q`.
     vectors in the Kyrlov subspace; defaults to `min(20, length(Q))`
 - `sarrays`: whether to use statically sized arrays; defaults to `true`
 - `groupsize`: group size for kernel abstractions; defaults to `256`
+
+## References
+
+ - [Saad1986](@cite)
 """
 function GeneralizedMinimalResidualAlgorithm(;
     preconditioner::Union{AbstractPreconditioner, Nothing} = nothing,
@@ -86,6 +84,11 @@ function IterativeSolver(
     rhs,
     args...;
 )
+    @assert(size(Q) == size(rhs), string(
+            "Must solve a square system, Q must have the same dimensions as rhs,",
+            "\nbut their dimensions are $(size(Q)) and $(size(rhs)), respectively."
+    ))
+
     FT = eltype(Q)
 
     preconditioner = isnothing(algorithm.preconditioner) ? NoPreconditioner() :
@@ -96,12 +99,6 @@ function IterativeSolver(
     M = isnothing(algorithm.M) ? min(20, length(Q)) : algorithm.M
     sarrays = isnothing(algorithm.sarrays) ? true : algorithm.sarrays
     groupsize = isnothing(algorithm.groupsize) ? 256 : algorithm.groupsize
-
-    @assert(size(Q) == size(rhs), string(
-        "Krylov subspace methods can only solve square linear systems, so Q ",
-        "must have the same dimensions as rhs,\nbut their dimensions are ",
-        size(Q), " and ", size(rhs), ", respectively"
-    ))
 
     return GeneralizedMinimalResidualSolver(
         preconditioner,
@@ -118,7 +115,7 @@ end
 
 atol(solver::GeneralizedMinimalResidualSolver) = solver.atol
 rtol(solver::GeneralizedMinimalResidualSolver) = solver.rtol
-maxiters(solver::GeneralizedMinimalResidualSolver) = solver.maxrestarts
+maxiters(solver::GeneralizedMinimalResidualSolver) = solver.maxrestarts * solver.M
 
 function residual!(
     solver::GeneralizedMinimalResidualSolver,
@@ -230,10 +227,10 @@ function doiteration!(
     # Un-apply the right preconditioner.
     preconditioner_solve!(preconditioner, Q)
 
-    has_converged && return has_converged, j
+    has_converged && return has_converged, j, j
 
     # Restart if the algorithm did not converge.
     _, has_converged, initfcalls =
         residual!(solver, threshold, iters, Q, f!, rhs, args...)
-    return has_converged, j + initfcalls
+    return has_converged, j + initfcalls, j
 end

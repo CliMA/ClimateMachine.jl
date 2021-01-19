@@ -24,7 +24,7 @@ linear system `f(Q) = rhs`.
 - `preconditioner`: unused; defaults to NoPreconditioner
 - `atol`: absolute tolerance; defaults to `eps(eltype(Q))`
 - `rtol`: relative tolerance; defaults to `√eps(eltype(Q))`
-- `maxiters`: maximum number of restarts; defaults to `20`
+- `maxiters`: maximum number of iterations; defaults to `20`
 """
 function ConjugateGradientAlgorithm(;
     preconditioner::Union{AbstractPreconditioner, Nothing} = nothing,
@@ -66,9 +66,8 @@ function IterativeSolver(
     args...;
 )
     @assert(size(Q) == size(rhs), string(
-        "Krylov subspace methods can only solve square linear systems, so Q ",
-        "must have the same dimensions as rhs,\nbut their dimensions are ",
-        size(Q), " and ", size(rhs), ", respectively"
+        "Must solve a square system, Q must have the same dimensions as rhs,",
+        "\nbut their dimensions are $(size(Q)) and $(size(rhs)), respectively."
     ))
 
     FT = eltype(Q)
@@ -162,7 +161,7 @@ function doiteration!(
     r .= r .- α .* Ap
     residual_norm, converged, fcalls = residual!(solver, threshold, iters, Q, f!, rhs, args...)
     fcalls += 1
-    if converged return converged, fcalls end
+    if converged return converged, fcalls, 1 end
     # TODO: Implement preconditioner with new pc interface
     # PCapply!(pc, z, r, args...)
     z .= r
@@ -170,5 +169,5 @@ function doiteration!(
     p .= z .+ (ω1 / ω0) .* p
     ω0 = ω1
 
-    return false, fcalls
+    return false, fcalls, 1
 end

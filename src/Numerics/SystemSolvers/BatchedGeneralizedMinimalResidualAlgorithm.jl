@@ -254,6 +254,15 @@ function IterativeSolver(
     f!,
     rhs,
 )
+    @assert(size(Q) == size(rhs), string(
+        "Must solve a square system, Q must have the same dimensions as rhs,",
+        "\nbut their dimensions are $(size(Q)) and $(size(rhs)), respectively."
+    ))
+    @assert(prod(dims) == length(Q), string(
+        "dims must contain the dimensions of an array with the same length ",
+        "as Q, ", length(Q), ", but it was set to ", dims
+    ))
+    
     FT = eltype(Q)
 
     preconditioner = isnothing(algorithm.preconditioner) ?
@@ -269,16 +278,6 @@ function IterativeSolver(
         defaultbatches(Q, f!, coupledstates) :
         algorithm.dims, algorithm.batchdimindices
     groupsize = isnothing(algorithm.groupsize) ? 256 : algorithm.groupsize
-
-    @assert(size(Q) == size(rhs), string(
-        "Krylov subspace methods can only solve square linear systems, so Q ",
-        "must have the same dimensions as rhs,\nbut their dimensions are ",
-        size(Q), " and ", size(rhs), ", respectively"
-    ))
-    @assert(prod(dims) == length(Q), string(
-        "dims must contain the dimensions of an array with the same length ",
-        "as Q, ", length(Q), ", but it was set to ", dims
-    ))
 
     remainingdimindices = Tuple(setdiff(1:length(dims), batchdimindices))
     batchsize = prod(dims[[batchdimindices...]])
@@ -449,10 +448,10 @@ function doiteration!(
     Q .+= ΔQ
 
     # Restart if the algorithm did not converge.
-    has_converged && return has_converged, m
+    has_converged && return has_converged, m, m
     _, has_converged, initfcalls =
         residual!(solver, threshold, iters, Q, f!, rhs, args...)
-    return has_converged, m + initfcalls
+    return has_converged, m + initfcalls, m
 end
 
 @kernel function batched_residual!(krylovbases, g0s, M, batchsize)

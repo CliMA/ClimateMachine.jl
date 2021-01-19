@@ -31,20 +31,21 @@ function doiteration!(
     Q,
     args...;
 )
-    has_converged, fcalls = doiteration!(
+    has_converged, fcalls, inneriters = doiteration!(
         solver.iterativesolver,
         threshold,
         iters,
         Q,
         args...;
     )
+    @assert inneriters == 1 "Cannot accelerate when inneriters ≂̸ 1."
     if !has_converged
         doacceleration!(solver, Q, iters)
         _, has_converged, fcalls2 =
             residual!(solver.iterativesolver, threshold, iters, Q, args...)
         fcalls += fcalls2
     end
-    return has_converged, fcalls
+    return has_converged, fcalls, inneriters
 end
 
 struct AndersonAccelerationAlgorithm <: IterativeAlgorithm
