@@ -113,23 +113,23 @@ function atmos_energy_normal_boundary_flux_second_order!(
 end
 
 """
-    AdiabaticTheta(fn) :: EnergyBC
+    PrescribedThetaFlux(fn) :: EnergyBC
 
 Prescribe the net inward potential temperature flux across the boundary by `fn`, a function
 with signature `fn(state, aux, t)`, returning the flux (in kgK/m^2).
 """
-struct AdiabaticTheta{FN} <: EnergyBC
+struct PrescribedThetaFlux{FN} <: EnergyBC
     fn::FN
 end
 function atmos_energy_boundary_state!(
     nf,
-    bc_energy::AdiabaticTheta,
+    bc_energy::PrescribedThetaFlux,
     atmos,
     args...,
 ) end
 function atmos_energy_normal_boundary_flux_second_order!(
     nf,
-    bc_energy::AdiabaticTheta,
+    bc_energy::PrescribedThetaFlux,
     atmos,
     fluxᵀn,
     n⁻,

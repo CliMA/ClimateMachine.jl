@@ -226,20 +226,20 @@ function config_densitycurrent(
     T_profile = DryAdiabaticProfile{FT}(param_set, T_surface, T_min_ref)
     ref_state = HydrostaticState(T_profile)
     
-    ΘFlux = FT(0)
+    θFlux = FT(0)
 
     problem = AtmosProblem(
         boundaryconditions = (
             AtmosBC(
                 momentum = Impenetrable(FreeSlip()),
-                energy = AdiabaticTheta((state, aux, t) -> θFlux) 
+                energy = PrescribedThetaFlux((state, aux, t) -> θFlux) 
             ),
             AtmosBC(
                 momentum = Impenetrable(FreeSlip()),
-                energy = AdiabaticTheta((state, aux, t) -> θFlux) 
+                energy = PrescribedThetaFlux((state, aux, t) -> θFlux) 
             ),
         ),
-        init_state_prognostic = init_densitycurrent,
+        init_state_prognostic = init_densitycurrent!,
     )
 
     _C_smag = FT(0.0)
@@ -250,7 +250,7 @@ function config_densitycurrent(
         problem = problem, 
         ref_state = NoReferenceState(),                  ## Reference state
         energy = θModel(),                               ## Energy model
-        turbulence = ConstantKinematicViscosity(FT(75)), ## Turbulence closure model
+        turbulence = SmagorinskyLilly(0.25),
         moisture = DryModel(),                           ## Exclude moisture variables
         source = (Gravity(),),                           ## Gravity is the only source term here
         tracers = NTracers{ntracers, FT}(δ_χ),           ## Tracer model with diffusivity coefficients
