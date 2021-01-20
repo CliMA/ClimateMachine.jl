@@ -17,7 +17,7 @@ ClimateMachine.init()
 using ClimateMachine.Ocean.Domains
 
 domain = RectangularDomain(
-    Ne = (32, 1, 4),
+    Ne = (64, 1, 4),
     Np = 4,
     x = (-128, 128),
     y = (-128, 128),
@@ -94,7 +94,8 @@ initial_conditions = InitialConditions(u = uᵢ, v = vᵢ, θ = θᵢ)
 # 
 # We choose a time-step that resolves the gravity wave phase speed,
 
-time_step = 0.005 # close to Δx / c = 0.5 * 1/16, where Δx is nominal resolution
+#time_step = 0.005 # close to Δx / c = 0.5 * 1/16, where Δx is nominal resolution
+time_step = 0.0001
 
 # and build a model with a smidgeon of viscosity and diffusion,
 
@@ -104,7 +105,7 @@ model = SplitExplicitOceanSuperModel(
     domain = domain,
     parameters = NonDimensionalParameters(),
     barotropic_time_step = time_step,
-    baroclinic_time_step = time_step / 24,
+    baroclinic_time_step = 12 * time_step,
     initial_conditions = initial_conditions,
     turbulence_closure = (νʰ = 1e-6, νᶻ = 1e-6, κʰ = 1e-6, κᶻ = 1e-6, κᶜ = 1.0),
     coriolis = (f₀ = f, β = 0),
