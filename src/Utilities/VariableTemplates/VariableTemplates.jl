@@ -2,6 +2,7 @@ module VariableTemplates
 
 export varsize, Vars, Grad, @vars, varsindex, varsindices
 
+using LinearAlgebra
 using StaticArrays
 
 """
@@ -430,7 +431,15 @@ function getpropertyorindex end
 Base.@propagate_inbounds getpropertyorindex(t::Tuple, ::Val{i}) where {i} =
     Base.getindex(t, i)
 Base.@propagate_inbounds getpropertyorindex(
-    a::AbstractArray,
+    a::SArray,
+    ::Val{i},
+) where {i} = Base.getindex(a, i)
+Base.@propagate_inbounds getpropertyorindex(
+    a::SHermitianCompact,
+    ::Val{i},
+) where {i} = Base.getindex(a, i)
+Base.@propagate_inbounds getpropertyorindex(
+    a::Diagonal,
     ::Val{i},
 ) where {i} = Base.getindex(a, i)
 Base.@propagate_inbounds getpropertyorindex(nt::AbstractVars, s::Symbol) =
@@ -446,7 +455,15 @@ Base.@propagate_inbounds getpropertyorindex(
     t::Tuple{A},
 ) where {A} = getpropertyorindex(v, t[1])
 Base.@propagate_inbounds getpropertyorindex(
-    a::AbstractArray,
+    a::SArray,
+    t::Tuple{A},
+) where {A} = getpropertyorindex(a, t[1])
+Base.@propagate_inbounds getpropertyorindex(
+    a::SHermitianCompact,
+    t::Tuple{A},
+) where {A} = getpropertyorindex(a, t[1])
+Base.@propagate_inbounds getpropertyorindex(
+    a::Diagonal,
     t::Tuple{A},
 ) where {A} = getpropertyorindex(a, t[1])
 
