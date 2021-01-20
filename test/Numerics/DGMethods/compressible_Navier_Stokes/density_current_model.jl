@@ -100,7 +100,7 @@ function Initialise_Density_Current!(
     E = ρ * (e_int + e_kin + e_pot)  #* total_energy(e_kin, e_pot, T, q_tot, q_liq, q_ice)
     state.ρ = ρ
     state.ρu = SVector(U, V, W)
-    state.ρe = E
+    state.energy.ρe = E
     state.moisture.ρq_tot = ρ * q_pt.tot
 end
 # --------------- Driver definition ------------------ #

@@ -86,7 +86,7 @@ function main()
 
     check_cons = (
         ClimateMachine.ConservationCheck("ρ", "3000steps", FT(0.0001)),
-        ClimateMachine.ConservationCheck("ρe", "3000steps", FT(0.0025)),
+        ClimateMachine.ConservationCheck("energy.ρe", "3000steps", FT(0.0025)),
     )
 
     result = ClimateMachine.invoke!(

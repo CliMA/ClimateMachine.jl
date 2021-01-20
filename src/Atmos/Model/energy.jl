@@ -1,19 +1,21 @@
 export AbstractEnergyModel, EnergyModel, θModel
 #### Energy component in atmosphere model
-abstract type AbstractEnergyModel <: BalanceLaw end
-struct EnergyModel end
-struct θModel end
+abstract type AbstractEnergyModel end
+struct EnergyModel <: AbstractEnergyModel end
+struct θModel <: AbstractEnergyModel end
 
+vars_state(::EnergyModel, ::AbstractStateType, FT) = @vars()
 vars_state(::EnergyModel, ::Prognostic, FT) = @vars(ρe::FT)
 vars_state(::EnergyModel, ::Gradient, FT) = @vars(h_tot::FT)
 vars_state(::EnergyModel, ::GradientFlux, FT) = @vars(∇h_tot::SVector{3, FT})
+vars_state(::θModel, ::AbstractStateType, FT) = @vars()
 vars_state(::θModel, ::Prognostic, FT) = @vars(ρθ_liq_ice::FT)
 vars_state(::θModel, ::Gradient, FT) = @vars(θ_liq_ice::FT)
 vars_state(::θModel, ::GradientFlux, FT) = @vars(∇θ_liq_ice::SVector{3, FT})
 
 function compute_gradient_argument!(
-    atmos::AtmosModel,
     energy::EnergyModel,
+    atmos::AtmosModel,
     transform,
     state,
     aux,
@@ -21,12 +23,12 @@ function compute_gradient_argument!(
 )
     ts = recover_thermo_state(atmos, state, aux)
     e_tot = state.energy.ρe * (1 / state.ρ)
-    transform.h_tot = total_specific_enthalpy(ts, e_tot)
+    transform.energy.h_tot = total_specific_enthalpy(ts, e_tot)
 end
 
 function compute_gradient_argument!(
-    ::AtmosModel,
     energy::θModel,
+    ::AtmosModel,
     transform::Vars,
     state::Vars,
     aux::Vars,

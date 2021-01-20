@@ -158,7 +158,7 @@ function main(::Type{FT}) where {FT}
     horizontally_average!(
         driver_config.grid,
         solver_config.Q,
-        varsindex(vsp, :ρe),
+        varsindex(vsp, :energy, :ρe),
     )
     vsa = vars_state(model, Auxiliary(), FT)
     horizontally_average!(
@@ -203,7 +203,7 @@ function main(::Type{FT}) where {FT}
 
     check_cons = (
         ClimateMachine.ConservationCheck("ρ", "3000steps", FT(0.001)),
-        ClimateMachine.ConservationCheck("ρe", "3000steps", FT(0.1)),
+        ClimateMachine.ConservationCheck("energy.ρe", "3000steps", FT(0.1)),
     )
 
     cb_print_step = GenericCallbacks.EveryXSimulationSteps(100) do

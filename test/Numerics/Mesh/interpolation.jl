@@ -48,7 +48,7 @@ function Initialize_Brick_Interpolation_Test!(
     # Dummy variables for initial condition function
     state.ρ = FT(0)
     state.ρu = SVector{3, FT}(0, 0, 0)
-    state.ρe = FT(0)
+    state.energy.ρe = FT(0)
     state.moisture.ρq_tot = FT(0)
 end
 #------------------------------------------------
@@ -82,7 +82,7 @@ function (setup::TestSphereSetup)(problem, bl, state, aux, coords, t)
     # TODO: Fix type instability: typeof(setup.T_initial) == typeof(p) fails
     state.ρ = air_density(bl.param_set, FT(setup.T_initial), p)
     state.ρu = SVector{3, FT}(0, 0, 0)
-    state.ρe = state.ρ * (e_int + e_pot)
+    state.energy.ρe = state.ρ * (e_int + e_pot)
     return nothing
 end
 #----------------------------------------------------------------------------

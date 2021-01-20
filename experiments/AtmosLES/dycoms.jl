@@ -230,7 +230,7 @@ function init_dycoms!(problem, bl, state, aux, localgeo, t)
 
     state.ρ = ρ
     state.ρu = SVector(ρ * u, ρ * v, ρ * w)
-    state.ρe = E
+    state.energy.ρe = E
 
     state.moisture.ρq_tot = ρ * q_tot
 

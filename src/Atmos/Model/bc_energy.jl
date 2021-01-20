@@ -44,7 +44,7 @@ function atmos_energy_boundary_state!(
 
     T = bc_energy.fn(state⁻, aux⁻, t)
     E_int⁺ = state⁺.ρ * _cv_d * (T - _T_0)
-    state⁺.ρe =
+    state⁺.energy.ρe =
         E_int⁺ + state⁺.ρ * gravitational_potential(atmos.orientation, aux⁻)
 end
 function atmos_energy_normal_boundary_flux_second_order!(
@@ -67,10 +67,10 @@ function atmos_energy_normal_boundary_flux_second_order!(
 
     # TODO: figure out a better way...
     ν, D_t, _ = turbulence_tensors(atmos, state⁻, diffusive⁻, aux⁻, t)
-    d_h_tot = -D_t .* diffusive⁻.∇h_tot
+    d_h_tot = -D_t .* diffusive⁻.energy.∇h_tot
     nd_h_tot = dot(n⁻, d_h_tot)
     # both sides involve projections of normals, so signs are consistent
-    fluxᵀn.ρe += nd_h_tot * state⁻.ρ
+    fluxᵀn.energy.ρe += nd_h_tot * state⁻.ρ
 end
 
 
@@ -109,7 +109,7 @@ function atmos_energy_normal_boundary_flux_second_order!(
 
     # DG normal is defined in the outward direction
     # we want to prescribe the inward flux
-    fluxᵀn.ρe -= bc_energy.fn(state⁻, aux⁻, t)
+    fluxᵀn.energy.ρe -= bc_energy.fn(state⁻, aux⁻, t)
 end
 
 """
@@ -201,5 +201,5 @@ function atmos_energy_normal_boundary_flux_second_order!(
     # TODO: use the correct density at the surface
     ρ_avg = average_density(state⁻.ρ, state_int⁻.ρ)
     # NOTE: difference from design docs since normal points outwards
-    fluxᵀn.ρe -= C_h * ρ_avg * normu_int⁻_tan * (MSE - MSE_int)
+    fluxᵀn.energy.ρe -= C_h * ρ_avg * normu_int⁻_tan * (MSE - MSE_int)
 end

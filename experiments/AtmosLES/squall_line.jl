@@ -99,7 +99,7 @@ function init_squall_line!(problem, bl, state, aux, localgeo, t, args...)
 
     state.ρ = ρ
     state.ρu = SVector(ρ * u, ρ * v, FT(0))
-    state.ρe = E
+    state.energy.ρe = E
 
     state.moisture.ρq_tot = ρ * data_q
     if bl.moisture isa NonEquilMoist

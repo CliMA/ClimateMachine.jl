@@ -65,7 +65,7 @@ function source(s::Subsidence{Energy}, m, args)
     z = altitude(m, aux)
     w_sub = subsidence_velocity(s, z)
     k̂ = vertical_unit_vector(m, aux)
-    return -state.ρ * w_sub * dot(k̂, diffusive.∇h_tot)
+    return -state.ρ * w_sub * dot(k̂, diffusive.energy.∇h_tot)
 end
 
 function source(s::RemovePrecipitation{Energy}, m, args)

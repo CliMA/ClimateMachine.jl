@@ -451,7 +451,7 @@ The variable names `vars` can be a tuple of symbols or strings.
 
 # Examples
 ```julia
-Filters.apply!(Q, (:ρ, :ρe), grid, TMARFilter())
+Filters.apply!(Q, (:ρ, "energy.ρe"), grid, TMARFilter())
 Filters.apply!(Q, ("moisture.ρq_tot",), grid, CutoffFilter(grid);
                direction=VerticalDirection())
 ```

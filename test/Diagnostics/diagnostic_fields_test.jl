@@ -80,7 +80,7 @@ function init_risingbubble!(problem, bl, state, aux, localgeo, t)
     ρe_tot = ρ * total_energy(e_kin, e_pot, ts)
     state.ρ = ρ
     state.ρu = ρu
-    state.ρe = ρe_tot
+    state.energy.ρe = ρe_tot
     state.moisture.ρq_tot = ρ * q_pt.tot
 end
 

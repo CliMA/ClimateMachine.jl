@@ -364,7 +364,6 @@ Pre-transform gradient variables.
 function vars_state(m::AtmosModel, st::Gradient, FT)
     @vars begin
         u::SVector{3, FT}
-        h_tot::FT
         energy::vars_state(m.energy, st, FT)
         turbulence::vars_state(m.turbulence, st, FT)
         turbconv::vars_state(m.turbconv, st, FT)
@@ -559,7 +558,7 @@ function compute_gradient_argument!(
     ρinv = 1 / state.ρ
     transform.u = ρinv * state.ρu
 
-    compute_gradient_argument!(atmos, atmos.energy, transform, state, aux, t)
+    compute_gradient_argument!(atmos.energy, atmos, transform, state, aux, t)
     compute_gradient_argument!(atmos.moisture, transform, state, aux, t)
     compute_gradient_argument!(atmos.precipitation, transform, state, aux, t)
     compute_gradient_argument!(atmos.turbulence, transform, state, aux, t)
@@ -969,7 +968,7 @@ function numerical_flux_first_order!(
 
     ρ⁻ = state_prognostic⁻.ρ
     ρu⁻ = state_prognostic⁻.ρu
-    ρe⁻ = state_prognostic⁻.ρe
+    ρe⁻ = state_prognostic⁻.energy.ρe
     ts⁻ = recover_thermo_state(
         balance_law,
         balance_law.moisture,
@@ -986,7 +985,7 @@ function numerical_flux_first_order!(
 
     ρ⁺ = state_prognostic⁺.ρ
     ρu⁺ = state_prognostic⁺.ρu
-    ρe⁺ = state_prognostic⁺.ρe
+    ρe⁺ = state_prognostic⁺.energy.ρe
 
     # TODO: state_auxiliary⁺ is not up-to-date
     # with state_prognostic⁺ on the boundaries
@@ -1029,7 +1028,7 @@ function numerical_flux_first_order!(
             w3 * ũ +
             w4 * (Δu - Δuᵀn * normal_vector)
         ) / 2
-    fluxᵀn.ρe -=
+    fluxᵀn.energy.ρe -=
         (
             w1 * (h̃ - c̃ * ũᵀn) +
             w2 * (h̃ + c̃ * ũᵀn) +
@@ -1123,7 +1122,7 @@ function numerical_flux_first_order!(
     # the positive + and negative - sides of the interior facets
     ρ⁻ = state_prognostic⁻.ρ
     ρu⁻ = state_prognostic⁻.ρu
-    ρe⁻ = state_prognostic⁻.ρe
+    ρe⁻ = state_prognostic⁻.energy.ρe
     ts⁻ = recover_thermo_state(
         balance_law,
         balance_law.moisture,
@@ -1140,7 +1139,7 @@ function numerical_flux_first_order!(
 
     ρ⁺ = state_prognostic⁺.ρ
     ρu⁺ = state_prognostic⁺.ρu
-    ρe⁺ = state_prognostic⁺.ρe
+    ρe⁺ = state_prognostic⁺.energy.ρe
     ts⁺ = recover_thermo_state(
         balance_law,
         balance_law.moisture,
@@ -1244,7 +1243,7 @@ function numerical_flux_first_order!(
 
     ρ⁻ = state_prognostic⁻.ρ
     ρu⁻ = state_prognostic⁻.ρu
-    ρe⁻ = state_prognostic⁻.ρe
+    ρe⁻ = state_prognostic⁻.energy.ρe
     ρq_tot⁻ = state_prognostic⁻.moisture.ρq_tot
 
     u⁻ = ρu⁻ / ρ⁻
@@ -1256,7 +1255,7 @@ function numerical_flux_first_order!(
 
     ρ⁺ = state_prognostic⁺.ρ
     ρu⁺ = state_prognostic⁺.ρu
-    ρe⁺ = state_prognostic⁺.ρe
+    ρe⁺ = state_prognostic⁺.energy.ρe
     ρq_tot⁺ = state_prognostic⁺.moisture.ρq_tot
 
     u⁺ = ρu⁺ / ρ⁺
@@ -1468,7 +1467,7 @@ function numerical_flux_first_order!(
 
     ρ⁻ = state_prognostic⁻.ρ
     ρu⁻ = state_prognostic⁻.ρu
-    ρe⁻ = state_prognostic⁻.ρe
+    ρe⁻ = state_prognostic⁻.energy.ρe
     ts⁻ = recover_thermo_state(
         balance_law,
         balance_law.moisture,
@@ -1489,7 +1488,7 @@ function numerical_flux_first_order!(
 
     ρ⁺ = state_prognostic⁺.ρ
     ρu⁺ = state_prognostic⁺.ρu
-    ρe⁺ = state_prognostic⁺.ρe
+    ρe⁺ = state_prognostic⁺.energy.ρe
     ts⁺ = recover_thermo_state(
         balance_law,
         balance_law.moisture,
@@ -1520,7 +1519,7 @@ function numerical_flux_first_order!(
     # Update fluxes Eqn (18)
     fluxᵀn.ρ = ρ_b * u_half
     fluxᵀn.ρu = ρu_b * u_half .+ p_half * normal_vector
-    fluxᵀn.ρe = ρh_b * u_half
+    fluxᵀn.energy.ρe = ρh_b * u_half
 
     if balance_law.moisture isa EquilMoist
         ρq⁻ = state_prognostic⁻.moisture.ρq_tot
