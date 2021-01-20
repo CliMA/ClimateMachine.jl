@@ -2,7 +2,7 @@ module VariableTemplates
 
 export varsize, Vars, Grad, @vars, varsindex, varsindices
 
-#using LinearAlgebra
+using LinearAlgebra
 using StaticArrays
 
 """
@@ -432,12 +432,12 @@ Base.@propagate_inbounds getpropertyorindex(t::Tuple, ::Val{i}) where {i} =
     Base.getindex(t, i)
 Base.@propagate_inbounds getpropertyorindex(a::SArray, ::Val{i}) where {i} =
     Base.getindex(a, i)
-Base.@propagate_inbounds getpropertyorindex(
-    a::SHermitianCompact,
-    ::Val{i},
-) where {i} = Base.getindex(a, i)
-#Base.@propagate_inbounds getpropertyorindex(a::Diagonal, ::Val{i}) where {i} =
-#    Base.getindex(a, i)
+#Base.@propagate_inbounds getpropertyorindex(
+#    a::SHermitianCompact,
+#    ::Val{i},
+#) where {i} = Base.getindex(a, i)
+Base.@propagate_inbounds getpropertyorindex(a::Diagonal, ::Val{i}) where {i} =
+    Base.getindex(a, i)
 Base.@propagate_inbounds getpropertyorindex(nt::AbstractVars, s::Symbol) =
     Base.getproperty(nt, s)
 Base.@propagate_inbounds getpropertyorindex(
@@ -452,14 +452,14 @@ Base.@propagate_inbounds getpropertyorindex(
 ) where {A} = getpropertyorindex(v, t[1])
 Base.@propagate_inbounds getpropertyorindex(a::SArray, t::Tuple{A}) where {A} =
     getpropertyorindex(a, t[1])
-Base.@propagate_inbounds getpropertyorindex(
-    a::SHermitianCompact,
-    t::Tuple{A},
-) where {A} = getpropertyorindex(a, t[1])
 #Base.@propagate_inbounds getpropertyorindex(
-#    a::Diagonal,
+#    a::SHermitianCompact,
 #    t::Tuple{A},
 #) where {A} = getpropertyorindex(a, t[1])
+Base.@propagate_inbounds getpropertyorindex(
+    a::Diagonal,
+    t::Tuple{A},
+) where {A} = getpropertyorindex(a, t[1])
 
 # Peel first element from tuple and recurse:
 Base.@propagate_inbounds getpropertyorindex(v::AbstractVars, t::Tuple) =
