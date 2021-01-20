@@ -11,17 +11,20 @@ struct θModel end
 # end
 
 vars_state(::EnergyModel, ::Prognostic, FT) = @vars(ρe::FT)
+vars_state(::EnergyModel, ::Gradient, FT) = @vars(h_tot::FT)
+vars_state(::EnergyModel, ::GradientFlux, FT) = @vars(∇h_tot::SVector{3, FT})
 vars_state(::θModel, ::Prognostic, FT) = @vars(ρθ_liq_ice::FT)
 vars_state(::θModel, ::Gradient, FT) = @vars(θ_liq_ice::FT)
 vars_state(::θModel, ::GradientFlux, FT) = @vars(∇θ_liq_ice::SVector{3, FT})
 
-function compute_gradient_argument!(energy::EnergyModel, transform, state, aux, t)
+function compute_gradient_argument!(atmos::AtmosModel, energy::EnergyModel, transform, state, aux, t)
     ts = recover_thermo_state(atmos, state, aux)
-    e_tot = state.ρe * (1 / state.ρ)
+    e_tot = state.energy.ρe * (1 / state.ρ)
     transform.h_tot = total_specific_enthalpy(ts, e_tot)
 end
 
 function compute_gradient_argument!(
+    ::AtmosModel,
     energy::θModel,
     transform::Vars,
     state::Vars,
@@ -42,6 +45,17 @@ function compute_gradient_flux!(
     t,
 )
     diffusive.energy.∇θ_liq_ice = ∇transform.energy.θ_liq_ice
+end
+
+function compute_gradient_flux!(
+    ::EnergyModel,
+    diffusive,
+    ∇transform,
+    state,
+    aux,
+    t,
+)
+    diffusive.energy.∇h_tot = ∇transform.energy.h_tot
 end
 
 

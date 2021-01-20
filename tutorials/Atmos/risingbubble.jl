@@ -76,7 +76,8 @@ using ClimateMachine.TemperatureProfiles
 using ClimateMachine.Thermodynamics
 using ClimateMachine.TurbulenceClosures
 using ClimateMachine.VariableTemplates
-
+using ClimateMachine.Mesh.Geometry
+using ClimateMachine.Mesh.Grids
 # In ClimateMachine we use `StaticArrays` for our variable arrays.
 # We also use the `Test` package to help with unit tests and continuous
 # integration systems to design sensible tests for our experiment to ensure new
@@ -169,7 +170,7 @@ function init_risingbubble!(problem, bl, state, aux, localgeo, t)
     ## Assign State Variables
     state.ρ = ρ
     state.ρu = ρu
-    # state.ρe = ρe_tot
+     #state.energy.ρe = ρe_tot
     state.energy.ρθ_liq_ice = ρ * θ
     state.tracers.ρχ = ρχ
 end
@@ -192,9 +193,10 @@ function config_risingbubble(
     ## Apply the outer constructor to define the `ode_solver`.
     ## The 1D-IMEX method is less appropriate for the problem given the current
     ## mesh aspect ratio (1:1).
-    ode_solver = ClimateMachine.ExplicitSolverType(
+    #=ode_solver = ClimateMachine.ExplicitSolverType(
         solver_method = LSRK144NiegemannDiehlBusch,
-    )
+    )=#
+    ode_solver = ClimateMachine.IMEXSolverType()
     ## If the user prefers a multi-rate explicit time integrator,
     ## the ode_solver above can be replaced with
     ##
@@ -225,13 +227,13 @@ function config_risingbubble(
     ref_state = HydrostaticState(T_profile)
 
     ## Here we assemble the `AtmosModel`.
-     _C_smag = FT(C_smag(param_set))
+     _C_smag = FT(0)#FT(C_smag(param_set))
     model = AtmosModel{FT}(
         AtmosLESConfigType,                            ## Flow in a box, requires the AtmosLESConfigType
         param_set;                                     ## Parameter set corresponding to earth parameters
         init_state_prognostic = init_risingbubble!,    ## Apply the initial condition
-        # ref_state = ref_state,                         ## Reference state
-        ref_state = NoReferenceState(),                         ## Reference state
+        ref_state = ref_state,                         ## Reference state
+        #ref_state = NoReferenceState(),                         ## Reference state
         energy = θModel(),                             ## Energy model
         turbulence = SmagorinskyLilly(_C_smag),        ## Turbulence closure model
         moisture = DryModel(),                         ## Exclude moisture variables
@@ -287,7 +289,7 @@ function main()
     ## initialization step.)
     N = 4
     Δh = FT(125)
-    Δv = FT(125)
+    Δv = FT(60)
     resolution = (Δh, Δh, Δv)
     xmax = FT(10000)
     ymax = FT(500)
@@ -297,7 +299,7 @@ function main()
     ## For full simulation set `timeend = 1000`
 
     ## Use up to 1.7 if ode_solver is the single rate LSRK144.
-    CFL = FT(1.7)
+    CFL = FT(0.5)
 
     ## Assign configurations so they can be passed to the `invoke!` function
     driver_config = config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
@@ -307,6 +309,7 @@ function main()
         driver_config,
         init_on_cpu = true,
         Courant_number = CFL,
+	CFL_direction = HorizontalDirection(),
     )
     dgn_config = config_diagnostics(driver_config)
 

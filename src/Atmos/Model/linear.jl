@@ -1,4 +1,4 @@
-using CLIMAParameters.Planet: R_d, cv_d, T_0, e_int_v0, e_int_i0
+using CLIMAParameters.Planet: MSLP,R_d, cv_d, T_0, e_int_v0, e_int_i0
 
 """
     linearized_air_pressure(ρ, ρe_tot, ρe_pot, ρq_tot=0, ρq_liq=0, ρq_ice=0)
@@ -36,6 +36,7 @@ function linearized_air_pressure(
 end
 
 @inline function linearized_pressure(
+    ::EnergyModel,
     ::DryModel,
     param_set::AbstractParameterSet,
     orientation::Orientation,
@@ -43,9 +44,10 @@ end
     aux::Vars,
 )
     ρe_pot = state.ρ * gravitational_potential(orientation, aux)
-    return linearized_air_pressure(param_set, state.ρ, state.ρe, ρe_pot)
+    return linearized_air_pressure(param_set, state.ρ, state.energy.ρe, ρe_pot)
 end
 @inline function linearized_pressure(
+    ::EnergyModel,
     ::EquilMoist,
     param_set::AbstractParameterSet,
     orientation::Orientation,
@@ -56,12 +58,13 @@ end
     linearized_air_pressure(
         param_set,
         state.ρ,
-        state.ρe,
+        state.energy.ρe,
         ρe_pot,
         state.moisture.ρq_tot,
     )
 end
 @inline function linearized_pressure(
+    ::EnergyModel,
     ::NonEquilMoist,
     param_set::AbstractParameterSet,
     orientation::Orientation,
@@ -72,12 +75,27 @@ end
     linearized_air_pressure(
         param_set,
         state.ρ,
-        state.ρe,
+        state.energy.ρe,
         ρe_pot,
         state.moisture.ρq_tot,
         state.moisture.ρq_liq,
         state.moisture.ρq_ice,
     )
+end
+@inline function linearized_pressure(
+    ::θModel,
+    ::MoistureModel,
+    param_set::AbstractParameterSet,
+    orientation::Orientation,
+    state::Vars,
+    aux::Vars,
+)
+    FT = eltype(state)
+    _R_d::FT = R_d(param_set)
+    _cv_d::FT = cv_d(param_set)
+    _cp_d::FT = cp_d(param_set)
+    p0::FT = MSLP(param_set)
+    return p0 * (_R_d * state.energy.ρθ_liq_ice / p0) ^ (_cp_d / _cv_d) - aux.ref_state.p
 end
 
 abstract type AtmosLinearModel <: BalanceLaw end
@@ -96,7 +114,7 @@ function vars_state(lm::AtmosLinearModel, st::Prognostic, FT)
     @vars begin
         ρ::FT
         ρu::SVector{3, FT}
-        ρe::FT
+        energy::vars_state(lm.atmos.energy, st, FT)#ρe::FT
         turbulence::vars_state(lm.atmos.turbulence, st, FT)
         hyperdiffusion::vars_state(lm.atmos.hyperdiffusion, st, FT)
         moisture::vars_state(lm.atmos.moisture, st, FT)
@@ -223,6 +241,7 @@ function flux_first_order!(
 
     flux.ρ = state.ρu
     pL = linearized_pressure(
+	lm.atmos.energy,
         lm.atmos.moisture,
         lm.atmos.param_set,
         lm.atmos.orientation,
@@ -230,9 +249,43 @@ function flux_first_order!(
         aux,
     )
     flux.ρu += pL * I
-    flux.ρe = ((ref.ρe + ref.p) / ref.ρ - e_pot) * state.ρu
+    get_energy_flux!(lm,lm.atmos.energy, flux, state, aux)
+    #flux.ρe = ((ref.ρe + ref.p) / ref.ρ - e_pot) * state.ρu
     nothing
 end
+
+function get_energy_flux!(
+    lm::AtmosAcousticLinearModel,
+    m::EnergyModel,
+    flux::Grad,
+    state::Vars,
+    aux::Vars,
+)
+    ref = aux.ref_state
+    e_pot = gravitational_potential(lm.atmos.orientation, aux)
+    flux.energy.ρe = ((ref.ρe + ref.p) / ref.ρ - e_pot) * state.ρu
+    nothing
+end
+
+function get_energy_flux!(
+    lm::AtmosLinearModel,
+    m::θModel,
+    flux::Grad,
+    state::Vars,
+    aux::Vars,
+)
+    FT = eltype(state)
+    ref = aux.ref_state
+    param_set = lm.atmos.param_set
+    _T_0::FT = T_0(param_set)
+    ts = PhaseDry_ρT(param_set, ref.ρ, _T_0)
+    θ_liq_ice = liquid_ice_pottemp(ts)
+    #@info flux
+    flux.energy.ρθ_liq_ice = θ_liq_ice * state.ρu #state.energy.ρθ_liq_ice / state. ρ * state.ρu
+    nothing
+end
+
+
 source!(::AtmosAcousticLinearModel, _...) = nothing
 
 struct AtmosAcousticGravityLinearModel{M} <: AtmosLinearModel
@@ -258,6 +311,7 @@ function flux_first_order!(
 
     flux.ρ = state.ρu
     pL = linearized_pressure(
+	lm.atmos.energy,
         lm.atmos.moisture,
         lm.atmos.param_set,
         lm.atmos.orientation,
@@ -265,9 +319,23 @@ function flux_first_order!(
         aux,
     )
     flux.ρu += pL * I
-    flux.ρe = ((ref.ρe + ref.p) / ref.ρ) * state.ρu
+    get_energy_flux!(lm, lm.atmos.energy, flux, state, aux)
+    #flux.ρe = ((ref.ρe + ref.p) / ref.ρ) * state.ρu
     nothing
 end
+
+function get_energy_flux!(
+    lm::AtmosAcousticGravityLinearModel,
+    m::EnergyModel,
+    flux::Grad,
+    state::Vars,
+    aux::Vars,
+)
+    ref = aux.ref_state
+    flux.energy.ρe = ((ref.ρe + ref.p) / ref.ρ) * state.ρu
+    nothing
+end
+
 function source!(
     lm::AtmosAcousticGravityLinearModel,
     source::Vars,

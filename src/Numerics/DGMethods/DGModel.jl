@@ -634,7 +634,15 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
         β;
         dependencies = (comp_stream,),
     )
-
+    wait(comp_stream)
+    if size(tendency, 2) == 5 && t >= 0
+      @show t
+      @show extrema(Array(tendency.data[:, 1, :]))
+      @show extrema(Array(tendency.data[:, 2, :]))
+      @show extrema(Array(tendency.data[:, 3, :]))
+      @show extrema(Array(tendency.data[:, 4, :]))
+      @show extrema(Array(tendency.data[:, 5, :]))
+    end
     comp_stream = launch_interface_tendency!(
         dg,
         tendency,
@@ -645,7 +653,15 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
         surface = :interior,
         dependencies = (comp_stream,),
     )
-
+    wait(comp_stream)
+    if size(tendency, 2) == 5 && t >= 0
+      @show t
+      @show extrema(Array(tendency.data[:, 1, :]))
+      @show extrema(Array(tendency.data[:, 2, :]))
+      @show extrema(Array(tendency.data[:, 3, :]))
+      @show extrema(Array(tendency.data[:, 4, :]))
+      @show extrema(Array(tendency.data[:, 5, :]))
+    end
     if communicate
         if num_state_gradient_flux > 0 || nhyperviscstate > 0
             if num_state_gradient_flux > 0
@@ -693,7 +709,15 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
             exchange_state_prognostic = Event(device)
         end
     end
-
+    wait(comp_stream)
+    if size(tendency, 2) == 5 && t >= 0
+      @show t
+      @show extrema(Array(tendency.data[:, 1, :]))
+      @show extrema(Array(tendency.data[:, 2, :]))
+      @show extrema(Array(tendency.data[:, 3, :]))
+      @show extrema(Array(tendency.data[:, 4, :]))
+      @show extrema(Array(tendency.data[:, 5, :]))
+    end
     comp_stream = launch_interface_tendency!(
         dg,
         tendency,
@@ -709,7 +733,20 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
             exchange_Qhypervisc_grad,
         ),
     )
-
+    wait(comp_stream)
+    if size(tendency, 2) == 5 && t >= 0
+      @show t
+      @show extrema(Array(tendency.data[:, 1, :]))
+      @show extrema(Array(tendency.data[:, 2, :]))
+      @show extrema(Array(tendency.data[:, 3, :]))
+      @show extrema(Array(tendency.data[:, 4, :]))
+      @show extrema(Array(tendency.data[:, 5, :]))
+      @show extrema(Array(state_prognostic.data[:, 1, :]))
+      @show extrema(Array(state_prognostic.data[:, 2, :]))
+      @show extrema(Array(state_prognostic.data[:, 3, :]))
+      @show extrema(Array(state_prognostic.data[:, 4, :]))
+      @show extrema(Array(state_prognostic.data[:, 5, :]))
+    end
     # The synchronization here through a device event prevents CuArray based and
     # other default stream kernels from launching before the work scheduled in
     # this function is finished.

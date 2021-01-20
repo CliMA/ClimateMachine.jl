@@ -364,7 +364,6 @@ Post-transform gradient variables.
 """
 function vars_state(m::AtmosModel, st::GradientFlux, FT)
     @vars begin
-        ∇h_tot::SVector{3, FT}
         energy::vars_state(m.energy, st, FT)
         turbulence::vars_state(m.turbulence, st, FT)
         turbconv::vars_state(m.turbconv, st, FT)
@@ -541,7 +540,7 @@ function compute_gradient_argument!(
     ρinv = 1 / state.ρ
     transform.u = ρinv * state.ρu
 
-    compute_gradient_argument!(atmos.energy, transform, state, aux, t)
+    compute_gradient_argument!(atmos, atmos.energy, transform, state, aux, t)
     compute_gradient_argument!(atmos.moisture, transform, state, aux, t)
     compute_gradient_argument!(atmos.precipitation, transform, state, aux, t)
     compute_gradient_argument!(atmos.turbulence, transform, state, aux, t)
@@ -566,7 +565,7 @@ function compute_gradient_flux!(
     aux::Vars,
     t::Real,
 )
-    diffusive.∇h_tot = ∇transform.h_tot
+    #diffusive.energy.∇h_tot = ∇transform.energy.h_tot
 
     # diffusion terms required for SGS turbulence computations
     compute_gradient_flux!(
@@ -697,7 +696,6 @@ end
     uN = abs(dot(nM, u))
     ts = recover_thermo_state(m, state, aux)
     ss = soundspeed_air(ts)
-
     FT = typeof(state.ρ)
     ws = fill(uN + ss, MVector{number_states(m, Prognostic()), FT})
     vars_ws = Vars{vars_state(m, Prognostic(), FT)}(ws)
@@ -791,6 +789,7 @@ function atmos_nodal_init_state_auxiliary!(
     init_aux_turbulence!(m.turbulence, m, aux, geom)
     init_aux_hyperdiffusion!(m.hyperdiffusion, m, aux, geom)
     atmos_init_aux!(m.tracers, m, aux, geom)
+    atmos_init_aux!(m, m.ref_state, aux, geom, tmp)
     init_aux_turbconv!(m.turbconv, m, aux, geom)
     m.problem.init_state_auxiliary(m.problem, m, aux, geom)
 end
@@ -814,8 +813,7 @@ function init_state_auxiliary!(
 )
     # update the geopotential Φ in state_auxiliary.orientation.Φ
     init_aux!(m, m.orientation, state_auxiliary, grid, direction)
-
-    atmos_init_aux!(m, m.ref_state, state_auxiliary, grid, direction)
+    #atmos_init_aux!(m, m.ref_state, state_auxiliary, grid, direction)
 
     init_state_auxiliary!(
         m,

@@ -6,7 +6,7 @@
 
 function flux(::Advect{Energy}, atmos, args)
     @unpack state = args
-    return (state.ρu / state.ρ) * state.ρe
+    return (state.ρu / state.ρ) * state.energy.ρe
 end
 
 function flux(::Advect{ρθ_liq_ice}, atmos, args)
@@ -51,7 +51,7 @@ struct DiffEnthalpyFlux{PV <: Energy} <: TendencyDef{Flux{SecondOrder}, PV} end
 function flux(::DiffEnthalpyFlux{Energy}, atmos, args)
     @unpack state, diffusive = args
     @unpack D_t = args.precomputed.turbulence
-    d_h_tot = -D_t .* diffusive.∇h_tot
+    d_h_tot = -D_t .* diffusive.energy.∇h_tot
     return d_h_tot * state.ρ
 end
 

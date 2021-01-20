@@ -16,11 +16,11 @@ function flux(::PressureGradient{Momentum}, atmos, args)
     @unpack ts = args.precomputed
     s = state.ρu * state.ρu'
     pad = SArray{Tuple{size(s)...}}(ntuple(i -> 0, length(s)))
-    if atmos.ref_state isa HydrostaticState && atmos.ref_state.subtract_off
+    #if atmos.ref_state isa HydrostaticState && atmos.ref_state.subtract_off
         return pad + (air_pressure(ts) - aux.ref_state.p) * I
-    else
-        return pad + air_pressure(ts) * I
-    end
+    #else
+     #   return pad + air_pressure(ts) * I
+    #end
 end
 
 #####
