@@ -212,9 +212,9 @@ function SplitExplicitOceanSuperModel(;
 
     @info @sprintf(
         """ Gravity wave CFL condition
-            min(Δx) / 2√(gH) = %.1f
-              fast time step = %.1f
-            Gravity wave CFL = %.1f\n""",
+            min(Δx) / 2√(gH) = %.3f
+              fast time step = %.3f
+            Gravity wave CFL = %.3f\n""",
         min_Δx / 2c,
         barotropic_time_step,
         barotropic_time_step * 2c / min_Δx,
@@ -231,11 +231,11 @@ function SplitExplicitOceanSuperModel(;
 
     @info @sprintf(
         """ Viscous and diffusive CFL conditions
-            1 / (8νʰ / min(Δx)^2 + 4νᶻ / min(Δz)^2) = %.1f
-            1 / (8κʰ / min(Δx)^2 + 4κᶻ / min(Δz)^2) = %.1f
-                                     slow time step = %.1f
-                                        Viscous CFL = %.1f
-                                      Diffusive CFL = %.1f\n""",
+            1 / (8νʰ / min(Δx)^2 + 4νᶻ / min(Δz)^2) = %.3f
+            1 / (8κʰ / min(Δx)^2 + 4κᶻ / min(Δz)^2) = %.3f
+                                     slow time step = %.3f
+                                        Viscous CFL = %.3f
+                                      Diffusive CFL = %.3f\n""",
         viscous_time_step_limit,
         diffusive_time_step_limit,
         baroclinic_time_step,
@@ -274,10 +274,10 @@ function SplitExplicitOceanSuperModel(;
     #####
 
     baroclinic_solver = LS3NRK33Heuns(baroclinic_discretization, baroclinic_state,
-                                           dt = baroclinic_time_step, t0 = initial_time)
+                                      dt = baroclinic_time_step, t0 = initial_time)
 
     barotropic_solver = LS3NRK33Heuns(barotropic_discretization, barotropic_state,
-                                           dt = barotropic_time_step, t0 = initial_time)
+                                      dt = barotropic_time_step, t0 = initial_time)
 
     solver = SplitExplicitLSRK3nSolver(baroclinic_solver, barotropic_solver)
 
