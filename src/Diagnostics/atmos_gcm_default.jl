@@ -351,6 +351,7 @@ function atmos_gcm_default_init(dgngrp::DiagnosticsGroup, currtime)
             CentralNumericalFluxFirstOrder(),
             CentralNumericalFluxSecondOrder(),
             CentralNumericalFluxGradient(),
+            diffusion_direction = dg.diffusion_direction,
         )
         hyper_state.state = init_ode_state(hyper_state.dg, FT(0))
         hyper_state.dQ = similar(
