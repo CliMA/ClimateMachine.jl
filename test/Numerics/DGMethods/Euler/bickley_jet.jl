@@ -18,7 +18,7 @@ using ClimateMachine.VariableTemplates
 using ClimateMachine.VTK
 
 using CLIMAParameters
-using CLIMAParameters.Planet: kappa_d
+using CLIMAParameters.Planet: kappa_d, R_d, cp_d, cv_d, T_0, T_surf_ref
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 
@@ -35,7 +35,7 @@ function main()
     mpicomm = MPI.COMM_WORLD
 
     polynomialorder = 4
-    numlevels = integration_testing ? 4 : 1
+    numlevels = 4
 
     expected_error = Dict()
 
@@ -44,24 +44,13 @@ function main()
     Central = CentralNumericalFluxFirstOrder()
     Roe = RoeNumericalFlux()
     HLLC = HLLCNumericalFlux()
-    RoeMoist = RoeNumericalFluxMoist()
-    RoeMoistLM = RoeNumericalFluxMoist(; LM = true)
-    RoeMoistHH = RoeNumericalFluxMoist(; HH = true)
-    RoeMoistLV = RoeNumericalFluxMoist(; LV = true)
-    RoeMoistLVPP = RoeNumericalFluxMoist(; LVPP = true)
 
-    @testset "$(@__FILE__)" begin
-        for FT in (Float64, Float32), dims in (2,)
+        for FT in (Float64,), dims in (2,)
             for NumericalFlux in (
                 Rusanov,
-                Central,
-                Roe,
-                HLLC,
-                RoeMoist,
-                RoeMoistLM,
-                RoeMoistHH,
-                RoeMoistLV,
-                RoeMoistLVPP,
+                #Central,
+                #Roe,
+                #HLLC,
             )
                 @info @sprintf """Configuration
                                   ArrayType     = %s
@@ -91,7 +80,6 @@ function main()
             end
         end
     end
-end
 
 function test_run(
     mpicomm,
@@ -124,14 +112,11 @@ function test_run(
         DeviceArray = ArrayType,
         polynomialorder = polynomialorder,
     )
+        
+    δ_χ = SVector{1,FT}(0)
 
     problem =
         AtmosProblem(boundaryconditions = (), init_state_prognostic = setup)
-    if NumericalFlux isa RoeNumericalFluxMoist
-        moisture = EquilMoist{FT}()
-    else
-        moisture = DryModel()
-    end
     model = AtmosModel{FT}(
         AtmosLESConfigType,
         param_set;
@@ -139,7 +124,8 @@ function test_run(
         orientation = NoOrientation(),
         ref_state = NoReferenceState(),
         turbulence = ConstantDynamicViscosity(FT(0)),
-        moisture = moisture,
+        tracers = NTracers{1, FT}(δ_χ),
+        moisture = DryModel(),
         source = (),
     )
 
@@ -151,7 +137,7 @@ function test_run(
         CentralNumericalFluxGradient(),
     )
 
-    timeend = FT(2 * setup.domain_halflength / 10 / setup.translation_speed)
+    timeend = FT(200) #FT(10000 * setup.domain_halflength / 10 / 330)
 
     # determine the time step
     elementsize = minimum(step.(brickrange))
@@ -200,12 +186,13 @@ function test_run(
         mkpath(vtkdir)
 
         vtkstep = 0
+        output_interval = 12
         # output initial step
         do_output(mpicomm, vtkdir, vtkstep, dg, Q, Q, model)
 
         # setup the output callback
         outputtime = timeend
-        cbvtk = EveryXSimulationSteps(floor(outputtime / dt)) do
+        cbvtk = EveryXSimulationSteps(floor(output_interval/ dt)) do
             vtkstep += 1
             Qe = init_ode_state(dg, gettime(lsrk), setup)
             do_output(mpicomm, vtkdir, vtkstep, dg, Q, Qe, model)
