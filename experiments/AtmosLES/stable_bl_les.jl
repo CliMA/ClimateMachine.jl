@@ -1,4 +1,13 @@
+using Random
 include("stable_bl_model.jl")
+
+function add_perturbations!(state, localgeo)
+    FT = eltype(state)
+    z = localgeo.coord[3]
+    if z <= FT(50) # Add random perturbations to bottom 50m of model
+        state.ρe += (rand() - 0.5) * state.ρe / 100
+    end
+end
 
 function main()
 

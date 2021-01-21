@@ -50,12 +50,13 @@ import ..BalanceLaws:
 
 export DGModel,
     DGFVModel,
+    SpaceDiscretization,
     init_ode_state,
     restart_ode_state,
     restart_auxiliary_state,
     basic_grid_info,
     init_state_auxiliary!,
-    continuous_field_gradient!,
+    auxiliary_field_gradient!,
     courant
 
 include("custom_filter.jl")

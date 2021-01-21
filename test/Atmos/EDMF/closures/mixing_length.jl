@@ -83,7 +83,9 @@ function mixing_length(
     # Dissipation term
     b = FT(0)
     a_up = vuntuple(i -> up[i].ρa * ρinv, N_up)
-    w_up = vuntuple(i -> up[i].ρaw / up[i].ρa, N_up)
+    w_up = vuntuple(N_up) do i
+        fix_void_up(up[i].ρa, up[i].ρaw / up[i].ρa)
+    end
     b = sum(
         ntuple(N_up) do i
             Δ[i] / gm.ρ / env.a *

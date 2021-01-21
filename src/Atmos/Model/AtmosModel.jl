@@ -95,7 +95,6 @@ using ..DGMethods.NumericalFluxes:
 
 import ..Courant: advective_courant, nondiffusive_courant, diffusive_courant
 
-
 """
     AtmosModel <: BalanceLaw
 
@@ -452,9 +451,6 @@ gravitational_potential(bl, aux) = gravitational_potential(bl.orientation, aux)
 turbulence_tensors(atmos::AtmosModel, args...) =
     turbulence_tensors(atmos.turbulence, atmos, args...)
 
-export AbstractSource
-abstract type AbstractSource end
-
 include("declare_prognostic_vars.jl") # declare prognostic variables
 include("multiphysics_types.jl")      # types for multi-physics tendencies
 include("tendencies_mass.jl")         # specify mass tendencies
@@ -476,6 +472,7 @@ include("linear.jl")
 include("courant.jl")
 include("filters.jl")
 include("prog_prim_conversion.jl")   # prognostic<->primitive conversion
+include("reconstructions.jl")   # finite-volume method reconstructions
 
 include("atmos_tendencies.jl")        # specify atmos tendencies
 include("get_prognostic_vars.jl")     # get tuple of prognostic variables
@@ -782,7 +779,6 @@ function atmos_nodal_init_state_auxiliary!(
 )
     aux.coord = geom.coord
     init_aux_turbulence!(m.turbulence, m, aux, geom)
-    atmos_init_aux!(m.ref_state, m, aux, tmp, geom)
     init_aux_hyperdiffusion!(m.hyperdiffusion, m, aux, geom)
     atmos_init_aux!(m.tracers, m, aux, geom)
     init_aux_turbconv!(m.turbconv, m, aux, geom)
@@ -806,26 +802,17 @@ function init_state_auxiliary!(
     grid,
     direction,
 )
+    # update the geopotential Φ in state_auxiliary.orientation.Φ
     init_aux!(m, m.orientation, state_auxiliary, grid, direction)
 
-    init_state_auxiliary!(
-        m,
-        (m, aux, tmp, geom) ->
-            atmos_init_ref_state_pressure!(m.ref_state, m, aux, geom),
-        state_auxiliary,
-        grid,
-        direction,
-    )
-
-    ∇p = ∇reference_pressure(m.ref_state, state_auxiliary, grid)
+    atmos_init_aux!(m, m.ref_state, state_auxiliary, grid, direction)
 
     init_state_auxiliary!(
         m,
         atmos_nodal_init_state_auxiliary!,
         state_auxiliary,
         grid,
-        direction;
-        state_temporary = ∇p,
+        direction,
     )
 end
 
@@ -1161,7 +1148,8 @@ function numerical_flux_first_order!(
 
     # Compute p * D = p * (0, n₁, n₂, n₃, S⁰)
     pD = @MVector zeros(FT, num_state_prognostic)
-    if balance_law.ref_state isa HydrostaticState
+    if balance_law.ref_state isa HydrostaticState &&
+       balance_law.ref_state.subtract_off
         # pressure should be continuous but it doesn't hurt to average
         ref_p⁻ = state_auxiliary⁻.ref_state.p
         ref_p⁺ = state_auxiliary⁺.ref_state.p

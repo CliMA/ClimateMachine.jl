@@ -73,7 +73,7 @@ function get_spectra(mpicomm, mpirank, Q, bl, interpol, nor)
         lon = dims["long"][1]
         level = dims["level"][1] .- FT(planet_radius(Settings.param_set))
 
-        mass_weight = ones(FT, length(level)) # TODO: interpolate on pressure levs and do mass weighted calculations
+        mass_weight = ones(FT, length(level))
 
         var_grid_u = all_state_data[:, :, :, 2] ./ all_state_data[:, :, :, 1]
         spectrum_1d_u, m = power_spectrum_1d(
@@ -88,7 +88,7 @@ function get_spectra(mpicomm, mpirank, Q, bl, interpol, nor)
             power_spectrum_2d(AtmosGCMConfigType(), var_grid_u, mass_weight)
 
         var_grid_v = all_state_data[:, :, :, 3] ./ all_state_data[:, :, :, 1]
-        mass_weight = ones(FT, length(level)) # TODO: interpolate on pressure levs and do mass weighted calculations
+        mass_weight = ones(FT, length(level))
         spectrum_1d_v, m = power_spectrum_1d(
             AtmosGCMConfigType(),
             var_grid_v,
@@ -180,3 +180,5 @@ function atmos_gcm_spectra_collect(dgngrp, currtime)
 end
 
 function atmos_gcm_spectra_fini(dgngrp, currtime) end
+
+# TODO: interpolate on pressure levs and do mass weighted calculations, using mass_weight

@@ -350,7 +350,7 @@ let
     expected_result[SolidBodyRotation, 3, FVConstant] = 5.2452627634607365e+04
     expected_result[SolidBodyRotation, 4, FVConstant] = 3.1132403618328990e+03
 
-    expected_result[SolidBodyRotation, 1, FVLinear] = 1.6650018586769039e+07
+    expected_result[SolidBodyRotation, 1, FVLinear] = 1.6649963041466445e+07
     expected_result[SolidBodyRotation, 2, FVLinear] = 7.2518593691652094e+05
     expected_result[SolidBodyRotation, 3, FVLinear] = 5.2473203187596591e+04
     expected_result[SolidBodyRotation, 4, FVLinear] = 3.1133127473480104e+03
@@ -365,7 +365,7 @@ let
         1.4209138735343830e+05
 
     expected_result[ReversingDeformationalFlow, 1, FVLinear] =
-        2.0156862801802599e+08
+        2.0156864805489743e+08
     expected_result[ReversingDeformationalFlow, 2, FVLinear] =
         7.0092714938572392e+07
     expected_result[ReversingDeformationalFlow, 3, FVLinear] =

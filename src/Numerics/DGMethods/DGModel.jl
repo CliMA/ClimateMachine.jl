@@ -14,7 +14,7 @@ Must have the following properties:
 """
 abstract type SpaceDiscretization end
 
-struct DGFVModel{BL, G, FVR, NFND, NFD, GNF, AS, DS, D, DD, MD} <:
+struct DGFVModel{BL, G, FVR, NFND, NFD, GNF, AS, DS, HDS, D, DD, MD} <:
        SpaceDiscretization
     balance_law::BL
     grid::G
@@ -24,6 +24,7 @@ struct DGFVModel{BL, G, FVR, NFND, NFD, GNF, AS, DS, D, DD, MD} <:
     numerical_flux_gradient::GNF
     state_auxiliary::AS
     state_gradient_flux::DS
+    states_higher_order::HDS
     direction::D
     diffusion_direction::DD
     modeldata::MD
@@ -44,6 +45,10 @@ function DGFVModel(
         fill_nan = fill_nan,
     ),
     state_gradient_flux = create_state(balance_law, grid, GradientFlux()),
+    states_higher_order = (
+        create_state(balance_law, grid, GradientLaplacian()),
+        create_state(balance_law, grid, Hyperdiffusive()),
+    ),
     direction = EveryDirection(),
     diffusion_direction = direction,
     modeldata = nothing,
@@ -62,6 +67,7 @@ function DGFVModel(
         numerical_flux_gradient,
         state_auxiliary,
         state_gradient_flux,
+        states_higher_order,
         direction,
         diffusion_direction,
         modeldata,
@@ -1038,7 +1044,7 @@ model.
 """
 function courant(
     local_courant::Function,
-    dg::DGModel,
+    dg::SpaceDiscretization,
     m::BalanceLaw,
     state_prognostic::MPIStateArray,
     Δt,
@@ -1096,7 +1102,7 @@ function courant(
     MPI.Allreduce(rank_courant_max, max, topology.mpicomm)
 end
 
-function MPIStateArrays.MPIStateArray(dg::DGModel)
+function MPIStateArrays.MPIStateArray(dg::SpaceDiscretization)
     balance_law = dg.balance_law
     grid = dg.grid
 
@@ -1106,7 +1112,7 @@ function MPIStateArrays.MPIStateArray(dg::DGModel)
 end
 
 """
-    continuous_field_gradient!(::BalanceLaw, ∇state::MPIStateArray,
+    auxiliary_field_gradient!(::BalanceLaw, ∇state::MPIStateArray,
                                vars_out, state::MPIStateArray, vars_in, grid;
                                direction = EveryDirection())
 
@@ -1119,7 +1125,7 @@ its primary purpose is to take the gradient of continuous reference fields.
 ```julia
 FT = eltype(state_auxiliary)
 grad_Φ = similar(state_auxiliary, vars=@vars(∇Φ::SVector{3, FT}))
-continuous_field_gradient!(
+auxiliary_field_gradient!(
     model,
     grad_Φ,
     ("∇Φ",),
@@ -1129,7 +1135,7 @@ continuous_field_gradient!(
 )
 ```
 """
-function continuous_field_gradient!(
+function auxiliary_field_gradient!(
     m::BalanceLaw,
     ∇state::MPIStateArray,
     vars_out,
@@ -1157,7 +1163,7 @@ function continuous_field_gradient!(
         horizontal_polyorder = N[1]
         horizontal_D = grid.D[1]
         horizontal_ω = grid.ω[1]
-        event = kernel_continuous_field_gradient!(device, (Nq[1], Nq[2]))(
+        event = dgsem_auxiliary_field_gradient!(device, (Nq[1], Nq[2]))(
             m,
             Val(dim),
             Val(N),
@@ -1177,26 +1183,48 @@ function continuous_field_gradient!(
 
     if direction isa EveryDirection || direction isa VerticalDirection
         vertical_polyorder = N[dim]
-        vertical_D = grid.D[dim]
-        vertical_ω = grid.ω[dim]
-        event = kernel_continuous_field_gradient!(device, (Nq[1], Nq[2]))(
-            m,
-            Val(dim),
-            Val(N),
-            VerticalDirection(),
-            ∇state.data,
-            state.data,
-            grid.vgeo,
-            vertical_D,
-            vertical_ω,
-            Val(I),
-            Val(O),
-            # If we are computing in every direction, we need to
-            # increment after we compute the horizontal values
-            (direction isa EveryDirection);
-            ndrange = (nrealelem * Nq[1], Nq[2]),
-            dependencies = (event,),
-        )
+        if vertical_polyorder > 0
+            vertical_D = grid.D[dim]
+            vertical_ω = grid.ω[dim]
+            event = dgsem_auxiliary_field_gradient!(device, (Nq[1], Nq[2]))(
+                m,
+                Val(dim),
+                Val(N),
+                VerticalDirection(),
+                ∇state.data,
+                state.data,
+                grid.vgeo,
+                vertical_D,
+                vertical_ω,
+                Val(I),
+                Val(O),
+                # If we are computing in every direction, we need to
+                # increment after we compute the horizontal values
+                (direction isa EveryDirection);
+                ndrange = (nrealelem * Nq[1], Nq[2]),
+                dependencies = (event,),
+            )
+        else
+            info = basic_grid_info(grid)
+            event = vert_fvm_auxiliary_field_gradient!(device, info.Nfp_h)(
+                m,
+                Val(info),
+                ∇state.data,
+                state.data,
+                grid.vgeo,
+                grid.sgeo,
+                grid.vmap⁻,
+                grid.vmap⁺,
+                grid.elemtobndy,
+                Val(I),
+                Val(O),
+                # If we are computing in every direction, we need to
+                # increment after we compute the horizontal values
+                (direction isa EveryDirection);
+                ndrange = (nrealelem * info.Nfp_h),
+                dependencies = (event,),
+            )
+        end
     end
     wait(device, event)
 end
@@ -2080,4 +2108,38 @@ function launch_interface_tendency!(
     end
 
     return comp_stream
+end
+
+function fvm_balance!(
+    balance_func,
+    m::BalanceLaw,
+    state_auxiliary::MPIStateArray,
+    grid,
+)
+    device = array_device(state_auxiliary)
+
+
+    dim = dimensionality(grid)
+    N = polynomialorders(grid)
+    Nq = N .+ 1
+    Nqj = dim == 2 ? 1 : Nq[2]
+
+    topology = grid.topology
+    elems = topology.elems
+    nelem = length(elems)
+    nvertelem = topology.stacksize
+    horzelems = fld1(first(elems), nvertelem):fld1(last(elems), nvertelem)
+
+    event = Event(device)
+    event = kernel_fvm_balance!(device, (Nq[1], Nqj))(
+        balance_func,
+        m,
+        Val(nvertelem),
+        state_auxiliary.data,
+        grid.vgeo,
+        horzelems;
+        ndrange = (length(horzelems) * Nq[1], Nqj),
+        dependencies = (event,),
+    )
+    wait(device, event)
 end

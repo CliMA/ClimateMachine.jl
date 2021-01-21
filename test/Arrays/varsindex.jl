@@ -147,11 +147,11 @@ end
 
     Qv = view(MPIStateArrays.realview(Q), :, 2:2, :)
     Qv .= NaN
-    msg = "Field(s) (a, and e.1.b[1]) " * post_msg
+    msg = "Field(s) (a, and e[1].b[1]) " * post_msg
     @test_logs (:warn, msg) show_not_finite_fields(Q)
 
     Qv = view(MPIStateArrays.realview(Q), :, 6:6, :)
     Qv .= NaN
-    msg = "Field(s) (a, e.1.b[1], and e.2.b[2]) " * post_msg
+    msg = "Field(s) (a, e[1].b[1], and e[2].b[2]) " * post_msg
     @test_logs (:warn, msg) show_not_finite_fields(Q)
 end

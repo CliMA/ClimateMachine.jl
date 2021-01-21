@@ -48,6 +48,15 @@ steps:
       queue: central
       slurm_ntasks: 1
 
+  - label: "cpu_fvm_advection_diffusion_model_1dimex_bjfnks"
+    key: "cpu_fvm_advection_diffusion_model_1dimex_bjfnks"
+    command:
+      - "mpiexec julia --color=yes --project test/Numerics/DGMethods/advection_diffusion/fvm_advection_diffusion_model_1dimex_bjfnks.jl "
+    agents:
+      config: cpu
+      queue: central
+      slurm_ntasks: 1
+
   - label: "cpu_pseudo1D_advection_diffusion"
     key: "cpu_pseudo1D_advection_diffusion"
     command:
@@ -250,6 +259,15 @@ steps:
     key: "cpu_acousticwave_variable_degree"
     command:
       - "mpiexec julia --color=yes --project test/Numerics/DGMethods/Euler/acousticwave_variable_degree.jl "
+    agents:
+      config: cpu
+      queue: central
+      slurm_ntasks: 3
+
+  - label: "cpu_fvm_balance"
+    key: "cpu_fvm_balance"
+    command:
+      - "mpiexec julia --color=yes --project test/Numerics/DGMethods/Euler/fvm_balance.jl "
     agents:
       config: cpu
       queue: central
@@ -720,6 +738,16 @@ steps:
       slurm_ntasks: 3
       slurm_gres: "gpu:1"
 
+  - label: "gpu_fvm_balance"
+    key: "gpu_fvm_balance"
+    command:
+      - "mpiexec julia --color=yes --project test/Numerics/DGMethods/Euler/fvm_balance.jl "
+    agents:
+      config: gpu
+      queue: central
+      slurm_ntasks: 3
+      slurm_gres: "gpu:1"
+
   - label: "gpu_mms_bc_atmos"
     key: "gpu_mms_bc_atmos"
     command:
@@ -1099,6 +1127,16 @@ steps:
       queue: central
       slurm_ntasks: 1
       slurm_gres: "gpu:1"
+  
+  - label: "gpu_dry_risingbubble_fvm"
+    key: "gpu_dry_risingbubble_fvm"
+    command:
+      - "mpiexec julia --color=yes --project experiments/TestCase/risingbubble_fvm.jl "
+    agents:
+      config: gpu
+      queue: central
+      slurm_ntasks: 1
+      slurm_gres: "gpu:1"
 
   - label: "gpu_moist_risingbubble"
     key: "gpu_moist_risingbubble"
@@ -1119,11 +1157,41 @@ steps:
       queue: central
       slurm_ntasks: 1
       slurm_gres: "gpu:1"
+  
+  - label: "gpu_solid_body_rotation_fvm"
+    key: "gpu_solid_body_rotation_fvm"
+    command:
+      - "mpiexec julia --color=yes --project experiments/TestCase/solid_body_rotation_fvm.jl --diagnostics=default "
+    agents:
+      config: gpu
+      queue: central
+      slurm_ntasks: 1
+      slurm_gres: "gpu:1"
+
+  - label: "gpu_solid_body_rotation_mountain"
+    key: "gpu_solid_body_rotation_mountain"
+    command:
+      - "mpiexec julia --color=yes --project experiments/TestCase/solid_body_rotation_mountain.jl "
+    agents:
+      config: gpu
+      queue: central
+      slurm_ntasks: 1
+      slurm_gres: "gpu:1"
 
   - label: "gpu_dry_baroclinic_wave"
     key: "gpu_dry_baroclinic_wave"
     command:
       - "mpiexec julia --color=yes --project experiments/TestCase/baroclinic_wave.jl "
+    agents:
+      config: gpu
+      queue: central
+      slurm_ntasks: 1
+      slurm_gres: "gpu:1"
+  
+  - label: "gpu_dry_baroclinic_wave_fvm"
+    key: "gpu_dry_baroclinic_wave_fvm"
+    command:
+      - "mpiexec julia --color=yes --project experiments/TestCase/baroclinic_wave_fvm.jl "
     agents:
       config: gpu
       queue: central

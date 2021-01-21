@@ -105,7 +105,8 @@ end
 vars_state(lm::AtmosLinearModel, ::AbstractStateType, FT) = @vars()
 vars_state(lm::AtmosLinearModel, st::Auxiliary, FT) =
     vars_state(lm.atmos, st, FT)
-
+vars_state(lm::AtmosLinearModel, ::Primitive, FT) =
+    vars_state(lm, Prognostic(), FT)
 
 function update_auxiliary_state!(
     dg::DGModel,

@@ -118,7 +118,7 @@ function spectral_filter_matrix(r, Nc, σ)
     @assert 0 <= Nc <= N
 
     a, b = GaussQuadrature.legendre_coefs(T, N)
-    V = GaussQuadrature.orthonormal_poly(r, a, b)
+    V = (N == 0 ? ones(T, 1, 1) : GaussQuadrature.orthonormal_poly(r, a, b))
 
     Σ = ones(T, N + 1)
     Σ[(Nc:N) .+ 1] .= σ.(((Nc:N) .- Nc) ./ (N - Nc))

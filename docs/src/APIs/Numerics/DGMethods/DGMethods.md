@@ -9,7 +9,7 @@ SpaceDiscretization
 DGModel
 DGFVModel
 remainder_DGModel
-continuous_field_gradient!
+auxiliary_field_gradient!
 courant
 ```
 

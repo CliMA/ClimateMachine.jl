@@ -44,7 +44,7 @@ using CLIMAParameters.Planet: planet_radius
 Base.@kwdef mutable struct Diagnostic_Settings
     mpicomm::MPI.Comm = MPI.COMM_WORLD
     param_set::Union{Nothing, AbstractParameterSet} = nothing
-    dg::Union{Nothing, DGModel} = nothing
+    dg::Union{Nothing, SpaceDiscretization} = nothing
     Q::Union{Nothing, MPIStateArray} = nothing
     starttime::Union{Nothing, String} = nothing
     output_dir::Union{Nothing, String} = nothing
@@ -60,7 +60,7 @@ Initialize the diagnostics collection module -- save the parameters into
 function init(
     mpicomm::MPI.Comm,
     param_set::AbstractParameterSet,
-    dg::DGModel,
+    dg::SpaceDiscretization,
     Q::MPIStateArray,
     starttime::String,
     output_dir::String,
