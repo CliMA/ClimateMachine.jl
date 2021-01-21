@@ -789,7 +789,7 @@ function atmos_nodal_init_state_auxiliary!(
     init_aux_turbulence!(m.turbulence, m, aux, geom)
     init_aux_hyperdiffusion!(m.hyperdiffusion, m, aux, geom)
     atmos_init_aux!(m.tracers, m, aux, geom)
-    atmos_init_aux!(m, m.ref_state, aux, geom, tmp)
+    #atmos_init_aux!(m, m.ref_state, aux, geom, tmp)
     init_aux_turbconv!(m.turbconv, m, aux, geom)
     m.problem.init_state_auxiliary(m.problem, m, aux, geom)
 end
@@ -813,7 +813,7 @@ function init_state_auxiliary!(
 )
     # update the geopotential Φ in state_auxiliary.orientation.Φ
     init_aux!(m, m.orientation, state_auxiliary, grid, direction)
-    #atmos_init_aux!(m, m.ref_state, state_auxiliary, grid, direction)
+    atmos_init_aux!(m, m.ref_state, state_auxiliary, grid, direction)
 
     init_state_auxiliary!(
         m,

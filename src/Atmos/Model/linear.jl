@@ -95,7 +95,11 @@ end
     _cv_d::FT = cv_d(param_set)
     _cp_d::FT = cp_d(param_set)
     p0::FT = MSLP(param_set)
-    return p0 * (_R_d * state.energy.ρθ_liq_ice / p0) ^ (_cp_d / _cv_d) - aux.ref_state.p
+    _T_0::FT = T_0(param_set)
+    ts = PhaseDry_ρT(param_set, aux.ref_state.ρ, _T_0)
+    θ_liq_ice = liquid_ice_pottemp(ts)
+    #return p0 * (_R_d * state.energy.ρθ_liq_ice / p0) ^ (_cp_d / _cv_d) - aux.ref_state.p
+    return _R_d * _cp_d / _cv_d / p0^(_R_d / _cp_d) * (_R_d * θ_liq_ice * aux.ref_state.ρ / p0^(_R_d / _cp_d))^(_R_d / _cv_d) * state.energy.ρθ_liq_ice  
 end
 
 abstract type AtmosLinearModel <: BalanceLaw end
@@ -249,7 +253,7 @@ function flux_first_order!(
         aux,
     )
     flux.ρu += pL * I
-    get_energy_flux!(lm,lm.atmos.energy, flux, state, aux)
+    get_energy_flux!(lm, lm.atmos.energy, flux, state, aux)
     #flux.ρe = ((ref.ρe + ref.p) / ref.ρ - e_pot) * state.ρu
     nothing
 end
@@ -281,6 +285,7 @@ function get_energy_flux!(
     ts = PhaseDry_ρT(param_set, ref.ρ, _T_0)
     θ_liq_ice = liquid_ice_pottemp(ts)
     #@info flux
+     
     flux.energy.ρθ_liq_ice = θ_liq_ice * state.ρu #state.energy.ρθ_liq_ice / state. ρ * state.ρu
     nothing
 end

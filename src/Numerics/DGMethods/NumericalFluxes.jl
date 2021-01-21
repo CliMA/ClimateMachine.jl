@@ -251,10 +251,10 @@ function numerical_flux_first_order!(
         state_auxiliary⁺,
         t,
     )
-    @info "penalty", penalty
+    #@info "penalty", penalty
     fluxᵀn .+= penalty / 2
-    @info "total flux", fluxᵀn
-    @info "normal vector", normal_vector
+    #@info "total flux", fluxᵀn
+    #@info "normal vector", normal_vector
 end
 
 """
