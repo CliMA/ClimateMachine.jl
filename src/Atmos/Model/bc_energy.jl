@@ -168,13 +168,21 @@ struct PrescribedThetaFlux{FN} <: EnergyBC
     fn::FN
 end
 function atmos_energy_boundary_state!(
-    nf,
+    nf::Union{NumericalFluxFirstOrder, NumericalFluxGradient},
     bc_energy::PrescribedThetaFlux,
     atmos,
+    state⁺,
+    aux⁺,
+    n,
+    state⁻,
+    aux⁻,
+    t,
     args...,
-) end
+) 
+    state⁺.energy.ρθ_liq_ice = state⁻.energy.ρθ_liq_ice
+end
 function atmos_energy_normal_boundary_flux_second_order!(
-    nf,
+    nf::NumericalFluxSecondOrder,
     bc_energy::PrescribedThetaFlux,
     atmos,
     fluxᵀn,
@@ -189,8 +197,10 @@ function atmos_energy_normal_boundary_flux_second_order!(
     aux⁺,
     t,
     args...,
-)
-    fluxᵀn.energy.ρθ_liq_ice -= bc_energy.fn(state⁻, aux⁻, t)
+)       
+    state⁺.energy.ρθ_liq_ice = state⁻.energy.ρθ_liq_ice
+    #fluxᵀn.energy.ρθ_liq_ice -= bc_energy.fn(state⁻, aux⁻, t)
+    diffusive⁺.energy.∇θ_liq_ice = n⁻ * 0
 end
 
 """

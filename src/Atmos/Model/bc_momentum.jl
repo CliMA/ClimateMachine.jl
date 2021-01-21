@@ -19,8 +19,6 @@ No surface drag on momentum parallel to the boundary.
 """
 struct FreeSlip <: MomentumDragBC end
 
-
-
 function atmos_momentum_boundary_state!(
     nf::NumericalFluxFirstOrder,
     bc_momentum::Impenetrable{FreeSlip},
@@ -33,7 +31,8 @@ function atmos_momentum_boundary_state!(
     t,
     args...,
 )
-    state⁺.ρu -= 2 * dot(state⁻.ρu, n) .* SVector(n)
+    ρu⁺ = state⁻.ρu - 2 * dot(n,state⁻.ρu) .* SVector(n)
+    state⁺.ρu = ρu⁺ 
 end
 function atmos_momentum_boundary_state!(
     nf::NumericalFluxGradient,
@@ -47,7 +46,8 @@ function atmos_momentum_boundary_state!(
     t,
     args...,
 )
-    state⁺.ρu -= dot(state⁻.ρu, n) .* SVector(n)
+    ρu⁺ = state⁻.ρu -  dot(n,state⁻.ρu).* SVector(n)
+    state⁺.ρu = ρu⁺ 
 end
 function atmos_momentum_normal_boundary_flux_second_order!(
     nf,
@@ -94,11 +94,27 @@ function atmos_momentum_boundary_state!(
     state⁺.ρu = zero(state⁺.ρu)
 end
 function atmos_momentum_normal_boundary_flux_second_order!(
-    nf,
-    bc_momentum::Impenetrable{NoSlip},
+    nf::NumericalFluxSecondOrder,
+    bc_momentum::Impenetrable{FreeSlip},
     atmos,
-    args...,
-) end
+    fluxᵀn,
+    n,
+    state⁻,
+    diffusive⁻,
+    hyperdiffusive⁻,
+    aux⁻,
+    state⁺,
+    diffusive⁺,
+    hyperdiffusive⁺,
+    aux⁺,
+    t,
+    state_int⁻,
+    diffusive_int⁻,
+    aux_int⁻,
+) 
+    state⁺.ρu = state⁻.ρu
+    state⁺.ρ = state⁻.ρ
+end
 
 
 """
