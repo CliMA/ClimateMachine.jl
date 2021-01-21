@@ -18,7 +18,7 @@ using ClimateMachine.Atmos
 using ClimateMachine.TurbulenceClosures
 using ClimateMachine.Orientations
 using ClimateMachine.BalanceLaws: Prognostic, Auxiliary, vars_state
-    
+
 using ClimateMachine.VariableTemplates: flattenednames
 
 using CLIMAParameters
@@ -28,18 +28,18 @@ const param_set = EarthParameterSet()
 
 using MPI, Logging, StaticArrays, LinearAlgebra, Printf, Dates, Test
 
-const output_vtk = false
+const output_vtk = true
 const gravity = false
 
 function main()
-    ClimateMachine.init()
+    ClimateMachine.init(parse_clargs = true)
     ArrayType = ClimateMachine.array_type()
 
     mpicomm = MPI.COMM_WORLD
 
-    polynomialorder = 5
-    numelem_horz = 10
-    numelem_vert = 5
+    polynomialorder = 3
+    numelem_horz = 1
+    numelem_vert = 2
 
     timeend = 15 * 24 * 3600
     outputtime = timeend
@@ -78,11 +78,11 @@ function test_run(
     horz_range = range(FT(0), stop = _planet_radius, length = numelem_horz+1)
     vert_range = range(FT(0), stop = setup.domain_height, length = numelem_vert+1)
     brickrange = (horz_range, horz_range, vert_range)
-   
+
     if gravity
       periodicity=(true, true, false)
     else
-      periodicity=(true, true, true)
+      periodicity=(true, true, false)
     end
 
     topology = StackedBrickTopology(mpicomm, brickrange, periodicity=periodicity)
@@ -93,8 +93,8 @@ function test_run(
         DeviceArray = ArrayType,
         polynomialorder = polynomialorder,
     )
-  
-    zero_ref_state_velocity = true
+
+    zero_ref_state_velocity = false
     if zero_ref_state_velocity
       ref_state = ZonalReferenceState(setup.T0, FT(0))
     else
@@ -114,17 +114,19 @@ function test_run(
         param_set;
         init_state_prognostic = setup,
         orientation = orientation,
-        ref_state = ref_state,
+        # ref_state = ref_state,
+        ref_state = ref_state,#NoReferenceState(),
+        energy = θModel(),
         turbulence = ConstantDynamicViscosity(FT(0)),
         moisture = DryModel(),
         source = source,
     )
-    
-    if gravity
-      linearmodel = AtmosAcousticGravityLinearModel(model)
-    else
-      linearmodel = AtmosAcousticLinearModel(model)
-    end
+
+     if gravity
+       linearmodel = AtmosAcousticGravityLinearModel(model)
+     else
+       linearmodel = AtmosAcousticLinearModel(model)
+     end
 
     dg = DGModel(
         model,
@@ -134,15 +136,15 @@ function test_run(
         CentralNumericalFluxGradient(),
     )
 
-    lineardg = DGModel(
-        linearmodel,
-        grid,
-        RusanovNumericalFlux(),
-        CentralNumericalFluxSecondOrder(),
-        CentralNumericalFluxGradient();
-        direction = VerticalDirection(),
-        state_auxiliary = dg.state_auxiliary,
-    )
+     lineardg = DGModel(
+         linearmodel,
+         grid,
+         RusanovNumericalFlux(),
+         CentralNumericalFluxSecondOrder(),
+         CentralNumericalFluxGradient();
+         direction = VerticalDirection(),
+         state_auxiliary = dg.state_auxiliary,
+     )
 
     # determine the time step
     acoustic_speed = soundspeed_air(model.param_set, FT(setup.T0))
@@ -150,57 +152,64 @@ function test_run(
     dx = min_node_distance(grid, HorizontalDirection())
     dz = min_node_distance(grid, VerticalDirection())
     aspect_ratio = dx / dz
-   
+
     horz_sound_cfl = FT(60 // 100)
-    dt = horz_sound_cfl * dx / acoustic_speed
+    dt = horz_sound_cfl * dx / acoustic_speed / 10 #/ aspect_ratio
     horz_adv_cfl = dt * setup.u0 / dx
-    
+
+    outputtime = dt
+
     @show dt
     @show aspect_ratio
     @show horz_sound_cfl
     @show horz_adv_cfl
 
-    nsteps = ceil(Int, timeend / dt)
+    #nsteps = ceil(Int, timeend / dt)
+    nsteps = 50
 
     Q = init_ode_state(dg, FT(0))
 
-    if gravity 
-      linearsolver = ManyColumnLU()
-    else
-      # LU doesn't work with periodic bcs
-      linearsolver = GeneralizedMinimalResidual(
-          Q,
-          M = 50,
-          rtol = sqrt(eps(FT)) / 100,
-          atol = sqrt(eps(FT)) / 100,
-      )
-    end
+     if gravity
+       linearsolver = ManyColumnLU()
+     else
+    #   # LU doesn't work with periodic bcs
+    linearsolver = GeneralizedMinimalResidual(
+        Q,
+        M = 50,
+        rtol = sqrt(eps(FT)) / 100,
+        atol = sqrt(eps(FT)) / 100,
+       )
+       #linearsolver = ManyColumnLU()
+     end
 
-    if split_explicit_implicit
-        rem_dg = remainder_DGModel(
-            dg,
-            (lineardg,)
-        )
-    end
-    odesolver = ARK2GiraldoKellyConstantinescu(
-        split_explicit_implicit ? rem_dg : dg,
-        lineardg,
-        LinearBackwardEulerSolver(
-            linearsolver;
-            isadjustable = true,
-            preconditioner_update_freq = -1,
-        ),
-        Q;
-        dt = dt,
-        t0 = 0,
-        split_explicit_implicit = split_explicit_implicit,
-        variant=NaiveVariant(),
-    )
-   
-    #dt = horz_sound_cfl * dz / acoustic_speed
-    #odesolver = LSRK54CarpenterKennedy(dg, Q; dt = dt, t0 = 0)
+     if split_explicit_implicit
+         rem_dg = remainder_DGModel(
+             dg,
+             (lineardg,)
+         )
+     end
 
-    @test getsteps(odesolver) == 0
+    #odesolver = LSRK144NiegemannDiehlBusch(dg, Q; dt = dt)
+    # odesolver = ClimateMachine.ExplicitSolverType(
+        # solver_method = LSRK144NiegemannDiehlBusch(;dt = dt),
+        # solver_method = LSRK144NiegemannDiehlBusch(;dt = dt),
+    # )
+
+     odesolver = ARK2GiraldoKellyConstantinescu(
+         split_explicit_implicit ? rem_dg : dg,
+         lineardg,
+         LinearBackwardEulerSolver(
+             linearsolver;
+             isadjustable = true,
+             preconditioner_update_freq = -1,
+         ),
+         Q;
+         dt = dt,
+         t0 = 0,
+         split_explicit_implicit = split_explicit_implicit,
+         variant=NaiveVariant(),
+     )
+     @test getsteps(odesolver) == 0
 
     filterorder = 18
     filter = ExponentialFilter(grid, 0, filterorder)
@@ -215,18 +224,23 @@ function test_run(
         )
         nothing
     end
-    
-    cbcheck = EveryXSimulationSteps(100) do
+
+    cbcheck = EveryXSimulationSteps(1) do
         ρ = Array(Q.data[:, 1, :])
         ρu = Array(Q.data[:, 2, :])
         ρv = Array(Q.data[:, 3, :])
         ρw = Array(Q.data[:, 4, :])
+	ρtheta = Array(Q.data[:, 5, :])
+
         u = ρu ./ ρ
         v = ρv ./ ρ
         w = ρw ./ ρ
+        theta = ρtheta ./ ρ
+
         @info "u = $(extrema(u))"
         @info "v = $(extrema(v))"
         @info "w = $(extrema(w))"
+	@info "theta = $(extrema(theta))"
         nothing
     end
 
@@ -259,8 +273,7 @@ function test_run(
                               """ gettime(odesolver) runtime energy
         end
     end
-    #callbacks = (cbinfo, cbfilter, cbcheck)
-    callbacks = (cbinfo, cbcheck)
+    callbacks = (cbinfo, cbcheck)#(cbinfo, cbfilter, cbcheck)
 
     if output_vtk
         # create vtk dir
@@ -283,7 +296,6 @@ function test_run(
         callbacks = (callbacks..., cbvtk)
     end
 
-    nsteps = 3
     solve!(
         Q,
         odesolver;
@@ -307,7 +319,7 @@ end
 Base.@kwdef struct ZonalFlowSetup{FT}
     domain_height::FT = 30e3
     T0::FT = 300
-    u0::FT = 30
+    u0::FT = 0
 end
 
 function (setup::ZonalFlowSetup)(problem, atmos, state, aux, localgeo, t)
@@ -319,13 +331,23 @@ function (setup::ZonalFlowSetup)(problem, atmos, state, aux, localgeo, t)
     u0 = setup.u0
     T0 = setup.T0
 
-    ρ = aux.ref_state.ρ
     e_kin = u0 ^ 2 / 2
     e_pot = gravitational_potential(atmos.orientation, aux)
+
+    param_set = atmos.param_set
+    _MSLP::FT = MSLP(param_set)
+    _R_d::FT = R_d(param_set)
+    _grav::FT = grav(param_set)
+
+    p = _MSLP * exp(-e_pot / (_R_d * T0))
+    ρ = p / _R_d / T0
     
     state.ρ = ρ
     state.ρu = ρ * SVector(u0, 0, 0)
-    state.ρe = ρ * total_energy(atmos.param_set, e_kin, e_pot, T0)
+    ts = PhaseDry_ρT(atmos.param_set, ρ, T0)
+    # state.energy.ρθ_liq_ice = ρ * total_energy(atmos.param_set, e_kin, e_pot, T0)
+    state.energy.ρθ_liq_ice = ρ * liquid_ice_pottemp(ts)
+    # state.ρe = ρ * total_energy(atmos.param_set, e_kin, e_pot, T0)
 end
 
 function do_output(
@@ -376,29 +398,29 @@ end
 vars_state(::ZonalReferenceState, ::Auxiliary, FT) =
   @vars(ρ::FT, ρu::SVector{3, FT}, ρe::FT, p::FT, T::FT)
 function atmos_init_aux!(
-    refstate::ZonalReferenceState,
     atmos::AtmosModel,
-    aux::Vars,
-    tmp::Vars,
-    geom::LocalGeometry,
+    refstate::ZonalReferenceState,
+    aux,
+    geom,
+    tmp,
 )
     FT = eltype(aux)
-    (x, y, z) = geom.coord
+    #(x, y, z) = geom.coord
     param_set = atmos.param_set
     _MSLP::FT = MSLP(param_set)
     _R_d::FT = R_d(param_set)
     _grav::FT = grav(param_set)
-    
+
     T0 = refstate.T0
     u0 = refstate.u0
-    
+
     e_int = internal_energy(param_set, T0)
     e_pot = gravitational_potential(atmos.orientation, aux)
     e_kin = u0 ^ 2 / 2
-    
-    p = _MSLP * exp(-e_pot / (_R_d * T0))
-    ρ = p / (_R_d * T0)
 
+    p = _MSLP * exp(-e_pot / (_R_d * T0))
+
+    ρ = p / _R_d / T0
     aux.ref_state.ρ = ρ
     aux.ref_state.ρu = ρ * SVector(u0, 0, 0)
     aux.ref_state.ρe = ρ * (e_int + e_pot + e_kin)
