@@ -209,6 +209,8 @@ function convective_bl_model(
     u_star = FT(0.3)
     q_sfc = FT(0)
     moisture_flux = FT(0)
+    LHF = FT(0)
+    SHF = FT(110)
 
     # Assemble source components
     source_default = (

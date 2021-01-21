@@ -48,7 +48,8 @@ function perturbation_pressure(
     nh_pressure_drag =
         press.α_d * (w_up_i - env.w) * abs(w_up_i - env.w) / press.H_up
 
-    dpdz = nh_press_buoy + nh_pressure_adv + nh_pressure_drag
+    dpdz = nh_press_buoy + nh_pressure_drag
+    # dpdz = nh_press_buoy + nh_pressure_adv + nh_pressure_drag
 
     return dpdz
 end;

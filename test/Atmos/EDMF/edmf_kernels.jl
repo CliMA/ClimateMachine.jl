@@ -401,7 +401,8 @@ function compute_gradient_flux!(
         env,
     )
 
-    en_dif.K_m = m.turbconv.mix_len.c_m * en_dif.l_mix * sqrt(tke_en)
+    en_dif.K_m = FT(0.01) #K_m = m.turbconv.mix_len.c_m * en_dif.l_mix * sqrt(tke_en)
+    en_dif.l_mix = en_dif.K_m / (m.turbconv.mix_len.c_m * max(sqrt(tke_en),0.001))
     K_h = en_dif.K_m / Pr_t
     ρa₀ = gm.ρ * env.a
     Diss₀ = m.turbconv.mix_len.c_d * sqrt(tke_en) / en_dif.l_mix
@@ -824,6 +825,7 @@ function precompute(::EDMF, bl, args, ts, ::Flux{SecondOrder})
     env = environment_vars(state, N_up)
     ts_en = new_thermo_state_en(bl, bl.moisture, state, aux, ts_gm)
     ts_up = new_thermo_state_up(bl, bl.moisture, state, aux, ts_gm)
+    FT = eltype(state)
 
     buoy = compute_buoyancy(bl, state, env, ts_en, ts_up, aux.ref_state)
 
@@ -843,8 +845,9 @@ function precompute(::EDMF, bl, args, ts, ::Flux{SecondOrder})
 
     en = state.turbconv.environment
     tke_en = enforce_positivity(en.ρatke) / env.a / state.ρ
-    K_m = bl.turbconv.mix_len.c_m * l_mix * sqrt(tke_en)
+    K_m = FT(0.01) #bl.turbconv.mix_len.c_m * l_mix * sqrt(tke_en)
     K_h = K_m / Pr_t
+    l_mix  = K_m / bl.turbconv.mix_len.c_m / max(sqrt(tke_en),0.001)
     ρaw_up = vuntuple(i -> up[i].ρaw, N_up)
 
     return (;
@@ -922,6 +925,7 @@ function precompute(::EDMF, bl, args, ts, ::Source)
     ts_en = new_thermo_state_en(bl, bl.moisture, state, aux, ts_gm)
     ts_up = new_thermo_state_up(bl, bl.moisture, state, aux, ts_gm)
     ρa_up = compute_ρa_up(bl, state, aux)
+    FT = eltype(state)
 
     buoy = compute_buoyancy(bl, state, env, ts_en, ts_up, aux.ref_state)
     E_dyn, Δ_dyn, E_trb = entr_detr(bl, state, aux, ts_up, ts_en, env, buoy)
@@ -945,8 +949,9 @@ function precompute(::EDMF, bl, args, ts, ::Source)
 
     en = state.turbconv.environment
     tke_en = enforce_positivity(en.ρatke) / env.a / state.ρ
-    K_m = bl.turbconv.mix_len.c_m * l_mix * sqrt(tke_en)
+    K_m = FT(0.01) #bl.turbconv.mix_len.c_m * l_mix * sqrt(tke_en)
     K_h = K_m / Pr_t
+    l_mix = K_m/(bl.turbconv.mix_len.c_m * max(sqrt(tke_en),0.001))
     Diss₀ = bl.turbconv.mix_len.c_d * sqrt(tke_en) / l_mix
 
     return (;
@@ -1165,6 +1170,13 @@ function turbconv_boundary_state!(
         up⁺[i].ρaθ_liq = gm⁻.ρ * a_up_surf[i] * θ_liq_up_surf[i]
         up⁺[i].ρaq_tot = gm⁻.ρ * a_up_surf[i] * q_tot_up_surf[i]
     end
+
+    w_up_surf =
+        updraft_surface_w(turbconv.surface, turbconv, m, gm⁻, gm_a⁻, zLL)
+    @unroll_map(N_up) do i
+        up⁺[i].ρaw = a_up_surf[i] * gm⁻.ρ * w_up_surf[i]
+    end
+
     a_en = environment_area(gm⁻, N_up)
     en⁺.ρatke = gm⁻.ρ * a_en * tke
     en⁺.ρaθ_liq_cv = gm⁻.ρ * a_en * θ_liq_cv
