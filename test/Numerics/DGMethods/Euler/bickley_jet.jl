@@ -34,8 +34,10 @@ function main()
 
     mpicomm = MPI.COMM_WORLD
 
-    polynomialorder = 4
-    numlevels = 4
+
+    npts = [32,64,128,256];
+    polynomialorder = [3,4,5,6,7,8];
+    nelems = npts ÷ polynomialorder
 
     expected_error = Dict()
 
@@ -62,9 +64,8 @@ function main()
                 setup = BickleyJetSetup{FT}()
                 errors = Vector{FT}(undef, numlevels)
 
-                for level in 1:numlevels
-                    numelems =
-                        ntuple(dim -> dim == 3 ? 1 : 2^(level - 1) * 5, dims)
+                for elems in nelems
+                    numelems = elems
                     errors[level] = test_run(
                         mpicomm,
                         ArrayType,
