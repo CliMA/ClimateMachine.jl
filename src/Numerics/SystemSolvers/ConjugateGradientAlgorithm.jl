@@ -108,7 +108,7 @@ function residual!(
 )
     residual_norm = norm(solver.residual, weighted_norm)
     converged = check_convergence(residual_norm, threshold, iters)
-    return residual_norm, converged, 0
+    return residual_norm, converged
 end
 
 function initialize!(
@@ -124,8 +124,7 @@ function initialize!(
     residual = solver.residual
     f!(residual, Q, args...)
     residual .= rhs .- residual
-    residual_norm, converged, fcalls = residual!(solver, threshold, iters, Q, f!, rhs, args...)
-    fcalls += 1
+    residual_norm, converged = residual!(solver, threshold, iters, Q, f!, rhs, args...)
     if !converged
         # TODO: Implement preconditioner with new pc interface
         # PCapply!(solver.preconditioner, solver.z, solver.residual, args...)
@@ -133,7 +132,7 @@ function initialize!(
         solver.p .= solver.z # temporary while preconditioning is unsupported
     end
 
-    return residual_norm, converged, fcalls
+    return residual_norm, converged
 end
 
 function doiteration!(
@@ -159,9 +158,8 @@ function doiteration!(
     α = ω0 / dot(p, Ap)
     Q .+= α .* p
     r .= r .- α .* Ap
-    residual_norm, converged, fcalls = residual!(solver, threshold, iters, Q, f!, rhs, args...)
-    fcalls += 1
-    if converged return converged, fcalls, 1 end
+    residual_norm, converged = residual!(solver, threshold, iters, Q, f!, rhs, args...)
+    if converged return converged, 1 end
     # TODO: Implement preconditioner with new pc interface
     # PCapply!(pc, z, r, args...)
     z .= r
@@ -169,5 +167,5 @@ function doiteration!(
     p .= z .+ (ω1 / ω0) .* p
     ω0 = ω1
 
-    return false, fcalls, 1
+    return false, 1
 end

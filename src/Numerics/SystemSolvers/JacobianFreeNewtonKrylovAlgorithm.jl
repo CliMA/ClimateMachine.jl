@@ -111,10 +111,10 @@ end
 
 function updatejvp!(jvp!::JacobianVectorProductFD, args...)
     jvp!.f!(jvp!.fQ, jvp!.Q, args...)
-    return 1
+    return nothing
 end
 function updatejvp!(jvp!::JacobianVectorProductAD, args...)
-    return 0
+    return nothing
 end
 
 struct JacobianFreeNewtonKrylovAlgorithm <: IterativeAlgorithm
@@ -257,7 +257,7 @@ function residual!(
 
     residual_norm = norm(Δf, weighted_norm)
     has_converged = check_convergence(residual_norm, threshold, iters)
-    return residual_norm, has_converged, 1
+    return residual_norm, has_converged
 end
 
 function initialize!(
@@ -288,15 +288,14 @@ function doiteration!(
     preconditioner = krylovsolver.preconditioner
 
     ΔQ .= zero(eltype(ΔQ))
-    fcalls1 = updatejvp!(jvp!, args...)
+    updatejvp!(jvp!, args...)
 
     preconditioner_update!(jvp!, f!, preconditioner, args...)
-    fcalls2 = solve!(krylovsolver, ΔQ, jvp!, solver.Δf, args...)[2]
+    solve!(krylovsolver, ΔQ, jvp!, solver.Δf, args...)
     preconditioner_counter_update!(preconditioner)
 
     Q .+= ΔQ
 
-    residual_norm, has_converged, fcalls3 =
-        residual!(solver, threshold, iters, Q, f!, rhs, args...)
-    return has_converged, fcalls1 + fcalls2 + fcalls3, 1
+    residual_norm, has_converged = residual!(solver, threshold, iters, Q, f!, rhs, args...)
+    return has_converged, 1
 end

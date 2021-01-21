@@ -129,7 +129,7 @@ end
 
 atol(solver::GeneralizedConjugateResidualSolver) = solver.atol
 rtol(solver::GeneralizedConjugateResidualSolver) = solver.rtol
-maxiters(solver::GeneralizedConjugateResidualSolver) = solver.maxrestarts * solver.M
+maxiters(solver::GeneralizedConjugateResidualSolver) = solver.maxrestarts + 1
 
 function residual!(
     solver::GeneralizedConjugateResidualSolver,
@@ -142,7 +142,7 @@ function residual!(
 )
     residual_norm = norm(solver.residual, weighted_norm)
     converged = check_convergence(residual_norm, threshold, iters)
-    return residual_norm, converged, 0
+    return residual_norm, converged
 end
 
 function initialize!(
@@ -162,8 +162,7 @@ function initialize!(
     
     f!(residual, Q, args...)
     residual .-= rhs
-    residual_norm, converged, fcalls = residual!(solver, threshold, iters, Q, f!, rhs, args...)
-    fcalls += 1
+    residual_norm, converged = residual!(solver, threshold, iters, Q, f!, rhs, args...)
 
     # initialize descent direction
     if !converged
@@ -171,7 +170,7 @@ function initialize!(
         f!(L_p[1], p[1], args...)
     end
     
-    return residual_norm, converged, fcalls
+    return residual_norm, converged
 end
 
 function doiteration!(
@@ -191,7 +190,6 @@ function doiteration!(
     α = solver.α
     M = solver.M
     
-    fcalls = 0
     k = 1
     for outer k in 1:M
         # update Q
@@ -202,13 +200,11 @@ function doiteration!(
         residual .+= β * L_p[k]
 
         # convergence check
-        residual_norm, converged, fcalls1 = residual!(solver, threshold, iters, Q, f!, rhs, args...)
-        fcalls += fcalls1
-        if converged return converged, fcalls, k end
+        residual_norm, converged = residual!(solver, threshold, iters, Q, f!, rhs, args...)
+        if converged return converged, k end
 
         # update descent direction
         f!(L_residual, residual, args...)
-        fcalls += 1
 
         for l in 1:k
             α[l] = -dot(L_residual, L_p[l], weighted_norm) / normsq[l]
@@ -251,5 +247,5 @@ function doiteration!(
         wait(array_device(Q), event)
     end
 
-    return false, fcalls, k
+    return false, k
 end

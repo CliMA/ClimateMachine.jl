@@ -86,7 +86,7 @@ function residual!(solver::StandardPicardSolver,
 
     residual_norm  = norm(residual, weighted_norm)
     has_converged = check_convergence(residual_norm, threshold, iters)
-    return residual_norm, has_converged, 1
+    return residual_norm, has_converged
 end
 
 function initialize!(
@@ -107,6 +107,6 @@ function doiteration!(
     args...,
 )
     Q .= solver.fQ
-    residual_norm, has_converged, fcalls = residual!(solver, threshold, iters, Q, f!, args...)
-    return has_converged, fcalls, 1
+    residual_norm, has_converged = residual!(solver, threshold, iters, Q, f!, args...)
+    return has_converged, 1
 end

@@ -258,10 +258,6 @@ function IterativeSolver(
         "Must solve a square system, Q must have the same dimensions as rhs,",
         "\nbut their dimensions are $(size(Q)) and $(size(rhs)), respectively."
     ))
-    @assert(prod(dims) == length(Q), string(
-        "dims must contain the dimensions of an array with the same length ",
-        "as Q, ", length(Q), ", but it was set to ", dims
-    ))
     
     FT = eltype(Q)
 
@@ -276,8 +272,13 @@ function IterativeSolver(
     dims, batchdimindices =
         isnothing(algorithm.dims) || isnothing(algorithm.batchdimindices) ?
         defaultbatches(Q, f!, coupledstates) :
-        algorithm.dims, algorithm.batchdimindices
+        (algorithm.dims, algorithm.batchdimindices)
     groupsize = isnothing(algorithm.groupsize) ? 256 : algorithm.groupsize
+
+    @assert(prod(dims) == length(Q), string(
+        "dims must contain the dimensions of an array with the same length ",
+        "as Q, ", length(Q), ", but it was set to ", dims
+    ))
 
     remainingdimindices = Tuple(setdiff(1:length(dims), batchdimindices))
     batchsize = prod(dims[[batchdimindices...]])
@@ -305,7 +306,7 @@ end
 
 atol(solver::BatechedGeneralizedMinimalResidualSolver) = solver.atol
 rtol(solver::BatechedGeneralizedMinimalResidualSolver) = solver.rtol
-maxiters(solver::BatechedGeneralizedMinimalResidualSolver) = solver.maxrestarts
+maxiters(solver::BatechedGeneralizedMinimalResidualSolver) = solver.maxrestarts + 1
 
 function residual!(
     solver::BatechedGeneralizedMinimalResidualSolver,
@@ -342,7 +343,7 @@ function residual!(
     residual_norm = maximum(view(g0s, 1, :)) # TODO: Make this norm(view(g0s, 1, :)), since the overall norm is the norm of the batch norms.
     has_converged = check_convergence(residual_norm, threshold, iters)
 
-    return residual_norm, has_converged, 1
+    return residual_norm, has_converged
 end
 
 function initialize!(
@@ -448,10 +449,9 @@ function doiteration!(
     Q .+= ΔQ
 
     # Restart if the algorithm did not converge.
-    has_converged && return has_converged, m, m
-    _, has_converged, initfcalls =
-        residual!(solver, threshold, iters, Q, f!, rhs, args...)
-    return has_converged, m + initfcalls, m
+    has_converged && return has_converged, m
+    _, has_converged, = residual!(solver, threshold, iters, Q, f!, rhs, args...)
+    return has_converged, m
 end
 
 @kernel function batched_residual!(krylovbases, g0s, M, batchsize)

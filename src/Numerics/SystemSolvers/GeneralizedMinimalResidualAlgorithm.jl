@@ -115,7 +115,7 @@ end
 
 atol(solver::GeneralizedMinimalResidualSolver) = solver.atol
 rtol(solver::GeneralizedMinimalResidualSolver) = solver.rtol
-maxiters(solver::GeneralizedMinimalResidualSolver) = solver.maxrestarts * solver.M
+maxiters(solver::GeneralizedMinimalResidualSolver) = solver.maxrestarts + 1
 
 function residual!(
     solver::GeneralizedMinimalResidualSolver,
@@ -143,7 +143,7 @@ function residual!(
         g0[2:end] .= zero(eltype(g0))
     end
 
-    return residual_norm, has_converged, 1
+    return residual_norm, has_converged
 end
 
 function initialize!(
@@ -227,10 +227,9 @@ function doiteration!(
     # Un-apply the right preconditioner.
     preconditioner_solve!(preconditioner, Q)
 
-    has_converged && return has_converged, j, j
+    has_converged && return has_converged, j
 
     # Restart if the algorithm did not converge.
-    _, has_converged, initfcalls =
-        residual!(solver, threshold, iters, Q, f!, rhs, args...)
-    return has_converged, j + initfcalls, j
+    _, has_converged = residual!(solver, threshold, iters, Q, f!, rhs, args...)
+    return has_converged, j
 end

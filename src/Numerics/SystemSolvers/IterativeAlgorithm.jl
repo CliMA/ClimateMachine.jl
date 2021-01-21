@@ -60,8 +60,7 @@ function maxiters(solver::IterativeSolver) end
         args...,
     )
 
-Returns the norm of the residual, whether the solver converged, and the number
-of times `f` was evaluated.
+Returns the norm of the residual, whether the solver converged.
 
 Uses `threshold` and `iters` to check for convergence by calling
 `check_convergence`.
@@ -100,8 +99,8 @@ function initialize!(
 
 Performs an iteration of `solver` and updates the solution vector.
 
-Returns whether the solver converged, the number of times `f` was evaluated,
-and the number of inner solver iterations (for restarted methods).
+Returns whether the solver converged and the number of inner solver iterations
+(for restarted methods).
 """
 function doiteration!(
     solver::IterativeSolver,
@@ -116,27 +115,26 @@ function doiteration!(
 Iteratively solves a (non)linear system equations with a (non)linear `solver`.
 
 `args...` contains the problem to be solved in the format specified by the
-solver algorithm being used. Returns the number of iterations taken by `solver`
-and the number of times `solver` called `f`.
+solver algorithm being used. Returns the number of iterations taken by `solver`.
 """
 function solve!(solver::IterativeSolver, args...)
-    iters = 0 # total iterations of solver
+    iters = 0
+    totaliters = 0
 
-    initial_residual_norm, has_converged, fcalls =
-        initialize!(solver, atol(solver), iters, args...)
-    has_converged && return (iters, fcalls)
+    initial_residual_norm, has_converged = initialize!(solver, atol(solver), iters, args...)
+    has_converged && return totaliters
     threshold = max(atol(solver), rtol(solver) * initial_residual_norm) # TODO: make this a min after comparison testing.
 
     while !has_converged && iters < maxiters(solver)
-        has_converged, newfcalls, newiters =
+        has_converged, inneriters =
             doiteration!(solver, threshold, iters, args...)
-        iters += newiters # newiters = 1 unless using a restarted algorithm
-        fcalls += newfcalls
+        iters += 1
+        totaliters += inneriters
     end
 
     has_converged ||
-        @warn "$(typeof(solver).name) did not converge after $iters iterations"
-    return (iters, fcalls)
+        @warn "$(typeof(solver).name) did not converge after $totaliters iterations"
+    return totaliters
 end
 
 # Function used by solve!() and doiteration!() that checks whether the solver
@@ -194,6 +192,13 @@ include("ConjugateGradientAlgorithm.jl")
 #       - Check if the explicit computations in BatchedGeneralizedMinimalResidualAlgorithm are more efficient than the abstractions in GeneralizedMinimalResidualAlgorithm.
 #       - Fix the preconditioner implementation in GeneralizedMinimalResidualAlgorithm.
 #           - The solution taken from Solvent.jl looks wrong; use the solution from BatchedGeneralizedMinimalResidualAlgorithm, which has a seperate ΔQ vector to which the preconditioner is applied.
+#   - Remove batching and unbatching from BatchedGeneralizedMinimalResidualAlgorithm
+#       - Restrict BatchedGeneralizedMinimalResidualAlgorithm to batching in the vertical direction, so that each batch corresponds to a vertical stack of elements
+#       - Make BatchedGeneralizedMinimalResidualAlgorithm start parallel instances of GeneralizedMinimalResidualAlgorithm, each of which receives a list of elements (or the index of a vertical stack)
+#       - When GeneralizedMinimalResidualAlgorithm calls f!, have it pass the list of elements (or vertical stack index) to f!
+#       - Modify the DGModel/FVModel so that, when it recieves a list of elements (or vertical stack index), it evaluates dQ/dt on those elements, rather than on all elements in grid.topology.realelems
+#           - This corresponds to changing the number of vertical stacks on the current MPI rank; i.e., reducing it to a single stack configuration
+#           - We should ask Simon if this is actually possible
 #   - Our stopping condition is incorrect!
 #       - By taking the max of atol and rtol * initial_residual_norm, we are using the looser condition, ensuring that the tighter condition is not satisfied upon termination; we should use min instead.
 #           - See the last paragraph in http://www.math.uakron.edu/~kreider/num1/stopcrit.pdf.
