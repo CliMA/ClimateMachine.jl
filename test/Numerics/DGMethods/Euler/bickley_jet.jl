@@ -37,7 +37,6 @@ function main()
 
     npts = [32,64,128,256];
     polynomialorder = [3,4,5,6,7,8];
-    nelems = npts ÷ polynomialorder
 
     expected_error = Dict()
 
@@ -63,20 +62,23 @@ function main()
 
                 setup = BickleyJetSetup{FT}()
                 errors = Vector{FT}(undef, numlevels)
-
-                for elems in nelems
-                    numelems = elems
-                    errors[level] = test_run(
-                        mpicomm,
-                        ArrayType,
-                        polynomialorder,
-                        numelems,
-                        NumericalFlux,
-                        setup,
-                        FT,
-                        dims,
-                        level,
-                    )
+                level = 0
+                for pts in npts
+                    for polyorder in polynomialorder
+                        level += 1
+                        numelems = npts ÷ polynomialorder#TODO are we counting repeated nodes
+                        errors[level] = test_run(
+                            mpicomm,
+                            ArrayType,
+                            polynomialorder,
+                            numelems,
+                            NumericalFlux,
+                            setup,
+                            FT,
+                            dims,
+                            level,
+                        )
+                    end
                 end
             end
         end
