@@ -175,24 +175,8 @@ function numerical_boundary_flux_first_order!(
     )
 end
 
-
-"""
-    RusanovNumericalFlux <: NumericalFluxFirstOrder
-
-The RusanovNumericalFlux (aka local Lax-Friedrichs) numerical flux.
-
-# Usage
-
-    RusanovNumericalFlux()
-
-Requires a `flux_first_order!` and `wavespeed` method for the balance law.
-"""
-struct RusanovNumericalFlux <: NumericalFluxFirstOrder end
-
-update_penalty!(::RusanovNumericalFlux, ::BalanceLaw, _...) = nothing
-
 function numerical_flux_first_order!(
-    numerical_flux::RusanovNumericalFlux,
+    numerical_flux::NumericalFluxFirstOrder,
     balance_law::BalanceLaw,
     fluxᵀn::Vars{S},
     normal_vector::SVector,
@@ -203,7 +187,6 @@ function numerical_flux_first_order!(
     t,
     direction,
 ) where {S, A}
-
     numerical_flux_first_order!(
         CentralNumericalFluxFirstOrder(),
         balance_law,
@@ -216,8 +199,47 @@ function numerical_flux_first_order!(
         t,
         direction,
     )
+    numerical_flux_penalty!(
+        numerical_flux,
+        balance_law,
+        fluxᵀn,
+        state_prognostic⁻,
+        state_auxiliary⁻,
+        state_prognostic⁺,
+        state_auxiliary⁺,
+        t,
+        direction,
+    )
+end
 
-    fluxᵀn = parent(fluxᵀn)
+
+"""
+    RusanovNumericalFlux <: NumericalFluxFirstOrder
+
+The RusanovNumericalFlux (aka local Lax-Friedrichs) numerical flux.
+
+# Usage
+
+    RusanovNumericalFlux()
+
+Requires a `wavespeed` method for the balance law.
+"""
+struct RusanovNumericalFlux <: NumericalFluxFirstOrder end
+
+update_penalty!(::RusanovNumericalFlux, ::BalanceLaw, _...) = nothing
+
+function numerical_flux_penalty!(
+    numerical_flux::RusanovNumericalFlux,
+    balance_law::BalanceLaw,
+    fluxᵀn::Vars{S},
+    normal_vector::SVector,
+    state_prognostic⁻::Vars{S},
+    state_auxiliary⁻::Vars{A},
+    state_prognostic⁺::Vars{S},
+    state_auxiliary⁺::Vars{A},
+    t,
+    direction,
+) where {S, A}
     wavespeed⁻ = wavespeed(
         balance_law,
         normal_vector,
@@ -252,7 +274,8 @@ function numerical_flux_first_order!(
         t,
     )
 
-    fluxᵀn .+= penalty / 2
+    Fᵀn = parent(fluxᵀn)
+    Fᵀn .+= penalty / 2
 end
 
 """
