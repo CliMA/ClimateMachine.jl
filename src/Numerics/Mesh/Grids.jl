@@ -74,7 +74,7 @@ _x2,
 _x3,
 _JcV = 1:_nvgeo
 const vgeoid = (
-    ξ1x1id = _ξ1x1,
+    ξ1x1id = _ξ1x1, # ∂ξ1/∂x1
     ξ2x1id = _ξ2x1,
     ξ3x1id = _ξ3x1,
     ξ1x2id = _ξ1x2,
@@ -83,19 +83,23 @@ const vgeoid = (
     ξ1x3id = _ξ1x3,
     ξ2x3id = _ξ2x3,
     ξ3x3id = _ξ3x3,
-    Mid = _M,
-    MIid = _MI,
-    MHid = _MH,
+    Mid = _M,    # J * ωᵢ * ωⱼ * ωₖ, where ωᵢ are quadrature weights, J is det(∂x/∂ξ)
+    MIid = _MI,  # 1/M
+    MHid = _MH,  # J * norm(∂ξ3/∂x) * ωᵢ * ωⱼ; for integrating over a plane
     x1id = _x1,
     x2id = _x2,
     x3id = _x3,
-    JcVid = _JcV,
+    JcVid = _JcV, #  norm(∂x/∂ξ3); the vertical line integral Jacobian
 )
-# JcV is the vertical line integral Jacobian
-# The MH terms are for integrating over a plane.
 const _nsgeo = 5
 const _n1, _n2, _n3, _sM, _vMI = 1:_nsgeo
-const sgeoid = (n1id = _n1, n2id = _n2, n3id = _n3, sMid = _sM, vMIid = _vMI)
+const sgeoid = (
+    n1id = _n1,  # outward normal = (n1,n2,n3)
+    n2id = _n2,
+    n3id = _n3,
+    sMid = _sM,
+    vMIid = _vMI,
+)
 # }}}
 
 """
