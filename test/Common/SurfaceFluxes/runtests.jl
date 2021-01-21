@@ -1,3 +1,5 @@
+module TestSurfaceFluxes
+
 using Test
 
 using ClimateMachine.SurfaceFluxes
@@ -126,3 +128,5 @@ const param_set = EarthParameterSet()
 end
 
 include("test_universal_functions.jl")
+
+end # module

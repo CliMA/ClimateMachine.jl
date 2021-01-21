@@ -1,3 +1,5 @@
+module TestTemperatureProfiles
+
 using Test
 using ClimateMachine.TemperatureProfiles
 using ClimateMachine.Thermodynamics
@@ -59,3 +61,5 @@ const param_set = EarthParameterSet()
 
     end
 end
+
+end # module

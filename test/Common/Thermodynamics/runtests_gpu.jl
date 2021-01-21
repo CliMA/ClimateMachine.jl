@@ -1,3 +1,4 @@
+module TestThermodynamicsGPU
 using Test
 using KernelAbstractions
 using ClimateMachine.Thermodynamics
@@ -90,3 +91,5 @@ end
     @test all(Array(d_dst)[2, :] .≈ air_temperature.(ts_correct))
 
 end
+
+end # module

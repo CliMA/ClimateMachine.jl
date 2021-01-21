@@ -1,3 +1,5 @@
+module TestRefState
+
 include("get_atmos_ref_states.jl")
 using JLD2
 using Pkg.Artifacts
@@ -61,3 +63,5 @@ end
     end
 
 end
+
+end # module

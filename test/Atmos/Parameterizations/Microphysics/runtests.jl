@@ -1,3 +1,5 @@
+module TestMicrophysics
+
 using Test
 using ClimateMachine.Microphysics_0M
 using ClimateMachine.Microphysics
@@ -364,3 +366,5 @@ end
     @test snow_melt(prs, sno_prs, q_sno, ρ, T) ≈ 0
 
 end
+
+end # module

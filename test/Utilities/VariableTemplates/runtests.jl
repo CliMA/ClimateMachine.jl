@@ -1,3 +1,5 @@
+module TestVariableTemplates
+
 using Test
 using StaticArrays
 using ClimateMachine.VariableTemplates
@@ -7,3 +9,5 @@ using ClimateMachine.VariableTemplates
     include("varsindex.jl")
     include("test_complex_models.jl")
 end
+
+end # module

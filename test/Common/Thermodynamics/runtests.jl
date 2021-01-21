@@ -1,3 +1,4 @@
+module TestThermodynamics
 using Test
 using ClimateMachine.Thermodynamics
 using ClimateMachine.TemperatureProfiles
@@ -1218,3 +1219,5 @@ end
     )
 
 end
+
+end # module
