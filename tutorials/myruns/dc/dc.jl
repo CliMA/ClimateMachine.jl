@@ -302,6 +302,7 @@ function main()
     ## that forces problem initialization on CPU (thereby allowing the use of
     ## random seeds, spline interpolants and other special functions at the
     ## initialization step.)
+    dims = 2
     N = 4
     Δh = FT(100)
     Δv = FT(100)
