@@ -66,7 +66,7 @@ function main()
                 for pts in npts
                     for polyorder in polynomialorder
                         level += 1
-                        numelems = npts ÷ polynomialorder#TODO are we counting repeated nodes
+                        numelems = (npts + 1) ÷ polynomialorder#TODO are we counting repeated nodes
                         errors[level] = test_run(
                             mpicomm,
                             ArrayType,
