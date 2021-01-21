@@ -61,16 +61,16 @@ function main()
                                   """ ArrayType "$FT" "$NumericalFlux" dims
 
                 setup = BickleyJetSetup{FT}()
-                errors = Vector{FT}(undef, numlevels)
+                errors = Vector{FT}(undef, 6)
                 level = 0
                 for pts in npts
                     for polyorder in polynomialorder
                         level += 1
-                        numelems = (npts + 1) ÷ polynomialorder#TODO are we counting repeated nodes
+                        numelems = (pts + 1) ÷ polyorder#TODO are we counting repeated nodes
                         errors[level] = test_run(
                             mpicomm,
                             ArrayType,
-                            polynomialorder,
+                            polyorder,
                             numelems,
                             NumericalFlux,
                             setup,
@@ -87,7 +87,7 @@ function main()
 function test_run(
     mpicomm,
     ArrayType,
-    polynomialorder,
+    polyorder,
     numelems,
     NumericalFlux,
     setup,
@@ -98,7 +98,7 @@ function test_run(
     brickrange = ntuple(dims) do dim
         range(
             -setup.domain_halflength;
-            length = numelems[dim] + 1,
+            length = numelems + 1,
             stop = setup.domain_halflength,
         )
     end
@@ -113,7 +113,7 @@ function test_run(
         topology,
         FloatType = FT,
         DeviceArray = ArrayType,
-        polynomialorder = polynomialorder,
+        polynomialorder = polyorder,
     )
         
     δ_χ = SVector{1,FT}(0)
@@ -146,7 +146,7 @@ function test_run(
     elementsize = minimum(step.(brickrange))
     dt =
         elementsize / soundspeed_air(model.param_set, setup.T∞) /
-        polynomialorder^2
+        polyorder^2
     nsteps = ceil(Int, timeend / dt)
     dt = timeend / nsteps
 
@@ -156,7 +156,7 @@ function test_run(
     eng0 = norm(Q)
     dims == 2 && (numelems = (numelems..., 0))
     @info @sprintf """Starting refinement level %d
-                      numelems  = (%d, %d, %d)
+                      numelems  = (%d, %d)
                       dt        = %.16e
                       norm(Q₀)  = %.16e
                       """ level numelems... dt eng0
@@ -185,7 +185,7 @@ function test_run(
         # create vtk dir
         vtkdir =
             "vtk_bickleyjet" *
-            "_poly$(polynomialorder)_dims$(dims)_$(ArrayType)_$(FT)_level$(level)"
+            "_poly$(polyorder)_dims$(dims)_$(ArrayType)_$(FT)_level$(level)"
         mkpath(vtkdir)
 
         vtkstep = 0
