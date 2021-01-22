@@ -61,13 +61,13 @@ function main()
                                   """ ArrayType "$FT" "$NumericalFlux" dims
 
                 setup = BickleyJetSetup{FT}()
-                errors = Vector{FT}(undef, 6)
-                level = 0
+                errors = Vector{FT}(undef,24)
+                level = 0.0
                 for pts in npts
                     for polyorder in polynomialorder
-                        level += 1
+                        level = pts
                         numelems = (pts + 1) ÷ polyorder#TODO are we counting repeated nodes
-                        errors[level] = test_run(
+                        test_run(
                             mpicomm,
                             ArrayType,
                             polyorder,
@@ -185,7 +185,7 @@ function test_run(
         # create vtk dir
         vtkdir =
             "vtk_bickleyjet" *
-            "_poly$(polyorder)_dims$(dims)_$(ArrayType)_$(FT)_level$(level)"
+            "_poly$(polyorder)_dims$(dims)_$(ArrayType)_$(FT)_npts$(level)"
         mkpath(vtkdir)
 
         vtkstep = 0
