@@ -254,7 +254,7 @@ function soil_boundary_flux!(
     t,
     _...,
 )
-    cnfg = CentralNumericalFluxGradient()
+  #  cnfg = CentralNumericalFluxGradient()
     
     
     FT = eltype(state⁻)

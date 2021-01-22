@@ -132,7 +132,7 @@ driver_config = ClimateMachine.SingleStackConfiguration(
 
 # Choose the initial and final times, as well as a timestep.
 t0 = FT(0)
-timeend = FT(60 * 100)
+timeend = FT(6)#0 * 100)
 dt = FT(0.05); #5
 
 # Create the solver configuration.
