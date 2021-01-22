@@ -56,16 +56,7 @@ function atmos_nodal_update_auxiliary_state!(
 )
     nothing
 end
-function flux_first_order!(
-    ::TracerModel,
-    atmos::AtmosModel,
-    flux::Grad,
-    state::Vars,
-    aux::Vars,
-    t::Real,
-    ts,
-    direction,
-)
+function flux_first_order!(::TracerModel, atmos::AtmosModel, flux::Grad, args)
     nothing
 end
 function compute_gradient_flux!(
@@ -78,17 +69,7 @@ function compute_gradient_flux!(
 )
     nothing
 end
-function flux_second_order!(
-    ::TracerModel,
-    flux::Grad,
-    atmos::AtmosModel,
-    state::Vars,
-    aux::Vars,
-    t::Real,
-    ts,
-    diffusive::Vars,
-    hyperdiffusive::Vars,
-)
+function flux_second_order!(::TracerModel, flux::Grad, atmos::AtmosModel, args)
     nothing
 end
 function compute_gradient_argument!(
@@ -188,31 +169,20 @@ function flux_first_order!(
     tr::NTracers{N},
     atmos::AtmosModel,
     flux::Grad,
-    state::Vars,
-    aux::Vars,
-    t::Real,
-    ts,
-    direction,
+    args,
 ) where {N}
     tend = Flux{FirstOrder}()
-    args = (atmos, state, aux, t, ts, direction)
-    flux.tracers.ρχ = Σfluxes(eq_tends(Tracers{N}(), atmos, tend), args...)
+    flux.tracers.ρχ = Σfluxes(eq_tends(Tracers{N}(), atmos, tend), atmos, args)
 end
 
 function flux_second_order!(
     tr::NTracers{N},
     flux::Grad,
     atmos::AtmosModel,
-    state::Vars,
-    aux::Vars,
-    t::Real,
-    ts,
-    diffusive::Vars,
-    hyperdiffusive::Vars,
+    args,
 ) where {N}
     tend = Flux{SecondOrder}()
-    args = (atmos, state, aux, t, ts, diffusive, hyperdiffusive)
-    flux.tracers.ρχ = Σfluxes(eq_tends(Tracers{N}(), atmos, tend), args...)
+    flux.tracers.ρχ = Σfluxes(eq_tends(Tracers{N}(), atmos, tend), atmos, args)
 end
 
 function wavespeed_tracers!(

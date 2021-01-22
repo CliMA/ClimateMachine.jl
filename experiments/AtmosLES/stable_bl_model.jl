@@ -13,7 +13,6 @@
 
 using ArgParse
 using Distributions
-using Random
 using StaticArrays
 using Test
 using DocStringExtensions
@@ -37,7 +36,6 @@ using ClimateMachine.TurbulenceConvection
 using ClimateMachine.VariableTemplates
 using ClimateMachine.BalanceLaws
 import ClimateMachine.BalanceLaws: source
-import ClimateMachine.Atmos: filter_source, atmos_source!
 
 using CLIMAParameters
 using CLIMAParameters.Planet: R_d, cp_d, cv_d, MSLP, grav, day
@@ -118,10 +116,7 @@ function source(s::StableBLSponge{Momentum}, m, args)
     end
 end
 
-filter_source(pv::PV, m, s::StableBLGeostrophic{PV}) where {PV} = s
-filter_source(pv::PV, m, s::StableBLSponge{PV}) where {PV} = s
-atmos_source!(::StableBLGeostrophic, args...) = nothing
-atmos_source!(::StableBLSponge, args...) = nothing
+add_perturbations!(state, localgeo) = nothing
 
 """
   Initial Condition for StableBoundaryLayer LES
@@ -176,23 +171,13 @@ function init_problem!(problem, bl, state, aux, localgeo, t)
     if !(bl.moisture isa DryModel)
         state.moisture.ρq_tot = ρ * q_tot
     end
-    if z <= FT(50) # Add random perturbations to bottom 50m of model
-        state.ρe += rand() * ρe_tot / 100
-    end
+    add_perturbations!(state, localgeo)
     init_state_prognostic!(bl.turbconv, bl, state, aux, localgeo, t)
 end
 
 function surface_temperature_variation(bl, state, t)
     FT = eltype(state)
-    ρ = state.ρ
-    θ_liq_sfc = FT(265) - FT(1 / 4) * (t / 3600)
-    if bl.moisture isa DryModel
-        TS = PhaseDry_ρθ(bl.param_set, ρ, θ_liq_sfc)
-    else
-        q_tot = state.moisture.ρq_tot / ρ
-        TS = PhaseEquil_ρθq(bl.param_set, ρ, θ_liq_sfc, q_tot)
-    end
-    return air_temperature(TS)
+    return FT(265) - FT(1 / 4) * (t / 3600)
 end
 
 function stable_bl_model(
@@ -200,13 +185,13 @@ function stable_bl_model(
     config_type,
     zmax,
     surface_flux;
+    turbulence = ConstantKinematicViscosity(FT(0)),
     turbconv = NoTurbConv(),
     moisture_model = "dry",
 ) where {FT}
 
     ics = init_problem!     # Initial conditions
 
-    C_smag = FT(0.23)     # Smagorinsky coefficient
     C_drag = FT(0.001)    # Momentum exchange coefficient
     u_star = FT(0.30)
 
@@ -241,6 +226,7 @@ function stable_bl_model(
             u_slope,
             v_geostrophic,
         ),
+        turbconv_sources(turbconv)...,
     )
     if moisture_model == "dry"
         source = source_default
@@ -321,7 +307,7 @@ function stable_bl_model(
         config_type,
         param_set;
         problem = problem,
-        turbulence = SmagorinskyLilly{FT}(C_smag),
+        turbulence = turbulence,
         moisture = moisture,
         source = source,
         turbconv = turbconv,

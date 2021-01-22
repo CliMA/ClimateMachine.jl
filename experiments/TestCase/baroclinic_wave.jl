@@ -21,6 +21,7 @@ using ClimateMachine.Thermodynamics:
     air_density, air_temperature, total_energy, internal_energy, PhasePartition
 using ClimateMachine.TurbulenceClosures
 using ClimateMachine.VariableTemplates
+using ClimateMachine.Spectra: compute_gaussian!
 
 using CLIMAParameters
 using CLIMAParameters.Planet: MSLP, R_d, day, grav, Omega, planet_radius
@@ -296,15 +297,36 @@ function config_diagnostics(FT, driver_config)
     _planet_radius = FT(planet_radius(param_set))
 
     info = driver_config.config_info
+
+    # Setup diagnostic grid(s)
+    nlats = 128
+
+    sinθ, wts = compute_gaussian!(nlats)
+    lats = asin.(sinθ) .* 180 / π
+    lons = 180.0 ./ nlats * collect(FT, 1:1:(2nlats))[:] .- 180.0
+
     boundaries = [
-        FT(-90.0) FT(-180.0) _planet_radius
-        FT(90.0) FT(180.0) FT(_planet_radius + info.domain_height)
+        FT(lats[1]) FT(lons[1]) _planet_radius
+        FT(lats[end]) FT(lons[end]) FT(_planet_radius + info.domain_height)
     ]
-    resolution = (FT(2), FT(2), FT(1000)) # in (deg, deg, m)
+
+    lvls = collect(range(
+        boundaries[1, 3],
+        boundaries[2, 3],
+        step = FT(1000), # in m
+    ))
+
+    #boundaries = [
+    #    FT(-90.0) FT(-180.0) _planet_radius
+    #    FT(90.0) FT(180.0) FT(_planet_radius + info.domain_height)
+    #]
+
+    #resolution = (FT(2), FT(2), FT(1000)) # in (deg, deg, m)
+
     interpol = ClimateMachine.InterpolationConfiguration(
         driver_config,
         boundaries,
-        resolution,
+        [lats, lons, lvls],
     )
 
     dgngrp = setup_atmos_default_diagnostics(
@@ -314,7 +336,14 @@ function config_diagnostics(FT, driver_config)
         interpol = interpol,
     )
 
-    return ClimateMachine.DiagnosticsConfiguration([dgngrp])
+    ds_dgngrp = setup_atmos_spectra_diagnostics(
+        AtmosGCMConfigType(),
+        interval,
+        driver_config.name,
+        interpol = interpol,
+    )
+
+    return ClimateMachine.DiagnosticsConfiguration([dgngrp, ds_dgngrp])
 end
 
 main()

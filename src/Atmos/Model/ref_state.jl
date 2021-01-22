@@ -4,6 +4,8 @@ using ..TemperatureProfiles
 export ReferenceState, NoReferenceState, HydrostaticState
 const TD = Thermodynamics
 using CLIMAParameters.Planet: R_d, MSLP, cp_d, grav, T_surf_ref, T_min_ref
+using ..DGMethods: fvm_balance!
+using ..Mesh.Grids: polynomialorders
 
 """
     ReferenceState
@@ -14,14 +16,6 @@ condition or for linearization.
 abstract type ReferenceState end
 
 vars_state(m::ReferenceState, ::AbstractStateType, FT) = @vars()
-
-atmos_init_aux!(
-    ::ReferenceState,
-    ::AtmosModel,
-    aux::Vars,
-    tmp::Vars,
-    geom::LocalGeometry,
-) = nothing
 
 """
     NoReferenceState <: ReferenceState
@@ -42,49 +36,73 @@ state.
 struct HydrostaticState{P, FT} <: ReferenceState
     virtual_temperature_profile::P
     relative_humidity::FT
+    subtract_off::Bool
 end
+"""
+    HydrostaticState(
+        virtual_temperature_profile,
+        relative_humidity = 0;
+        subtract_off = true,
+    )
+
+Construct a `HydrostaticState` given virtual temperature profile and
+relative humidity. The keyword argument `subtract_off` controls
+whether the constructed state is subtracted off in the prognostic
+momentum equation to remove hydrostatic contribution.
+"""
 function HydrostaticState(
     virtual_temperature_profile::TemperatureProfile{FT},
+    relative_humidity = FT(0);
+    subtract_off = true,
 ) where {FT}
     return HydrostaticState{typeof(virtual_temperature_profile), FT}(
         virtual_temperature_profile,
-        FT(0),
+        relative_humidity,
+        subtract_off,
     )
 end
 
 vars_state(m::HydrostaticState, ::Auxiliary, FT) =
     @vars(ρ::FT, p::FT, T::FT, ρe::FT, ρq_tot::FT, ρq_liq::FT, ρq_ice::FT)
 
-atmos_init_ref_state_pressure!(m, _...) = nothing
-function atmos_init_ref_state_pressure!(
-    m::HydrostaticState{P, F},
+function ref_state_init_pρ!(
     atmos::AtmosModel,
     aux::Vars,
+    tmp::Vars,
     geom::LocalGeometry,
-) where {P, F}
+)
     z = altitude(atmos, aux)
-    _, p = m.virtual_temperature_profile(atmos.param_set, z)
+    T_virt, p = atmos.ref_state.virtual_temperature_profile(atmos.param_set, z)
     aux.ref_state.p = p
+    aux.ref_state.ρ = p / (T_virt * R_d(atmos.param_set))
 end
 
-function atmos_init_aux!(
-    m::HydrostaticState{P, F},
+function ref_state_init_density_from_pressure!(
     atmos::AtmosModel,
     aux::Vars,
     tmp::Vars,
     geom::LocalGeometry,
 ) where {P, F}
-    z = altitude(atmos, aux)
-    T_virt, p = m.virtual_temperature_profile(atmos.param_set, z)
-    FT = eltype(aux)
-    _R_d::FT = R_d(atmos.param_set)
     k = vertical_unit_vector(atmos, aux)
     ∇Φ = ∇gravitational_potential(atmos, aux)
-
     # density computation from pressure ρ = -1/g*dpdz
     ρ = -k' * tmp.∇p / (k' * ∇Φ)
     aux.ref_state.ρ = ρ
-    RH = m.relative_humidity
+end
+
+function ref_state_finalize_init!(
+    atmos::AtmosModel,
+    aux::Vars,
+    tmp::Vars,
+    geom::LocalGeometry,
+)
+    FT = eltype(aux)
+
+    ρ = aux.ref_state.ρ
+    p = aux.ref_state.p
+    T_virt = p / (ρ * FT(R_d(atmos.param_set)))
+
+    RH = atmos.ref_state.relative_humidity
     phase_type = PhaseEquil
     (T, q_pt) = TD.temperature_and_humidity_given_TᵥρRH(
         atmos.param_set,
@@ -96,23 +114,69 @@ function atmos_init_aux!(
 
     # Update temperature to be exactly consistent with
     # p, ρ, and q_pt
-    T = TD.air_temperature_from_ideal_gas_law(atmos.param_set, p, ρ, q_pt)
+    if atmos.moisture isa DryModel
+        ts = PhaseDry_ρp(atmos.param_set, ρ, p)
+    else
+        ts = PhaseEquil_ρpq(atmos.param_set, ρ, p, q_pt.tot)
+    end
+    T = air_temperature(ts)
+    q_pt = PhasePartition(ts)
     q_tot = q_pt.tot
     q_liq = q_pt.liq
     q_ice = q_pt.ice
-    if atmos.moisture isa DryModel
-        ts = PhaseDry_ρT(atmos.param_set, ρ, T)
-    else
-        ts = PhaseEquil_ρTq(atmos.param_set, ρ, T, q_tot)
-    end
 
     aux.ref_state.ρq_tot = ρ * q_tot
     aux.ref_state.ρq_liq = ρ * q_liq
     aux.ref_state.ρq_ice = ρ * q_ice
     aux.ref_state.T = T
-    e_kin = F(0)
+    e_kin = FT(0)
     e_pot = gravitational_potential(atmos.orientation, aux)
     aux.ref_state.ρe = ρ * total_energy(e_kin, e_pot, ts)
+end
+
+atmos_init_aux!(::AtmosModel, ::ReferenceState, _...) = nothing
+function atmos_init_aux!(
+    atmos::AtmosModel,
+    ::HydrostaticState,
+    state_auxiliary::MPIStateArray,
+    grid,
+    direction,
+)
+    # Step 1: initialize both ρ and p
+    init_state_auxiliary!(
+        atmos,
+        ref_state_init_pρ!,
+        state_auxiliary,
+        grid,
+        direction,
+    )
+
+    # Step 2: correct ρ from p to satisfy discrete hydrostic balance
+    vertical_fvm = polynomialorders(grid)[end] == 0
+
+    if vertical_fvm
+        # Vertical finite volume scheme
+        # pᵢ - pᵢ₊₁ =  g ρᵢ₊₁ Δzᵢ₊₁/2 + g ρᵢ Δzᵢ/2
+        fvm_balance!(fvm_balance_init!, atmos, state_auxiliary, grid)
+    else
+        ∇p = ∇reference_pressure(atmos.ref_state, state_auxiliary, grid)
+        init_state_auxiliary!(
+            atmos,
+            ref_state_init_density_from_pressure!,
+            state_auxiliary,
+            grid,
+            direction;
+            state_temporary = ∇p,
+        )
+    end
+
+    init_state_auxiliary!(
+        atmos,
+        ref_state_finalize_init!,
+        state_auxiliary,
+        grid,
+        direction,
+    )
 end
 
 using ..MPIStateArrays: vars
@@ -190,4 +254,19 @@ function ∇reference_pressure(::ReferenceState, state_auxiliary, grid)
 
     grad_dg(∇p, gradQ, nothing, FT(0))
     return ∇p
+end
+
+function fvm_balance_init!(
+    m::AtmosModel,
+    aux::Vars,
+    aux_top::Vars,
+    Δz::MArray{Tuple{2}, FT},
+) where {FT}
+    # ρᵢ₋₁  = (pᵢ₋₁ - pᵢ - g ρᵢ Δzᵢ/2) / (g  Δzᵢ₋₁/2)
+    _grav::FT = grav(m.param_set)
+    aux.ref_state.ρ =
+        (
+            aux.ref_state.p - aux_top.ref_state.p -
+            _grav * aux_top.ref_state.ρ * Δz[2] / 2
+        ) / (_grav * Δz[1] / 2)
 end

@@ -1,4 +1,13 @@
+using Random
 include("stable_bl_model.jl")
+
+function add_perturbations!(state, localgeo)
+    FT = eltype(state)
+    z = localgeo.coord[3]
+    if z <= FT(50) # Add random perturbations to bottom 50m of model
+        state.ρe += (rand() - 0.5) * state.ρe / 100
+    end
+end
 
 function main()
 
@@ -42,7 +51,16 @@ function main()
     # Choose default IMEX solver
     ode_solver_type = ClimateMachine.ExplicitSolverType()
 
-    model = stable_bl_model(FT, config_type, zmax, surface_flux)
+    C_smag = FT(0.23)
+
+    model = stable_bl_model(
+        FT,
+        config_type,
+        zmax,
+        surface_flux;
+        turbulence = SmagorinskyLilly{FT}(C_smag),
+    )
+
     ics = model.problem.init_state_prognostic
 
     # Assemble configuration

@@ -1,5 +1,4 @@
 using ClimateMachine
-const clima_dir = dirname(dirname(pathof(ClimateMachine)));
 
 if parse(Bool, get(ENV, "CLIMATEMACHINE_PLOT_EDMF_COMPARISON", "false"))
     using Plots
@@ -15,7 +14,8 @@ using ClimateMachine.ArtifactWrappers
 # Get PyCLES_output dataset folder:
 #! format: off
 PyCLES_output_dataset = ArtifactWrapper(
-    joinpath(clima_dir, "test", "Atmos", "EDMF", "Artifacts.toml"),
+    @__DIR__,
+    isempty(get(ENV, "CI", "")),
     "PyCLES_output",
     ArtifactFile[
     # ArtifactFile(url = "https://caltech.box.com/shared/static/johlutwhohvr66wn38cdo7a6rluvz708.nc", filename = "Rico.nc",),
@@ -29,8 +29,6 @@ PyCLES_output_dataset = ArtifactWrapper(
     ],
 )
 PyCLES_output_dataset_path = get_data_folder(PyCLES_output_dataset)
-data_files = Dict()
-data_files[:Bomex] = Dataset(joinpath(PyCLES_output_dataset_path, "Bomex.nc"), "r")
 # data_files[:Rico] = Dataset(joinpath(PyCLES_output_dataset_path, "Rico.nc"), "r")
 # data_files[:Gabls] = Dataset(joinpath(PyCLES_output_dataset_path, "Gabls.nc"), "r")
 # data_files[:DYCOMS_RF01] = Dataset(joinpath(PyCLES_output_dataset_path, "DYCOMS_RF01.nc"), "r")
@@ -222,3 +220,21 @@ function compute_mse(
 
     return mse
 end
+
+sufficient_mse(computed_mse, best_mse) = computed_mse <= best_mse + sqrt(eps())
+
+function test_mse(computed_mse, best_mse, key)
+    mse_not_regressed = sufficient_mse(computed_mse[key], best_mse[key])
+    @test mse_not_regressed
+    mse_not_regressed || @show key
+end
+
+function dons(diag_vs_z)
+    return Dict(map(keys(first(diag_vs_z))) do k
+        string(k) => [getproperty(ca, k) for ca in diag_vs_z]
+    end)
+end
+
+get_dons_arr(diag_arr) = [dons(diag_vs_z) for diag_vs_z in diag_arr]
+
+dons_arr = get_dons_arr(diag_arr)

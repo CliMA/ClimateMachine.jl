@@ -48,26 +48,25 @@ domainL = RectangularDomain(
 
 # Create 3 components - one on each domain, for now all are instances
 # of the same balance law
-mA=Coupling.CplTestModel(;domain=domainA,BL_module=CplTestingBL)
-mO=Coupling.CplTestModel(;domain=domainO,BL_module=CplTestingBL)
-mL=Coupling.CplTestModel(;domain=domainL,BL_module=CplTestingBL)
+mA=Coupling.CplTestModel(;domain=domainA,BL_module=CplTestingBL, nsteps=5)
+mO=Coupling.CplTestModel(;domain=domainO,BL_module=CplTestingBL, nsteps=2)
+#mL=Coupling.CplTestModel(;domain=domainL,BL_module=CplTestingBL)
 
-# Create some callbacks to push component boundary states to export fields.
-cpl_cbA=GenericCallbacks.EveryXSimulationSteps(1) do
- println("Atmos export fill callback")
+function postatmos(_)
+    println("Atmos export fill callback")
+    mO.discretization.state_auxiliary.boundary_in[...] .= mA.discretization.state_auxiliary.boundary_out[...]
+
 end
-cpl_cbO=GenericCallbacks.EveryXSimulationSteps(1) do
- println("Ocean export fill callback")
-end
-cpl_cbL=GenericCallbacks.EveryXSimulationSteps(1) do
- println("Land export fill callback")
+function postocean(_)
+    println("Ocean export fill callback")
+    mA.discretization.state_auxiliary.boundary_in[...] .= mO.discretization.state_auxiliary.boundary_out[...]
 end
 
 # Instantiate a coupled timestepper that steps forward the components and
 # implements mapings between components export bondary states and
 # other components imports.
-component_list=(atmosphere=mA,ocean=mO,land=mL)
-callback_list =(atmosphere=(cpl_cbA,),ocean=(cpl_cbO,),land=(cpl_cbL,) )
+component_list=(atmosphere=mA,ocean=mO,)
+callback_list =(atmosphere=postatmos,ocean=postocean,)
 cC=Coupling.CplSolver(component_list=component_list,
                       callback_list=callback_list,
                       coupling_dt=5.,t0=0.)

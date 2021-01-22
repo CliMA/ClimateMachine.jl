@@ -48,6 +48,7 @@ function OceanSplitExplicitConfiguration(
     numerical_flux_first_order = RusanovNumericalFlux(),
     numerical_flux_second_order = CentralNumericalFluxSecondOrder(),
     numerical_flux_gradient = CentralNumericalFluxGradient(),
+    fv_reconstruction = nothing,
     periodicity = (false, false, false),
     boundary = ((1, 1), (1, 1), (2, 3)),
 )
@@ -185,6 +186,7 @@ function OceanSplitExplicitConfiguration(
         numerical_flux_first_order,
         numerical_flux_second_order,
         numerical_flux_gradient,
+        fv_reconstruction,
         OceanSplitExplicitSpecificInfo(model_2D, grid_2D, dg_3D),
     )
 end

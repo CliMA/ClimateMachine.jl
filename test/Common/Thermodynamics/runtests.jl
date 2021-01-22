@@ -2,6 +2,7 @@ using Test
 using ClimateMachine.Thermodynamics
 using ClimateMachine.TemperatureProfiles
 using UnPack
+using BenchmarkTools
 using NCDatasets
 using Random
 using RootSolvers
@@ -321,7 +322,8 @@ end
     q_tot = FT(0)
     ρ = FT(1)
     phase_type = PhaseEquil
-    @test TD.saturation_adjustment_SecantMethod(
+    @test TD.saturation_adjustment(
+        SecantMethod,
         param_set,
         internal_energy_sat(param_set, 300.0, ρ, q_tot, phase_type),
         ρ,
@@ -332,6 +334,7 @@ end
     ) ≈ 300.0
     @test abs(
         TD.saturation_adjustment(
+            NewtonsMethod,
             param_set,
             internal_energy_sat(param_set, 300.0, ρ, q_tot, phase_type),
             ρ,
@@ -345,7 +348,8 @@ end
     q_tot = FT(0.21)
     ρ = FT(0.1)
     @test isapprox(
-        TD.saturation_adjustment_SecantMethod(
+        TD.saturation_adjustment(
+            SecantMethod,
             param_set,
             internal_energy_sat(param_set, 200.0, ρ, q_tot, phase_type),
             ρ,
@@ -359,6 +363,7 @@ end
     )
     @test abs(
         TD.saturation_adjustment(
+            NewtonsMethod,
             param_set,
             internal_energy_sat(param_set, 200.0, ρ, q_tot, phase_type),
             ρ,
@@ -425,6 +430,20 @@ end
     q_tot = FT(0.23)
     @test TD.exner_given_pressure(param_set, p, PhasePartition(q_tot)) isa
           typeof(p)
+
+    q_tot = 0.1
+    q_liq = 0.05
+    q_ice = 0.01
+    mr = shum_to_mixing_ratio(q_tot, q_tot)
+    @test mr == q_tot / (1 - q_tot)
+    mr = shum_to_mixing_ratio(q_liq, q_tot)
+    @test mr == q_liq / (1 - q_tot)
+
+    q = PhasePartition(q_tot, q_liq, q_ice)
+    mrs = mixing_ratios(q)
+    @test mrs.tot == q_tot / (1 - q_tot)
+    @test mrs.liq == q_liq / (1 - q_tot)
+    @test mrs.ice == q_ice / (1 - q_tot)
 end
 
 
@@ -468,16 +487,7 @@ end
         @test all(air_temperature.(ts) .== Ref(_T_freeze))
 
         # Args needs to be in sync with PhaseEquil:
-        ts =
-            PhaseEquil.(
-                param_set,
-                _e_int,
-                ρ,
-                q_tot,
-                8,
-                FT(1e-1),
-                TD.saturation_adjustment_SecantMethod,
-            )
+        ts = PhaseEquil.(param_set, _e_int, ρ, q_tot, 8, FT(1e-1), SecantMethod)
         @test all(air_temperature.(ts) .== Ref(_T_freeze))
 
         # PhaseEquil
@@ -528,25 +538,8 @@ end
 
         # PhaseEquil
         ts_exact =
-            PhaseEquil.(
-                param_set,
-                e_int,
-                ρ,
-                q_tot,
-                100,
-                FT(1e-3),
-                TD.saturation_adjustment_SecantMethod,
-            )
-        ts =
-            PhaseEquil.(
-                param_set,
-                e_int,
-                ρ,
-                q_tot,
-                35,
-                FT(1e-1),
-                TD.saturation_adjustment_SecantMethod,
-            ) # Needs to be in sync with default
+            PhaseEquil.(param_set, e_int, ρ, q_tot, 100, FT(1e-3), SecantMethod)
+        ts = PhaseEquil.(param_set, e_int, ρ, q_tot, 35, FT(1e-1), SecantMethod) # Needs to be in sync with default
         # Should be machine accurate (because ts contains `e_int`,`ρ`,`q_tot`):
         @test all(compare_moisture.(ts, ts_exact))
         @test all(internal_energy.(ts) .≈ internal_energy.(ts_exact))
@@ -650,6 +643,7 @@ end
     @unpack q_tot, q_liq, q_ice, q_pt, RH, e_kin, e_pot = profiles
 
     @test_throws ErrorException TD.saturation_adjustment.(
+        NewtonsMethod,
         param_set,
         e_int,
         ρ,
@@ -659,7 +653,8 @@ end
         FT(1e-10),
     )
 
-    @test_throws ErrorException TD.saturation_adjustment_SecantMethod.(
+    @test_throws ErrorException TD.saturation_adjustment.(
+        SecantMethod,
         param_set,
         e_int,
         ρ,
@@ -710,6 +705,7 @@ end
     )
 
     @test_throws ErrorException TD.saturation_adjustment_ρpq.(
+        NewtonsMethodAD,
         param_set,
         ρ,
         p,
@@ -769,16 +765,7 @@ end
         @unpack q_tot, q_liq, q_ice, q_pt, RH, e_kin, e_pot = profiles
 
         # PhaseEquil
-        ts =
-            PhaseEquil.(
-                param_set,
-                e_int,
-                ρ,
-                q_tot,
-                40,
-                FT(1e-1),
-                Ref(TD.saturation_adjustment_SecantMethod),
-            )
+        ts = PhaseEquil.(param_set, e_int, ρ, q_tot, 40, FT(1e-1), SecantMethod)
         @test all(internal_energy.(ts) .≈ e_int)
         @test all(getproperty.(PhasePartition.(ts), :tot) .≈ q_tot)
         @test all(air_density.(ts) .≈ ρ)
@@ -1114,6 +1101,10 @@ end
     @test PhasePartition(ts_eq).liq ≈ PhasePartition(ts_dry).liq
     @test PhasePartition(ts_eq).ice ≈ PhasePartition(ts_dry).ice
 
+    @test mixing_ratios(ts_eq).tot ≈ mixing_ratios(ts_dry).tot
+    @test mixing_ratios(ts_eq).liq ≈ mixing_ratios(ts_dry).liq
+    @test mixing_ratios(ts_eq).ice ≈ mixing_ratios(ts_dry).ice
+
     ts_dry = PhaseDry.(param_set, e_int, ρ)
     ts_eq = PhaseEquil.(param_set, e_int, ρ, q_tot .* 0)
 
@@ -1181,4 +1172,49 @@ end
     @test all(T .≈ (nt.T for nt in profiles))
     @test all(getproperty.(q_pt, :tot) .≈ (nt.q_pt.tot for nt in profiles))
     @test all(phase_type .== (nt.phase_type for nt in profiles))
+end
+
+@testset "Thermodynamics - Performance" begin
+    ArrayType = Array{Float64}
+    FT = eltype(ArrayType)
+    profiles = PhaseEquilProfiles(param_set, ArrayType)
+
+    @unpack e_int, ρ, q_tot = profiles
+
+    @btime TD.PhaseEquil_dev_only.(
+        $param_set,
+        $e_int,
+        $ρ,
+        $q_tot;
+        sat_adjust_method = NewtonsMethod,
+    )
+
+    @btime TD.PhaseEquil_dev_only.(
+        $param_set,
+        $e_int,
+        $ρ,
+        $q_tot;
+        sat_adjust_method = RegulaFalsiMethod,
+        maxiter = 20,
+    )
+
+    # Fails to converge:
+    # @btime TD.PhaseEquil_dev_only.(
+    #     $param_set,
+    #     $e_int,
+    #     $ρ,
+    #     $q_tot;
+    #     sat_adjust_method = NewtonsMethodAD,
+    #     maxiter = 50,
+    # )
+
+    @btime TD.PhaseEquil_dev_only.(
+        $param_set,
+        $e_int,
+        $ρ,
+        $q_tot;
+        sat_adjust_method = SecantMethod,
+        maxiter = 50,
+    )
+
 end

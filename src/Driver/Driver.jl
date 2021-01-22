@@ -19,8 +19,9 @@ using ..ConfigTypes
 using ..Diagnostics
 using ..DGMethods
 using ..BalanceLaws
-using ..DGMethods: remainder_DGModel
+using ..DGMethods: remainder_DGModel, SpaceDiscretization
 using ..DGMethods.NumericalFluxes
+using ..DGMethods.FVReconstructions
 
 using ..Mesh.Grids
 using ..Mesh.Topologies
@@ -75,10 +76,10 @@ Base.@kwdef mutable struct ClimateMachine_Settings
     array_type::Type = Array
     sim_time::Float64 = NaN
     fixed_number_of_steps::Int = -1
+    degree::NTuple{2, Int} = (-1, -1)
 end
 
 const Settings = ClimateMachine_Settings()
-
 
 """
     ClimateMachine.array_type()
@@ -89,7 +90,6 @@ line, from an environment variable, or from experiment code) after
 `ClimateMachine.init()` is called.
 """
 array_type() = Settings.array_type
-
 
 """
     get_setting(setting_name::Symbol, settings, defaults)
@@ -110,7 +110,13 @@ function get_setting(setting_name::Symbol, settings, defaults)
         return convert(setting_type, settings[setting_name])
     elseif haskey(ENV, setting_env)
         env_val = ENV[setting_env]
-        v = setting_type == String ? env_val : tryparse(setting_type, env_val)
+        if setting_type == String
+            v = env_val
+        elseif setting_type == NTuple{2, Int}
+            v = ArgParse.parse_item(setting_type, env_val)
+        else
+            v = tryparse(setting_type, env_val)
+        end
         if isnothing(v)
             error("cannot parse ENV $setting_env value $env_val, to setting type $setting_type")
         end
@@ -133,7 +139,6 @@ function get_gpu_setting(setting_name::Symbol, settings, defaults)
     # fallback behavior
     return get_setting(setting_name, settings, defaults)
 end
-
 
 """
     parse_commandline(
@@ -290,6 +295,11 @@ function parse_commandline(
         metavar = "<number>"
         arg_type = Int
         default = get_setting(:fixed_number_of_steps, defaults, global_defaults)
+        "--degree"
+        help = "tuple of horizontal and vertical polynomial degrees for spatial discretization order (no space before/after comma)"
+        metavar = "<horizontal>,<vertical>"
+        arg_type = NTuple{2, Int}
+        default = get_setting(:degree, defaults, global_defaults)
     end
     # add custom cli argparse settings if provided
     if !isnothing(custom_clargs)
@@ -297,7 +307,6 @@ function parse_commandline(
     end
     return parse_args(s)
 end
-
 
 """
     ClimateMachine.init(;
@@ -366,6 +375,8 @@ Recognized keyword arguments are:
         run for the specified time (in simulation seconds)
 - `fixed_number_of_steps::Int = -1`:
         if `≥0` perform specified number of steps
+- `degree::NTuple{2, Int} = (-1, -1)`:
+        tuple of horizontal and vertical polynomial degrees for spatial discretization order
 
 Returns `nothing`, or if `parse_clargs = true`, returns parsed command line
 arguments.
@@ -460,7 +471,6 @@ function init(;
     return cl_args
 end
 
-
 """
     init_runtime(settings::ClimateMachine_Settings)
 
@@ -521,11 +531,9 @@ function init_runtime(settings::ClimateMachine_Settings)
     return
 end
 
-
 include("driver_configs.jl")
 include("solver_configs.jl")
 include("diagnostics_configs.jl")
-
 
 """
     ClimateMachine.ConservationCheck

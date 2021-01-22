@@ -11,6 +11,7 @@ ClimateMachine.init(;
 using ClimateMachine.SingleStackUtils
 using ClimateMachine.Checkpoint
 using ClimateMachine.BalanceLaws: vars_state
+using JLD2, FileIO
 const clima_dir = dirname(dirname(pathof(ClimateMachine)));
 
 include(joinpath(clima_dir, "experiments", "AtmosLES", "stable_bl_model.jl"))
@@ -57,11 +58,14 @@ function main(::Type{FT}) where {FT}
     N_quad = 3 # Using N_quad = 1 leads to norm(Q) = NaN at init.
     turbconv = NoTurbConv()
 
+    C_smag = FT(0.23)
+
     model = stable_bl_model(
         FT,
         config_type,
         zmax,
         surface_flux;
+        turbulence = SmagorinskyLilly{FT}(C_smag),
         turbconv = turbconv,
     )
 
@@ -120,10 +124,10 @@ function main(::Type{FT}) where {FT}
         JacobianFreeNewtonKrylovSolver(Q, linearsolver; tol = 1e-4, ϵ = 1.e-10)
 
     # this is a second order time integrator, to change it to a first order time integrator
-    # change it ARK1ForwardBackwardEuler, which can reduce the cost by half at the cost of accuracy 
+    # change it ARK1ForwardBackwardEuler, which can reduce the cost by half at the cost of accuracy
     # and stability
-    # preconditioner_update_freq = 50 means updating the preconditioner every 50 Newton solves, 
-    # update it more freqent will accelerate the convergence of linear solves, but updating it 
+    # preconditioner_update_freq = 50 means updating the preconditioner every 50 Newton solves,
+    # update it more freqent will accelerate the convergence of linear solves, but updating it
     # is very expensive
     ode_solver = ARK2ImplicitExplicitMidpoint(
         dg,
@@ -176,19 +180,7 @@ function main(::Type{FT}) where {FT}
         nothing
     end
 
-    # State variable
-    Q = solver_config.Q
-    # Compute total mass and total energy
-    ρ_idx = varsindices(vars_state(dg.balance_law, Prognostic(), FT), "ρ")
-    ρe_idx = varsindices(vars_state(dg.balance_law, Prognostic(), FT), "ρe")
-    Σρ₀ = weightedsum(Q, ρ_idx)
-    Σρe₀ = weightedsum(Q, ρe_idx)
-
-    grid = driver_config.grid
-
-    # state_types = (Prognostic(), Auxiliary(), GradientFlux())
-    state_types = (Prognostic(), Auxiliary())
-    dons_arr = [dict_of_nodal_states(solver_config, state_types; interp = true)]
+    diag_arr = [single_stack_diagnostics(solver_config)]
     time_data = FT[0]
 
     # Define the number of outputs from `t0` to `timeend`
@@ -198,24 +190,21 @@ function main(::Type{FT}) where {FT}
 
     cb_data_vs_time =
         GenericCallbacks.EveryXSimulationTime(every_x_simulation_time) do
-            push!(
-                dons_arr,
-                dict_of_nodal_states(solver_config, state_types; interp = true),
-            )
+            diag_vs_z = single_stack_diagnostics(solver_config)
+
+            nstep = getsteps(solver_config.solver)
+            # Save to disc (for debugging):
+            # @save "bomex_edmf_nstep=$nstep.jld2" diag_vs_z
+
+            push!(diag_arr, diag_vs_z)
             push!(time_data, gettime(solver_config.solver))
             nothing
         end
 
-    cb_check_cons = GenericCallbacks.EveryXSimulationSteps(3000) do
-        Q = solver_config.Q
-        δρ = (weightedsum(Q, ρ_idx) - Σρ₀) / Σρ₀
-        δρe = (weightedsum(Q, ρe_idx) .- Σρe₀) ./ Σρe₀
-        @show (abs(δρ))
-        @show (abs(δρe))
-        @test (abs(δρ) <= 1.0e-10)
-        @test (abs(δρe) <= 0.025)
-        nothing
-    end
+    check_cons = (
+        ClimateMachine.ConservationCheck("ρ", "3000steps", FT(0.001)),
+        ClimateMachine.ConservationCheck("ρe", "3000steps", FT(0.1)),
+    )
 
     cb_print_step = GenericCallbacks.EveryXSimulationSteps(100) do
         @show getsteps(solver_config.solver)
@@ -225,20 +214,18 @@ function main(::Type{FT}) where {FT}
     result = ClimateMachine.invoke!(
         solver_config;
         diagnostics_config = dgn_config,
-        user_callbacks = (
-            cbtmarfilter,
-            cb_check_cons,
-            cb_data_vs_time,
-            cb_print_step,
-        ),
+        check_cons = check_cons,
+        user_callbacks = (cbtmarfilter, cb_data_vs_time, cb_print_step),
         check_euclidean_distance = true,
     )
 
-    dons = dict_of_nodal_states(solver_config, state_types; interp = true)
-    push!(dons_arr, dons)
+    diag_vs_z = single_stack_diagnostics(solver_config)
+    push!(diag_arr, diag_vs_z)
     push!(time_data, gettime(solver_config.solver))
 
-    return solver_config, dons_arr, time_data, state_types
+    return solver_config, diag_arr, time_data
 end
 
-solver_config, dons_arr, time_data, state_types = main(Float64)
+solver_config, diag_arr, time_data = main(Float64)
+
+nothing

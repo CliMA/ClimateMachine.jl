@@ -30,7 +30,6 @@ using Distributions
 using DocStringExtensions
 using LinearAlgebra
 using Printf
-using Random
 using StaticArrays
 using Test
 
@@ -70,7 +69,6 @@ microphys = MicropysicsParameterSet(LiquidParameterSet(), IceParameterSet())
 
 const param_set = EarthParameterSet(microphys)
 
-import ClimateMachine.Atmos: filter_source, atmos_source!
 import ClimateMachine.BalanceLaws: source
 using ClimateMachine.Atmos: altitude, recover_thermo_state
 using UnPack
@@ -251,21 +249,7 @@ function source(s::BomexTendencies{TotalMoisture}, m, args)
     return ρ∂qt∂t - state.ρ * w_s * dot(k̂, diffusive.moisture.∇q_tot)
 end
 
-filter_source(
-    pv::PV,
-    m,
-    s::BomexTendencies{PV},
-) where {PV <: PrognosticVariable} = s
-filter_source(pv::PV, m, s::BomexSponge{PV}) where {PV <: PrognosticVariable} =
-    s
-filter_source(
-    pv::PV,
-    m,
-    s::BomexGeostrophic{PV},
-) where {PV <: PrognosticVariable} = s
-atmos_source!(::BomexTendencies, args...) = nothing
-atmos_source!(::BomexSponge, args...) = nothing
-atmos_source!(::BomexGeostrophic, args...) = nothing
+add_perturbations!(state, localgeo) = nothing
 
 """
   Initial Condition for BOMEX LES
@@ -360,10 +344,7 @@ function init_bomex!(problem, bl, state, aux, localgeo, t)
         state.moisture.ρq_ice = FT(0)
     end
 
-    if z <= FT(400) # Add random perturbations to bottom 400m of model
-        state.ρe += rand() * ρe_tot / 100
-        state.moisture.ρq_tot += rand() * ρ * q_tot / 100
-    end
+    add_perturbations!(state, localgeo)
     init_state_prognostic!(bl.turbconv, bl, state, aux, localgeo, t)
 end
 

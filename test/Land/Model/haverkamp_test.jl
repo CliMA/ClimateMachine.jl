@@ -31,7 +31,8 @@ using ClimateMachine.BalanceLaws:
 using ClimateMachine.ArtifactWrappers
 
 haverkamp_dataset = ArtifactWrapper(
-    joinpath("test", "Land", "Model", "Artifacts.toml"),
+    @__DIR__,
+    isempty(get(ENV, "CI", "")),
     "richards",
     ArtifactFile[ArtifactFile(
         url = "https://caltech.box.com/shared/static/dfijf07io7h5dk1k87saaewgsg9apq8d.csv",
@@ -58,19 +59,15 @@ haverkamp_dataset_path = get_data_folder(haverkamp_dataset)
         S_s = 1e-3,
     )
     # Keep in mind that what is passed is aux⁻.
-    # Fluxes are multiplied by ẑ (normal to the surface, -normal to the bottom,
+    # Scalar fluxes are multiplied by ẑ (normal to the surface, -normal to the bottom,
     # where normal point outs of the domain.)
-
-
     surface_state = (aux, t) -> eltype(aux)(0.494)
-    # The goal here is to have ∇h = ẑ enforced by the BC
-    # the BC is on K∇h, and multiplied by ẑ internally.
     bottom_flux = (aux, t) -> aux.soil.water.K * eltype(aux)(-1)
     ϑ_l0 = (aux) -> eltype(aux)(0.24)
 
-    bc = GeneralBoundaryConditions(
-        Dirichlet(surface_state = surface_state, bottom_state = nothing),
-        Neumann(surface_flux = nothing, bottom_flux = bottom_flux),
+    bc = LandDomainBC(
+        bottom_bc = LandComponentBC(soil_water = Neumann(bottom_flux)),
+        surface_bc = LandComponentBC(soil_water = Dirichlet(surface_state)),
     )
 
     soil_water_model = SoilWaterModel(
@@ -78,7 +75,6 @@ haverkamp_dataset_path = get_data_folder(haverkamp_dataset)
         moisture_factor = MoistureDependent{FT}(),
         hydraulics = Haverkamp{FT}(),
         initialϑ_l = ϑ_l0,
-        boundaries = bc,
     )
 
     m_soil = SoilModel(soil_param_functions, soil_water_model, soil_heat_model)
@@ -86,6 +82,7 @@ haverkamp_dataset_path = get_data_folder(haverkamp_dataset)
     m = LandModel(
         param_set,
         m_soil;
+        boundary_conditions = bc,
         source = sources,
         init_state_prognostic = init_soil_water!,
     )

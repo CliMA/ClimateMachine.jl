@@ -26,8 +26,9 @@ import ..BalanceLaws:
 using ..DGMethods: LocalGeometry, DGModel
 export LandModel
 
+
 """
-    LandModel{PS, S, SRC, IS} <: BalanceLaw
+    LandModel{PS, S, LBC, SRC, IS} <: BalanceLaw
 
 A BalanceLaw for land modeling.
 Users may over-ride prescribed default values for each field.
@@ -36,19 +37,22 @@ Users may over-ride prescribed default values for each field.
 
     LandModel(
         param_set,
-        soil,
-        source
+        soil;
+        boundary_conditions,
+        source,
         init_state_prognostic
     )
 
 # Fields
 $(DocStringExtensions.FIELDS)
 """
-struct LandModel{PS, S, SRC, IS} <: BalanceLaw
+struct LandModel{PS, S, LBC, SRC, IS} <: BalanceLaw
     "Parameter set"
     param_set::PS
     "Soil model"
     soil::S
+    "struct of boundary conditions"
+    boundary_conditions::LBC
     "Source Terms (Problem specific source terms)"
     source::SRC
     "Initial Condition (Function to assign initial values of state variables)"
@@ -59,20 +63,22 @@ end
     LandModel(
         param_set::AbstractParameterSet,
         soil::BalanceLaw;
+        boundary_conditions::LBC = (),
         source::SRC = (),
         init_state_prognostic::IS = nothing
-    ) where {SRC, IS}
+    ) where {SRC, IS, LBC}
 
 Constructor for the LandModel structure.
 """
 function LandModel(
     param_set::AbstractParameterSet,
     soil::BalanceLaw;
+    boundary_conditions::LBC = LandDomainBC(),
     source::SRC = (),
     init_state_prognostic::IS = nothing,
-) where {SRC, IS}
+) where {SRC, IS, LBC}
     @assert init_state_prognostic ≠ nothing
-    land = (param_set, soil, source, init_state_prognostic)
+    land = (param_set, soil, boundary_conditions, source, init_state_prognostic)
     return LandModel{typeof.(land)...}(land...)
 end
 
@@ -211,15 +217,14 @@ function init_state_prognostic!(
     land.init_state_prognostic(land, state, aux, coords, t, args...)
 end
 
+include("Runoff.jl")
+using .Runoff
 include("land_bc.jl")
 include("SoilWaterParameterizations.jl")
 using .SoilWaterParameterizations
 include("SoilHeatParameterizations.jl")
 using .SoilHeatParameterizations
-include("Runoff.jl")
-using .Runoff
 include("soil_model.jl")
-include("soil_boundary_types.jl")
 include("soil_water.jl")
 include("soil_heat.jl")
 include("soil_bc.jl")

@@ -4,36 +4,42 @@
 ##### First order fluxes
 #####
 
-function flux(::Advect{Energy}, m, state, aux, t, ts, direction)
+function flux(::Advect{Energy}, atmos, args)
+    @unpack state = args
     return (state.ρu / state.ρ) * state.ρe
 end
 
-function flux(::Pressure{Energy}, m, state, aux, t, ts, direction)
+function flux(::Pressure{Energy}, atmos, args)
+    @unpack state = args
+    @unpack ts = args.precomputed
     return state.ρu / state.ρ * air_pressure(ts)
 end
 
 #####
-##### First order fluxes
+##### Second order fluxes
 #####
 
 struct ViscousFlux{PV <: Energy} <: TendencyDef{Flux{SecondOrder}, PV} end
-function flux(::ViscousFlux{Energy}, m, state, aux, t, ts, diffusive, hyperdiff)
-    ν, D_t, τ = turbulence_tensors(m, state, diffusive, aux, t)
+function flux(::ViscousFlux{Energy}, atmos, args)
+    @unpack state = args
+    @unpack τ = args.precomputed.turbulence
     return τ * state.ρu
 end
 
+function flux(::HyperdiffViscousFlux{Energy}, atmos, args)
+    @unpack state, hyperdiffusive = args
+    return hyperdiffusive.hyperdiffusion.ν∇³u_h * state.ρu
+end
+
+function flux(::HyperdiffEnthalpyFlux{Energy}, atmos, args)
+    @unpack state, hyperdiffusive = args
+    return hyperdiffusive.hyperdiffusion.ν∇³h_tot * state.ρ
+end
+
 struct DiffEnthalpyFlux{PV <: Energy} <: TendencyDef{Flux{SecondOrder}, PV} end
-function flux(
-    ::DiffEnthalpyFlux{Energy},
-    m,
-    state,
-    aux,
-    t,
-    ts,
-    diffusive,
-    hyperdiff,
-)
-    ν, D_t, τ = turbulence_tensors(m, state, diffusive, aux, t)
+function flux(::DiffEnthalpyFlux{Energy}, atmos, args)
+    @unpack state, diffusive = args
+    @unpack D_t = args.precomputed.turbulence
     d_h_tot = -D_t .* diffusive.∇h_tot
     return d_h_tot * state.ρ
 end
@@ -63,11 +69,11 @@ function source(s::RemovePrecipitation{Energy}, m, args)
 end
 
 function source(s::WarmRain_1M{Energy}, m, args)
-    nt = warm_rain_sources(m, args)
-    return nt.S_ρ_e
+    @unpack cache = args.precomputed.precipitation
+    return cache.S_ρ_e
 end
 
 function source(s::RainSnow_1M{Energy}, m, args)
-    nt = rain_snow_sources(m, args)
-    return nt.S_ρ_e
+    @unpack cache = args.precomputed.precipitation
+    return cache.S_ρ_e
 end

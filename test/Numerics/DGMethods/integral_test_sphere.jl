@@ -64,9 +64,9 @@ vars_state(::IntegralTestSphereModel, ::DownwardIntegrals, T) =
     @vars(v::T, r::T)
 vars_state(m::IntegralTestSphereModel, ::Auxiliary, T) = @vars(
     int::vars_state(m, UpwardIntegrals(), T),
-    rev_int::vars_state(m, UpwardIntegrals(), T),
+    rev_int::vars_state(m, DownwardIntegrals(), T),
     r::T,
-    a::T
+    v::T
 )
 
 vars_state(::IntegralTestSphereModel, ::Prognostic, T) = @vars()
@@ -86,16 +86,15 @@ function nodal_init_state_auxiliary!(
     tmp::Vars,
     g::LocalGeometry,
 )
-
     x, y, z = g.coord
     aux.r = hypot(x, y, z)
     θ = atan(y, x)
     ϕ = asin(z / aux.r)
     # Exact integral
-    aux.a = 1 + cos(ϕ)^2 * sin(θ)^2 + sin(ϕ)^2
-    aux.int.v = exp(-aux.a * aux.r^2) - exp(-aux.a * m.Rinner^2)
+    aux.v = 1 + cos(ϕ)^2 * sin(θ)^2 + sin(ϕ)^2
+    aux.int.v = exp(-aux.v * aux.r^2) - exp(-aux.v * m.Rinner^2)
     aux.int.r = aux.r - m.Rinner
-    aux.rev_int.v = exp(-aux.a * m.Router^2) - exp(-aux.a * aux.r^2)
+    aux.rev_int.v = exp(-aux.v * m.Router^2) - exp(-aux.v * aux.r^2)
     aux.rev_int.r = m.Router - aux.r
 end
 
@@ -105,7 +104,7 @@ end
     state::Vars,
     aux::Vars,
 )
-    integrand.v = -2 * aux.r * aux.a * exp(-aux.a * aux.r^2)
+    integrand.v = -2 * aux.r * aux.v * exp(-aux.v * aux.r^2)
     integrand.r = 1
 end
 
@@ -171,33 +170,57 @@ function test_run(mpicomm, topl, ArrayType, N, FT, Rinner, Router)
         ("int.r", "rev_int.r"),
     )
 
-    # We should be exact for the integral of ∫_{R_{inner}}^{r} 1
-    if N != 0
-        @test exact_aux[:, int_r_ind, :] ≈ dg.state_auxiliary[:, int_r_ind, :]
-        @test exact_aux[:, rev_int_r_ind, :] ≈
-              dg.state_auxiliary[:, rev_int_r_ind, :]
-    else
-        # FIXME: With the N = 0 case, the value of the integral actually will be
-        # the value of the computed integral is at the cell faces, NOT the cell
-        # centers, so we will be off in the direct comparison. So instead we
-        # only compare the last value for now of the FORWARD integral. The
-        # reverse integral and other cases will be fixed up later.
+    # Since N = 0 integrals live at the faces we need to average values to the
+    # faces for comparison
+    if N == 0
+
         nvertelem = topl.stacksize
         nhorzelem = div(length(topl.elems), nvertelem)
         naux = size(exact_aux, 2)
-        aux = reshape(
-            dg.state_auxiliary.data,
-            (N + 1, N + 1, N + 1, naux, nvertelem, nhorzelem),
-        )
-        # Only the last value of the forward integral is currently correct
-        @test all(Router - Rinner .≈ aux[:, :, end, int_r_ind, end, :])
-        # FIXME: Reverse integral is currently off by one cell width
-        Δ = (Router - Rinner) / nvertelem
-        @test all(Router - Rinner - Δ .≈ aux[:, :, 1, rev_int_r_ind, 1, :])
-        # All the `JcV` (line integral metrics) values should be `Δ / 2`
-        @test all(Δ .≈ 2grid.vgeo[:, Grids._JcV, :])
-    end
+        ndof = size(exact_aux, 1)
 
+        # Reshape the data array to be (dofs, naux, vertical elm, horizontal elm)
+        aux =
+            reshape(dg.state_auxiliary.data, (ndof, naux, nvertelem, nhorzelem))
+
+        # average forward integrals to cell centers
+        for ind in varsindices(
+            vars_state(dg.balance_law, Auxiliary(), FT),
+            ("int.r", "int.v"),
+        )
+
+            # Store the computed face values
+            A_faces = aux[:, ind, :, :]
+
+            # Bottom cell value is average of 0 and top face of cell
+            aux[:, ind, 1, :] .= A_faces[:, 1, :] / 2
+
+            # Remaining cells are average of the two faces
+            aux[:, ind, 2:end, :] .=
+                (A_faces[:, 1:(end - 1), :] + A_faces[:, 2:end, :]) / 2
+        end
+
+        # average reverse integrals to cell centers
+        for ind in varsindices(
+            vars_state(dg.balance_law, Auxiliary(), FT),
+            ("rev_int.r", "rev_int.v"),
+        )
+
+            # Store the computed face values
+            RA_faces = aux[:, ind, :, :]
+
+            # Bottom cell value is average of 0 and top face of cell
+            aux[:, ind, end, :] .= RA_faces[:, end, :] / 2
+
+            # Remaining cells are average of the two faces
+            aux[:, ind, 1:(end - 1), :] .=
+                (RA_faces[:, 1:(end - 1), :] + RA_faces[:, 2:end, :]) / 2
+        end
+    end
+    # We should be exact for the integral of ∫_{R_{inner}}^{r} 1
+    @test exact_aux[:, int_r_ind, :] ≈ dg.state_auxiliary[:, int_r_ind, :]
+    @test exact_aux[:, rev_int_r_ind, :] ≈
+          dg.state_auxiliary[:, rev_int_r_ind, :]
     euclidean_distance(exact_aux, dg.state_auxiliary)
 end
 
@@ -213,6 +236,12 @@ let
     Router = 1
 
     expected_result = Dict()
+    expected_result[0] = [
+        2.2259657670562167e-02
+        5.6063943176909315e-03
+        1.4042479532664005e-03
+        3.5122834187695408e-04
+    ]
     expected_result[1] = [
         1.5934735012225074e-02
         4.0030667455285352e-03
@@ -228,7 +257,7 @@ let
     lvls = integration_testing ? length(expected_result[4]) : 1
 
     for N in (0, 1, 4)
-        for FT in (Float64,) # Float32)
+        for FT in (Float64,)
             err = zeros(FT, lvls)
             for l in 1:lvls
                 @info (ArrayType, FT, "sphere", N, l)
@@ -245,12 +274,9 @@ let
                     FT(Rinner),
                     FT(Router),
                 )
-                if N != 0
-                    @test expected_result[N][l] ≈ err[l] rtol = 1e-3 atol =
-                        eps(FT)
-                end
+                @test expected_result[N][l] ≈ err[l] rtol = 1e-3 atol = eps(FT)
             end
-            if integration_testing && N != 0
+            if lvls > 1
                 @info begin
                     msg = "polynomialorder order $N"
                     for l in 1:(lvls - 1)

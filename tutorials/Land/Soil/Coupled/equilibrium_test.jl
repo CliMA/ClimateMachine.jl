@@ -190,6 +190,9 @@ soil_param_functions = SoilParamFunctions{FT}(
 
 # # Initial and Boundary conditions
 
+# As we are not including the equations for phase changes in this tutorial,
+# we chose temperatures that are above the freezing point of water.
+
 # The initial temperature profile:
 function T_init(aux)
     FT = eltype(aux)
@@ -229,42 +232,24 @@ end;
 # `T`, while Neumann boundary conditions are on `-κ∇T` and `-K∇h`. For Neumann
 # conditions, the user supplies a scalar, which is multiplied by `ẑ` within the code.
 
-# The user should set the unused fields to `nothing`
-# to indicate that they do not want to supply a boundary condition of that type.
-# For example, below we indicate that we are applying (and supplying!) Neumann
-# conditions for each variable at the top and the bottom of the domain.
-
-
-
 # Water boundary conditions:
 surface_water_flux = (aux, t) -> eltype(aux)(0.0)
-bottom_water_flux = (aux, t) -> eltype(aux)(0.0)
-surface_water_state = nothing
-bottom_water_state = nothing
-water_bc = GeneralBoundaryConditions(
-    Dirichlet(
-        surface_state = surface_water_state,
-        bottom_state = bottom_water_state,
-    ),
-    Neumann(surface_flux = surface_water_flux, bottom_flux = bottom_water_flux),
-);
-
-# As we are not including the equations for phase changes in this tutorial,
-# we chose temperatures that are above the freezing point of water.
+bottom_water_flux = (aux, t) -> eltype(aux)(0.0);
 
 # The boundary conditions for the heat equation:
 surface_heat_flux = (aux, t) -> eltype(aux)(0.0)
-bottom_heat_flux = (aux, t) -> eltype(aux)(0.0)
-surface_heat_state = nothing
-bottom_heat_state = nothing
-heat_bc = GeneralBoundaryConditions(
-    Dirichlet(
-        surface_state = surface_heat_state,
-        bottom_state = bottom_heat_state,
-    ),
-    Neumann(surface_flux = surface_heat_flux, bottom_flux = bottom_heat_flux),
-);
+bottom_heat_flux = (aux, t) -> eltype(aux)(0.0);
 
+bc = LandDomainBC(
+    bottom_bc = LandComponentBC(
+        soil_heat = Neumann(bottom_heat_flux),
+        soil_water = Neumann(bottom_water_flux),
+    ),
+    surface_bc = LandComponentBC(
+        soil_heat = Neumann(surface_heat_flux),
+        soil_water = Neumann(surface_water_flux),
+    ),
+);
 
 # Next, we define the required `init_soil!` function, which takes the user
 # specified functions of space for `T_init` and `ϑ_l0` and initializes the state
@@ -299,7 +284,6 @@ soil_water_model = SoilWaterModel(
     moisture_factor = MoistureDependent{FT}(),
     hydraulics = vanGenuchten{FT}(α = vg_α, n = vg_n),
     initialϑ_l = ϑ_l0,
-    boundaries = water_bc,
 );
 
 
@@ -314,7 +298,7 @@ soil_water_model = SoilWaterModel(
 # tutorial.
 
 # Repeat for heat:
-soil_heat_model = SoilHeatModel(FT; initialT = T_init, boundaries = heat_bc);
+soil_heat_model = SoilHeatModel(FT; initialT = T_init)
 
 
 # Combine into a single soil model:
@@ -330,6 +314,7 @@ sources = ();
 m = LandModel(
     param_set,
     m_soil;
+    boundary_conditions = bc,
     source = sources,
     init_state_prognostic = init_soil!,
 );

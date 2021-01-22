@@ -3,41 +3,35 @@
     mixing_length(
         m::AtmosModel{FT},
         ml::MixingLengthModel,
-        state::Vars,
-        diffusive::Vars,
-        aux::Vars,
-        t::Real,
+        args,
         Δ::Tuple,
         Et::Tuple,
-        ts,
+        ts_gm,
+        ts_en,
         env,
     ) where {FT}
 
 Returns the mixing length used in the diffusive turbulence closure, given:
  - `m`, an `AtmosModel`
  - `ml`, a `MixingLengthModel`
- - `state`, state variables
- - `diffusive`, additional variables
- - `aux`, auxiliary variables
- - `t`, the time
+ - `args`, the top-level arguments
  - `Δ`, the detrainment rate
  - `Et`, the turbulent entrainment rate
- - `ts`, NamedTuple of thermodynamic states
+ - `ts_gm`, grid-mean thermodynamic states
+ - `ts_en`, environment thermodynamic states
  - `env`, NamedTuple of environment variables
 """
 function mixing_length(
     m::AtmosModel{FT},
     ml::MixingLengthModel,
-    state::Vars,
-    diffusive::Vars,
-    aux::Vars,
-    t::Real,
+    args,
     Δ::Tuple,
     Et::Tuple,
-    ts,
+    ts_gm,
+    ts_en,
     env,
 ) where {FT}
-
+    @unpack state, aux, diffusive, t = args
     # TODO: use functions: obukhov_length, ustar, ϕ_m
 
     # Alias convention:
@@ -59,13 +53,13 @@ function mixing_length(
     ustar = m.turbconv.surface.ustar
     obukhov_length = m.turbconv.surface.obukhov_length
 
-    ∂b∂z, Nˢ_eff = compute_buoyancy_gradients(m, state, diffusive, aux, t, ts)
+    ∂b∂z, Nˢ_eff = compute_buoyancy_gradients(m, args, ts_gm, ts_en)
     Grad_Ri = ∇Richardson_number(∂b∂z, Shear², 1 / ml.max_length, ml.Ri_c)
     Pr_t = turbulent_Prandtl_number(ml.Pr_n, Grad_Ri, ml.ω_pr)
 
     # compute L1
     Nˢ_fact = (sign(Nˢ_eff - eps(FT)) + 1) / 2
-    coeff = min(sqrt(ml.c_b * tke_en) / Nˢ_eff, ml.max_length)
+    coeff = min(ml.c_b * sqrt(tke_en) / Nˢ_eff, ml.max_length)
     L_Nˢ = coeff * Nˢ_fact + ml.max_length * (FT(1) - Nˢ_fact)
 
     # compute L2 - law of the wall
@@ -77,10 +71,11 @@ function mixing_length(
         gm_aux,
         m.turbconv.surface.zLL,
     )
-    tke_surf = surf_vals.tke
-    L_W = ml.κ * z / (sqrt(tke_surf) * ml.c_m / ustar / ustar)
-    stab_fac = -(sign(obukhov_length) - 1) / 2
-    L_W *= stab_fac * min((FT(1) - ml.a2 * z / obukhov_length)^ml.a1, 1 / ml.κ)
+
+    L_W = ml.κ * z / (sqrt(m.turbconv.surface.κ_star²) * ml.c_m)
+    if obukhov_length < -eps(FT)
+        L_W *= min((FT(1) - ml.a2 * z / obukhov_length)^ml.a1, 1 / ml.κ)
+    end
 
     # compute L3 - entrainment detrainment sources
     # Production/destruction terms
@@ -88,7 +83,9 @@ function mixing_length(
     # Dissipation term
     b = FT(0)
     a_up = vuntuple(i -> up[i].ρa * ρinv, N_up)
-    w_up = vuntuple(i -> up[i].ρaw / up[i].ρa, N_up)
+    w_up = vuntuple(N_up) do i
+        fix_void_up(up[i].ρa, up[i].ρaw / up[i].ρa)
+    end
     b = sum(
         ntuple(N_up) do i
             Δ[i] / gm.ρ / env.a *
@@ -97,7 +94,7 @@ function mixing_length(
         end,
     )
 
-    c_neg = ml.c_d * tke_en * sqrt(abs(tke_en))
+    c_neg = ml.c_d * tke_en * sqrt(tke_en)
     if abs(a) > ml.random_minval && 4 * a * c_neg > -b^2
         l_entdet =
             max(-b / FT(2) / a + sqrt(b^2 + 4 * a * c_neg) / 2 / a, FT(0))

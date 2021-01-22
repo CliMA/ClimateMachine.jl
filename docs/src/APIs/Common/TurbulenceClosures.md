@@ -12,6 +12,8 @@ TurbulenceClosures
 
 ```@docs
 TurbulenceClosureModel
+hyperdiff_enthalpy_and_momentum_flux
+hyperdiff_momentum_flux
 WithDivergence
 WithoutDivergence
 ConstantViscosity
@@ -34,7 +36,6 @@ UpperAtmosSponge
 ```@docs
 turbulence_tensors
 init_aux_turbulence!
-turbulence_nodal_update_auxiliary_state!
 principal_invariants
 symmetrize
 norm2

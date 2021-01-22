@@ -6,13 +6,17 @@ using CLIMAParameters.Planet: Omega
 ##### First order fluxes
 #####
 
-function flux(::Advect{Momentum}, m, state, aux, t, ts, direction)
+function flux(::Advect{Momentum}, atmos, args)
+    @unpack state = args
     return state.ρu .* (state.ρu / state.ρ)'
 end
 
-function flux(::PressureGradient{Momentum}, m, state, aux, t, ts, direction)
-    pad = (state.ρu .* (state.ρu / state.ρ)') * 0
-    if m.ref_state isa HydrostaticState
+function flux(::PressureGradient{Momentum}, atmos, args)
+    @unpack state, aux = args
+    @unpack ts = args.precomputed
+    s = state.ρu * state.ρu'
+    pad = SArray{Tuple{size(s)...}}(ntuple(i -> 0, length(s)))
+    if atmos.ref_state isa HydrostaticState && atmos.ref_state.subtract_off
         return pad + (air_pressure(ts) - aux.ref_state.p) * I
     else
         return pad + air_pressure(ts) * I
@@ -24,18 +28,23 @@ end
 #####
 
 struct ViscousStress{PV <: Momentum} <: TendencyDef{Flux{SecondOrder}, PV} end
-function flux(
-    ::ViscousStress{Momentum},
-    m,
-    state,
-    aux,
-    t,
-    ts,
-    diffusive,
-    hyperdiff,
-)
-    ν, D_t, τ = turbulence_tensors(m, state, diffusive, aux, t)
-    return τ * state.ρ
+function flux(::ViscousStress{Momentum}, atmos, args)
+    @unpack state = args
+    @unpack τ = args.precomputed.turbulence
+    pad = SArray{Tuple{size(τ)...}}(ntuple(i -> 0, length(τ)))
+    return pad + τ * state.ρ
+end
+
+function flux(::MoistureDiffusion{Momentum}, atmos, args)
+    @unpack state, diffusive = args
+    @unpack D_t = args.precomputed.turbulence
+    d_q_tot = (-D_t) .* diffusive.moisture.∇q_tot
+    return d_q_tot .* state.ρu'
+end
+
+function flux(::HyperdiffViscousFlux{Momentum}, atmos, args)
+    @unpack state, hyperdiffusive = args
+    return state.ρ * hyperdiffusive.hyperdiffusion.ν∇³u_h
 end
 
 #####
@@ -47,7 +56,7 @@ struct Gravity{PV <: Momentum} <: TendencyDef{Source, PV} end
 Gravity() = Gravity{Momentum}()
 function source(s::Gravity{Momentum}, m, args)
     @unpack state, aux = args
-    if m.ref_state isa HydrostaticState
+    if m.ref_state isa HydrostaticState && m.ref_state.subtract_off
         return -(state.ρ - aux.ref_state.ρ) * aux.orientation.∇Φ
     else
         return -state.ρ * aux.orientation.∇Φ

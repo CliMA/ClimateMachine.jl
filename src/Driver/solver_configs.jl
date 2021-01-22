@@ -12,7 +12,7 @@ mutable struct SolverConfiguration{FT}
     name::String
     mpicomm::MPI.Comm
     param_set::AbstractParameterSet
-    dg::DGModel
+    dg::SpaceDiscretization
     Q::MPIStateArray
     t0::FT
     timeend::FT
@@ -79,6 +79,8 @@ the ODE solver, and return a `SolverConfiguration` to be used with
 # - `direction=EveryDirection()`: restrict diffusivity direction.
 # - `timeend_dt_adjust=true`: should `dt` be adjusted to hit `timeend` exactly
 # - `CFL_direction=EveryDirection()`: direction for `calculate_dt`
+# - `sim_time`: run for the specified time (in simulation seconds).
+# - `fixed_number_of_steps`: if `≥0` perform specified number of steps.
 
 Note that `diffdir`, `direction`, and `CFL_direction` are `VerticalDirection()`
 when `driver_config.config_type isa SingleStackConfigType`.
@@ -124,7 +126,7 @@ function SolverConfiguration(
 
             dg.state_auxiliary .= state_auxiliary
         else
-            dg = DGModel(
+            dg = SpaceDiscretization(
                 driver_config;
                 state_auxiliary = state_auxiliary,
                 direction = direction,
@@ -143,7 +145,7 @@ function SolverConfiguration(
         if hasproperty(driver_config.config_info, :dg)
             dg = driver_config.config_info.dg
         else
-            dg = DGModel(
+            dg = SpaceDiscretization(
                 driver_config;
                 fill_nan = Settings.debug_init,
                 direction = direction,
@@ -291,3 +293,5 @@ function write_debug_init_vtk_and_pvtu(
         writepvtu(pvtuprefix, prefixes, state_names, eltype(state))
     end
 end
+
+include("solver_config_wrappers.jl")

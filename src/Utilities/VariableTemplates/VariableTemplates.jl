@@ -61,22 +61,30 @@ wrap_val(i::Int) = Val(i)
 # This means that users _must_ wrap `sym`
 # in `Val`, which can be done with `wrap_val`
 # above.
-unval(::Val{i}) where {i} = i
 Base.@propagate_inbounds function varsindex(
     ::Type{S},
-    sym,
+    sym::Symbol,
     rest...,
 ) where {S <: Union{NamedTuple, Tuple}}
-    if sym isa Symbol
-        vi = varsindex(fieldtype(S, sym), rest...)
-        return varsindex(S, sym)[vi]
-    else
-        i = unval(sym)
-        et = eltype(S)
-        offset = (i - 1) * varsize(et)
-        vi = varsindex(et, rest...)
-        return (vi.start + offset):(vi.stop + offset)
-    end
+    vi = varsindex(fieldtype(S, sym), rest...)
+    return varsindex(S, sym)[vi]
+end
+Base.@propagate_inbounds function varsindex(
+    ::Type{S},
+    ::Val{i},
+    rest...,
+) where {i, S <: Union{NamedTuple, Tuple}}
+    et = eltype(S)
+    offset = (i - 1) * varsize(et)
+    vi = varsindex(et, rest...)
+    return (vi.start + offset):(vi.stop + offset)
+end
+
+Base.@propagate_inbounds function varsindex(
+    ::Type{S},
+    ::Val{i},
+) where {i, S <: SArray}
+    return i:i
 end
 
 """
@@ -119,7 +127,6 @@ varsize(::Type{NamedTuple{(), Tuple{}}}) = 0
 varsize(::Type{SArray{S, T, N} where L}) where {S, T, N} = prod(S.parameters)
 
 include("var_names.jl")
-include("flattened_tup_chain.jl")
 
 # TODO: should be possible to get rid of @generated
 @generated function varsize(::Type{S}) where {S}
@@ -392,69 +399,63 @@ vuntuple(f::F, N::Int) where {F} = ntuple(i -> f(Val(i)), Val(N))
 # Inside unroll_map expressions, all indexes `i`
 # are wrapped in `Val`, so we must redirect
 # these methods:
-Base.getindex(t::Tuple, ::Val{i}) where {i} = Base.getindex(t, i)
-Base.getindex(a::SArray, ::Val{i}) where {i} = Base.getindex(a, i)
-
-# Somehow needed for GPU...
-Base.@propagate_inbounds Base.getindex(v::AbstractVars, i::Int) =
-    Base.getindex(v, Val(i))
+Base.@propagate_inbounds Base.getindex(t::Tuple, ::Val{i}) where {i} =
+    Base.getindex(t, i)
+Base.@propagate_inbounds Base.getindex(a::SArray, ::Val{i}) where {i} =
+    Base.getindex(a, i)
 
 Base.@propagate_inbounds function Base.getindex(
-    v::AbstractVars{NTuple{N, T}, A, offset},
+    v::Vars{NTuple{N, T}, A, offset},
     ::Val{i},
-) where {N, T, A, offset, i}
-    # 1 <= i <= N
-    array = parent(v)
-    if v isa Vars
-        return Vars{T, A, offset + (i - 1) * varsize(T)}(array)
-    else
-        return Grad{T, A, offset + (i - 1) * varsize(T)}(array)
-    end
-end
-
-Base.@propagate_inbounds function Base.getproperty(
-    v::AbstractVars,
-    tup_chain::Tuple{S},
-) where {S <: Symbol}
-    return Base.getproperty(v, tup_chain[1])
+) where {N, T, A, offset, i} # 1 <= i <= N
+    return Vars{T, A, offset + (i - 1) * varsize(T)}(parent(v))
 end
 
 Base.@propagate_inbounds function Base.getindex(
-    v::AbstractVars,
-    tup_chain::Tuple{S},
-) where {S <: Int}
-    return Base.getindex(v, Val(tup_chain[1]))
+    v::Grad{NTuple{N, T}, A, offset},
+    ::Val{i},
+) where {N, T, A, offset, i} # 1 <= i <= N
+    return Grad{T, A, offset + (i - 1) * varsize(T)}(parent(v))
 end
 
-Base.@propagate_inbounds function Base.getproperty(
+"""
+    getpropertyorindex
+
+An interchangeably and nested-friendly
+`getproperty`/`getindex`.
+"""
+function getpropertyorindex end
+
+# Redirect to Base getproperty/getindex:
+Base.@propagate_inbounds getpropertyorindex(t::Tuple, ::Val{i}) where {i} =
+    Base.getindex(t, i)
+Base.@propagate_inbounds getpropertyorindex(a::SArray, ::Val{i}) where {i} =
+    Base.getindex(a, i)
+Base.@propagate_inbounds getpropertyorindex(nt::AbstractVars, s::Symbol) =
+    Base.getproperty(nt, s)
+Base.@propagate_inbounds getpropertyorindex(
     v::AbstractVars,
-    tup_chain::Tuple,
-)
-    if tup_chain[1] isa Int
-        p = Base.getindex(v, Val(tup_chain[1]))
-    else
-        p = Base.getproperty(v, tup_chain[1])
-    end
-    if tup_chain[2] isa Int
-        return Base.getindex(p, tup_chain[2:end])
-    else
-        return Base.getproperty(p, tup_chain[2:end])
-    end
-end
-Base.@propagate_inbounds function Base.getindex(
+    ::Val{i},
+) where {i} = Base.getindex(v, Val(i))
+
+# Only one element left:
+Base.@propagate_inbounds getpropertyorindex(
     v::AbstractVars,
-    tup_chain::Tuple,
-)
-    if tup_chain[1] isa Int
-        p = Base.getindex(v, Val(tup_chain[1]))
-    else
-        p = Base.getproperty(v, tup_chain[1])
-    end
-    if tup_chain[2] isa Int
-        return Base.getindex(p, tup_chain[2:end])
-    else
-        return Base.getproperty(p, tup_chain[2:end])
-    end
-end
+    t::Tuple{A},
+) where {A} = getpropertyorindex(v, t[1])
+Base.@propagate_inbounds getpropertyorindex(a::SArray, t::Tuple{A}) where {A} =
+    getpropertyorindex(a, t[1])
+
+# Peel first element from tuple and recurse:
+Base.@propagate_inbounds getpropertyorindex(v::AbstractVars, t::Tuple) =
+    getpropertyorindex(getpropertyorindex(v, t[1]), Tuple(t[2:end]))
+
+# Redirect to getpropertyorindex:
+Base.@propagate_inbounds Base.getproperty(v::AbstractVars, tup_chain::Tuple) =
+    getpropertyorindex(v, tup_chain)
+Base.@propagate_inbounds Base.getindex(v::AbstractVars, tup_chain::Tuple) =
+    getpropertyorindex(v, tup_chain)
+
+include("flattened_tup_chain.jl")
 
 end # module

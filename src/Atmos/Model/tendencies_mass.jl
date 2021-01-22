@@ -4,26 +4,17 @@
 ##### First order fluxes
 #####
 
-function flux(::Advect{Mass}, m, state, aux, t, ts, direction)
-    return state.ρu
+function flux(::Advect{Mass}, atmos, args)
+    return args.state.ρu
 end
 
 #####
 ##### Second order fluxes
 #####
 
-struct MoistureDiffusion{PV <: Mass} <: TendencyDef{Flux{SecondOrder}, PV} end
-function flux(
-    ::MoistureDiffusion{Mass},
-    m,
-    state,
-    aux,
-    t,
-    ts,
-    diffusive,
-    hyperdiff,
-)
-    ν, D_t, τ = turbulence_tensors(m, state, diffusive, aux, t)
+function flux(::MoistureDiffusion{Mass}, atmos, args)
+    @unpack state, diffusive = args
+    @unpack D_t = args.precomputed.turbulence
     d_q_tot = (-D_t) .* diffusive.moisture.∇q_tot
     return d_q_tot * state.ρ
 end
@@ -53,11 +44,11 @@ function source(s::RemovePrecipitation{Mass}, m, args)
 end
 
 function source(s::WarmRain_1M{Mass}, m, args)
-    nt = warm_rain_sources(m, args)
-    return nt.S_ρ_qt
+    @unpack cache = args.precomputed.precipitation
+    return cache.S_ρ_qt
 end
 
 function source(s::RainSnow_1M{Mass}, m, args)
-    nt = rain_snow_sources(m, args)
-    return nt.S_ρ_qt
+    @unpack cache = args.precomputed.precipitation
+    return cache.S_ρ_qt
 end

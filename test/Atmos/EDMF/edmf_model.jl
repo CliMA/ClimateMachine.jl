@@ -97,7 +97,7 @@ Base.@kwdef struct SurfaceModel{FT <: AbstractFloat, SV}
     "Friction velocity"
     ustar::FT = 0.28
     "Monin - Obukhov length"
-    obukhov_length::FT = -100
+    obukhov_length::FT = 0
     "Surface covariance stability coefficient"
     ψϕ_stab::FT = 8.3
     "Square ratio of rms turbulent velocity to friction velocity"
@@ -349,5 +349,5 @@ turbconv_filters(m::EDMF) = (
     "turbconv.updraft",
 )
 n_quad_points(m::Environment{FT, N_quad}) where {FT, N_quad} = N_quad
-turbconv_sources(m::EDMF) = (TurbconvSource(),)
+turbconv_sources(m::EDMF) = ()
 turbconv_bcs(::EDMF) = (EDMFBottomBC(), EDMFTopBC())

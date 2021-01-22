@@ -35,7 +35,6 @@ using ClimateMachine.VariableTemplates
 using ClimateMachine.BalanceLaws
 
 import ClimateMachine.BalanceLaws: source
-import ClimateMachine.Atmos: filter_source, atmos_source!
 
 # [ClimateMachine parameters](https://github.com/CliMA/CLIMAParameters.jl) are
 # needed to have access to Earth's physical parameters.
@@ -57,9 +56,6 @@ struct HeldSuarezForcingTutorial{PV <: Union{Momentum, Energy}} <:
 
 HeldSuarezForcingTutorial() =
     (HeldSuarezForcingTutorial{Momentum}(), HeldSuarezForcingTutorial{Energy}())
-
-filter_source(pv::PV, m, s::HeldSuarezForcingTutorial{PV}) where {PV} = s
-atmos_source!(::HeldSuarezForcingTutorial, args...) = nothing
 
 function held_suarez_forcing_coefficients(bl, args)
     @unpack state, aux = args

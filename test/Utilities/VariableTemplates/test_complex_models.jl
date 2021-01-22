@@ -4,7 +4,6 @@ using ClimateMachine.VariableTemplates
 using ClimateMachine.VariableTemplates: wrap_val
 
 @testset "Test complex models" begin
-
     include("complex_models.jl")
 
     FT = Float32
@@ -92,8 +91,9 @@ using ClimateMachine.VariableTemplates: wrap_val
     end
     @test fn[j] === "scalar_model.x"
 
-    # test flattened_tup_chain
-    ftc = flattened_tup_chain(st)
+    # flattened_tup_chain - Retain arrays
+
+    ftc = flattened_tup_chain(st, RetainArr())
     j = 1
     for i in 1:N
         @test ftc[j] === (:ntuple_model, i, :scalar_model, :x)
@@ -124,7 +124,7 @@ using ClimateMachine.VariableTemplates: wrap_val
     # test that getproperty matches varsindex
     ntuple(N) do i
         i_ϕ = varsindex(st, wrap_val.(ftc[i])...)
-        ϕ = getproperty(v, ftc[i])
+        ϕ = getproperty(v, wrap_val.(ftc[i]))
         @test all(parent(v)[i_ϕ] .≈ ϕ)
     end
 
@@ -132,11 +132,102 @@ using ClimateMachine.VariableTemplates: wrap_val
     @unroll_map(N) do i
         @test v.scalar_model.x == getproperty(v, (:scalar_model, :x))
         @test v.vector_model.x == getproperty(v, (:vector_model, :x))
-        @test v.ntuple_model[i] == getproperty(v, (:ntuple_model, unval(i)))
+        @test v.ntuple_model[i] == getproperty(v, (:ntuple_model, i))
         @test v.ntuple_model[i].scalar_model ==
-              getproperty(v, (:ntuple_model, unval(i), :scalar_model))
+              getproperty(v, (:ntuple_model, i, :scalar_model))
         @test v.ntuple_model[i].scalar_model.x ==
-              getproperty(v, (:ntuple_model, unval(i), :scalar_model, :x))
+              getproperty(v, (:ntuple_model, i, :scalar_model, :x))
     end
+
+    # Test converting to flattened NamedTuple
+    fnt = flattened_named_tuple(v, RetainArr())
+    @test fnt.ntuple_model_1_scalar_model_x == 1.0f0
+    @test fnt.ntuple_model_1_vector_model_x == Float32[2.0, 3.0, 4.0]
+    @test fnt.ntuple_model_2_scalar_model_x == 5.0f0
+    @test fnt.ntuple_model_2_vector_model_x == Float32[6.0, 7.0, 8.0]
+    @test fnt.ntuple_model_3_scalar_model_x == 9.0f0
+    @test fnt.ntuple_model_3_vector_model_x == Float32[10.0, 11.0, 12.0]
+    @test fnt.ntuple_model_4_scalar_model_x == 13.0f0
+    @test fnt.ntuple_model_4_vector_model_x == Float32[14.0, 15.0, 16.0]
+    @test fnt.ntuple_model_5_scalar_model_x == 17.0f0
+    @test fnt.ntuple_model_5_vector_model_x == Float32[18.0, 19.0, 20.0]
+    @test fnt.vector_model_x == Float32[21.0, 22.0, 23.0]
+    @test fnt.scalar_model_x == 24.0f0
+
+    # flattened_tup_chain - Flatten arrays
+
+    ftc = flattened_tup_chain(st, FlattenArr())
+    j = 1
+    for i in 1:N
+        @test ftc[j] === (:ntuple_model, i, :scalar_model, :x)
+        j += 1
+        for k in 1:Nv
+            @test ftc[j] === (:ntuple_model, i, :vector_model, :x, k)
+            j += 1
+        end
+    end
+    for i in 1:Nv
+        @test ftc[j] === (:vector_model, :x, i)
+        j += 1
+    end
+    @test ftc[j] === (:scalar_model, :x)
+
+    # test varsindex (flatten arrays)
+    ntuple(N) do i
+        i_val = Val(i)
+        i_sm = varsindex(st, :ntuple_model, i_val, :scalar_model, :x)
+        nt_offset = (Nv + 1) - 1
+
+        i_sm_correct = (i + nt_offset * (i - 1)):(i + nt_offset * (i - 1))
+        @test i_sm == i_sm_correct
+
+        for j in 1:Nv
+            i_vm =
+                varsindex(st, :ntuple_model, i_val, :vector_model, :x, Val(j))
+            offset = 1
+            i_start = i + nt_offset * (i - 1) + offset
+            i_vm_correct = i_start + j - 1
+            @test i_vm == i_vm_correct:i_vm_correct
+        end
+    end
+
+    # test that getproperty matches varsindex
+    ntuple(N) do i
+        i_ϕ = varsindex(st, wrap_val.(ftc[i])...)
+        ϕ = getproperty(v, wrap_val.(ftc[i]))
+        @test all(parent(v)[i_ϕ] .≈ ϕ)
+    end
+
+    # test getproperty with tup-chain
+    for k in 1:Nv
+        @test v.vector_model.x[k] == getproperty(v, (:vector_model, :x, Val(k)))
+    end
+
+    # Test converting to flattened NamedTuple
+    fnt = flattened_named_tuple(v, FlattenArr())
+    @test fnt.ntuple_model_1_scalar_model_x == 1.0f0
+    @test fnt.ntuple_model_1_vector_model_x_1 == 2.0
+    @test fnt.ntuple_model_1_vector_model_x_2 == 3.0
+    @test fnt.ntuple_model_1_vector_model_x_3 == 4.0
+    @test fnt.ntuple_model_2_scalar_model_x == 5.0f0
+    @test fnt.ntuple_model_2_vector_model_x_1 == 6.0
+    @test fnt.ntuple_model_2_vector_model_x_2 == 7.0
+    @test fnt.ntuple_model_2_vector_model_x_3 == 8.0
+    @test fnt.ntuple_model_3_scalar_model_x == 9.0f0
+    @test fnt.ntuple_model_3_vector_model_x_1 == 10.0
+    @test fnt.ntuple_model_3_vector_model_x_2 == 11.0
+    @test fnt.ntuple_model_3_vector_model_x_3 == 12.0
+    @test fnt.ntuple_model_4_scalar_model_x == 13.0f0
+    @test fnt.ntuple_model_4_vector_model_x_1 == 14.0
+    @test fnt.ntuple_model_4_vector_model_x_2 == 15.0
+    @test fnt.ntuple_model_4_vector_model_x_3 == 16.0
+    @test fnt.ntuple_model_5_scalar_model_x == 17.0f0
+    @test fnt.ntuple_model_5_vector_model_x_1 == 18.0
+    @test fnt.ntuple_model_5_vector_model_x_2 == 19.0
+    @test fnt.ntuple_model_5_vector_model_x_3 == 20.0
+    @test fnt.vector_model_x_1 == 21.0
+    @test fnt.vector_model_x_2 == 22.0
+    @test fnt.vector_model_x_3 == 23.0
+    @test fnt.scalar_model_x == 24.0f0
 
 end

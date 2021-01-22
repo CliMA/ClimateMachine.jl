@@ -38,7 +38,6 @@ struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 # Physics specific imports
 using ClimateMachine.Atmos: altitude, recover_thermo_state
-import ClimateMachine.Atmos: source!, atmos_source!, filter_source
 import ClimateMachine.BalanceLaws: source, eq_tends
 
 # Citation for problem setup
@@ -147,17 +146,17 @@ function source(s::LargeScaleProcess{TotalMoisture}, m, args)
     return state.ρ * q_tot_tendency
 end
 
-# Large-scale subsidence forcing
 """
-    Subsidence <: AbstractSource
+    LargeScaleSubsidence{PV <: Union{Mass, Energy, TotalMoisture}} <:
+       TendencyDef{Source, PV}
 
-Subsidence tendency, given a vertical velocity at the large scale,
-obtained from the GCM data.
+Large-scale subsidence tendency, given a vertical velocity
+at the large scale, obtained from the GCM data.
 
-    wap = GCM vertical velocity [Pa s⁻¹]. Note the conversion required
+```
+wap = GCM vertical velocity [Pa s⁻¹]. Note the conversion required
+```
 """
-struct SubsidenceTendency <: AbstractSource end
-
 struct LargeScaleSubsidence{PV <: Union{Mass, Energy, TotalMoisture}} <:
        TendencyDef{Source, PV} end
 
@@ -236,16 +235,6 @@ function source(s::LinearSponge{Momentum}, m, args)
     end
 end
 
-atmos_source!(s::GCMRelaxation, args...) = nothing
-atmos_source!(s::LargeScaleProcess, args...) = nothing
-atmos_source!(s::LargeScaleSubsidence, args...) = nothing
-atmos_source!(s::LinearSponge, args...) = nothing
-
-filter_source(pv::PV, m, s::GCMRelaxation{PV}) where {PV} = s
-filter_source(pv::PV, m, s::LargeScaleProcess{PV}) where {PV} = s
-filter_source(pv::PV, m, s::LargeScaleSubsidence{PV}) where {PV} = s
-filter_source(pv::PV, m, s::LinearSponge{PV}) where {PV} = s
-
 # We first specify the NetCDF file from which we wish to read our
 # GCM values.
 # Utility function to read and store variables directly from the
@@ -282,7 +271,8 @@ function get_gcm_info(group_id)
     @printf("--------------------------------------------------\n")
 
     lsforcing_dataset = ArtifactWrapper(
-        joinpath(@__DIR__, "Artifacts.toml"),
+        @__DIR__,
+        isempty(get(ENV, "CI", "")),
         "lsforcing",
         ArtifactFile[ArtifactFile(
             url = "https://caltech.box.com/shared/static/dszfbqzwgc9a55vhxd43yenvebcb6bcj.nc",

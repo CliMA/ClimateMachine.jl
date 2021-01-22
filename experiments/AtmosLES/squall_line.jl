@@ -129,10 +129,9 @@ function read_sounding()
     # driver at the same time, we must store artifacts in a
     # separate folder.
 
-    artifact_folder = mktempdir(@__DIR__; prefix = "artifacts_")
-
     soundings_dataset = ArtifactWrapper(
-        joinpath(artifact_folder, "Artifacts.toml"),
+        @__DIR__,
+        isempty(get(ENV, "CI", "")),
         "soundings",
         ArtifactFile[ArtifactFile(
             url = "https://caltech.box.com/shared/static/rjnvt2dlw7etm1c7mmdfrkw5gnfds5lx.nc",
@@ -241,7 +240,7 @@ function config_squall_line(
 
     # moisture model and its sources
     if moisture_model == "equilibrium"
-        moisture = EquilMoist{FT}(; maxiter = 4, tolerance = FT(1))
+        moisture = EquilMoist{FT}(; maxiter = 20, tolerance = FT(1))
     elseif moisture_model == "nonequilibrium"
         source = (source..., CreateClouds()...)
         moisture = NonEquilMoist()
@@ -333,10 +332,17 @@ function config_diagnostics(driver_config, boundaries, resolution)
         driver_config.name,
         interpol = interpol,
     )
+    dgngrp_aux = setup_dump_aux_diagnostics(
+        AtmosLESConfigType(),
+        interval,
+        driver_config.name,
+        interpol = interpol,
+    )
 
     return ClimateMachine.DiagnosticsConfiguration([
         dgngrp_profiles,
         dgngrp_state,
+        dgngrp_aux,
     ])
 end
 

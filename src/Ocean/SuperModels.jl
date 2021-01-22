@@ -174,6 +174,7 @@ function HydrostaticBoussinesqSuperModel(;
         numerical_fluxes.first_order,
         numerical_fluxes.second_order,
         numerical_fluxes.gradient,
+        nothing,
         OceanBoxGCMSpecificInfo(),
     )
 

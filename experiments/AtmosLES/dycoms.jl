@@ -25,6 +25,7 @@ import ClimateMachine.BalanceLaws:
     reverse_integral_set_auxiliary_state!
 
 using ArgParse
+using UnPack
 using Distributions
 using Random
 using StaticArrays
@@ -98,7 +99,8 @@ eq_tends(
     ::Flux{FirstOrder},
 ) where {PV <: Energy} = (DYCOMSRadiation{PV}(),)
 
-function flux(::DYCOMSRadiation{Energy}, atmos, state, aux, t, ts, direction)
+function flux(::DYCOMSRadiation{Energy}, atmos, args)
+    @unpack state, aux = args
     m = atmos.radiation
     FT = eltype(state)
     z = altitude(atmos, aux)
@@ -245,7 +247,7 @@ function init_dycoms!(problem, bl, state, aux, localgeo, t)
 end
 
 function config_dycoms(
-    FT,
+    ::Type{FT},
     N,
     resolution,
     xmax,
@@ -253,7 +255,7 @@ function config_dycoms(
     zmax,
     moisture_model = "equilibrium",
     precipitation_model = "noprecipitation",
-)
+) where {FT}
     # Reference state
     T_profile = DecayingTemperatureProfile{FT}(param_set)
     ref_state = HydrostaticState(T_profile)
@@ -392,8 +394,9 @@ function config_dycoms(
     return config
 end
 
-function config_diagnostics(driver_config)
-    interval = "1000steps"
+function config_diagnostics(driver_config, timeend)
+    ssecs = cld(timeend, 2) + 10
+    interval = "$(ssecs)ssecs"
     dgngrp = setup_atmos_default_diagnostics(
         AtmosLESConfigType(),
         interval,
@@ -467,7 +470,7 @@ function main()
         init_on_cpu = true,
         Courant_number = Cmax,
     )
-    dgn_config = config_diagnostics(driver_config)
+    dgn_config = config_diagnostics(driver_config, timeend)
 
     if moisture_model == "equilibrium"
         filter_vars = ("moisture.ρq_tot",)

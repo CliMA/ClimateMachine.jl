@@ -16,6 +16,9 @@ export init_state_prognostic!,
 
 import ..BalanceLaws:
     vars_state,
+    eq_tends,
+    source!,
+    precompute,
     prognostic_vars,
     init_state_prognostic!,
     init_state_auxiliary!,
@@ -42,6 +45,9 @@ pass through and do nothing.
 struct NoTurbConv <: TurbulenceConvectionModel end
 
 prognostic_vars(::NoTurbConv) = ()
+
+eq_tends(pv, ::NoTurbConv, tt) = ()
+precompute(::NoTurbConv, bl, args, ts, tend_type) = NamedTuple()
 
 vars_state(m::TurbulenceConvectionModel, ::AbstractStateType, FT) = @vars()
 
@@ -79,14 +85,12 @@ function flux_first_order!(
     m::TurbulenceConvectionModel,
     bl::BalanceLaw,
     flux::Grad,
-    state::Vars,
-    aux::Vars,
-    t::Real,
-    ts,
-    direction,
+    args,
 )
     return nothing
 end
+
+source!(m::TurbulenceConvectionModel, _...) = nothing
 
 function compute_gradient_argument!(
     m::TurbulenceConvectionModel,
@@ -113,12 +117,9 @@ end
 
 function flux_second_order!(
     m::TurbulenceConvectionModel,
-    bl::BalanceLaw,
     flux::Grad,
-    state::Vars,
-    diffusive::Vars,
-    aux::Vars,
-    t::Real,
+    bl::BalanceLaw,
+    args,
 )
     return nothing
 end

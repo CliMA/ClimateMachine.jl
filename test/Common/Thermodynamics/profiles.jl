@@ -61,6 +61,30 @@ end
 Base.IteratorSize(::ProfileSet) = Base.HasLength()
 Base.length(ps::ProfileSet) = length(ps.z)
 
+# Since we use `rand` to generate the ProfileSet,
+# just initialize on the CPU, and provide convert
+# function to move arrays to the GPU.
+convert_profile_set(ps::ProfileSet, ArrayType, slice) = ProfileSet(
+    ArrayType(ps.z[slice]),
+    ArrayType(ps.T[slice]),
+    ArrayType(ps.p[slice]),
+    ArrayType(ps.RS[slice]),
+    ArrayType(ps.e_int[slice]),
+    ArrayType(ps.ρ[slice]),
+    ArrayType(ps.θ_liq_ice[slice]),
+    ArrayType(ps.q_tot[slice]),
+    ArrayType(ps.q_liq[slice]),
+    ArrayType(ps.q_ice[slice]),
+    PhasePartition.(ps.q_tot[slice], ps.q_liq[slice], ps.q_ice[slice]),
+    ArrayType(ps.RH[slice]),
+    ArrayType(ps.e_pot[slice]),
+    ArrayType(ps.u[slice]),
+    ArrayType(ps.v[slice]),
+    ArrayType(ps.w[slice]),
+    ArrayType(ps.e_kin[slice]),
+    ps.phase_type,
+)
+
 """
     input_config(
         ArrayType;
@@ -85,7 +109,7 @@ function input_config(
     z_range = ArrayType(range(0, stop = 2.5e4, length = n))
     relative_sat1 = ArrayType(range(0, stop = 1, length = n_RS1))
     relative_sat2 = ArrayType(range(1, stop = 1.02, length = n_RS2))
-    relative_sat = [relative_sat1..., relative_sat2...]
+    relative_sat = vcat(relative_sat1, relative_sat2)
     return z_range, relative_sat, T_surface, T_min
 end
 
@@ -166,12 +190,12 @@ function PhaseDryProfiles(
     # Additional variables
     q_tot = similar(T)
     fill!(q_tot, 0)
-    q_pt = PhasePartition_equil.(Ref(param_set), T, ρ, q_tot, Ref(phase_type))
-    e_int = internal_energy.(Ref(param_set), T, q_pt)
-    θ_liq_ice = liquid_ice_pottemp.(Ref(param_set), T, ρ, q_pt)
+    q_pt = PhasePartition_equil.(param_set, T, ρ, q_tot, phase_type)
+    e_int = internal_energy.(param_set, T, q_pt)
+    θ_liq_ice = liquid_ice_pottemp.(param_set, T, ρ, q_pt)
     q_liq = getproperty.(q_pt, :liq)
     q_ice = getproperty.(q_pt, :ice)
-    RH = relative_humidity.(Ref(param_set), T, p, Ref(phase_type), q_pt)
+    RH = relative_humidity.(param_set, T, p, phase_type, q_pt)
     e_pot = _grav * z
     Random.seed!(15)
     u = rand(FT, size(T)) * 50

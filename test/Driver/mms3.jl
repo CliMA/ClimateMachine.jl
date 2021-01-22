@@ -15,7 +15,6 @@ using ClimateMachine.ODESolvers
 using ClimateMachine.VariableTemplates
 
 import ClimateMachine.Thermodynamics: total_specific_enthalpy
-import ClimateMachine.Atmos: filter_source, atmos_source!
 import ClimateMachine.BalanceLaws: source
 
 using CLIMAParameters
@@ -58,9 +57,6 @@ end
 
 struct MMSSource{PV <: Union{Mass, Momentum, Energy}, N} <:
        TendencyDef{Source, PV} end
-
-filter_source(pv::PV, m::AtmosModel, s::MMSSource{PV}) where {PV} = s
-atmos_source!(::MMSSource, args...) = nothing
 
 MMSSource(N::Int) =
     (MMSSource{Mass, N}(), MMSSource{Momentum, N}(), MMSSource{Energy, N}())
@@ -160,6 +156,7 @@ function main()
         RusanovNumericalFlux(),
         CentralNumericalFluxSecondOrder(),
         CentralNumericalFluxGradient(),
+        nothing,
         ClimateMachine.AtmosLESSpecificInfo(),
     )
 

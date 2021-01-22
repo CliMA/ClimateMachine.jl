@@ -30,7 +30,7 @@ using ..BalanceLaws
 using ..MPIStateArrays: MPIStateArray
 import ..BalanceLaws: vars_state
 using ..DGMethods:
-    init_state_auxiliary!, continuous_field_gradient!, LocalGeometry
+    init_state_auxiliary!, auxiliary_field_gradient!, LocalGeometry
 
 export Orientation, NoOrientation, FlatOrientation, SphericalOrientation
 
@@ -114,7 +114,7 @@ function init_aux!(
         direction,
     )
 
-    continuous_field_gradient!(
+    auxiliary_field_gradient!(
         m,
         state_auxiliary,
         ("orientation.∇Φ",),

@@ -173,11 +173,30 @@ subtype `BL`.
 """
 function compute_gradient_argument! end
 
+function compute_gradient_argument!(
+    balance_law::BalanceLaw,
+    transformstate::AbstractArray,
+    state_prognostic::AbstractArray,
+    state_auxiliary::AbstractArray,
+    t,
+)
+    FT = eltype(transformstate)
+    compute_gradient_argument!(
+        balance_law,
+        Vars{vars_state(balance_law, Gradient(), FT)}(transformstate),
+        Vars{vars_state(balance_law, Prognostic(), FT)}(state_prognostic),
+        Vars{vars_state(balance_law, Auxiliary(), FT)}(state_auxiliary),
+        t,
+    )
+end
+
+
 """
     compute_gradient_flux!(
         ::BL,
         state_gradient_flux::Vars,
         ∇transformstate::Grad,
+        state_prognostic::Vars,
         state_auxiliary::Vars,
         t::Real
     )
@@ -187,6 +206,25 @@ Transformation of gradients to the diffusive variables for a
 `∇transformstate`
 """
 function compute_gradient_flux! end
+
+function compute_gradient_flux!(
+    balance_law::BalanceLaw,
+    state_gradient_flux::AbstractArray,
+    ∇transformstate::AbstractArray,
+    state_prognostic::AbstractArray,
+    state_auxiliary::AbstractArray,
+    t,
+)
+    FT = eltype(state_gradient_flux)
+    compute_gradient_flux!(
+        balance_law,
+        Vars{vars_state(balance_law, GradientFlux(), FT)}(state_gradient_flux),
+        Grad{vars_state(balance_law, Gradient(), FT)}(∇transformstate),
+        Vars{vars_state(balance_law, Prognostic(), FT)}(state_prognostic),
+        Vars{vars_state(balance_law, Auxiliary(), FT)}(state_auxiliary),
+        t,
+    )
+end
 
 """
     transform_post_gradient_laplacian!(

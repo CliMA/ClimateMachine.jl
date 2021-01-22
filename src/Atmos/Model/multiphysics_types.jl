@@ -24,8 +24,11 @@ struct PressureGradient{PV <: Momentum} <: TendencyDef{Flux{FirstOrder}, PV} end
 struct Pressure{PV <: Energy} <: TendencyDef{Flux{FirstOrder}, PV} end
 
 struct Advect{PV} <: TendencyDef{Flux{FirstOrder}, PV} end
+export Diffusion
 struct Diffusion{PV} <: TendencyDef{Flux{SecondOrder}, PV} end
 
+struct MoistureDiffusion{PV <: Union{Mass, Momentum, Moisture}} <:
+       TendencyDef{Flux{SecondOrder}, PV} end
 
 export RemovePrecipitation
 """
@@ -47,6 +50,17 @@ RemovePrecipitation(b::Bool) = (
     RemovePrecipitation{Energy}(b),
     RemovePrecipitation{TotalMoisture}(b),
 )
+
+"""
+    PrecipitationFlux{PV <: Union{Rain, Snow}} <: TendencyDef{Flux{FirstOrder}, PV}
+
+Computes the precipitation flux as a sum of air velocity and terminal velocity
+multiplied by the advected variable.
+"""
+struct PrecipitationFlux{PV <: Union{Rain, Snow}} <:
+       TendencyDef{Flux{FirstOrder}, PV} end
+
+PrecipitationFlux() = (PrecipitationFlux{Rain}(), PrecipitationFlux{Snow}())
 
 function remove_precipitation_sources(
     s::RemovePrecipitation{PV},
@@ -79,7 +93,9 @@ end
 
 export WarmRain_1M
 """
-    WarmRain_1M{FT} <: AbstractSource
+    WarmRain_1M{PV <: Union{Mass, Energy, TotalMoisture, LiquidMoisture, Rain},
+        } <: TendencyDef{Source, PV}
+
 A collection of source/sink terms related to 1-moment warm rain microphysics.
 """
 struct WarmRain_1M{
@@ -94,9 +110,8 @@ WarmRain_1M() = (
     WarmRain_1M{Rain}(),
 )
 
-function warm_rain_sources(atmos, args)
+function warm_rain_sources(atmos, args, ts)
     @unpack state, aux = args
-    @unpack ts = args.precomputed
 
     FT = eltype(state)
 
@@ -142,7 +157,9 @@ end
 
 export RainSnow_1M
 """
-    RainSnow_1M{FT} <: AbstractSource
+    RainSnow_1M{PV <: Union{Mass, Energy, Moisture, Rain, Snow}} <:
+       TendencyDef{Source, PV}
+
 A collection of source/sink terms related to 1-moment rain and snow microphysics
 """
 struct RainSnow_1M{PV <: Union{Mass, Energy, Moisture, Rain, Snow}} <:
@@ -158,9 +175,8 @@ RainSnow_1M() = (
     RainSnow_1M{Snow}(),
 )
 
-function rain_snow_sources(atmos, args)
+function rain_snow_sources(atmos, args, ts)
     @unpack state, aux = args
-    @unpack ts = args.precomputed
 
     FT = eltype(state)
 

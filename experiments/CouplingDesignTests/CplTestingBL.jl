@@ -1,6 +1,5 @@
 """
     module CplTestingBL
-   
  Defines an equation set for testing coupling
 
  Defines kernels to evaluates RHS of
@@ -10,7 +9,7 @@
  subject to specified prescribed gradient or flux bc's
 
  - [`CplTestBL`](@ref)
-     balance law struct created by this module 
+     balance law struct created by this module
 
 """
 module CplTestingBL
@@ -133,6 +132,8 @@ function vars_state(bl::l_type, ::Auxiliary, FT)
         yc::FT
         zc::FT
      θⁱⁿⁱᵗ::FT
+     boundary_in::FT
+     boundary_out::FT
   end
 end
 
@@ -179,8 +180,24 @@ function nodal_init_state_auxiliary!(bl::l_type, A::Vars, tmp::Vars, geom::Local
   z=geom.coord[3]
   A.npt, A.elnum, A.xc, A.yc, A.zc = bl.bl_prop.init_aux_geom(npt,elnum,x,y,z)
   A.θⁱⁿⁱᵗ=0
+  A.boundary_in = 0
+  A.boundary_out = 0
   nothing
 end
+
+#====
+
+Atmos
+
+----
+
+Land
+
+
+====#
+
+
+
 
 """
   Set any source terms for prognostic state external sources.
@@ -223,15 +240,21 @@ end
   Pass flux components for second order term into update kernel.
 """
 function flux_second_order!( bl::l_type, F::Grad, Q::Vars, GF::Vars, H::Vars, A::Vars, t )
-  F.θ += GF.κ∇θ 
+  F.θ += GF.κ∇θ
   nothing
+end
+
+struct ExteriorBoundaryCondition
+end
+
+struct CoupledBoundaryCondition
 end
 
 """
   Define boundary condition flags/types to iterate over, for now keep it simple.
 """
 function boundary_conditions( bl::l_type, _...)
- ( 1, )
+    (CoupledBoundaryCondition(), ExteriorBoundaryCondition())
 end
 
 """
@@ -251,15 +274,34 @@ end
 function boundary_state!(nF::NumericalFluxFirstOrder, bc, bl::l_type, Q⁺::Vars, A⁺::Vars,n,Q⁻::Vars,A⁻::Vars,t,_...)
  nothing
 end
-# Zero gradient for now, but add coupling terms here.
-function boundary_state!(nF::Union{NumericalFluxSecondOrder}, bc, bl::l_type, Q⁺::Vars, GF⁺::Vars, A⁺::Vars,n⁻,Q⁻::Vars,GF⁻::Vars,A⁻::Vars,t,_...)
+# Zero gradient at exterior boundaries
+function boundary_state!(nF::Union{NumericalFluxSecondOrder}, bc::ExteriorBoundaryCondition, bl::l_type, Q⁺::Vars, GF⁺::Vars, A⁺::Vars,n⁻,Q⁻::Vars,GF⁻::Vars,A⁻::Vars,t,_...)
  Q⁺.θ=Q⁻.θ
  GF⁺.κ∇θ= n⁻ * -0
  nothing
 end
+# Use boundary flux
+function boundary_state!(nF::Union{NumericalFluxSecondOrder}, bc::CoupledBoundaryCondition, bl::l_type, Q⁺::Vars, GF⁺::Vars, A⁺::Vars,n⁻,Q⁻::Vars,GF⁻::Vars,A⁻::Vars,t,_...)
+  GF⁺.κ∇θ = n⁻ * aux.boundary_in
+  nothing
+end
+
+
+function update_auxiliary_state_gradient!(
+      dg,
+      balance_law::l_type,
+      state_prognostic,
+      t,
+      elems,
+    )
+
+    A = dg.state_auxiliary
+    D = dg.state_gradient_flux
+    A.boundary_out .= D.κ∇θ
+end
 
 function wavespeed(bl::l_type, _...)
- # Used in Rusanov term. 
+ # Used in Rusanov term.
  # Only active if there is a flux first order term?
  bl.bl_prop.get_wavespeed()
 end
@@ -267,7 +309,7 @@ end
 """
   Penalty flux formulation of second order numerical flux. This formulation
   computes the CentralNumericalFluxSecondOrder term first (which is just the average
-  of the + and - fluxes and an edge), and then adds a "penalty" flux that relaxes 
+  of the + and - fluxes and an edge), and then adds a "penalty" flux that relaxes
   the edge state + and - toward each other.
 """
 function numerical_flux_second_order!(
@@ -308,7 +350,7 @@ function numerical_flux_second_order!(
     Fᵀn .-= tau * (parent(state⁻) - parent(state⁺))
 end
 
-# We are assuming zero gradient bc for now - so there is no numerical second order 
+# We are assuming zero gradient bc for now - so there is no numerical second order
 # flux from boundary
 numerical_boundary_flux_second_order!(nf::PenaltyNumFluxDiffusive, _...) = nothing
 
