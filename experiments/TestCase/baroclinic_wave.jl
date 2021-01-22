@@ -246,7 +246,7 @@ function main()
     )
 
     # CFL = FT(0.1) # target acoustic CFL number
-    CFL = FT(0.7) # target acoustic CFL number
+    CFL = FT(1.0) # target acoustic CFL number
 
     # time step is computed such that the horizontal acoustic Courant number is CFL
     solver_config = ClimateMachine.SolverConfiguration(
@@ -255,7 +255,8 @@ function main()
         driver_config,
         Courant_number = CFL,
         ode_solver_type = ode_solver_type,
-        CFL_direction = HorizontalDirection(),
+        # CFL_direction = HorizontalDirection(),
+        CFL_direction = EveryDirection(),
         diffdir = HorizontalDirection(),
     )
 
