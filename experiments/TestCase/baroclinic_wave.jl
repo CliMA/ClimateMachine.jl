@@ -232,16 +232,21 @@ function main()
     driver_config =
         config_baroclinic_wave(FT, poly_order, (n_horz, n_vert), with_moisture)
 
-    # Set up experiment
-    ode_solver_type = ClimateMachine.IMEXSolverType(
-        implicit_model = AtmosAcousticGravityLinearModel,
-        implicit_solver = ManyColumnLU,
-        solver_method = ARK2GiraldoKellyConstantinescu,
-        split_explicit_implicit = true,
-        discrete_splitting = false,
+    # # Set up experiment
+    # ode_solver_type = ClimateMachine.IMEXSolverType(
+    #     implicit_model = AtmosAcousticGravityLinearModel,
+    #     implicit_solver = ManyColumnLU,
+    #     solver_method = ARK2GiraldoKellyConstantinescu,
+    #     split_explicit_implicit = true,
+    #     discrete_splitting = false,
+    # )
+
+    ode_solver_type = ClimateMachine.ExplicitSolverType(
+        solver_method = LSRK54CarpenterKennedy,
     )
 
-    CFL = FT(0.1) # target acoustic CFL number
+    # CFL = FT(0.1) # target acoustic CFL number
+    CFL = FT(0.7) # target acoustic CFL number
 
     # time step is computed such that the horizontal acoustic Courant number is CFL
     solver_config = ClimateMachine.SolverConfiguration(
