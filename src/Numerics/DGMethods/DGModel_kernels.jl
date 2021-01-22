@@ -151,6 +151,8 @@ fluxes, respectively.
             end
 
             # Read fields into registers (hopefully)
+
+            # need to interpolate here
             @unroll for s in 1:num_state_prognostic
                 local_state_prognostic[s] = state_prognostic[ijk, s, e]
             end
@@ -2297,7 +2299,7 @@ or equivalently in matrix form:
 
 This kernel computes the volume terms: M⁻¹(DᵀM ∇G),
 where M is the mass matrix and D is the differentiation matrix,
-and ∇G are the gradients. 
+and ∇G are the gradients.
 """
 @kernel function volume_divergence_of_gradients!(
     balance_law::BalanceLaw,
