@@ -1351,7 +1351,7 @@ steps:
   - label: "gpu_bomex_single_stack"
     key: "gpu_bomex_single_stack"
     command:
-      - "mpiexec julia --color=yes --project experiments/AtmosLES/bomex_single_stack.jl --diagnostics=default --fix-rng-seed"
+      - "mpiexec julia --color=yes --project experiments/AtmosLES/bomex_single_stack.jl --fix-rng-seed"
     agents:
       config: gpu
       queue: central
@@ -1361,7 +1361,7 @@ steps:
   - label: "gpu_bomex_single_stack_nonequil"
     key: "gpu_bomex_single_stack_nonequil"
     command:
-      - "mpiexec julia --color=yes --project experiments/AtmosLES/bomex_single_stack.jl --moisture-model nonequilibrium --diagnostics=default --fix-rng-seed"
+      - "mpiexec julia --color=yes --project experiments/AtmosLES/bomex_single_stack.jl --moisture-model nonequilibrium --fix-rng-seed"
     agents:
       config: gpu
       queue: central

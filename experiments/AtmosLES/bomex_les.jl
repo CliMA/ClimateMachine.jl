@@ -92,7 +92,7 @@ function main()
         Courant_number = CFLmax,
         CFL_direction = HorizontalDirection(),
     )
-    dgn_config = config_diagnostics(driver_config)
+    dgn_config = config_diagnostics(driver_config, timeend)
 
     if moisture_model == "equilibrium"
         filter_vars = ("moisture.ρq_tot",)
@@ -122,6 +122,25 @@ function main()
         check_cons = check_cons,
         check_euclidean_distance = true,
     )
+end
+
+function config_diagnostics(driver_config, timeend)
+    default_interval = "$(cld(timeend, 2) + 10)ssecs"
+    default_dgngrp = setup_atmos_default_diagnostics(
+        AtmosLESConfigType(),
+        default_interval,
+        driver_config.name,
+    )
+    core_interval = "$(cld(timeend, 4) + 10)ssecs"
+    core_dgngrp = setup_atmos_core_diagnostics(
+        AtmosLESConfigType(),
+        core_interval,
+        driver_config.name,
+    )
+    return ClimateMachine.DiagnosticsConfiguration([
+        default_dgngrp,
+        core_dgngrp,
+    ])
 end
 
 main()
