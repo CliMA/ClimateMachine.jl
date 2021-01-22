@@ -16,126 +16,91 @@ mutable struct DiagnosticsConfiguration
     ) where {DG <: DiagnosticsGroup} = new(groups)
 end
 
-"""
-    InterpolationConfiguration(
-        driver_config::DriverConfiguration,
-        boundaries::Array,
-        resolution::Tuple,
-    )
-
-Creates an `InterpolationTopology` (either an `InterpolationBrick` or an
-`InterpolationCubedSphere`) to be used with a `DiagnosticsGroup`. The axes
-are set up based on `boundaries` and `resolution`.
-"""
 function InterpolationConfiguration(
-    driver_config::DriverConfiguration,
-    boundaries::Array,
-    resolution::Tuple,
+    ::StackedBrickTopology,
+    driver_config,
+    boundaries,
+    axes,
 )
+    grid = driver_config.grid
+    return InterpolationBrick(grid, boundaries, axes[1], axes[2], axes[3])
+end
+
+function InterpolationConfiguration(
+    ::StackedCubedSphereTopology,
+    driver_config,
+    boundaries,
+    axes;
+    nr_toler = nothing,
+)
+    FT = eltype(driver_config.grid)
     param_set = driver_config.bl.param_set
     grid = driver_config.grid
-    if isa(grid.topology, StackedBrickTopology)
+    info = driver_config.config_info
 
-        axes = (
-            collect(range(
-                boundaries[1, 1],
-                boundaries[2, 1],
-                step = resolution[1],
-            )),
-            collect(range(
-                boundaries[1, 2],
-                boundaries[2, 2],
-                step = resolution[2],
-            )),
-            collect(range(
-                boundaries[1, 3],
-                boundaries[2, 3],
-                step = resolution[3],
-            )),
-        )
-        return InterpolationBrick(grid, boundaries, axes[1], axes[2], axes[3])
+    _planet_radius::FT = planet_radius(param_set)
+    vert_range = grid1d(
+        _planet_radius,
+        FT(_planet_radius + info.domain_height),
+        nelem = info.nelem_vert,
+    )
 
-    elseif isa(grid.topology, StackedCubedSphereTopology)
-
-        FT = eltype(grid)
-        _planet_radius::FT = planet_radius(param_set)
-        info = driver_config.config_info
-        vert_range = grid1d(
-            _planet_radius,
-            FT(_planet_radius + info.domain_height),
-            nelem = info.nelem_vert,
-        )
-        axes = (
-            collect(range(
-                boundaries[1, 1],
-                boundaries[2, 1],
-                step = resolution[1],
-            )),
-            collect(range(
-                boundaries[1, 2],
-                boundaries[2, 2],
-                step = resolution[2],
-            )),
-            collect(range(
-                boundaries[1, 3],
-                boundaries[2, 3],
-                step = resolution[3],
-            )),
-        )
-        return InterpolationCubedSphere(
-            grid,
-            collect(vert_range),
-            info.nelem_horz,
-            axes[1],
-            axes[2],
-            axes[3],
-        )
-    else
-        @error "Cannot set up interpolation for this topology."
-    end
+    return InterpolationCubedSphere(
+        grid,
+        collect(vert_range),
+        info.nelem_horz,
+        axes[1],
+        axes[2],
+        axes[3];
+        nr_toler = nr_toler,
+    )
 end
 
 """
     InterpolationConfiguration(
         driver_config::DriverConfiguration,
         boundaries::Array,
-        axes,
+        resolution = nothing;
+        axes = nothing;
     )
 
 Creates an `InterpolationTopology` (either an `InterpolationBrick` or an
-`InterpolationCubedSphere`) to be used with a `DiagnosticsGroup`. The axes
-are directly specified in lat/lon/lvl order.
+`InterpolationCubedSphere`) to be used with a `DiagnosticsGroup`. Either
+`resolution` is specified, in which case the axes are set up with
+equi-distant points, or the `axes` may be specified directly (in
+lat/lon/lvl or x/y/z order).
 """
 function InterpolationConfiguration(
     driver_config::DriverConfiguration,
     boundaries::Array,
-    axes,
+    resolution = nothing;
+    axes = nothing,
 )
-    param_set = driver_config.bl.param_set
-    grid = driver_config.grid
-    if isa(grid.topology, StackedBrickTopology)
-        return InterpolationBrick(grid, boundaries, axes[1], axes[2], axes[3])
-
-    elseif isa(grid.topology, StackedCubedSphereTopology)
-
-        FT = eltype(grid)
-        _planet_radius::FT = planet_radius(param_set)
-        info = driver_config.config_info
-        vert_range = grid1d(
-            _planet_radius,
-            FT(_planet_radius + info.domain_height),
-            nelem = info.nelem_vert,
+    @assert isnothing(resolution) || isnothing(axes)
+    if isnothing(axes)
+        axes = (
+            collect(range(
+                boundaries[1, 1],
+                boundaries[2, 1],
+                step = resolution[1],
+            )),
+            collect(range(
+                boundaries[1, 2],
+                boundaries[2, 2],
+                step = resolution[2],
+            )),
+            collect(range(
+                boundaries[1, 3],
+                boundaries[2, 3],
+                step = resolution[3],
+            )),
         )
-
-        return InterpolationCubedSphere(
-            grid,
-            collect(vert_range),
-            info.nelem_horz,
-            axes[1],
-            axes[2],
-            axes[3],
-        )
-    else
-        @error "Cannot set up interpolation for this topology."
     end
+
+    return InterpolationConfiguration(
+        driver_config.grid.topology,
+        driver_config,
+        boundaries,
+        axes,
+    )
 end

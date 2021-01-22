@@ -697,7 +697,8 @@ struct InterpolationCubedSphere{
         nhor::Int,
         lat_grd::AbstractArray{FT, 1},
         long_grd::AbstractArray{FT, 1},
-        rad_grd::AbstractArray{FT},
+        rad_grd::AbstractArray{FT};
+        nr_toler = nothing,
     ) where {FT <: AbstractFloat}
         mpicomm = MPI.COMM_WORLD
         pid = MPI.Comm_rank(mpicomm)
@@ -709,7 +710,10 @@ struct InterpolationCubedSphere{
         qm = polynomialorders(grid) .+ 1
         toler1 = FT(eps(FT) * vert_range[1] * 2.0) # tolerance for unwarp function
         toler2 = FT(eps(FT) * 4.0)                 # tolerance
-        toler3 = FT(eps(FT) * vert_range[1] * 10.0) # tolerance for Newton-Raphson
+        # tolerance for Newton-Raphson
+        if isnothing(nr_toler)
+            nr_toler = FT(eps(FT) * vert_range[1] * 10.0)
+        end
 
         Nel = length(grid.topology.realelems) # # of local elements on the local process
 
@@ -850,7 +854,7 @@ struct InterpolationCubedSphere{
                             view(grid.topology.elemtocoord, 3, :, el_loc),
                             uw_grd,
                             diffv,
-                            toler3,
+                            nr_toler,
                             ξ,
                         )
                         push!(ξ1[el_loc], ξ[1])
