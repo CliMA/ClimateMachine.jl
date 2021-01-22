@@ -37,7 +37,7 @@ soil_heat_model = PrescribedTemperatureModel();
 # roughly correspond to Yolo light clay.
 soil_param_functions = SoilParamFunctions{FT}(
     porosity = 0.4,
-    Ksat = 6.94e-6 / 60, #0.0443 / (3600 * 100) why do we divide by 100 in original model?
+    Ksat = 6.94e-6 / 60,
     S_s = 5e-4, #1e-3,
 );
 
@@ -53,9 +53,9 @@ soil_param_functions = SoilParamFunctions{FT}(
 
 heaviside(x) = 0.5 * (sign(x) + 1)
 sigmoid(x, offset, width) = typeof(x)(exp((x-offset)/width)/(1+exp((x-offset)/width)))
-precip_of_t = (t) -> eltype(t)(-((3.3e-4)/60) * (1-sigmoid(t, 200*60,10)))#heaviside(200*60-t))
+precip_of_t = (t) -> eltype(t)(-((3.3e-4)/60) * (1-sigmoid(t, 20*60,10)))#heaviside(200*60-t))
 # Define the initial state function. The default for `θ_i` is zero.
-ϑ_l0 = (aux) -> eltype(aux)(0.399- 0.005 * sigmoid(aux.z, -1.0,0.02))#heaviside((-0.5)-aux.z))
+ϑ_l0 = (aux) -> eltype(aux)(0.399- 0.005 * sigmoid(aux.z, -0.5,0.02))#heaviside((-0.5)-aux.z))
 zres = FT(0.05)
 bc =  LandDomainBC(
     bottom_bc = LandComponentBC(soil_water = Neumann((aux,t)->eltype(aux)(0.0))),
@@ -78,6 +78,10 @@ soil_water_model = SoilWaterModel(
 
 # Create the soil model - the coupled soil water and soil heat models.
 m_soil = SoilModel(soil_param_functions, soil_water_model, soil_heat_model);
+# Choose the initial and final times, as well as a timestep.
+t0 = FT(0)
+timeend = FT(60*40) # * 300)
+dt = FT(0.12); #5
 
 # We are ignoring sources and sinks here, like runoff or freezing and thawing.
 sources = ();
@@ -103,28 +107,12 @@ m = LandModel(
 
 # Specify the polynomial order and vertical resolution.
 N_poly = 1;
-nelem_vert = 1500;
+nelem_vert = 200;
 
 # Specify the domain boundaries.
 zmax = FT(0);
-zmin = FT(-3);
+zmin = FT(-1);
 
-# The atmosphere is dry and the flow impinges against a witch of Agnesi mountain of heigh $h_{m}=1$m
-# and base parameter $a=10000m$ and centered on $x_{c} = 120km$ in a 2D domain
-# $\Omega = 240km \times 50km$. The mountain is defined as
-#
-# ```math
-# z = \frac{h_m}{1 + \frac{x - x_c}{a}}
-# ```
-#
-# The 2D problem is setup in 3D by using 1 element in the y direction.
-# To damp the upward moving gravity waves, a Reyleigh absorbing layer is added at $z = 15000 m$.
-# function setmax(f, xmax, ymax, zmax)
-#     function setmaxima(xin, yin, zin)
-#         return f(xin, yin, zin; xmax = xmax, ymax = ymax, zmax = zmax)
-#     end
-#     return setmaxima
-# end
 # # Define a warping function to build an analytic topography (we want a 2D slope, in 3D):
 function warp_maxwell_slope(xin, yin, zin; xmax = 400.0, ymax = 320.0, zmax = 0.2)
 
@@ -153,10 +141,6 @@ driver_config = ClimateMachine.SingleStackConfiguration(
     #meshwarp = (x...) -> warp_maxwell_slope(x...),#setmax(warp_agnesi, xmax, ymax, zmax),
 );
 
-# Choose the initial and final times, as well as a timestep.
-t0 = FT(0)
-timeend = FT(60*10) # * 300)
-dt = FT(0.15); #5
 
 # Create the solver configuration.
 solver_config =
@@ -176,6 +160,7 @@ grads = solver_config.dg.state_gradient_flux
 x_ind = varsindex(vars_state(m, Auxiliary(), FT), :x)
 y_ind = varsindex(vars_state(m, Auxiliary(), FT), :y)
 z_ind = varsindex(vars_state(m, Auxiliary(), FT), :z)
+#l_ind = varsindex(vars_state(m, Prognostic(), FT),:soil,:water,:l)
 ϑ_l_ind = varsindex(vars_state(m, Prognostic(), FT), :soil, :water, :ϑ_l)
 K∇h_vert_ind = varsindex(vars_state(m, GradientFlux(), FT), :soil, :water)[3]
 
@@ -183,9 +168,10 @@ x = aux[:, x_ind, :][:]
 y = aux[:, y_ind, :][:]
 z = aux[:, z_ind, :][:]
 ϑ_l = Q[:, ϑ_l_ind, :][:]
+#l = Q[:, l_ind, :][:]
 K∇h_vert = zeros(length(ϑ_l)) .+ FT(NaN)
 
-all_data = [Dict{String, Array}("ϑ_l" => ϑ_l, "K∇h" => K∇h_vert, "x" => x, "y" =>y, "z" => z)]
+all_data = [Dict{String, Array}("ϑ_l" => ϑ_l,"K∇h" => K∇h_vert, "x" => x, "y" =>y, "z" => z)]
 time_data = FT[0] # store time data
 
 callback = GenericCallbacks.EveryXSimulationTime(every_x_simulation_time) do
@@ -193,6 +179,8 @@ callback = GenericCallbacks.EveryXSimulationTime(every_x_simulation_time) do
     y = aux[:, y_ind, :][:]
     z = aux[:, z_ind, :][:]
     ϑ_l = Q[:, ϑ_l_ind, :][:]
+    #l = Q[:, l_ind, :][:]
+
     K∇h_vert = grads[:, K∇h_vert_ind, :][:]
 
     dons = Dict{String, Array}("ϑ_l" => ϑ_l, "K∇h" => K∇h_vert, "x" => x, "y" =>y, "z" => z)
@@ -204,21 +192,7 @@ end;
 # # Run the integration
 ClimateMachine.invoke!(solver_config; user_callbacks = (callback,));
 
-# Get the final state and create plots:
-x = aux[:, x_ind, :][:]
-y = aux[:, y_ind, :][:]
-z = aux[:, z_ind, :][:]
-ϑ_l = Q[:, ϑ_l_ind, :][:]
-K∇h_vert = grads[:, K∇h_vert_ind, :][:]
-
-dons = Dict{String, Array}("ϑ_l" => ϑ_l, "K∇h" => K∇h_vert, "x" => x, "y" =>y, "z" => z)
-push!(all_data, dons)
-push!(time_data, gettime(solver_config.solver))
-
-
-# # Create some plots
-
-output_dir = @__DIR__;
-
-t = time_data ./ (60);
-
+N = length(all_data)
+#L = [all_data[k]["l"][end] for k in 1:N]
+tm = [all_data[k]["ϑ_l"][end] for k in 1:N]
+tf = [all_data[k]["K∇h"][end] for k in 1:N]

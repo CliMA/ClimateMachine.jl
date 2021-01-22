@@ -254,12 +254,51 @@ function soil_boundary_flux!(
     t,
     _...,
 )
-
-    precip_model = bc.precip_model
-    runoff_model = bc.runoff_model
-    #compute surface flux
-    net_surface_flux =
-        compute_surface_flux(land.soil, runoff_model, precip_model, aux⁻, state⁻, t)
-    diff⁺.soil.water.K∇h = n̂ * (-net_surface_flux)
-
+    cnfg = CentralNumericalFluxGradient()
+    
+    
+    FT = eltype(state⁻)
+    incident_water_flux = bc.precip_model(t)
+    if incident_water_flux < -norm(diff⁻.soil.water.K∇h)# if this is not this but if state >=porosit. but if state is lower than porosity and it fills up, flux goes to zero, and no BC is applied.
+        # but doesnt make sense if the same thing happens and we always set state+ to porosiy
+        diff⁺.soil.water.K∇h = diff⁻.soil.water.K∇h
+        #        if t > FT(50*60)
+        #            println(t)
+        #            println(diff⁻.soil.water.K∇h)
+        #            println(state⁺.soil.water.ϑ_l)
+        #            println(state⁻.soil.water.ϑ_l)
+        #       end
+        
+    else
+        diff⁺.soil.water.K∇h = n̂ *  (-eltype(state⁻)(2)*incident_water_flux) - diff⁻.soil.water.K∇h 
+    end
 end
+
+
+function soil_boundary_state!(
+    nf,
+    bc::SurfaceDrivenWaterBoundaryConditions,
+    water::SoilWaterModel,
+    land::LandModel,
+    state⁺::Vars,
+    aux⁺::Vars,
+    n̂,
+    state⁻::Vars,
+    aux⁻::Vars,
+    t,
+    _...,
+)
+    FT = eltype(state⁻)
+    #println(typeof(nf))
+    bc_value = land.soil.param_functions.porosity - state⁻.soil.water.θ_i
+    state⁺.soil.water.ϑ_l = bc_value#*FT(2.0) - state⁻.soil.water.ϑ_l
+ #   if state⁻.soil.water.ϑ_l >=FT(0.4)
+    #       println("statebc")
+ #       println(t)
+    #       state⁺.soil.water.ϑ_l = land.soil.param_functions.porosity
+    #   else
+    #       nothing
+    #   end
+    
+end
+

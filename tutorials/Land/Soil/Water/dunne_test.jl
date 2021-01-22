@@ -52,11 +52,13 @@ sigmoid(x, offset, width) = typeof(x)(exp((x-offset)/width)/(1+exp((x-offset)/wi
 precip_of_t = (t) -> eltype(t)(-((3.3e-4)/60) * (1-sigmoid(t, 200*60,10)))#heaviside(200*60-t))
 # Define the initial state function. The default for `θ_i` is zero.
 ϑ_l0 = (aux) -> eltype(aux)(0.399- 0.025 * sigmoid(aux.z, -0.5,0.02))#heaviside((-0.5)-aux.z))
-
-
-bc =  SurfaceDrivenWaterBoundaryConditions(FT;
-    precip_model = DrivenConstantPrecip{FT}(precip_of_t),
-    runoff_model = CoarseGridRunoff()
+zres = FT(0.04)
+bc =  LandDomainBC(
+    bottom_bc = LandComponentBC(soil_water = Neumann((aux,t)->eltype(aux)(0.0))),
+    surface_bc = LandComponentBC(soil_water = SurfaceDrivenWaterBoundaryConditions(FT;
+                                                precip_model = DrivenConstantPrecip{FT}(precip_of_t),
+                                                runoff_model = CoarseGridRunoff{FT}(zres)
+                                                                                   )),
 )
 
 soil_water_model = SoilWaterModel(
@@ -64,7 +66,6 @@ soil_water_model = SoilWaterModel(
     moisture_factor = MoistureDependent{FT}(),
     hydraulics = vanGenuchten{FT}(n = 2.0,  α = 100.0),
     initialϑ_l = ϑ_l0,
-    boundaries = bc,
 );
 
 # Create the soil model - the coupled soil water and soil heat models.
@@ -85,6 +86,7 @@ end
 m = LandModel(
     param_set,
     m_soil;
+    boundary_conditions = bc,
     source = sources,
     init_state_prognostic = init_soil_water!,
 );
@@ -130,7 +132,7 @@ driver_config = ClimateMachine.SingleStackConfiguration(
 
 # Choose the initial and final times, as well as a timestep.
 t0 = FT(0)
-timeend = FT(60 * 300)
+timeend = FT(60 * 100)
 dt = FT(0.05); #5
 
 # Create the solver configuration.
@@ -144,34 +146,17 @@ const every_x_simulation_time = ceil(Int, timeend / n_outputs);
 
 # Create a place to store this output.
 mygrid = solver_config.dg.grid;
-Q = solver_config.Q;
-aux = solver_config.dg.state_auxiliary;
-grads = solver_config.dg.state_gradient_flux
-
-x_ind = varsindex(vars_state(m, Auxiliary(), FT), :x)
-y_ind = varsindex(vars_state(m, Auxiliary(), FT), :y)
-z_ind = varsindex(vars_state(m, Auxiliary(), FT), :z)
-ϑ_l_ind = varsindex(vars_state(m, Prognostic(), FT), :soil, :water, :ϑ_l)
-K∇h_vert_ind = varsindex(vars_state(m, GradientFlux(), FT), :soil, :water)[3]
-
-x = aux[:, x_ind, :][:]
-y = aux[:, y_ind, :][:]
-z = aux[:, z_ind, :][:]
-ϑ_l = Q[:, ϑ_l_ind, :][:]
-K∇h_vert = zeros(length(ϑ_l)) .+ FT(NaN)
-
-all_data = [Dict{String, Array}("ϑ_l" => ϑ_l, "K∇h" => K∇h_vert, "x" => x, "y" =>y, "z" => z)]
+state_types = (Prognostic(), Auxiliary(), GradientFlux())
+dons_arr = Dict[dict_of_nodal_states(solver_config, state_types; interp = true)]
 time_data = FT[0] # store time data
 
-callback = GenericCallbacks.EveryXSimulationTime(every_x_simulation_time) do
-    x = aux[:, x_ind, :][:]
-    y = aux[:, y_ind, :][:]
-    z = aux[:, z_ind, :][:]
-    ϑ_l = Q[:, ϑ_l_ind, :][:]
-    K∇h_vert = grads[:, K∇h_vert_ind, :][:]
+# We specify a function which evaluates `every_x_simulation_time` and returns
+# the state vector, appending the variables we are interested in into
+# `dons_arr`.
 
-    dons = Dict{String, Array}("ϑ_l" => ϑ_l, "K∇h" => K∇h_vert, "x" => x, "y" =>y, "z" => z)
-    push!(all_data, dons)
+callback = GenericCallbacks.EveryXSimulationTime(every_x_simulation_time) do
+    dons = dict_of_nodal_states(solver_config, state_types; interp = true)
+    push!(dons_arr, dons)
     push!(time_data, gettime(solver_config.solver))
     nothing
 end;
@@ -180,32 +165,11 @@ end;
 ClimateMachine.invoke!(solver_config; user_callbacks = (callback,));
 
 
-# # Create some plots
+# Get the final state and create plots:
+dons = dict_of_nodal_states(solver_config, state_types; interp = true)
+push!(dons_arr, dons)
+push!(time_data, gettime(solver_config.solver));
 
-output_dir = @__DIR__;
+# Get z-coordinate
+z = get_z(solver_config.dg.grid; rm_dupes = true);
 
-t = time_data ./ (60);
-
-#plot(
-#    all_data[1]["ϑ_l"],
-#    all_data[1]["z"],
-#    xlim = [0.3, 0.42],
-#    ylabel = "z",
-#    xlabel = "ϑ_l",
-#    legend = :bottomleft,
-#    title = "Maxwell Infiltration",
-#)
-
-
-#plot(
-#    all_data[1]["K∇h"],
-#    all_data[1]["z"],
-#    ylabel = "z",
-#    legend = :bottomleft,
-#    title = "Maxwell Infiltration",
-#)
-
-
-i_c_of_t = [mean(all_data[k]["K∇h"][round.(all_data[2]["z"] .* -100) .< 1]) for k in 1:n_outputs]
-precip = precip_of_t.(time_data)
-runoff = precip-i_c_of_t

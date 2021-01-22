@@ -83,29 +83,6 @@ struct NoRunoff <: AbstractSurfaceRunoffModel end
 
 
 """
-    function compute_surface_runoff(soil::SoilModel,
-                                    runoff_model::NoRunoff,
-                                    precip_model::AbstractPrecipModel,
-                                    aux::Vars,
-                                    state::Vars,
-                                    t::Real,
-                                    )
-
-Returns zero for net surface runoff.
-"""
-function compute_surface_runoff(soil::SoilModel,
-                                runoff_model::NoRunoff,
-                                precip_model::AbstractPrecipModel,
-                                aux::Vars,
-                                state::Vars,
-                                t::Real,
-                                )
-    FT = eltype(state)
-    return FT(0.0)
-end
-
-
-"""
     CoarseGridRunoff <: AbstractSurfaceRunoffModel
 
 Chosen when no subgrid effects are to be modeled.
@@ -129,6 +106,98 @@ function compute_mean_p(precip_model::DrivenConstantPrecip, t::Real)
     return precip_model(t)
 end
 
+
+"""
+    function compute_surface_flux(soil::SoilModel,
+                                   runoff_model::CoarseGridRunoff,
+                                   precip_model::AbstractPrecipModel,
+                                   aux::Vars,
+                                   state::Vars,
+                                   t::Real,
+                                   )
+
+Computes the flux at the surface of the soil, accounting for
+surface runoff, precipitation, and eventually evaporation.
+
+This can then be used as a boundary condition.
+"""
+function compute_surface_flux(soil::SoilModel,
+                              runoff_model::CoarseGridRunoff,
+                              precip_model::AbstractPrecipModel,
+                              aux::Vars,
+                              state::Vars,
+                              diff::Vars,
+                              t::Real
+                              )
+    mean_p = compute_mean_p(precip_model,t)
+    incident_water_flux = mean_p
+    if incident_water_flux < -norm(diff.soil.water.K∇h) # More negative if both are negative, 
+        #ponding BC
+        net_flux = -soil.param_functions.Ksat
+    else
+        net_flux = incident_water_flux
+    return net_flux
+    end
+
+
+end
+
+
+"""
+    function compute_surface_flux(soil::SoilModel,
+                                   runoff_model::NoRunoff,
+                                   precip_model::AbstractPrecipModel,
+                                   aux::Vars,
+                                   state::Vars,
+                                   t::Real,
+                                   )
+
+Computes the flux at the surface of the soil, accounting for
+precipitation and eventually evaporation.
+
+This can then be used as a boundary condition.
+"""
+
+function compute_surface_flux(soil::SoilModel,
+                              runoff_model::NoRunoff,
+                              precip_model::AbstractPrecipModel,
+                              aux::Vars,
+                              state::Vars,
+                              diff::Vars,
+                              t::Real
+                              )
+    mean_p = compute_mean_p(precip_model,t)
+    incident_water_flux = mean_p
+    net_flux = incident_water_flux
+    return net_flux
+end
+
+
+
+
+#=
+
+"""
+    function compute_surface_runoff(soil::SoilModel,
+                                    runoff_model::NoRunoff,
+                                    precip_model::AbstractPrecipModel,
+                                    aux::Vars,
+                                    state::Vars,
+                                    t::Real,
+                                    )
+
+Returns zero for net surface runoff.
+"""
+function compute_surface_runoff(soil::SoilModel,
+                                runoff_model::NoRunoff,
+                                precip_model::AbstractPrecipModel,
+                                aux::Vars,
+                                state::Vars,
+                                t::Real,
+                                )
+    FT = eltype(state)
+    return FT(0.0)
+end
 
 """
     function compute_ic(soil::SoilModel,
@@ -302,12 +371,13 @@ and surface runoff, under the assumption that the infiltration
 excess does not default to zero for saturated soils.
 """
 function compute_generalized_runoff(soil::SoilModel,
-                               runoff_model::CoarseGridRunoff{FT},
-                               precip_model::DrivenConstantPrecip{FT},
-                               aux::Vars,
-                               state::Vars,
-                               t::Real,
-                               ) where {FT}
+                                    runoff_model::CoarseGridRunoff{FT},
+                                    precip_model::DrivenConstantPrecip{FT},
+                                    aux::Vars,
+                                    state::Vars,
+                                    diff::Vars,
+                                    t::Real,
+                                    ) where {FT}
     mean_p = precip_model(t)
     incident_water_flux = mean_p
     ic = compute_generalized_ic(soil, runoff_model, state)
@@ -327,36 +397,6 @@ function compute_generalized_runoff(soil::SoilModel,
     end
     return runoff
 end
-
-
-"""
-    function compute_surface_flux(soil::SoilModel,
-                                   runoff_model::CoarseGridRunoff{FT},
-                                   precip_model::DrivenConstantPrecip{FT},
-                                   aux::Vars,
-                                   state::Vars,
-                                   t::Real,
-                                   ) where {FT}
-
-Computes the (negative of the) flux entering the soil, accounting for
-surface runoff, precipitation, and eventually evaporation.
-
-This can then be used as a boundary condition.
-"""
-function compute_surface_flux(soil::SoilModel,
-                              runoff_model::AbstractSurfaceRunoffModel,
-                              precip_model::AbstractPrecipModel,
-                              aux::Vars,
-                              state::Vars,
-                              t::Real
-                              )
-    mean_p = compute_mean_p(precip_model,t)
-    incident_water_flux = mean_p
-    net_runoff = compute_generalized_runoff(soil, runoff_model, precip_model,
-                                            aux, state, t)# or compute_surface_runoff
-    net_flux = incident_water_flux-(-net_runoff)
-    return net_flux
-end
-
+=#
 
 end
