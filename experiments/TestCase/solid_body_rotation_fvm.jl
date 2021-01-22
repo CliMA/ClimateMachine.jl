@@ -14,6 +14,7 @@ using ClimateMachine.SystemSolvers: ManyColumnLU
 using ClimateMachine.Mesh.Filters
 using ClimateMachine.Mesh.Grids
 using ClimateMachine.Mesh.Interpolation
+using ClimateMachine.Mesh.Topologies
 using ClimateMachine.TemperatureProfiles
 using ClimateMachine.VariableTemplates
 using ClimateMachine.Thermodynamics: air_density, total_energy
@@ -79,6 +80,7 @@ function config_solid_body_rotation(
         model = model,
         numerical_flux_first_order = RoeNumericalFlux(),
         fv_reconstruction = HBFVReconstruction(model, fv_reconstruction),
+        grid_stretching = SingleExponentialStretching(1.5),
     )
 
     return config
