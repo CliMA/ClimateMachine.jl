@@ -15,6 +15,8 @@ using ClimateMachine.GenericCallbacks
 # To invoke timestepper
 using ClimateMachine.ODESolvers
 
+import ClimateMachine.Mesh.Grids: _x3
+
 ClimateMachine.init()
 
 # Use toy balance law for now
