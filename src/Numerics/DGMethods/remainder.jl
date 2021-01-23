@@ -6,10 +6,12 @@ import ..BalanceLaws:
     init_state_prognostic!,
     init_state_auxiliary!,
     flux_first_order!,
+    flux_first_order_arr!,
     flux_second_order!,
+    source!,
+    source_arr!,
     compute_gradient_flux!,
     compute_gradient_argument!,
-    source!,
     transform_post_gradient_laplacian!,
     wavespeed,
     boundary_conditions,
@@ -209,15 +211,34 @@ nodal_init_state_auxiliary!(rem_balance_law::RemBL, args...) =
 init_state_prognostic!(rem_balance_law::RemBL, args...) =
     init_state_prognostic!(rem_balance_law.main, args...)
 
-"""
-    function flux_first_order!(
-        rem_balance_law::RemBL,
-        flux::Grad,
-        state::Vars,
-        aux::Vars,
-        t::Real,
-        directions,
+# Still need Vars wrapper for now:
+function flux_first_order!(
+    rem_balance_law::RemBL,
+    flux::Grad,
+    state::Vars,
+    aux::Vars,
+    t::Real,
+    d::Dirs,
+) where {NumDirs, Dirs <: NTuple{NumDirs, Direction}}
+    flux_first_order_arr!(
+        rem_balance_law,
+        parent(flux),
+        parent(state),
+        parent(aux),
+        t,
+        d,
     )
+end
+
+"""
+    flux_first_order_arr!(
+        rem_balance_law::RemBL,
+        flux::AbstractArray,
+        state::AbstractArray,
+        aux::AbstractArray,
+        t::Real,
+        ::Dirs,
+    ) where {NumDirs, Dirs <: NTuple{NumDirs, Direction}}
 
 Evaluate the remainder flux by first evaluating the main flux and subtracting
 the subcomponent fluxes.
@@ -226,17 +247,16 @@ Only models which have directions that are included in the `directions` tuple
 are evaluated. When these models are evaluated the models underlying `direction`
 is passed (not the original `directions` argument).
 """
-function flux_first_order!(
+function flux_first_order_arr!(
     rem_balance_law::RemBL,
-    flux::Grad,
-    state::Vars,
-    aux::Vars,
+    flux::AbstractArray,
+    state::AbstractArray,
+    aux::AbstractArray,
     t::Real,
     ::Dirs,
 ) where {NumDirs, Dirs <: NTuple{NumDirs, Direction}}
-    m = parent(flux)
     if rem_balance_law.maindir isa Union{Dirs.types...}
-        flux_first_order!(
+        flux_first_order_arr!(
             rem_balance_law.main,
             flux,
             state,
@@ -247,15 +267,14 @@ function flux_first_order!(
     end
 
     flux_s = similar(flux)
-    m_s = parent(flux_s)
 
     # Force the loop to unroll to get type stability on the GPU
     @inbounds ntuple(Val(length(rem_balance_law.subs))) do k
         Base.@_inline_meta
         if rem_balance_law.subsdir[k] isa Union{Dirs.types...}
             sub = rem_balance_law.subs[k]
-            fill!(m_s, -zero(eltype(m_s)))
-            flux_first_order!(
+            fill!(flux_s, -zero(eltype(flux_s)))
+            flux_first_order_arr!(
                 sub,
                 flux_s,
                 state,
@@ -263,23 +282,43 @@ function flux_first_order!(
                 t,
                 (rem_balance_law.subsdir[k],),
             )
-            m .-= m_s
+            flux .-= flux_s
         end
     end
     nothing
 end
 
+# Still need Vars wrapper for now:
+function source!(
+    rem_balance_law::RemBL,
+    source::Vars,
+    state::Vars,
+    diffusive::Vars,
+    aux::Vars,
+    t::Real,
+    d::Dirs,
+) where {NumDirs, Dirs <: NTuple{NumDirs, Direction}}
+    source_arr!(
+        rem_balance_law,
+        parent(source),
+        parent(state),
+        parent(diffusive),
+        parent(aux),
+        t,
+        d,
+    )
+end
 
 """
-    function source!(
+    source_arr!(
         rem_balance_law::RemBL,
-        source::Vars,
-        state::Vars,
-        diffusive::Vars,
-        aux::Vars,
+        source::AbstractArray,
+        state::AbstractArray,
+        diffusive::AbstractArray,
+        aux::AbstractArray,
         t::Real,
-        directions,
-    )
+        ::Dirs,
+    ) where {NumDirs, Dirs <: NTuple{NumDirs, Direction}}
 
 Evaluate the remainder source by first evaluating the main source and subtracting
 the subcomponent sources.
@@ -288,20 +327,19 @@ Only models which have directions that are included in the `directions` tuple
 are evaluated. When these models are evaluated the models underlying `direction`
 is passed (not the original `directions` argument).
 """
-function source!(
+function source_arr!(
     rem_balance_law::RemBL,
-    source::Vars,
-    state::Vars,
-    diffusive::Vars,
-    aux::Vars,
+    source::AbstractArray,
+    state::AbstractArray,
+    diffusive::AbstractArray,
+    aux::AbstractArray,
     t::Real,
     ::Dirs,
 ) where {NumDirs, Dirs <: NTuple{NumDirs, Direction}}
-    m = parent(source)
     if EveryDirection() isa Union{Dirs.types...} ||
        rem_balance_law.maindir isa EveryDirection ||
        rem_balance_law.maindir isa Union{Dirs.types...}
-        source!(
+        source_arr!(
             rem_balance_law.main,
             source,
             state,
@@ -313,7 +351,6 @@ function source!(
     end
 
     source_s = similar(source)
-    m_s = parent(source_s)
 
     # Force the loop to unroll to get type stability on the GPU
     ntuple(Val(length(rem_balance_law.subs))) do k
@@ -322,8 +359,8 @@ function source!(
                      rem_balance_law.subsdir[k] isa EveryDirection ||
                      rem_balance_law.subsdir[k] isa Union{Dirs.types...}
             sub = rem_balance_law.subs[k]
-            fill!(m_s, -zero(eltype(m_s)))
-            source!(
+            fill!(source_s, -zero(eltype(source_s)))
+            source_arr!(
                 sub,
                 source_s,
                 state,
@@ -332,7 +369,7 @@ function source!(
                 t,
                 (rem_balance_law.subsdir[k],),
             )
-            m .-= m_s
+            source .-= source_s
         end
     end
     nothing

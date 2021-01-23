@@ -34,10 +34,25 @@ import ...BalanceLaws:
 
 Any `P <: NumericalFluxGradient` should define methods for:
 
-   numerical_flux_gradient!(gnf::P, balance_law::BalanceLaw, diffF, n⁻, Q⁻, Qstate_gradient_flux⁻, Qaux⁻, Q⁺,
-                            Qstate_gradient_flux⁺, Qaux⁺, t)
-   numerical_boundary_flux_gradient!(gnf::P, balance_law::BalanceLaw, local_state_gradient_flux, n⁻, local_transform⁻, local_state_prognostic⁻,
-                                     local_state_auxiliary⁻, local_transform⁺, local_state_prognostic⁺, local_state_auxiliary⁺, bctype, t)
+    numerical_flux_gradient!(
+        gnf::P,
+        balance_law::BalanceLaw,
+        diffF, n⁻,
+        Q⁻, Qstate_gradient_flux⁻, Qaux⁻,
+        Q⁺, Qstate_gradient_flux⁺, Qaux⁺,
+        t
+    )
+
+    numerical_boundary_flux_gradient!(
+        gnf::P,
+        balance_law::BalanceLaw,
+        local_state_gradient_flux,
+        n⁻,
+        local_transform⁻, local_state_prognostic⁻, local_state_auxiliary⁻,
+        local_transform⁺, local_state_prognostic⁺, local_state_auxiliary⁺,
+        bctype,
+        t
+    )
 
 """
 abstract type NumericalFluxGradient end
@@ -112,8 +127,15 @@ end
 
 Any `N <: NumericalFluxFirstOrder` should define the a method for
 
-    numerical_flux_first_order!(numerical_flux::N, balance_law::BalanceLaw, flux, normal_vector⁻, Q⁻, Qaux⁻, Q⁺,
-                                 Qaux⁺, t)
+    numerical_flux_first_order!(
+        numerical_flux::N,
+        balance_law::BalanceLaw,
+        flux,
+        normal_vector⁻,
+        Q⁻, Qaux⁻,
+        Q⁺, Qaux⁺,
+        t
+    )
 
 where
 - `flux` is the numerical flux array
@@ -123,8 +145,15 @@ where
 
 An optional method can also be defined for
 
-    numerical_boundary_flux_first_order!(numerical_flux::N, balance_law::BalanceLaw, flux, normal_vector⁻, Q⁻,
-                                          Qaux⁻, Q⁺, Qaux⁺, bctype, t)
+    numerical_boundary_flux_first_order!(
+        numerical_flux::N,
+        balance_law::BalanceLaw,
+        flux,
+        normal_vector⁻,
+        Q⁻, Qaux⁻,
+        Q⁺, Qaux⁺,
+        bctype, t
+    )
 
 """
 abstract type NumericalFluxFirstOrder end
@@ -373,8 +402,15 @@ RoeNumericalFluxMoist(;
 
 Any `N <: NumericalFluxSecondOrder` should define the a method for
 
-    numerical_flux_second_order!(numerical_flux::N, balance_law::BalanceLaw, flux, normal_vector⁻, Q⁻, Qstate_gradient_flux⁻, Qaux⁻, Q⁺,
-                              Qstate_gradient_flux⁺, Qaux⁺, t)
+    numerical_flux_second_order!(
+        numerical_flux::N,
+        balance_law::BalanceLaw,
+        flux,
+        normal_vector⁻,
+        Q⁻, Qstate_gradient_flux⁻, Qaux⁻,
+        Q⁺, Qstate_gradient_flux⁺, Qaux⁺,
+        t
+    )
 
 where
 - `flux` is the numerical flux array
@@ -386,8 +422,16 @@ where
 
 An optional method can also be defined for
 
-    numerical_boundary_flux_second_order!(numerical_flux::N, balance_law::BalanceLaw, flux, normal_vector⁻, Q⁻, Qstate_gradient_flux⁻,
-                                       Qaux⁻, Q⁺, Qstate_gradient_flux⁺, Qaux⁺, bctype, t)
+    numerical_boundary_flux_second_order!(
+        numerical_flux::N,
+        balance_law::BalanceLaw,
+        flux,
+        normal_vector⁻,
+        Q⁻, Qstate_gradient_flux⁻, Qaux⁻,
+        Q⁺, Qstate_gradient_flux⁺, Qaux⁺,
+        bctype,
+        t
+    )
 
 """
 abstract type NumericalFluxSecondOrder end

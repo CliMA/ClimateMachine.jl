@@ -522,14 +522,12 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
 
             if add_source
                 fill!(local_source, -zero(eltype(local_source)))
-                source!(
+                source_arr!(
                     balance_law,
-                    Vars{vars_state(balance_law, Prognostic(), FT)}(
-                        local_source,
-                    ),
-                    Vars{vars_state(balance_law, Prognostic(), FT)}(local_state_prognostic[stencil_center - 1],),
-                    Vars{vars_state(balance_law, GradientFlux(), FT)}(local_state_gradient_flux[stencil_center - 1],),
-                    Vars{vars_state(balance_law, Auxiliary(), FT)}(local_state_auxiliary[stencil_center - 1],),
+                    local_source,
+                    local_state_prognostic[stencil_center - 1],
+                    local_state_gradient_flux[stencil_center - 1],
+                    local_state_auxiliary[stencil_center - 1],
                     t,
                     (VerticalDirection(),),
                 )
@@ -564,14 +562,12 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
             if eV_up == nvertelem
                 if add_source
                     fill!(local_source, -zero(eltype(local_source)))
-                    source!(
+                    source_arr!(
                         balance_law,
-                        Vars{vars_state(balance_law, Prognostic(), FT)}(
-                            local_source,
-                        ),
-                        Vars{vars_state(balance_law, Prognostic(), FT)}(local_state_prognostic[stencil_center],),
-                        Vars{vars_state(balance_law, GradientFlux(), FT)}(local_state_gradient_flux[stencil_center],),
-                        Vars{vars_state(balance_law, Auxiliary(), FT)}(local_state_auxiliary[stencil_center],),
+                        local_source,
+                        local_state_prognostic[stencil_center],
+                        local_state_gradient_flux[stencil_center],
+                        local_state_auxiliary[stencil_center],
                         t,
                         (VerticalDirection(),),
                     )
