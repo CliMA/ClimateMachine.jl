@@ -35,9 +35,10 @@ function (setup::BickleyJetSetup)(
     ϵ = FT(0.1)
     ψ₁ = exp(-(y + (l/10))^2/ (2*l^2)) * cos(k*x) * cos(k*y)
     u₀ = sech(y)^2
-    v₀ = (k * tan(k*y) + y/l^2)*ψ₁
-    u = u₀ + ϵ*u₀
-    v = ϵ * v₀ 
+    u1 = (k * tan(k*y) + y/l^2)*ψ₁
+    v1 = -k * tan(k*x) * ψ₁
+    u = u₀ + ϵ*u1
+    v = ϵ * v1
         
     u⃗ = SVector{3,FT}(u,v,0)
     T_0 = FT(273.16) # T_ref
