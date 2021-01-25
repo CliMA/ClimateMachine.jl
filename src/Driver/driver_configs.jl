@@ -32,21 +32,34 @@ Parses custom command line option for tuples of two integers.
 function ArgParse.parse_item(::Type{NTuple{2, Int}}, s::AbstractString)
 
     str_array = split(s, ",")
-    horizontal = parse(Int, str_array[1])
-    vertical = parse(Int, str_array[2])
+    int_1 = length(str_array) > 0 ? parse(Int, str_array[1]) : 0
+    int_2 = length(str_array) > 1 ? parse(Int, str_array[2]) : 0
 
-    return (horizontal, vertical)
+    return (int_1, int_2)
+end
+
+"""
+    ArgParse.parse_item
+
+Parses custom command line option for tuples of three integers.
+"""
+function ArgParse.parse_item(::Type{NTuple{3, Float64}}, s::AbstractString)
+
+    str_array = split(s, ",")
+    ft_1 = length(str_array) > 0 ? parse(Float64, str_array[1]) : 0
+    ft_2 = length(str_array) > 1 ? parse(Float64, str_array[2]) : 0
+    ft_3 = length(str_array) > 2 ? parse(Float64, str_array[3]) : 0
+
+    return (ft_1, ft_2, ft_3)
 end
 
 """
     get_polyorders
 
-Utility functions that gets the polynomial orders for the given configuration
+Utility function that gets the polynomial orders for the given configuration
 either passed from command line or as default values
 """
 function get_polyorders(N)
-
-    (polyorder_horz, polyorder_vert) = isa(N, Int) ? (N, N) : N
 
     # Check if polynomial degree was passed as a CL option
     if ClimateMachine.Settings.degree != (-1, -1)
@@ -67,7 +80,7 @@ struct DriverConfiguration{FT}
     config_type::ClimateMachineConfigType
 
     name::String
-    # polynomial order tuple (polyorder_horz, polyorder_vert)
+    # Polynomial order tuple (polyorder_horz, polyorder_vert)
     polyorders::NTuple{2, Int}
     array_type::Any
     solver_type::AbstractSolverType
@@ -76,10 +89,10 @@ struct DriverConfiguration{FT}
     param_set::AbstractParameterSet
     bl::BalanceLaw
     #
-    # execution details
+    # Execution details
     mpicomm::MPI.Comm
     #
-    # mesh details
+    # Mesh details
     grid::DiscontinuousSpectralElementGrid
     #
     # DGModel details
@@ -89,7 +102,7 @@ struct DriverConfiguration{FT}
     # DGFVModel details, used when polyorder_vert = 0
     fv_reconstruction::Union{Nothing, AbstractReconstruction}
     #
-    # configuration-specific info
+    # Configuration-specific info
     config_info::ConfigSpecificInfo
 
     function DriverConfiguration(
@@ -181,6 +194,21 @@ function AtmosLESConfiguration(
 
     (polyorder_horz, polyorder_vert) = get_polyorders(N)
 
+    # Check if the element resolution was passed as a CL option
+    if ClimateMachine.Settings.resolution != (-1, -1, -1)
+        (Δx, Δy, Δz) = ClimateMachine.Settings.resolution
+    end
+
+    # Check if the min of the domain was passed as a CL option
+    if ClimateMachine.Settings.domain_min != (-1, -1, -1)
+        (xmin, ymin, zmin) = ClimateMachine.Settings.domain_min
+    end
+
+    # Check if the max of the domain was passed as a CL option
+    if ClimateMachine.Settings.domain_max != (-1, -1, -1)
+        (xmax, ymax, zmax) = ClimateMachine.Settings.domain_max
+    end
+
     print_model_info(model, mpicomm)
 
     brickrange = (
@@ -224,7 +252,8 @@ Establishing Atmos LES configuration for %s
     precision               = %s
     horiz polynomial order  = %d
     vert polynomial order   = %d
-    domain                  = %.2f m x%.2f m x%.2f m
+    domain_min              = %.2f m, %.2f m, %.2f m
+    domain_max              = %.2f m, %.2f m, %.2f m
     resolution              = %dx%dx%d
     MPI ranks               = %d
     min(Δ_horz)             = %.2f m
@@ -233,6 +262,9 @@ Establishing Atmos LES configuration for %s
         FT,
         polyorder_horz,
         polyorder_vert,
+        xmin,
+        ymin,
+        zmin,
         xmax,
         ymax,
         zmax,
@@ -287,6 +319,16 @@ function AtmosGCMConfiguration(
 ) where {FT <: AbstractFloat}
 
     (polyorder_horz, polyorder_vert) = get_polyorders(N)
+
+    # Check if the number of elements was passed as a CL option
+    if ClimateMachine.Settings.nelems != (-1, -1)
+        (nelem_horz, nelem_vert) = ClimateMachine.Settings.nelems
+    end
+
+    # Check if the domain height was passed as a CL option
+    if ClimateMachine.Settings.domain_height != -1
+        domain_height = ClimateMachine.Settings.domain_height
+    end
 
     print_model_info(model, mpicomm)
 
@@ -440,6 +482,17 @@ function SingleStackConfiguration(
 
     (polyorder_horz, polyorder_vert) = get_polyorders(N)
 
+    # Check if the number of elements was passed as a CL option
+    if ClimateMachine.Settings.nelems != (-1, -1)
+        nE = ClimateMachine.Settings.nelems
+        nelem_vert = nE[1]
+    end
+
+    # Check if the domain height was passed as a CL option
+    if ClimateMachine.Settings.domain_height != -1
+        zmax = ClimateMachine.Settings.domain_height
+    end
+
     print_model_info(model, mpicomm)
 
     xmin, xmax = zero(FT), hmax
@@ -470,8 +523,8 @@ Establishing single stack configuration for %s
     precision               = %s
     horiz polynomial order  = %d
     vert polynomial order   = %d
-    domain_min              = %.2f m x%.2f m x%.2f m
-    domain_max              = %.2f m x%.2f m x%.2f m
+    domain_min              = %.2f m, %.2f m, %.2f m
+    domain_max              = %.2f m, %.2f m, %.2f m
     # vert elems            = %d
     MPI ranks               = %d
     min(Δ_horz)             = %.2f m
@@ -535,8 +588,22 @@ function MultiColumnLandModel(
     fv_reconstruction = nothing,
 ) where {FT <: AbstractFloat}
 
-    (polyorder_horz, polyorder_vert) = isa(N, Int) ? (N, N) : N
+    (polyorder_horz, polyorder_vert) = get_polyorders(N)
 
+    # Check if the element resolution was passed as a CL option
+    if ClimateMachine.Settings.resolution != (-1, -1, -1)
+        (Δx, Δy, Δz) = ClimateMachine.Settings.resolution
+    end
+
+    # Check if the min of the domain was passed as a CL option
+    if ClimateMachine.Settings.domain_min != (-1, -1, -1)
+        (xmin, ymin, zmin) = ClimateMachine.Settings.domain_min
+    end
+
+    # Check if the max of the domain was passed as a CL option
+    if ClimateMachine.Settings.domain_max != (-1, -1, -1)
+        (xmax, ymax, zmax) = ClimateMachine.Settings.domain_max
+    end
 
     print_model_info(model, mpicomm)
 
@@ -567,7 +634,8 @@ Establishing MultiColumnLandModel configuration for %s
     precision        = %s
     vert polyn order = %d
     horz polyn order = %d
-    domain           = %.2f m x%.2f m x%.2f m
+    domain_min       = %.2f m, %.2f m, %.2f m
+    domain_max       = %.2f m, %.2f m, %.2f m
     resolution       = %dx%dx%d
     MPI ranks        = %d
     min(Δ_horz)      = %.2f m
@@ -576,6 +644,9 @@ Establishing MultiColumnLandModel configuration for %s
         FT,
         polyorder_vert,
         polyorder_horz,
+        xmin,
+        ymin,
+        zmin,
         xmax,
         ymax,
         zmax,
