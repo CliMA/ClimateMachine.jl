@@ -145,7 +145,11 @@ function init_problem!(problem, bl, state, aux, localgeo, t)
     π_exner = FT(1) - _grav / (c_p * θ) * z # exner pressure
     ρ = p0 / (R_gas * θ) * (π_exner)^(c_v / R_gas) # density
     # Establish thermodynamic state and moist phase partitioning
-    TS = PhaseEquil_ρθq(bl.param_set, ρ, θ_liq, q_tot)
+    if bl.moisture isa DryModel
+        TS = PhaseDry_ρθ(bl.param_set, ρ, θ_liq)
+    else
+        TS = PhaseEquil_ρθq(bl.param_set, ρ, θ_liq, q_tot)
+    end
 
     # Compute momentum contributions
     ρu = ρ * u
@@ -313,7 +317,7 @@ function convective_bl_model(
         config_type,
         param_set;
         problem = problem,
-        turbulence = SmagorinskyLilly{FT}(C_smag),
+        turbulence = ConstantKinematicViscosity(FT(0)),
         moisture = moisture,
         source = source,
         turbconv = turbconv,

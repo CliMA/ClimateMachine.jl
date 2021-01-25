@@ -173,7 +173,7 @@ function main(::Type{FT}) where {FT}
     t0 = FT(0)
 
     # Simulation time
-    timeend = FT(2999.0)
+    timeend = FT(2929.0)
     CFLmax = FT(1.0)
 
     config_type = SingleStackConfigType

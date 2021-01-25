@@ -106,10 +106,18 @@ function entr_detr(
     # Δ_dyn = max(Δ_dyn, FT(0))
     # E_trb = max(E_trb, FT(0))
 
-    a_up_i = fix_void_up(up[i].ρa, up[i].ρa * ρ_inv)
+    # a_up_i = fix_void_up(up[i].ρa, up[i].ρa * ρ_inv)
+    # if a_up_i>FT(0)
+    #     E_dyn = FT(0.001)
+    # else
+    #     E_dyn = FT(0)
+    # end
+    # E_dyn = FT(0.001)
+    # Δ_dyn = E_dyn
     E_dyn = abs(up[i].ρaw*FT(0.0001))
+    Δ_dyn = E_dyn
     # Δ_dyn = E_dyn/(abs(a_up_i-FT(0.3)))
-    Δ_dyn = E_dyn*(FT(1) + exp(-(a_up_i-FT(1))^FT(2)/(FT(2.0*0.2^2))))
+    # Δ_dyn = E_dyn*(FT(1) + exp(-(a_up_i-FT(1))^FT(2)/(FT(2.0*0.2^2))))
     # if a_up_i>0.3
     #     Δ_dyn += FT(0.001)
     # end

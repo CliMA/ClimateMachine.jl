@@ -121,9 +121,9 @@ function updraft_surface_w(
     end
     w_up_surf = ntuple(N_up) do i
         if b_up_surf[i] > FT(0)
-            sqrt(0.1 * zLL * max(b_up_surf[i], FT(0)))
+            sqrt(0.01 * zLL * max(b_up_surf[i], FT(0)))
         elseif b_up_surf[i] < FT(0)
-            -sqrt(0.1 * zLL * max(b_up_surf[i], FT(0)))
+            -sqrt(0.01 * zLL * max(b_up_surf[i], FT(0)))
         else
             FT(0)
         end
