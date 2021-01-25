@@ -32,7 +32,7 @@ function (setup::BickleyJetSetup)(
 
     k = FT(1/2)
     l = FT(1/2)
-    ϵ = FT(1/2)
+    ϵ = FT(0.1)
     ψ₁ = exp(-(y + (l/10))^2/ (2*l^2)) * cos(k*x) * cos(k*y)
     u₀ = sech(y)^2
     v₀ = (k * tan(k*y) + y/l^2)*ψ₁
