@@ -15,6 +15,8 @@ using ClimateMachine.GenericCallbacks
 # To invoke timestepper
 using ClimateMachine.ODESolvers
 
+import ClimateMachine.Mesh.Grids: _x3
+
 ClimateMachine.init()
 
 # Use toy balance law for now
@@ -54,12 +56,13 @@ mO=Coupling.CplTestModel(;domain=domainO,BL_module=CplTestingBL, nsteps=2)
 
 function postatmos(_)
     println("Atmos export fill callback")
-    mO.discretization.state_auxiliary.boundary_in[...] .= mA.discretization.state_auxiliary.boundary_out[...]
+
+    mO.discretization.state_auxiliary.boundary_in[mO.discretization.grid.vgeo[:,_x3:_x3,:] .== 0] .= mA.discretization.state_auxiliary.boundary_out[mA.discretization.grid.vgeo[:,_x3:_x3,:] .== 0]
 
 end
 function postocean(_)
     println("Ocean export fill callback")
-    mA.discretization.state_auxiliary.boundary_in[...] .= mO.discretization.state_auxiliary.boundary_out[...]
+    mA.discretization.state_auxiliary.boundary_in[mA.discretization.grid.vgeo[:,_x3:_x3,:] .== 0] .= mO.discretization.state_auxiliary.boundary_out[mO.discretization.grid.vgeo[:,_x3:_x3,:] .== 0]
 end
 
 # Instantiate a coupled timestepper that steps forward the components and
