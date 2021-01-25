@@ -221,7 +221,9 @@ function main()
 
     # Driver configuration parameters
     FT = Float64                             # floating type precision
-    poly_order = (5, 6)                      # discontinuous Galerkin polynomial order
+    horz_p = 5
+    vert_p = 6
+    poly_order = (horz_p, vert_p)                      # discontinuous Galerkin polynomial order
     n_horz = 8                               # horizontal element number
     n_vert = 3                               # vertical element number
     n_days::FT = 1
@@ -245,8 +247,7 @@ function main()
         solver_method = LSRK54CarpenterKennedy,
     )
 
-    # CFL = FT(0.1) # target acoustic CFL number
-    CFL = FT(1.0) # target acoustic CFL number
+    CFL::FT = 1.0 # target acoustic CFL number
 
     # time step is computed such that the horizontal acoustic Courant number is CFL
     solver_config = ClimateMachine.SolverConfiguration(
