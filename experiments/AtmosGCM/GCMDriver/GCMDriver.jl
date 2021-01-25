@@ -243,8 +243,8 @@ function config_diagnostics(::Type{FT}, driver_config) where {FT}
 
     interpol = ClimateMachine.InterpolationConfiguration(
         driver_config,
-        boundaries,
-        [lats, lons, lvls],
+        boundaries;
+        axes = [lats, lons, lvls],
     )
 
     # Setup diagnostics group(s)

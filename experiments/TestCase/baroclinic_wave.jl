@@ -325,8 +325,8 @@ function config_diagnostics(FT, driver_config)
 
     interpol = ClimateMachine.InterpolationConfiguration(
         driver_config,
-        boundaries,
-        [lats, lons, lvls],
+        boundaries;
+        axes = [lats, lons, lvls],
     )
 
     dgngrp = setup_atmos_default_diagnostics(

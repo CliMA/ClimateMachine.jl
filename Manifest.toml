@@ -250,9 +250,9 @@ version = "1.2.4"
 
 [[FFTW_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
-git-tree-sha1 = "f10c3009373a2d5c4349b8a2932d8accb892892d"
+git-tree-sha1 = "5a0d4b6a22a34d17d53543bd124f4b08ed78e8b0"
 uuid = "f5851436-0d7a-5f13-b9de-f02708fd171a"
-version = "3.3.9+6"
+version = "3.3.9+7"
 
 [[FastClosures]]
 git-tree-sha1 = "acebe244d53ee1b461970f8910c235b259e772ef"
@@ -285,9 +285,9 @@ version = "0.4.1"
 
 [[ForwardDiff]]
 deps = ["CommonSubexpressions", "DiffResults", "DiffRules", "NaNMath", "Random", "SpecialFunctions", "StaticArrays"]
-git-tree-sha1 = "1d090099fb82223abc48f7ce176d3f7696ede36d"
+git-tree-sha1 = "8de2519a83c6c1c2442c2f481dd9a8364855daf4"
 uuid = "f6369f11-7733-5829-9624-2563aa707210"
-version = "0.10.12"
+version = "0.10.14"
 
 [[FunctionWrappers]]
 git-tree-sha1 = "e4813d187be8c7b993cb7f85cbf2b7bfbaadc694"
@@ -588,6 +588,12 @@ deps = ["Artifacts", "HDF5_jll", "JLLWrappers", "LibCURL_jll", "LibSSH2_jll", "L
 git-tree-sha1 = "0c1a17bcbea206d002e158a62fc9e83180929ff8"
 uuid = "7243133f-43d8-5620-bbf4-c2c921802cf3"
 version = "4.7.4+1"
+
+[[NonlinearSolvers]]
+deps = ["CUDA", "DocStringExtensions", "ForwardDiff"]
+git-tree-sha1 = "13de2bfa3716485129b59d2fdc1c48904c2cfa15"
+uuid = "f4b8ab15-8e73-4e04-9661-b5912071d22b"
+version = "0.1.0"
 
 [[OffsetArrays]]
 deps = ["Adapt"]
