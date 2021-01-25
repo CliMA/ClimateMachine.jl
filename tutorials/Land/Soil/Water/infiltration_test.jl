@@ -1,4 +1,5 @@
 using MPI
+using JLD2, FileIO
 using OrderedCollections
 using StaticArrays
 using Statistics
@@ -84,13 +85,14 @@ timeend = FT(60*40) # * 300)
 dt = FT(0.12); #5
 
 # We are ignoring sources and sinks here, like runoff or freezing and thawing.
-sources = ();
+sources = (Pond{FT}(),);
 
 # Define the function that initializes the prognostic variables. This
 # in turn calls the functions supplied to `soil_water_model`.
 function init_soil_water!(land, state, aux, localgeo, time)
     state.soil.water.ϑ_l = eltype(state)(land.soil.water.initialϑ_l(aux))
     state.soil.water.θ_i = eltype(state)(land.soil.water.initialθ_i(aux))
+    state.soil.water.l = eltype(state)(0.0)
 end
 
 
@@ -147,7 +149,7 @@ solver_config =
     ClimateMachine.SolverConfiguration(t0, timeend, driver_config, ode_dt = dt);
 
 # Determine how often you want output.
-const n_outputs = 500;
+const n_outputs = 50;
 
 const every_x_simulation_time = ceil(Int, timeend / n_outputs);
 
@@ -160,7 +162,7 @@ grads = solver_config.dg.state_gradient_flux
 x_ind = varsindex(vars_state(m, Auxiliary(), FT), :x)
 y_ind = varsindex(vars_state(m, Auxiliary(), FT), :y)
 z_ind = varsindex(vars_state(m, Auxiliary(), FT), :z)
-#l_ind = varsindex(vars_state(m, Prognostic(), FT),:soil,:water,:l)
+l_ind = varsindex(vars_state(m, Prognostic(), FT),:soil,:water,:l)
 ϑ_l_ind = varsindex(vars_state(m, Prognostic(), FT), :soil, :water, :ϑ_l)
 K∇h_vert_ind = varsindex(vars_state(m, GradientFlux(), FT), :soil, :water)[3]
 
@@ -168,10 +170,10 @@ x = aux[:, x_ind, :][:]
 y = aux[:, y_ind, :][:]
 z = aux[:, z_ind, :][:]
 ϑ_l = Q[:, ϑ_l_ind, :][:]
-#l = Q[:, l_ind, :][:]
+l = Q[:, l_ind, :][:]
 K∇h_vert = zeros(length(ϑ_l)) .+ FT(NaN)
 
-all_data = [Dict{String, Array}("ϑ_l" => ϑ_l,"K∇h" => K∇h_vert, "x" => x, "y" =>y, "z" => z)]
+all_data = [Dict{String, Array}("ϑ_l" => ϑ_l,"l"=> l, "K∇h" => K∇h_vert, "x" => x, "y" =>y, "z" => z)]
 time_data = FT[0] # store time data
 
 callback = GenericCallbacks.EveryXSimulationTime(every_x_simulation_time) do
@@ -179,11 +181,11 @@ callback = GenericCallbacks.EveryXSimulationTime(every_x_simulation_time) do
     y = aux[:, y_ind, :][:]
     z = aux[:, z_ind, :][:]
     ϑ_l = Q[:, ϑ_l_ind, :][:]
-    #l = Q[:, l_ind, :][:]
+    l = Q[:, l_ind, :][:]
 
     K∇h_vert = grads[:, K∇h_vert_ind, :][:]
 
-    dons = Dict{String, Array}("ϑ_l" => ϑ_l, "K∇h" => K∇h_vert, "x" => x, "y" =>y, "z" => z)
+    dons = Dict{String, Array}("ϑ_l" => ϑ_l, "l"=> l, "K∇h" => K∇h_vert, "x" => x, "y" =>y, "z" => z)
     push!(all_data, dons)
     push!(time_data, gettime(solver_config.solver))
     nothing
@@ -193,6 +195,42 @@ end;
 ClimateMachine.invoke!(solver_config; user_callbacks = (callback,));
 
 N = length(all_data)
-#L = [all_data[k]["l"][end] for k in 1:N]
+L = [all_data[k]["l"][end] for k in 1:N]
 tm = [all_data[k]["ϑ_l"][end] for k in 1:N]
 tf = [all_data[k]["K∇h"][end] for k in 1:N]
+save("./runoff_test_data/horton_orig_ksat.jld2", "data", all_data)
+
+pond_data = load("./runoff_test_data/horton_orig_pond.jld2")["data"]
+ksat_data = load("./runoff_test_data/horton_orig_ksat.jld2")["data"]
+test_data =  load("./runoff_test_data/horton_orig_test.jld2")["data"]
+N = length(test_data)
+pond_tm = [pond_data[k]["ϑ_l"][end] for k in 1:N]
+pond_tf = [pond_data[k]["K∇h"][end] for k in 1:N]
+pond_L = [pond_data[k]["l"][end] for k in 1:N]
+
+ksat_tm = [ksat_data[k]["ϑ_l"][end] for k in 1:N]
+ksat_tf = [ksat_data[k]["K∇h"][end] for k in 1:N]
+ksat_L = [ksat_data[k]["l"][end] for k in 1:N]
+
+
+test_tm = [test_data[k]["ϑ_l"][end] for k in 1:N]
+test_tf = [test_data[k]["K∇h"][end] for k in 1:N]
+test_L = [test_data[k]["l"][end] for k in 1:N]
+plot1 = plot(pond_tm, label = "ponding BC", xlabel = "time", ylabel = "surface ϑ_l")
+plot!(test_tm, label = "test BC")
+plot!(ksat_tm, label = "Ksat BC")
+plot!(legend = :bottomleft)
+plot2 = plot(log10.(pond_tf), label = "ponding BC", xlabel = "time", ylabel = "surface infiltration")
+plot!(log10.(test_tf), label = "test BC")
+plot!(log10.(ksat_tf), label = "Ksat BC")
+#plot!(legend = :bottomleft)
+plot3 = plot(pond_L, label = "ponding BC", xlabel = "time", ylabel = "pond height")
+plot!(test_L, label = "test BC")
+plot!(ksat_L, label = "Ksat BC")
+plot4 = plot(pond_data[50]["ϑ_l"], pond_data[1]["z"], label = "t = 50, Pond", color = "red", xlabel = "ϑ_l", ylabel = "z", ylim = [-1,0])
+plot!(test_data[50]["ϑ_l"], test_data[25]["z"], label = "Test", color = "blue")
+plot!(ksat_data[50]["ϑ_l"], ksat_data[25]["z"], label = "Ksat", color = "green")
+plot!(legend = :bottomleft)
+plot(plot1,plot2,plot3,plot4,layout = 4)
+savefig("./runoff_test_data/horton_comparison.png")
+

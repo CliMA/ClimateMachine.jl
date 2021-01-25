@@ -256,10 +256,12 @@ function soil_boundary_flux!(
 )
     FT = eltype(state⁻)
     incident_water_flux = bc.precip_model(t)
+    
+    #This is not quite correct.
     if incident_water_flux < -norm(diff⁻.soil.water.K∇h)
         nothing
     else
-        diff⁺.soil.water.K∇h = n̂ *  (-incident_water_flux)
+        diff⁺.soil.water.K∇h = n̂ *  (-FT(2)*incident_water_flux) - diff⁻.soil.water.K∇h
     end
 end
 
@@ -277,9 +279,9 @@ function soil_boundary_state!(
     t,
     _...,
 )
+    #This is not quite correct.
     FT = eltype(state⁻)
     bc_value = land.soil.param_functions.porosity - state⁻.soil.water.θ_i
     state⁺.soil.water.ϑ_l = bc_value
-    
-end
 
+end
