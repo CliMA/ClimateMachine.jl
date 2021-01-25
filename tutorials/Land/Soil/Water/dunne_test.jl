@@ -186,32 +186,32 @@ pond_data = load("./runoff_test_data/dunne_alt_pond.jld2")["data"]
 ksat_data = load("./runoff_test_data/dunne_alt_ksat.jld2")["data"]
 test_data =  load("./runoff_test_data/dunne_alt_test.jld2")["data"]
 N = length(test_data)
-pond_tm = [pond_data[k]["ϑ_l"][end] for k in 1:N]
-pond_tf = [pond_data[k]["K∇h"][end] for k in 1:N]
-pond_L = [pond_data[k]["l"][end] for k in 1:N]
+pond_tm = [pond_data[k]["soil.water.ϑ_l"][end] for k in 1:N]
+pond_tf = [pond_data[k]["soil.water.K∇h[3]"][end] for k in 1:N]
+pond_L = [pond_data[k]["soil.water.l"][end] for k in 1:N]
 
-ksat_tm = [ksat_data[k]["ϑ_l"][end] for k in 1:N]
-ksat_tf = [ksat_data[k]["K∇h"][end] for k in 1:N]
-ksat_L = [ksat_data[k]["l"][end] for k in 1:N]
+ksat_tm = [ksat_data[k]["soil.water.ϑ_l"][end] for k in 1:N]
+ksat_tf = [ksat_data[k]["soil.water.K∇h[3]"][end] for k in 1:N]
+ksat_L = [ksat_data[k]["soil.water.l"][end] for k in 1:N]
 
 
-test_tm = [test_data[k]["ϑ_l"][end] for k in 1:N]
-test_tf = [test_data[k]["K∇h"][end] for k in 1:N]
-test_L = [test_data[k]["l"][end] for k in 1:N]
+test_tm = [test_data[k]["soil.water.ϑ_l"][end] for k in 1:N]
+test_tf = [test_data[k]["soil.water.K∇h[3]"][end] for k in 1:N]
+test_L = [test_data[k]["soil.water.l"][end] for k in 1:N]
 plot1 = plot(pond_tm, label = "ponding BC", xlabel = "time", ylabel = "surface ϑ_l")
 plot!(test_tm, label = "test BC")
 plot!(ksat_tm, label = "Ksat BC")
-plot!(legend = :bottomleft)
-plot2 = plot(log10.(pond_tf), label = "ponding BC", xlabel = "time", ylabel = "surface infiltration")
-plot!(log10.(test_tf), label = "test BC")
-plot!(log10.(ksat_tf), label = "Ksat BC")
-#plot!(legend = :bottomleft)
+
+plot2 = plot(pond_tf, label = "ponding BC", xlabel = "time", ylabel = "surface infiltration")
+plot!(test_tf, label = "test BC")
+plot!(ksat_tf, label = "Ksat BC")
+
 plot3 = plot(pond_L, label = "ponding BC", xlabel = "time", ylabel = "pond height")
 plot!(test_L, label = "test BC")
 plot!(ksat_L, label = "Ksat BC")
-plot4 = plot(pond_data[50]["ϑ_l"], pond_data[1]["z"], label = "t = 50, Pond", color = "red", xlabel = "ϑ_l", ylabel = "z", ylim = [-1,0])
-plot!(test_data[50]["ϑ_l"], test_data[25]["z"], label = "Test", color = "blue")
-plot!(ksat_data[50]["ϑ_l"], ksat_data[25]["z"], label = "Ksat", color = "green")
+plot4 = plot(pond_data[50]["soil.water.ϑ_l"], pond_data[1]["z"], label = "t = 50, Pond", color = "red", xlabel = "ϑ_l", ylabel = "z", ylim = [-1,0])
+plot!(test_data[50]["soil.water.ϑ_l"], test_data[25]["z"], label = "Test", color = "blue")
+plot!(ksat_data[50]["soil.water.ϑ_l"], ksat_data[25]["z"], label = "Ksat", color = "green")
 plot!(legend = :bottomleft)
 plot(plot1,plot2,plot3,plot4,layout = 4)
 savefig("./runoff_test_data/dunne_alt_comparison.png")
