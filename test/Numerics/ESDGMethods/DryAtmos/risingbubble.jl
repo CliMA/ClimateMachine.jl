@@ -33,6 +33,7 @@ end
 const output = parse(Bool, lowercase(get(ENV, "JULIA_CLIMA_OUTPUT", "false")))
 
 include("DryAtmos.jl")
+include("diagnostics.jl")
 
 struct RisingBubble <: AbstractDryAtmosProblem end
 
@@ -173,7 +174,13 @@ function run(
     dx = min_node_distance(grid)
     cfl = FT(1.7)
     dt = cfl * dx / 330
+
     Q = init_ode_state(esdg, FT(0))
+
+    η = similar(Q, vars = @vars(η::FT), nstate=1)
+
+    ∫η0 = entropy_integral(esdg, model, η, Q)
+
     odesolver = LSRK144NiegemannDiehlBusch(esdg, Q; dt = dt, t0 = 0)
 
     eng0 = norm(Q)
@@ -184,7 +191,8 @@ function run(
                       numelem         = %d
                       dt              = %.16e
                       norm(Q₀)        = %.16e
-                      """ "$ArrayType" "$FT" polynomialorder Ne[1] dt eng0
+                      ∫η              = %.16e
+                      """ "$ArrayType" "$FT" polynomialorder Ne[1] dt eng0 ∫η0
 
     # Set up the information callback
     starttime = Ref(now())
@@ -192,16 +200,20 @@ function run(
         if s
             starttime[] = now()
         else
+            ∫η = entropy_integral(esdg, model, η, Q)
+            dη = (∫η - ∫η0) / ∫η0
             energy = norm(Q)
             runtime = Dates.format(
                 convert(DateTime, now() - starttime[]),
                 dateformat"HH:MM:SS",
             )
             @info @sprintf """Update
-                              simtime = %.16e
-                              runtime = %s
-                              norm(Q) = %.16e
-                              """ gettime(odesolver) runtime energy
+                              simtime          = %.16e
+                              runtime          = %s
+                              norm(Q)          = %.16e
+                              ∫η               = %.16e
+                              (∫η - ∫η0) / ∫η0 = %.16e 
+                              """ gettime(odesolver) runtime energy ∫η dη
         end
     end
     callbacks = (cbinfo,)
@@ -232,11 +244,15 @@ function run(
 
     # final statistics
     engf = norm(Q)
+    ∫ηf = entropy_integral(esdg, model, η, Q)
+    dηf = (∫ηf - ∫η0) / ∫η0
     @info @sprintf """Finished
     norm(Q)                 = %.16e
     norm(Q) / norm(Q₀)      = %.16e
     norm(Q) - norm(Q₀)      = %.16e
-    """ engf engf / eng0 engf - eng0
+    ∫η                      = %.16e
+    (∫η - ∫η0) / ∫η0        = %.16e 
+    """ engf engf / eng0 engf - eng0 ∫ηf dηf
     engf
 end
 

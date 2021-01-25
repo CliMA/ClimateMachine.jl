@@ -26,6 +26,7 @@ import ClimateMachine.DGMethods.NumericalFluxes:
 using ClimateMachine.Orientations:
     Orientation, FlatOrientation, SphericalOrientation
 using ClimateMachine.Atmos: NoReferenceState
+using ClimateMachine.Grids
 
 using CLIMAParameters: AbstractEarthParameterSet
 using CLIMAParameters.Planet: grav, cp_d, cv_d, planet_radius, Omega
@@ -379,11 +380,10 @@ function state_to_entropy(::DryAtmosModel, state::Vars, aux::Vars)
     ρ, ρu, ρe, Φ = state.ρ, state.ρu, state.ρe, aux.Φ
     p = pressure(ρ, ρu, ρe, Φ)
     γ = FT(gamma(param_set))
-    s = log(p * ρ^γ)
+    s = log(p / ρ^γ)
     η = -ρ * s
     return η
 end
-
 
 function numerical_volume_conservative_flux_first_order!(
     ::EntropyConservative,
