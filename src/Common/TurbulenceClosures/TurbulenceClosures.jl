@@ -66,6 +66,7 @@ export TurbulenceClosureModel,
     AnisoMinDiss,
     HyperDiffusion,
     NoHyperDiffusion,
+    Biharmonic,
     DryBiharmonic,
     EquilMoistBiharmonic,
     NoViscousSponge,
@@ -799,90 +800,24 @@ struct NoHyperDiffusion <: HyperDiffusion end
 hyperviscosity_tensors(m::HyperDiffusion, bl::BalanceLaw, args...) =
     hyperviscosity_tensors(m, bl.orientation, bl.param_set, args...)
 
-"""
-  EquilMoistBiharmonic{FT} <: HyperDiffusion
 
-Assumes equilibrium thermodynamics in compressible flow.
-Horizontal hyperdiffusion methods for application in GCM and LES settings
-Timescales are prescribed by the user while the diffusion coefficient is
-computed as a function of the grid lengthscale.
-
-# Fields
-$(DocStringExtensions.FIELDS)
-"""
-struct EquilMoistBiharmonic{FT} <: HyperDiffusion
-    τ_timescale::FT
+abstract type HyperdiffMoistureModel <: BalanceLaw end
+struct HyperdiffDryModel <: HyperdiffMoistureModel end
+struct HyperdiffEquilMoist{FT} <: HyperdiffMoistureModel
     τ_timescale_q_tot::FT
 end
+struct HyperdiffNonEquilMoist <: HyperdiffMoistureModel end
 
-EquilMoistBiharmonic(τ_timescale::FT) where {FT} =
-    EquilMoistBiharmonic(τ_timescale, τ_timescale)
 
-vars_state(::EquilMoistBiharmonic, ::Auxiliary, FT) = @vars(Δ::FT)
-vars_state(::EquilMoistBiharmonic, ::Gradient, FT) =
-    @vars(u_h::SVector{3, FT}, h_tot::FT, q_tot::FT)
-vars_state(::EquilMoistBiharmonic, ::GradientLaplacian, FT) =
-    @vars(u_h::SVector{3, FT}, h_tot::FT, q_tot::FT)
-vars_state(::EquilMoistBiharmonic, ::Hyperdiffusive, FT) = @vars(
-    ν∇³u_h::SMatrix{3, 3, FT, 9},
-    ν∇³h_tot::SVector{3, FT},
-    ν∇³q_tot::SVector{3, FT}
-)
-
-function init_aux_hyperdiffusion!(
-    ::EquilMoistBiharmonic,
-    ::BalanceLaw,
-    aux::Vars,
-    geom::LocalGeometry,
-)
-    aux.hyperdiffusion.Δ = lengthscale(geom)
-end
-
-function compute_gradient_argument!(
-    h::EquilMoistBiharmonic,
-    bl::BalanceLaw,
-    transform::Vars,
-    state::Vars,
-    aux::Vars,
-    t::Real,
-)
-    ρinv = 1 / state.ρ
-    u = state.ρu * ρinv
-    k̂ = vertical_unit_vector(bl, aux)
-    u_h = (SDiagonal(1, 1, 1) - k̂ * k̂') * u
-    transform.hyperdiffusion.u_h = u_h
-    transform.hyperdiffusion.h_tot = transform.h_tot
-    transform.hyperdiffusion.q_tot = state.moisture.ρq_tot * ρinv
-end
-
-function transform_post_gradient_laplacian!(
-    h::EquilMoistBiharmonic,
-    bl::BalanceLaw,
-    hyperdiffusive::Vars,
-    hypertransform::Grad,
-    state::Vars,
-    aux::Vars,
-    t::Real,
-)
-    _inv_Pr_turb = eltype(state)(inv_Pr_turb(bl.param_set))
-    ∇Δu_h = hypertransform.hyperdiffusion.u_h
-    ∇Δh_tot = hypertransform.hyperdiffusion.h_tot
-    ∇Δq_tot = hypertransform.hyperdiffusion.q_tot
-    # Unpack
-    τ_timescale = h.τ_timescale
-    τ_timescale_q_tot = h.τ_timescale_q_tot
-    # Compute hyperviscosity coefficient
-    ν₄ = (aux.hyperdiffusion.Δ / 2)^4 / 2 / τ_timescale
-    ν₄_q_tot = (aux.hyperdiffusion.Δ / 2)^4 / 2 / τ_timescale_q_tot
-    hyperdiffusive.hyperdiffusion.ν∇³u_h = ν₄ * ∇Δu_h
-    hyperdiffusive.hyperdiffusion.ν∇³h_tot = ν₄ * ∇Δh_tot
-    hyperdiffusive.hyperdiffusion.ν∇³q_tot = ν₄_q_tot * ∇Δq_tot
-end
+vars_state(::HyperdiffEquilMoist, ::Gradient, FT) = @vars(q_tot::FT)
+vars_state(::HyperdiffEquilMoist, ::GradientLaplacian, FT) = @vars(q_tot::FT)
+vars_state(::HyperdiffEquilMoist, ::Hyperdiffusive, FT) =
+    @vars(ν∇³q_tot::SVector{3, FT})
 
 """
-  DryBiharmonic{FT} <: HyperDiffusion
+  Biharmonic{FT} <: HyperDiffusion
 
-Assumes dry compressible flow.
+Assumes compressible flow.
 Horizontal hyperdiffusion methods for application in GCM and LES settings
 Timescales are prescribed by the user while the diffusion coefficient is
 computed as a function of the grid lengthscale.
@@ -890,19 +825,38 @@ computed as a function of the grid lengthscale.
 # Fields
 $(DocStringExtensions.FIELDS)
 """
-struct DryBiharmonic{FT} <: HyperDiffusion
+struct Biharmonic{FT, M} <: HyperDiffusion
     τ_timescale::FT
+    moisture::M
 end
-vars_state(::DryBiharmonic, ::Auxiliary, FT) = @vars(Δ::FT)
-vars_state(::DryBiharmonic, ::Gradient, FT) =
-    @vars(u_h::SVector{3, FT}, h_tot::FT)
-vars_state(::DryBiharmonic, ::GradientLaplacian, FT) =
-    @vars(u_h::SVector{3, FT}, h_tot::FT)
-vars_state(::DryBiharmonic, ::Hyperdiffusive, FT) =
-    @vars(ν∇³u_h::SMatrix{3, 3, FT, 9}, ν∇³h_tot::SVector{3, FT})
+
+DryBiharmonic(τ_timescale::FT) where {FT} =
+    Biharmonic(τ_timescale, HyperdiffDryModel())
+
+EquilMoistBiharmonic(τ_timescale::FT) where {FT} =
+    Biharmonic(τ_timescale, HyperdiffEquilMoist(τ_timescale))
+EquilMoistBiharmonic(τ_timescale::FT, τ_timescale_q_tot::FT) where {FT} =
+    Biharmonic(τ_timescale, HyperdiffEquilMoist(τ_timescale_q_tot))
+
+vars_state(m::Biharmonic, st::Auxiliary, FT) = @vars(Δ::FT)
+vars_state(m::Biharmonic, st::Gradient, FT) = @vars(
+    u_h::SVector{3, FT},
+    h_tot::FT,
+    moisture::vars_state(m.moisture, st, FT)
+)
+vars_state(m::Biharmonic, st::GradientLaplacian, FT) = @vars(
+    u_h::SVector{3, FT},
+    h_tot::FT,
+    moisture::vars_state(m.moisture, st, FT)
+)
+vars_state(m::Biharmonic, st::Hyperdiffusive, FT) = @vars(
+    ν∇³u_h::SMatrix{3, 3, FT, 9},
+    ν∇³h_tot::SVector{3, FT},
+    moisture::vars_state(m.moisture, st, FT)
+)
 
 function init_aux_hyperdiffusion!(
-    ::DryBiharmonic,
+    ::Biharmonic,
     ::BalanceLaw,
     aux::Vars,
     geom::LocalGeometry,
@@ -911,7 +865,7 @@ function init_aux_hyperdiffusion!(
 end
 
 function compute_gradient_argument!(
-    h::DryBiharmonic,
+    h::Biharmonic,
     bl::BalanceLaw,
     transform::Vars,
     state::Vars,
@@ -924,10 +878,16 @@ function compute_gradient_argument!(
     u_h = (SDiagonal(1, 1, 1) - k̂ * k̂') * u
     transform.hyperdiffusion.u_h = u_h
     transform.hyperdiffusion.h_tot = transform.h_tot
+    compute_gradient_argument!(h.moisture, transform, state)
+end
+compute_gradient_argument!(::HyperdiffDryModel, _...) = nothing
+function compute_gradient_argument!(m::HyperdiffEquilMoist, transform, state)
+    ρinv = 1 / state.ρ
+    transform.hyperdiffusion.moisture.q_tot = state.moisture.ρq_tot * ρinv
 end
 
 function transform_post_gradient_laplacian!(
-    h::DryBiharmonic,
+    h::Biharmonic,
     bl::BalanceLaw,
     hyperdiffusive::Vars,
     hypertransform::Grad,
@@ -944,6 +904,35 @@ function transform_post_gradient_laplacian!(
     ν₄ = (aux.hyperdiffusion.Δ / 2)^4 / 2 / τ_timescale
     hyperdiffusive.hyperdiffusion.ν∇³u_h = ν₄ * ∇Δu_h
     hyperdiffusive.hyperdiffusion.ν∇³h_tot = ν₄ * ∇Δh_tot
+    transform_post_gradient_laplacian!(
+        h.moisture,
+        h,
+        bl,
+        hyperdiffusive,
+        hypertransform,
+        state,
+        aux,
+        t,
+    )
+end
+
+transform_post_gradient_laplacian!(::HyperdiffDryModel, _...) = nothing
+function transform_post_gradient_laplacian!(
+    m::HyperdiffEquilMoist,
+    h::Biharmonic,
+    bl::BalanceLaw,
+    hyperdiffusive::Vars,
+    hypertransform::Grad,
+    state::Vars,
+    aux::Vars,
+    t::Real,
+)
+    ∇Δq_tot = hypertransform.hyperdiffusion.moisture.q_tot
+    # Unpack
+    τ_timescale_q_tot = m.τ_timescale_q_tot
+    # Compute hyperviscosity coefficient
+    ν₄_q_tot = (aux.hyperdiffusion.Δ / 2)^4 / 2 / τ_timescale_q_tot
+    hyperdiffusive.hyperdiffusion.moisture.ν∇³q_tot = ν₄_q_tot * ∇Δq_tot
 end
 
 # ### [Viscous Sponge](@id viscous-sponge)
@@ -1012,8 +1001,6 @@ function sponge_viscosity_modifier(
     end
     return (ν, D_t, τ)
 end
-
-const Biharmonic = Union{EquilMoistBiharmonic, DryBiharmonic}
 
 export HyperdiffEnthalpyFlux
 struct HyperdiffEnthalpyFlux{PV} <: TendencyDef{Flux{SecondOrder}, PV} end
