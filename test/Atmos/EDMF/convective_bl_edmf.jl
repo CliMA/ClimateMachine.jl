@@ -173,7 +173,7 @@ function main(::Type{FT}) where {FT}
     t0 = FT(0)
 
     # Simulation time
-    timeend = FT(2929.0)
+    timeend = FT(700)
     CFLmax = FT(1.0)
 
     config_type = SingleStackConfigType
@@ -212,6 +212,7 @@ function main(::Type{FT}) where {FT}
         driver_config,
         init_on_cpu = true,
         Courant_number = CFLmax,
+        fixed_number_of_steps = 3750,
     )
 
     #################### Change the ode_solver to implicit solver
