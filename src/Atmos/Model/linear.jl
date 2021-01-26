@@ -35,6 +35,15 @@ function linearized_air_pressure(
     )
 end
 
+@inline linearized_pressure(atmos, state::Vars, aux::Vars) =
+    linearized_pressure(
+        atmos.moisture,
+        atmos.param_set,
+        atmos.orientation,
+        state,
+        aux,
+    )
+
 @inline function linearized_pressure(
     ::DryModel,
     param_set::AbstractParameterSet,
@@ -223,13 +232,7 @@ function flux_first_order!(
     e_pot = gravitational_potential(lm.atmos.orientation, aux)
 
     flux.ρ = state.ρu
-    pL = linearized_pressure(
-        lm.atmos.moisture,
-        lm.atmos.param_set,
-        lm.atmos.orientation,
-        state,
-        aux,
-    )
+    pL = linearized_pressure(lm.atmos, state, aux)
     flux.ρu += pL * I
     flux.ρe = ((ref.ρe + ref.p) / ref.ρ - e_pot) * state.ρu
     nothing
@@ -258,13 +261,7 @@ function flux_first_order!(
     e_pot = gravitational_potential(lm.atmos.orientation, aux)
 
     flux.ρ = state.ρu
-    pL = linearized_pressure(
-        lm.atmos.moisture,
-        lm.atmos.param_set,
-        lm.atmos.orientation,
-        state,
-        aux,
-    )
+    pL = linearized_pressure(lm.atmos, state, aux)
     flux.ρu += pL * I
     flux.ρe = ((ref.ρe + ref.p) / ref.ρ) * state.ρu
     nothing
@@ -324,13 +321,7 @@ function numerical_flux_first_order!(
     ref_h⁻ = (ref_ρe⁻ + ref_p⁻) / ref_ρ⁻
     ref_c⁻ = soundspeed_air(param_set, ref_T⁻)
 
-    pL⁻ = linearized_pressure(
-        atmos.moisture,
-        param_set,
-        atmos.orientation,
-        state_prognostic⁻,
-        state_auxiliary⁻,
-    )
+    pL⁻ = linearized_pressure(atmos, state_prognostic⁻, state_auxiliary⁻)
 
     ρu⁺ = state_prognostic⁺.ρu
 
@@ -341,13 +332,7 @@ function numerical_flux_first_order!(
     ref_h⁺ = (ref_ρe⁺ + ref_p⁺) / ref_ρ⁺
     ref_c⁺ = soundspeed_air(param_set, ref_T⁺)
 
-    pL⁺ = linearized_pressure(
-        atmos.moisture,
-        param_set,
-        atmos.orientation,
-        state_prognostic⁺,
-        state_auxiliary⁺,
-    )
+    pL⁺ = linearized_pressure(atmos, state_prognostic⁺, state_auxiliary⁺)
 
     # not sure if arithmetic averages are a good idea here
     h̃ = (ref_h⁻ + ref_h⁺) / 2
@@ -433,13 +418,7 @@ function numerical_flux_first_order!(
 
     ref_c⁻ = soundspeed_air(param_set, ref_T⁻, ref_q_pt⁻)
 
-    pL⁻ = linearized_pressure(
-        atmos.moisture,
-        param_set,
-        atmos.orientation,
-        state_prognostic⁻,
-        state_auxiliary⁻,
-    )
+    pL⁻ = linearized_pressure(atmos, state_prognostic⁻, state_auxiliary⁻)
 
     ρu⁺ = state_prognostic⁺.ρu
 
@@ -454,13 +433,7 @@ function numerical_flux_first_order!(
     _R_m⁺ = gas_constant_air(param_set, ref_q_pt⁺)
     ref_h⁺ = total_specific_enthalpy(ref_ρe⁺, _R_m⁺, ref_T⁺)
     ref_c⁺ = soundspeed_air(param_set, ref_T⁺, ref_q_pt⁺)
-    pL⁺ = linearized_pressure(
-        atmos.moisture,
-        param_set,
-        atmos.orientation,
-        state_prognostic⁺,
-        state_auxiliary⁺,
-    )
+    pL⁺ = linearized_pressure(atmos, state_prognostic⁺, state_auxiliary⁺)
 
     # not sure if arithmetic averages are a good idea here
     ref_h̃ = (ref_h⁻ + ref_h⁺) / 2
