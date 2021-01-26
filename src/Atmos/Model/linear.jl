@@ -65,7 +65,7 @@ function linearized_air_pressure(
       )
     elseif linearization_type == 5 # Tapio's suggestion 3, breaks
       γ = _cp_d / _cv_d
-      pL = ref.p * (1  + γ * (ρ - ref.ρ) / ref.ρ)
+      pL = ref.p * γ * ρ / ref.ρ
     end
     return pL
 end
@@ -185,7 +185,14 @@ function store_linearized_pressures!(
     aux,
     4
   )
-  aux.pL5 = linearized_pressure(
+
+  # linearization type 5 is not the full pressure
+  FT = eltype(aux)
+  _cv_d::FT = cv_d(m.atmos.param_set)
+  _cp_d::FT = cp_d(m.atmos.param_set)
+  γ = _cp_d / _cv_d
+
+  aux.pL5 = aux.ref_state.p * (1 - γ) + linearized_pressure(
     m.atmos.moisture,
     m.atmos.param_set,
     m.atmos.orientation,
