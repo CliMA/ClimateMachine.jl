@@ -22,7 +22,7 @@ using CLIMAParameters.Planet
 
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
-# CLIMAParameters.Planet.planet_radius(::EarthParameterSet) = 6e3
+CLIMAParameters.Planet.planet_radius(::EarthParameterSet) = 60e3
 
 const output = parse(Bool, lowercase(get(ENV, "JULIA_CLIMA_OUTPUT", "false")))
 
@@ -76,12 +76,15 @@ function initial_condition!(
         φ = latitude(SphericalOrientation(), aux)
         λ = longitude(SphericalOrientation(), aux)
         r = norm(aux.coord)
+        z = r - _a
 
         l = Int64(problem.l)
         m = Int64(problem.m)
 
         c = get_c(l, r)
-        state.ρ = calc_Ylm(φ, λ, l, m) * exp(-problem.D*c*t)
+        # state.ρ = calc_Ylm(φ, λ, l, m) * exp(-problem.D*c*t)
+        # state.ρ = calc_Ylm(φ, λ, l, m) * exp(-problem.D*c*t) * exp(-z/30.0e3)
+        state.ρ = cos(z/30.0e3)
     end
 end
 
@@ -156,6 +159,7 @@ function run(
     # @show "FD vs DG" norm(rhs_FD .- rhs_DGsource) / norm(rhs_FD)
 
     do_output(mpicomm, "output", dg, rhs_DGsource, rhs_anal, model)
+    # do_output(mpicomm, "output", dg, Q0, rhs_anal, model)
     # do_output(mpicomm, "output", dg, Q_DGlsrk, Q_anal, model)
 
     return norm(rhs_anal .- rhs_DGsource) / norm(rhs_anal)
