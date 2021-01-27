@@ -953,6 +953,8 @@ gradient flux.
         ngradstate = number_states(balance_law, Gradient())
         ngradlapstate = number_states(balance_law, GradientLaplacian())
         num_state_gradient_flux = number_states(balance_law, GradientFlux())
+        num_state_gradient_hyperflux =
+            number_states(balance_law, GradientHyperFlux())
         num_state_auxiliary = number_states(balance_law, Auxiliary())
 
         # Kernel assumes same polynomial order in both
@@ -966,6 +968,8 @@ gradient flux.
         local_transform = MArray{Tuple{ngradstate}, FT}(undef)
         local_state_gradient_flux =
             MArray{Tuple{num_state_gradient_flux}, FT}(undef)
+        local_state_gradient_hyperflux =
+            MArray{Tuple{num_state_gradient_hyperflux}, FT}(undef)
     end
 
     # Transformation from conservative variables to
@@ -1078,23 +1082,41 @@ gradient flux.
                 end
             end
 
-            # Hyperdiffusion (avoid recomputing gradients of the state since
-            # these are needed for the hyperdiffusion kernels)
-            @unroll for s in 1:ngradlapstate
-                if increment
-                    Qhypervisc_grad[ijk, 3 * (s - 1) + 1, e] +=
-                        local_transform_gradient[1, hypervisc_indexmap[s], k]
-                    Qhypervisc_grad[ijk, 3 * (s - 1) + 2, e] +=
-                        local_transform_gradient[2, hypervisc_indexmap[s], k]
-                    Qhypervisc_grad[ijk, 3 * (s - 1) + 3, e] +=
-                        local_transform_gradient[3, hypervisc_indexmap[s], k]
-                else
-                    Qhypervisc_grad[ijk, 3 * (s - 1) + 1, e] =
-                        local_transform_gradient[1, hypervisc_indexmap[s], k]
-                    Qhypervisc_grad[ijk, 3 * (s - 1) + 2, e] =
-                        local_transform_gradient[2, hypervisc_indexmap[s], k]
-                    Qhypervisc_grad[ijk, 3 * (s - 1) + 3, e] =
-                        local_transform_gradient[3, hypervisc_indexmap[s], k]
+            if num_state_gradient_hyperflux > 0
+                fill!(
+                    local_state_gradient_hyperflux,
+                    -zero(eltype(local_state_gradient_hyperflux)),
+                )
+                compute_gradient_hyperflux!(
+                    balance_law,
+                    Vars{vars_state(balance_law, GradientHyperFlux(), FT)}(
+                        local_state_gradient_hyperflux,
+                    ),
+                    Grad{vars_state(balance_law, Gradient(), FT)}(local_transform_gradient[
+                        :,
+                        :,
+                        k,
+                    ]),
+                    Vars{vars_state(balance_law, Prognostic(), FT)}(local_state_prognostic[
+                        :,
+                        k,
+                    ]),
+                    Vars{vars_state(balance_law, Auxiliary(), FT)}(local_state_auxiliary[
+                        :,
+                        k,
+                    ]),
+                    t,
+                )
+
+                # Write out the result of the kernel to global memory
+                @unroll for s in 1:num_state_gradient_hyperflux
+                    if increment
+                        Qhypervisc_grad[ijk, s, e] +=
+                            local_state_gradient_hyperflux[s]
+                    else
+                        Qhypervisc_grad[ijk, s, e] =
+                            local_state_gradient_hyperflux[s]
+                    end
                 end
             end
 
@@ -1152,6 +1174,8 @@ end
         ngradstate = number_states(balance_law, Gradient())
         ngradlapstate = number_states(balance_law, GradientLaplacian())
         num_state_gradient_flux = number_states(balance_law, GradientFlux())
+        num_state_gradient_hyperflux =
+            number_states(balance_law, GradientHyperFlux())
         num_state_auxiliary = number_states(balance_law, Auxiliary())
 
         # Assumes same polynomial order in both
@@ -1165,6 +1189,8 @@ end
         local_transform = MArray{Tuple{ngradstate}, FT}(undef)
         local_state_gradient_flux =
             MArray{Tuple{num_state_gradient_flux}, FT}(undef)
+        local_state_gradient_hyperflux =
+            MArray{Tuple{num_state_gradient_hyperflux}, FT}(undef)
 
         _ζx1 = dim == 2 ? _ξ2x1 : _ξ3x1
         _ζx2 = dim == 2 ? _ξ2x2 : _ξ3x2
@@ -1276,23 +1302,42 @@ end
                 end
             end
 
-            # Hyperdiffusion (avoid recomputing gradients of the state since
-            # these are needed for the hyperdiffusion kernels)
-            @unroll for s in 1:ngradlapstate
-                if increment
-                    Qhypervisc_grad[ijk, 3 * (s - 1) + 1, e] +=
-                        local_transform_gradient[1, hypervisc_indexmap[s], k]
-                    Qhypervisc_grad[ijk, 3 * (s - 1) + 2, e] +=
-                        local_transform_gradient[2, hypervisc_indexmap[s], k]
-                    Qhypervisc_grad[ijk, 3 * (s - 1) + 3, e] +=
-                        local_transform_gradient[3, hypervisc_indexmap[s], k]
-                else
-                    Qhypervisc_grad[ijk, 3 * (s - 1) + 1, e] =
-                        local_transform_gradient[1, hypervisc_indexmap[s], k]
-                    Qhypervisc_grad[ijk, 3 * (s - 1) + 2, e] =
-                        local_transform_gradient[2, hypervisc_indexmap[s], k]
-                    Qhypervisc_grad[ijk, 3 * (s - 1) + 3, e] =
-                        local_transform_gradient[3, hypervisc_indexmap[s], k]
+            if num_state_gradient_hyperflux > 0
+                fill!(
+                    local_state_gradient_hyperflux,
+                    -zero(eltype(local_state_gradient_hyperflux)),
+                )
+
+                compute_gradient_hyperflux!(
+                    balance_law,
+                    Vars{vars_state(balance_law, GradientHyperFlux(), FT)}(
+                        local_state_gradient_hyperflux,
+                    ),
+                    Grad{vars_state(balance_law, Gradient(), FT)}(local_transform_gradient[
+                        :,
+                        :,
+                        k,
+                    ]),
+                    Vars{vars_state(balance_law, Prognostic(), FT)}(local_state_prognostic[
+                        :,
+                        k,
+                    ]),
+                    Vars{vars_state(balance_law, Auxiliary(), FT)}(local_state_auxiliary[
+                        :,
+                        k,
+                    ]),
+                    t,
+                )
+
+                # Write out the result of the kernel to global memory
+                @unroll for s in 1:num_state_gradient_hyperflux
+                    if increment
+                        Qhypervisc_grad[ijk, s, e] +=
+                            local_state_gradient_hyperflux[s]
+                    else
+                        Qhypervisc_grad[ijk, s, e] =
+                            local_state_gradient_hyperflux[s]
+                    end
                 end
             end
 
@@ -1387,6 +1432,8 @@ auxiliary gradient flux, and G* is the associated numerical flux.
         ngradstate = number_states(balance_law, Gradient())
         ngradlapstate = number_states(balance_law, GradientLaplacian())
         num_state_gradient_flux = number_states(balance_law, GradientFlux())
+        num_state_gradient_hyperflux =
+            number_states(balance_law, GradientHyperFlux())
         num_state_auxiliary = number_states(balance_law, Auxiliary())
         nface = info.nface
         Np = info.Np
@@ -1417,9 +1464,13 @@ auxiliary gradient flux, and G* is the associated numerical flux.
         # FIXME state_gradient_flux is sort of a terrible name...
         local_state_gradient_flux =
             MArray{Tuple{num_state_gradient_flux}, FT}(undef)
+        local_state_gradient_hyperflux =
+            MArray{Tuple{num_state_gradient_hyperflux}, FT}(undef)
         local_transform_gradient = MArray{Tuple{3, ngradstate}, FT}(undef)
         local_state_prognostic⁻visc =
             MArray{Tuple{num_state_gradient_flux}, FT}(undef)
+        local_state_prognostic⁻hypervisc =
+            MArray{Tuple{num_state_gradient_hyperflux}, FT}(undef)
 
         local_state_prognostic_bottom1 =
             MArray{Tuple{num_state_prognostic}, FT}(undef)
@@ -1503,6 +1554,10 @@ auxiliary gradient flux, and G* is the associated numerical flux.
             local_state_gradient_flux,
             -zero(eltype(local_state_gradient_flux)),
         )
+        fill!(
+            local_state_gradient_hyperflux,
+            -zero(eltype(local_state_gradient_hyperflux)),
+        )
         if bctag == 0  # Periodic boundary condition (boundary-less)
             # Computes G* on the minus side
             numerical_flux_gradient!(
@@ -1527,6 +1582,26 @@ auxiliary gradient flux, and G* is the associated numerical flux.
                     local_transform_gradient,
                     local_state_prognostic⁻,
                     local_state_auxiliary⁻,
+                    t,
+                )
+            end
+            if num_state_gradient_hyperflux > 0
+                # Applies linear transformation of gradients to the diffusive variables
+                # on the minus side
+                compute_gradient_hyperflux!(
+                    balance_law,
+                    Vars{vars_state(balance_law, GradientHyperFlux(), FT)}(
+                        local_state_gradient_hyperflux,
+                    ),
+                    Grad{vars_state(balance_law, Gradient(), FT)}(
+                        local_transform_gradient,
+                    ),
+                    Vars{vars_state(balance_law, Prognostic(), FT)}(
+                        local_state_prognostic⁻,
+                    ),
+                    Vars{vars_state(balance_law, Auxiliary(), FT)}(
+                        local_state_auxiliary⁻,
+                    ),
                     t,
                 )
             end
@@ -1605,6 +1680,25 @@ auxiliary gradient flux, and G* is the associated numerical flux.
                         t,
                     )
                 end
+
+                if num_state_gradient_hyperflux > 0
+                    compute_gradient_hyperflux!(
+                        balance_law,
+                        Vars{vars_state(balance_law, GradientHyperFlux(), FT)}(
+                            local_state_gradient_hyperflux,
+                        ),
+                        Grad{vars_state(balance_law, Gradient(), FT)}(
+                            local_transform_gradient,
+                        ),
+                        Vars{vars_state(balance_law, Prognostic(), FT)}(
+                            local_state_prognostic⁻,
+                        ),
+                        Vars{vars_state(balance_law, Auxiliary(), FT)}(
+                            local_state_auxiliary⁻,
+                        ),
+                        t,
+                    )
+                end
             end d -> throw(BoundsError(bcs, bctag))
         end
 
@@ -1613,17 +1707,6 @@ auxiliary gradient flux, and G* is the associated numerical flux.
             @unroll for i in 1:3
                 l_nG⁻[i, j] = normal_vector[i] * local_transform⁻[j]
             end
-        end
-
-        # Storing gradients for applying hyperdiffusion
-        @unroll for s in 1:ngradlapstate
-            j = hypervisc_indexmap[s]
-            Qhypervisc_grad[vid⁻, 3 * (s - 1) + 1, e⁻] +=
-                vMI * sM * (local_transform_gradient[1, j] - l_nG⁻[1, j])
-            Qhypervisc_grad[vid⁻, 3 * (s - 1) + 2, e⁻] +=
-                vMI * sM * (local_transform_gradient[2, j] - l_nG⁻[2, j])
-            Qhypervisc_grad[vid⁻, 3 * (s - 1) + 3, e⁻] +=
-                vMI * sM * (local_transform_gradient[3, j] - l_nG⁻[3, j])
         end
 
         # Applies linear transformation of gradients to the diffusive variables
@@ -1636,6 +1719,32 @@ auxiliary gradient flux, and G* is the associated numerical flux.
             local_state_auxiliary⁻,
             t,
         )
+
+        if num_state_gradient_hyperflux > 0
+            compute_gradient_hyperflux!(
+                balance_law,
+                Vars{vars_state(balance_law, GradientHyperFlux(), FT)}(
+                    local_state_prognostic⁻hypervisc,
+                ),
+                Grad{vars_state(balance_law, Gradient(), FT)}(l_nG⁻),
+                Vars{vars_state(balance_law, Prognostic(), FT)}(
+                    local_state_prognostic⁻,
+                ),
+                Vars{vars_state(balance_law, Auxiliary(), FT)}(
+                    local_state_auxiliary⁻,
+                ),
+                t,
+            )
+            @unroll for s in 1:num_state_gradient_hyperflux
+                Qhypervisc_grad[vid⁻, s, e⁻] +=
+                    vMI *
+                    sM *
+                    (
+                        local_state_gradient_hyperflux[s] -
+                        local_state_prognostic⁻hypervisc[s]
+                    )
+            end
+        end
 
         # This is the surface integral evaluated discretely
         # M^(-1) Mf(G* - G)

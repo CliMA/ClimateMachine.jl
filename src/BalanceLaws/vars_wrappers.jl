@@ -115,6 +115,26 @@ function compute_gradient_flux_arr!(
     )
 end
 
+function compute_gradient_hyperflux_arr!(
+    balance_law,
+    diffusive::AbstractArray,
+    ∇transform::AbstractArray,
+    state::AbstractArray,
+    aux::AbstractArray,
+    t::Real,
+)
+
+    FT = eltype(state)
+    compute_gradient_flux!(
+        balance_law,
+        Vars{vars_state(balance_law, GradientFlux(), FT)}(diffusive),
+        Grad{vars_state(balance_law, Gradient(), FT)}(∇transform),
+        Vars{vars_state(balance_law, Prognostic(), FT)}(state),
+        Vars{vars_state(balance_law, Auxiliary(), FT)}(aux),
+        t,
+    )
+end
+
 function integral_load_auxiliary_state_arr!(
     balance_law,
     local_kernel::AbstractArray,

@@ -6,6 +6,7 @@ using ClimateMachine.BalanceLaws:
     Auxiliary,
     Gradient,
     GradientFlux,
+    GradientHyperFlux,
     GradientLaplacian,
     Hyperdiffusive
 
@@ -17,6 +18,7 @@ import ClimateMachine.BalanceLaws:
     source!,
     compute_gradient_argument!,
     compute_gradient_flux!,
+    compute_gradient_hyperflux!,
     nodal_init_state_auxiliary!,
     update_auxiliary_state!,
     init_state_prognostic!,
@@ -120,10 +122,14 @@ vars_state(::Diffusion{1}, ::Auxiliary, FT) = @vars(D::SMatrix{3, 3, FT, 9})
 vars_state(::Diffusion{N}, ::Auxiliary, FT) where {N} =
     @vars(D::SArray{Tuple{3, 3, N}, FT, 3, 9N})
 #   `H` hyperdiffusion tensor
-vars_state(::HyperDiffusion{1}, ::Auxiliary, FT) =
-    @vars(H::SMatrix{3, 3, FT, 9})
-vars_state(::HyperDiffusion{N}, ::Auxiliary, FT) where {N} =
-    @vars(H::SArray{Tuple{3, 3, N}, FT, 3, 9N})
+vars_state(::HyperDiffusion{1}, ::Auxiliary, FT) = @vars begin
+    H::SMatrix{3, 3, FT, 9}
+    P::SMatrix{3, 3, FT, 9}
+end
+vars_state(::HyperDiffusion{N}, ::Auxiliary, FT) where {N} = @vars begin
+    H::SArray{Tuple{3, 3, N}, FT, 3, 9N}
+    P::SArray{Tuple{3, 3, N}, FT, 3, 9N}
+end
 
 # Density `ρ` is the only state
 vars_state(::AdvectionDiffusion{1}, ::Prognostic, FT) = @vars(ρ::FT)
@@ -152,6 +158,14 @@ vars_state(::Diffusion{N}, ::GradientFlux, FT) where {N} =
     @vars(σ::SMatrix{3, N, FT, 3N})
 vars_state(m::AdvectionDiffusion, st::GradientFlux, FT) =
     vars_state(m.diffusion, st, FT)
+
+# The DG hyperdiffusion auxiliary variable: χ = P ∇ ρ
+vars_state(::HyperDiffusion{1}, ::GradientHyperFlux, FT) =
+    @vars(χ::SVector{3, FT})
+vars_state(::HyperDiffusion{N}, ::GradientHyperFlux, FT) where {N} =
+    @vars(χ::SMatrix{3, N, FT, 3N})
+vars_state(m::AdvectionDiffusion, st::GradientHyperFlux, FT) =
+    vars_state(m.hyperdiffusion, st, FT)
 
 # The DG hyperdiffusion auxiliary variable: η = H ∇ Δρ
 vars_state(::HyperDiffusion{1}, ::Hyperdiffusive, FT) = @vars(η::SVector{3, FT})
@@ -277,6 +291,64 @@ compute_gradient_flux!(
     t::Real,
 ) = compute_gradient_flux!(m.diffusion, auxDG, gradvars, aux)
 
+function compute_gradient_hyperflux!(
+    ::HyperDiffusion{N},
+    auxHDG::Vars,
+    gradvars::Grad,
+    aux::Vars,
+) where {N}
+    ∇ρ = gradvars.ρ
+    P = aux.hyperdiffusion.P
+    if N == 1
+        auxHDG.χ = P * ∇ρ
+    else
+        auxHDG.χ = hcat(ntuple(n -> P * [:, :, n] * ∇ρ[:, n], Val(N))...)
+    end
+end
+compute_gradient_hyperflux!(
+    ::NoHyperDiffusion,
+    auxHDG::Vars,
+    gradvars::Grad,
+    aux::Vars,
+) = nothing
+compute_gradient_hyperflux!(
+    m::AdvectionDiffusion,
+    auxHDG::Vars,
+    gradvars::Grad,
+    state::Vars,
+    aux::Vars,
+    t::Real,
+) = compute_gradient_hyperflux!(m.hyperdiffusion, auxHDG, gradvars, aux)
+
+
+function compute_gradient_hyperflux!(
+    ::HyperDiffusion{N},
+    auxHDG::Vars,
+    gradvars::Grad,
+    aux::Vars,
+) where {N}
+    ∇ρ = gradvars.ρ
+    P = aux.hyperdiffusion.P
+    if N == 1
+        auxHDG.χ = P * ∇ρ
+    else
+        auxHDG.χ = hcat(ntuple(n -> P * [:, :, n] * ∇ρ[:, n], Val(N))...)
+    end
+end
+compute_gradient_hyperflux!(
+    ::NoHyperDiffusion,
+    auxHDG::Vars,
+    gradvars::Grad,
+    aux::Vars,
+) = nothing
+compute_gradient_hyperflux!(
+    m::AdvectionDiffusion,
+    auxHDG::Vars,
+    gradvars::Grad,
+    state::Vars,
+    aux::Vars,
+    t::Real,
+) = compute_gradient_hyperflux!(m.hyperdiffusion, auxHDG, gradvars, aux)
 
 """
     transform_post_gradient_laplacian!(::AdvectionDiffusion, auxHDG::Vars,

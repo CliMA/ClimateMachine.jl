@@ -60,6 +60,7 @@ import ..BalanceLaws:
     boundary_state!,
     compute_gradient_argument!,
     compute_gradient_flux!,
+    compute_gradient_hyperflux!,
     transform_post_gradient_laplacian!,
     prognostic_to_primitive!,
     primitive_to_prognostic!,
@@ -395,6 +396,12 @@ function vars_state(m::AtmosModel, st::GradientFlux, FT)
     end
 end
 
+function vars_state(m::AtmosModel, st::GradientHyperFlux, FT)
+    @vars begin
+        hyperdiffusion::vars_state(m.hyperdiffusion, st, FT)
+    end
+end
+
 """
     vars_state(m::AtmosModel, ::GradientLaplacian, FT)
 
@@ -601,6 +608,24 @@ function compute_gradient_flux!(
         aux,
         t,
     )
+    function compute_gradient_hyperflux!(
+        atmos::AtmosModel,
+        diffusive::Vars,
+        ∇transform::Grad,
+        state::Vars,
+        aux::Vars,
+        t::Real,
+    )
+        compute_gradient_hyperflux!(
+            atmos.hyperdiffusion,
+            atmos.orientation,
+            diffusive,
+            ∇transform,
+            state,
+            aux,
+            t,
+        )
+    end
     # diffusivity of moisture components
     compute_gradient_flux!(atmos.moisture, diffusive, ∇transform, state, aux, t)
     compute_gradient_flux!(
@@ -630,6 +655,27 @@ function compute_gradient_flux!(
         t,
     )
 end
+
+
+function compute_gradient_hyperflux!(
+    atmos::AtmosModel,
+    diffusive::Vars,
+    ∇transform::Grad,
+    state::Vars,
+    aux::Vars,
+    t::Real,
+)
+    compute_gradient_hyperflux!(
+        atmos.hyperdiffusion,
+        atmos.orientation,
+        diffusive,
+        ∇transform,
+        state,
+        aux,
+        t,
+    )
+end
+
 
 function transform_post_gradient_laplacian!(
     atmos::AtmosModel,

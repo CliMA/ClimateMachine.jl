@@ -134,6 +134,9 @@ vars_state(tr::NTracers, ::Prognostic, FT) = @vars(ρχ::typeof(tr.δ_χ))
 vars_state(tr::NTracers, ::Gradient, FT) = @vars(χ::typeof(tr.δ_χ))
 vars_state(tr::NTracers, ::GradientFlux, FT) =
     @vars(∇χ::SMatrix{3, length(tr.δ_χ), FT, 3 * length(tr.δ_χ)})
+vars_state(tr::NTracers, ::GradientHyperFlux, FT) =
+    @vars(∇χ::SMatrix{3, length(tr.δ_χ), FT, 3 * length(tr.δ_χ)})
+
 vars_state(tr::NTracers, ::Auxiliary, FT) = @vars(δ_χ::typeof(tr.δ_χ))
 
 function atmos_init_aux!(
