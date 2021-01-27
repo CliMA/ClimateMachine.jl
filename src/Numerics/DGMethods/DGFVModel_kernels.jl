@@ -72,7 +72,6 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
         num_state_auxiliary = number_states(balance_law, Auxiliary())
         num_state_gradient_flux = number_states(balance_law, GradientFlux())
         num_state_hyperdiffusive = number_states(balance_law, Hyperdiffusive())
-        @assert num_state_hyperdiffusive == 0
 
         nface = info.nface
         Np = info.Np
@@ -164,6 +163,13 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
         # being evaluated for. In this case we only have `VerticalDirection()`
         # faces
         face_direction = (VerticalDirection(),)
+    end
+
+    # Support only Horizontal hyperdiffusion, set vertical state  hyperdiffusion to 0
+    @unroll for k in 1:stencil_diameter
+        @unroll for s in 1:num_state_hyperdiffusive
+            @inbounds local_state_hyperdiffusive[k][s] = 0
+        end
     end
 
     # Optimization ideas:

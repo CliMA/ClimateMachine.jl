@@ -17,7 +17,6 @@ import ClimateMachine.BalanceLaws:
     compute_gradient_flux!,
     nodal_init_state_auxiliary!,
     init_state_prognostic!,
-    boundary_conditions,
     boundary_state!,
     wavespeed,
     transform_post_gradient_laplacian!
@@ -36,7 +35,8 @@ struct HyperDiffusion{dim, P} <: BalanceLaw
     end
 end
 
-vars_state(::HyperDiffusion, ::Auxiliary, FT) = @vars(D::SMatrix{3, 3, FT, 9})
+vars_state(::HyperDiffusion, ::Auxiliary, FT) =
+    @vars(D::SMatrix{3, 3, FT, 9}, coord::SVector{3, FT}, c::FT)
 #
 # Density is only state
 vars_state(::HyperDiffusion, ::Prognostic, FT) = @vars(ρ::FT)
@@ -50,21 +50,19 @@ vars_state(::HyperDiffusion, ::GradientFlux, FT) = @vars()
 # The hyperdiffusion DG auxiliary variable: D ∇ Δρ
 vars_state(::HyperDiffusion, ::Hyperdiffusive, FT) = @vars(σ::SVector{3, FT})
 
+
 function flux_first_order!(m::HyperDiffusion, _...) end
 
 """
     flux_second_order!(m::HyperDiffusion, flux::Grad, state::Vars,
                      auxDG::Vars, auxHDG::Vars, aux::Vars, t::Real)
-
 Computes diffusive flux `F` in:
-
 ```
 ∂ρ
 -- = - ∇ • (σ) = - ∇ • F
 ∂t
 ```
 Where
-
  - `σ` is hyperdiffusion DG auxiliary variable (`σ = D ∇ Δρ` with D being the hyperdiffusion tensor)
 """
 function flux_second_order!(
@@ -83,7 +81,6 @@ end
 """
     compute_gradient_argument!(m::HyperDiffusion, transform::Vars, state::Vars,
                    aux::Vars, t::Real)
-
 Set the variable to take the gradient of (`ρ` in this case)
 """
 function compute_gradient_argument!(
@@ -112,7 +109,6 @@ end
 
 """
     source!(m::HyperDiffusion, _...)
-
 There is no source in the hyperdiffusion model
 """
 source!(m::HyperDiffusion, _...) = nothing
@@ -121,11 +117,10 @@ function init_state_prognostic!(
     m::HyperDiffusion,
     state::Vars,
     aux::Vars,
-    localgeo,
+    coords,
     t::Real,
 )
-    initial_condition!(m.problem, state, aux, localgeo, t)
+    initial_condition!(m.problem, state, aux, coords, t)
 end
 
-boundary_conditions(::HyperDiffusion) = ()
 boundary_state!(nf, ::HyperDiffusion, _...) = nothing

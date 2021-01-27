@@ -66,7 +66,7 @@ function config_solid_body_rotation(
         init_state_prognostic = init_solid_body_rotation!,
         ref_state = ref_state,
         turbulence = ConstantKinematicViscosity(FT(0)),
-        #hyperdiffusion = DryBiharmonic(FT(8 * 3600)),
+        hyperdiffusion = DryBiharmonic(FT(8 * 3600)),
         moisture = DryModel(),
         source = (Gravity(), Coriolis()),
     )

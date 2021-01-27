@@ -208,12 +208,15 @@ The 4-argument form will just compute
 """
 function (dgfvm::DGFVModel)(tendency, state_prognostic, _, t, α, β)
     device = array_device(state_prognostic)
+    Qhypervisc_grad, Qhypervisc_div = dgfvm.states_higher_order
 
     FT = eltype(state_prognostic)
     num_state_prognostic = number_states(dgfvm.balance_law, Prognostic())
     num_state_gradient_flux = number_states(dgfvm.balance_law, GradientFlux())
-    @assert 0 == number_states(dgfvm.balance_law, Hyperdiffusive())
+    nhyperviscstate = number_states(dgfvm.balance_law, Hyperdiffusive())
     num_state_tendency = size(tendency, 2)
+
+    @assert num_state_prognostic ≤ num_state_tendency
 
     if num_state_prognostic < num_state_tendency && β != 1
         # If we don't operate on the full state, then we need to scale here instead of volume_tendency!
@@ -237,6 +240,8 @@ function (dgfvm::DGFVModel)(tendency, state_prognostic, _, t, α, β)
 
     exchange_state_gradient_flux = NoneEvent()
     exchange_state_prognostic = NoneEvent()
+    exchange_Qhypervisc_grad = NoneEvent()
+    exchange_Qhypervisc_div = NoneEvent()
 
     comp_stream = Event(device)
 
@@ -247,7 +252,7 @@ function (dgfvm::DGFVModel)(tendency, state_prognostic, _, t, α, β)
         )
     end
 
-    if num_state_gradient_flux > 0
+    if num_state_gradient_flux > 0 || nhyperviscstate > 0
         ########################
         # Gradient Computation #
         ########################
@@ -302,6 +307,12 @@ function (dgfvm::DGFVModel)(tendency, state_prognostic, _, t, α, β)
                         dependencies = comp_stream,
                     )
             end
+            if nhyperviscstate > 0
+                exchange_Qhypervisc_grad = MPIStateArrays.begin_ghost_exchange!(
+                    Qhypervisc_grad,
+                    dependencies = comp_stream,
+                )
+            end
         end
 
         if num_state_gradient_flux > 0
@@ -318,6 +329,91 @@ function (dgfvm::DGFVModel)(tendency, state_prognostic, _, t, α, β)
             comp_stream = Event(device)
         end
     end
+
+    if nhyperviscstate > 0
+        #########################
+        # Laplacian Computation #
+        #########################
+
+        comp_stream = launch_volume_divergence_of_gradients!(
+            dgfvm,
+            state_prognostic,
+            t;
+            dependencies = comp_stream,
+        )
+
+        comp_stream = launch_interface_divergence_of_gradients!(
+            dgfvm,
+            state_prognostic,
+            t;
+            surface = :interior,
+            dependencies = comp_stream,
+        )
+
+        if communicate
+            exchange_Qhypervisc_grad = MPIStateArrays.end_ghost_exchange!(
+                Qhypervisc_grad,
+                dependencies = exchange_Qhypervisc_grad,
+            )
+        end
+
+        comp_stream = launch_interface_divergence_of_gradients!(
+            dgfvm,
+            state_prognostic,
+            t;
+            surface = :exterior,
+            dependencies = (comp_stream, exchange_Qhypervisc_grad),
+        )
+
+        if communicate
+            exchange_Qhypervisc_div = MPIStateArrays.begin_ghost_exchange!(
+                Qhypervisc_div,
+                dependencies = comp_stream,
+            )
+        end
+
+        ####################################
+        # Hyperdiffusive terms computation #
+        ####################################
+
+        comp_stream = launch_volume_gradients_of_laplacians!(
+            dgfvm,
+            state_prognostic,
+            t,
+            dependencies = (comp_stream,),
+        )
+
+        comp_stream = launch_interface_gradients_of_laplacians!(
+            dgfvm,
+            state_prognostic,
+            t;
+            surface = :interior,
+            dependencies = (comp_stream,),
+        )
+
+        if communicate
+            exchange_Qhypervisc_div = MPIStateArrays.end_ghost_exchange!(
+                Qhypervisc_div,
+                dependencies = exchange_Qhypervisc_div,
+            )
+        end
+
+        comp_stream = launch_interface_gradients_of_laplacians!(
+            dgfvm,
+            state_prognostic,
+            t;
+            surface = :exterior,
+            dependencies = (comp_stream, exchange_Qhypervisc_div),
+        )
+
+        if communicate
+            exchange_Qhypervisc_grad = MPIStateArrays.begin_ghost_exchange!(
+                Qhypervisc_grad,
+                dependencies = comp_stream,
+            )
+        end
+    end
+
 
     ###################
     # RHS Computation #
@@ -344,24 +440,33 @@ function (dgfvm::DGFVModel)(tendency, state_prognostic, _, t, α, β)
     )
 
     if communicate
-        if num_state_gradient_flux > 0
-            exchange_state_gradient_flux = MPIStateArrays.end_ghost_exchange!(
-                dgfvm.state_gradient_flux;
-                dependencies = exchange_state_gradient_flux,
-            )
+        if num_state_gradient_flux > 0 || nhyperviscstate > 0
+            if num_state_gradient_flux > 0
+                exchange_state_gradient_flux =
+                    MPIStateArrays.end_ghost_exchange!(
+                        dgfvm.state_gradient_flux;
+                        dependencies = exchange_state_gradient_flux,
+                    )
 
-            # Update_aux_diffusive may start asynchronous work on the
-            # compute device and we synchronize those here through a device
-            # event.
-            wait(device, exchange_state_gradient_flux)
-            update_auxiliary_state_gradient!(
-                dgfvm,
-                dgfvm.balance_law,
-                state_prognostic,
-                t,
-                dgfvm.grid.topology.ghostelems,
-            )
-            exchange_state_gradient_flux = Event(device)
+                # Update_aux_diffusive may start asynchronous work on the
+                # compute device and we synchronize those here through a device
+                # event.
+                wait(device, exchange_state_gradient_flux)
+                update_auxiliary_state_gradient!(
+                    dgfvm,
+                    dgfvm.balance_law,
+                    state_prognostic,
+                    t,
+                    dgfvm.grid.topology.ghostelems,
+                )
+                exchange_state_gradient_flux = Event(device)
+            end
+            if nhyperviscstate > 0
+                exchange_Qhypervisc_grad = MPIStateArrays.end_ghost_exchange!(
+                    Qhypervisc_grad;
+                    dependencies = exchange_Qhypervisc_grad,
+                )
+            end
         else
             exchange_state_prognostic = MPIStateArrays.end_ghost_exchange!(
                 state_prognostic;
@@ -1248,13 +1353,8 @@ Launches horizontal and vertical kernels for computing the volume gradients.
 """
 function launch_volume_gradients!(spacedisc, state_prognostic, t; dependencies)
     FT = eltype(state_prognostic)
-    # XXX: This is until FVM with hyperdiffusion for DG is implemented
-    if spacedisc isa DGFVModel
-        @assert 0 == number_states(spacedisc.balance_law, Hyperdiffusive())
-        Qhypervisc_grad_data = nothing
-    elseif spacedisc isa DGModel
-        Qhypervisc_grad_data = spacedisc.states_higher_order[1].data
-    end
+    # Only compute horizontal hyperdiffusion
+    Qhypervisc_grad_data = spacedisc.states_higher_order[1].data
 
     # Workgroup is determined by the number of quadrature points
     # in the horizontal direction. For each horizontal quadrature
@@ -1347,13 +1447,8 @@ function launch_interface_gradients!(
     dependencies,
 )
     @assert surface === :interior || surface === :exterior
-    # XXX: This is until FVM with DG hyperdiffusion is implemented
-    if spacedisc isa DGFVModel
-        @assert 0 == number_states(spacedisc.balance_law, Hyperdiffusive())
-        Qhypervisc_grad_data = nothing
-    elseif spacedisc isa DGModel
-        Qhypervisc_grad_data = spacedisc.states_higher_order[1].data
-    end
+    # Only compute horizontal hyperdiffusion
+    Qhypervisc_grad_data = spacedisc.states_higher_order[1].data
 
     FT = eltype(state_prognostic)
 
@@ -1839,13 +1934,8 @@ function launch_volume_tendency!(
     β;
     dependencies,
 )
-    # XXX: This is until FVM with hyperdiffusion is implemented
-    if spacedisc isa DGFVModel
-        @assert 0 == number_states(spacedisc.balance_law, Hyperdiffusive())
-        Qhypervisc_grad_data = nothing
-    elseif spacedisc isa DGModel
-        Qhypervisc_grad_data = spacedisc.states_higher_order[1].data
-    end
+    # Only compute horizontal hyperdiffusion
+    Qhypervisc_grad_data = spacedisc.states_higher_order[1].data
     grad_flux_data = spacedisc.state_gradient_flux.data
 
     # Workgroup is determined by the number of quadrature points
@@ -1963,13 +2053,8 @@ function launch_interface_tendency!(
     dependencies,
 )
     @assert surface === :interior || surface === :exterior
-    # XXX: This is until FVM with diffusion is implemented
-    if spacedisc isa DGFVModel
-        @assert 0 == number_states(spacedisc.balance_law, Hyperdiffusive())
-        Qhypervisc_grad_data = nothing
-    elseif spacedisc isa DGModel
-        Qhypervisc_grad_data = spacedisc.states_higher_order[1].data
-    end
+    # Only compute horizontal hyperdiffusion
+    Qhypervisc_grad_data = spacedisc.states_higher_order[1].data
     grad_flux_data = spacedisc.state_gradient_flux.data
     numerical_flux_second_order = spacedisc.numerical_flux_second_order
 
