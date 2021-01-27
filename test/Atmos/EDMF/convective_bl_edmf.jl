@@ -173,8 +173,8 @@ function main(::Type{FT}) where {FT}
     t0 = FT(0)
 
     # Simulation time
-    timeend = FT(700)
-    CFLmax = FT(1.0)
+    timeend = FT(1000)
+    CFLmax = FT(0.5)
 
     config_type = SingleStackConfigType
 
@@ -212,7 +212,7 @@ function main(::Type{FT}) where {FT}
         driver_config,
         init_on_cpu = true,
         Courant_number = CFLmax,
-        fixed_number_of_steps = 3750,
+        # fixed_number_of_steps = 4000# 3782, # completes upto 3781 steps
     )
 
     #################### Change the ode_solver to implicit solver
@@ -295,7 +295,7 @@ function main(::Type{FT}) where {FT}
 
     dgn_config = config_diagnostics(driver_config)
 
-    cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(1) do
+    cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(100) do
         Filters.apply!(
             solver_config.Q,
             (turbconv_filters(turbconv)...,),

@@ -2152,6 +2152,17 @@ function exner_given_pressure(
     # gas constant and isobaric specific heat of moist air
     _R_m = gas_constant_air(param_set, q)
     _cp_m = cp_m(param_set, q)
+    try
+        (p / _MSLP)^(_R_m / _cp_m)
+    catch
+        println("exner_given_pressure - relations line 2158")
+        @show(p)
+        @show(q)
+        @show(_MSLP)
+        @show(_R_m)
+        @show(_cp_m)
+        (p / _MSLP)^(_R_m / _cp_m)
+    end
 
     return (p / _MSLP)^(_R_m / _cp_m)
 end

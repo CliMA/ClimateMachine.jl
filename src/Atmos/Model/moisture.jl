@@ -69,7 +69,19 @@ vars_state(::DryModel, ::Auxiliary, FT) = @vars(θ_v::FT, air_T::FT)
     t::Real,
 )
     ts = new_thermo_state(atmos, state, aux)
-    aux.moisture.θ_v = virtual_pottemp(ts)
+    z = altitude(atmos, aux)
+    try
+        aux.moisture.θ_v = virtual_pottemp(ts)
+    catch
+        @show(z)
+        @show(aux.ref_state.p)
+        @show(air_pressure(ts))
+        @show(state.ρe)
+        @show(state.turbconv.updraft[Val(1)].ρa)
+        @show(state.turbconv.updraft[Val(1)].ρaθ_liq)
+        aux.moisture.θ_v = virtual_pottemp(ts)
+    end
+
     aux.moisture.air_T = air_temperature(ts)
     nothing
 end
