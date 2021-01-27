@@ -8,7 +8,7 @@ on:
 
 jobs:
   test-os:
-    timeout-minutes: 150
+    timeout-minutes: 210
     strategy:
       fail-fast: true
       matrix:
