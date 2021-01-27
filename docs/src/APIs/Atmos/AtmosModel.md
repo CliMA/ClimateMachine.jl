@@ -57,6 +57,7 @@ ClimateMachine.Atmos.RainSnowModel
 
 ```@docs
 ClimateMachine.Atmos.RayleighSponge
+ClimateMachine.Atmos.RayleighSpongeSphere
 ```
 
 ## BCs
