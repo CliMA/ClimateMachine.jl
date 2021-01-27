@@ -114,10 +114,20 @@ end
 
 """
   Declare single prognostic state variable, θ
+  and a shadow variable, θᵇ, for accumulating boundary flux over a single 
+  timestep.
+
+  "Shadow" variable θᵇ will be used to capture the boundary fluxes that we 
+  want to export to coupling as time integrals. We use a shadow variable 
+  because we want to integrate over whatever timestepper is being used. 
+  Eventually we should have the ability to potentially use a 2d field here. 
+  The shadow variable needs to be zeroed at the start of each
+  coupling cycle for a component.
 """
 function vars_state(bl::l_type, ::Prognostic, FT)
   @vars begin
-    θ::FT
+     θ::FT
+    θᵇ::FT
   end
 end
 
