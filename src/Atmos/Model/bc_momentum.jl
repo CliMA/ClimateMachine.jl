@@ -13,6 +13,68 @@ struct Impenetrable{D <: MomentumDragBC} <: MomentumBC
 end
 
 """
+    FreeSlipDebug() :: MomentumDragBC
+
+No surface drag on momentum parallel to the boundary.
+"""
+struct FreeSlipDebug <: MomentumDragBC end
+
+function atmos_momentum_boundary_state!(
+    nf::NumericalFluxFirstOrder,
+    bc_momentum::Impenetrable{FreeSlipDebug},
+    atmos,
+    state⁺,
+    aux⁺,
+    n,
+    state⁻,
+    aux⁻,
+    t,
+    args...,
+)
+    state⁺.ρ = state⁻.ρ
+    state⁺.ρu = state⁻.ρu - 2 .* dot(n, state⁻.ρu) .* n
+end
+function atmos_momentum_boundary_state!(
+    nf::NumericalFluxGradient,
+    bc_momentum::Impenetrable{FreeSlipDebug},
+    atmos,
+    state⁺,
+    aux⁺,
+    n,
+    state⁻,
+    aux⁻,
+    t,
+    args...,
+)
+    state⁺.ρ = state⁻.ρ
+    state⁺.ρu = state⁻.ρu - dot(n, state⁻.ρu) .* n
+end
+
+function atmos_momentum_normal_boundary_flux_second_order!(
+    nf,
+    bc_momentum::Impenetrable{FreeSlipDebug},
+    atmos,
+    fluxᵀn,
+    n,
+    state⁻,
+    diffusive⁻,
+    hyperdiffusive⁻,
+    aux⁻,
+    state⁺,
+    diffusive⁺,
+    hyperdiffusive⁺,
+    aux⁺,
+    t,
+    state_int⁻,
+    diffusive_int⁻,
+    aux_int⁻,
+)
+    diffusive⁺ = reflection(diffusive⁻)
+    fluxᵀn.ρu  = SVector{3,eltype(state⁻)}(0,0,0)
+    fluxᵀn.ρ  = FT(0)
+end
+
+"""
     FreeSlip() :: MomentumDragBC
 
 No surface drag on momentum parallel to the boundary.
