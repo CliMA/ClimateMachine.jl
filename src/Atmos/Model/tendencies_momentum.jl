@@ -125,3 +125,47 @@ function source(s::RayleighSponge{Momentum}, m, args)
         return SVector{3, FT}(0, 0, 0)
     end
 end
+
+export RayleighSpongeSphere
+"""
+    RayleighSpongeSphere{PV <: Momentum, FT} <: TendencyDef{Source, PV}
+
+Rayleigh Damping (Linear Relaxation) for top wall momentum components. User
+defined spherical velocity is the relaxation target velocity.
+Converted to Cartesian components with Atmos utility function 
+and relaxes to these values given some timescale (α_sponge) 
+and sponge strength (γ)
+"""
+struct RayleighSpongeSphere{PV <: Momentum, FT} <: TendencyDef{Source, PV}
+    "Maximum domain altitude (m)"
+    z_max::FT
+    "Altitude at with sponge starts (m)"
+    z_sponge::FT
+    "Sponge Strength 0 ⩽ α_max ⩽ 1"
+    α_max::FT
+    "Relaxation velocity components [Spherical Coordinates]"
+    u_relaxation::SVector{3, FT}
+    "Sponge exponent"
+    γ::FT
+end
+RayleighSpongeSphere(::Type{FT}, args...) where {FT} =
+    RayleighSpongeSphere{Momentum, FT}(args...)
+function source(s::RayleighSpongeSphere{Momentum}, m, args)
+    @unpack state, aux = args
+    z = altitude(m, aux)
+    
+    # TODO: Extension to control relaxation components via 
+    # vertical unit vector
+    k̂ = vertical_unit_vector(m.orientation, m.param_set, aux)
+
+    u_cart_relax = sphr_to_cart_vec(m.orientation, s.u_relaxation, aux)
+
+    if z >= s.z_sponge
+        r = (z - s.z_sponge) / (s.z_max - s.z_sponge)
+        β_sponge = s.α_max * sinpi(r / 2)^s.γ
+        return -β_sponge * (state.ρu .- state.ρ * u_cart_relax)
+    else
+        FT = eltype(state)
+        return SVector{3, FT}(0, 0, 0)
+    end
+end

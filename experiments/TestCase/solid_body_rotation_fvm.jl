@@ -59,6 +59,10 @@ function config_solid_body_rotation(
     # Set up the atmosphere model
     exp_name = "SolidBodyRotation"
     domain_height::FT = 30e3 # distance between surface and top of atmosphere (m)
+    z_sponge::FT = 25e3 # Start of sponge relaxation region
+    α_sponge::FT = 1/1800 # Relaxation scale
+    u_relax_sphere = SVector{3,FT}(0,0,0) # Relaxation target (spherical velocity)
+    sponge_exponent = 2
 
     model = AtmosModel{FT}(
         AtmosGCMConfigType,
@@ -68,7 +72,9 @@ function config_solid_body_rotation(
         turbulence = ConstantKinematicViscosity(FT(0)),
         #hyperdiffusion = DryBiharmonic(FT(8 * 3600)),
         moisture = DryModel(),
-        source = (Gravity(), Coriolis()),
+        source = (Gravity(), 
+                  Coriolis(), 
+                  RayleighSpongeSphere(FT,domain_height, z_sponge, α_sponge, u_relax_sphere, sponge_exponent)),
     )
 
     config = ClimateMachine.AtmosGCMConfiguration(
@@ -89,12 +95,12 @@ end
 
 function main()
     # Driver configuration parameters
-    FT = Float64                             # floating type precision
-    poly_order = (5, 0)                     # discontinuous Galerkin polynomial order
-    n_horz = 8                              # horizontal element number
-    n_vert = 20                               # vertical element number
-    timestart::FT = 0                        # start time (s)
-    timeend::FT = 3600    # end time (s)
+    FT = Float64                        # floating type precision
+    poly_order = (5, 0)                 # discontinuous Galerkin polynomial order
+    n_horz = 8                          # horizontal element number
+    n_vert = 20                         # vertical element number
+    timestart::FT = 0                   # start time (s)
+    timeend::FT = 3600                  # end time (s)
     fv_reconstruction = FVLinear()
 
     # Set up a reference state for linearization of equations
