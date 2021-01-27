@@ -6,6 +6,7 @@
 # - AtmosGCMConfiguration
 # - OceanBoxGCMConfiguration
 # - SingleStackConfiguration
+# - MultiColumnLandModel
 #
 # User-customized configurations can use these as templates.
 
