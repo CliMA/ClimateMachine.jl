@@ -50,9 +50,9 @@ function config_solid_body_rotation(FT, poly_order, resolution, ref_state)
     # Set up the atmosphere model
     exp_name = "SolidBodyRotation"
     domain_height::FT = 30e3 # distance between surface and top of atmosphere (m)
-    u_relax_sphere = SVector{3,FT}(0,0,0)
+    u_relax_sphere = SVector{3, FT}(0, 0, 0)
     z_sponge::FT = 25e3
-    α_sponge::FT = FT(1/1800)
+    α_sponge::FT = FT(1 / 1800)
 
     model = AtmosModel{FT}(
         AtmosGCMConfigType,
@@ -62,9 +62,18 @@ function config_solid_body_rotation(FT, poly_order, resolution, ref_state)
         turbulence = ConstantKinematicViscosity(FT(0)),
         #hyperdiffusion = DryBiharmonic(FT(8 * 3600)),
         moisture = DryModel(),
-        source = (Gravity(), 
-                  Coriolis(), 
-                  RayleighSpongeSphere(FT,domain_height, z_sponge, α_sponge, u_relax_sphere, 2)),
+        source = (
+            Gravity(),
+            Coriolis(),
+            RayleighSpongeSphere(
+                FT,
+                domain_height,
+                z_sponge,
+                α_sponge,
+                u_relax_sphere,
+                2,
+            ),
+        ),
     )
 
     config = ClimateMachine.AtmosGCMConfiguration(

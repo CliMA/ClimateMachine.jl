@@ -60,8 +60,8 @@ function config_solid_body_rotation(
     exp_name = "SolidBodyRotation"
     domain_height::FT = 30e3 # distance between surface and top of atmosphere (m)
     z_sponge::FT = 25e3 # Start of sponge relaxation region
-    α_sponge::FT = 1/1800 # Relaxation scale
-    u_relax_sphere = SVector{3,FT}(0,0,0) # Relaxation target (spherical velocity)
+    α_sponge::FT = 1 / 1800 # Relaxation scale
+    u_relax_sphere = SVector{3, FT}(0, 0, 0) # Relaxation target (spherical velocity)
     sponge_exponent = 2
 
     model = AtmosModel{FT}(
@@ -72,9 +72,18 @@ function config_solid_body_rotation(
         turbulence = ConstantKinematicViscosity(FT(0)),
         #hyperdiffusion = DryBiharmonic(FT(8 * 3600)),
         moisture = DryModel(),
-        source = (Gravity(), 
-                  Coriolis(), 
-                  RayleighSpongeSphere(FT,domain_height, z_sponge, α_sponge, u_relax_sphere, sponge_exponent)),
+        source = (
+            Gravity(),
+            Coriolis(),
+            RayleighSpongeSphere(
+                FT,
+                domain_height,
+                z_sponge,
+                α_sponge,
+                u_relax_sphere,
+                sponge_exponent,
+            ),
+        ),
     )
 
     config = ClimateMachine.AtmosGCMConfiguration(

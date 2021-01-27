@@ -153,7 +153,7 @@ RayleighSpongeSphere(::Type{FT}, args...) where {FT} =
 function source(s::RayleighSpongeSphere{Momentum}, m, args)
     @unpack state, aux = args
     z = altitude(m, aux)
-    
+
     # TODO: Extension to control relaxation components via 
     # vertical unit vector
     k̂ = vertical_unit_vector(m.orientation, m.param_set, aux)
