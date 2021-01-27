@@ -226,6 +226,29 @@ function compute_gradient_flux!(
     )
 end
 
+function compute_gradient_hyperflux! end
+
+function compute_gradient_hyperflux!(
+    balance_law::BalanceLaw,
+    state_gradient_hyperflux::AbstractArray,
+    ∇transformstate::AbstractArray,
+    state_prognostic::AbstractArray,
+    state_auxiliary::AbstractArray,
+    t,
+)
+    FT = eltype(state_gradient_hyperflux)
+    compute_gradient_hyperflux!(
+        balance_law,
+        Vars{vars_state(balance_law, GradientHyperFlux(), FT)}(
+            state_gradient_hyperflux,
+        ),
+        Grad{vars_state(balance_law, Gradient(), FT)}(∇transformstate),
+        Vars{vars_state(balance_law, Prognostic(), FT)}(state_prognostic),
+        Vars{vars_state(balance_law, Auxiliary(), FT)}(state_auxiliary),
+        t,
+    )
+end
+
 """
     transform_post_gradient_laplacian!(
         ::BL,

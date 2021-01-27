@@ -6,6 +6,7 @@ export AbstractStateType,
     Auxiliary,
     Gradient,
     GradientFlux,
+    GradientHyperFlux,
     GradientLaplacian,
     Hyperdiffusive,
     UpwardIntegrals,
@@ -71,6 +72,8 @@ struct Gradient <: AbstractStateType end
 Flux variables, which are functions of gradients.
 """
 struct GradientFlux <: AbstractStateType end
+
+struct GradientHyperFlux <: AbstractStateType end
 
 """
     GradientLaplacian <: AbstractStateType
