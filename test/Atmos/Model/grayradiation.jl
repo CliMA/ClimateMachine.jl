@@ -19,15 +19,25 @@ using CLIMAParameters
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 
+using ClimateMachine.DGMethods: FVLinear, DGModel
+using ClimateMachine.SystemSolvers: JacobianFreeNewtonKrylovSolver,
+    BatchedGeneralizedMinimalResidual
+using ClimateMachine.SingleStackUtils
+using ClimateMachine.GenericCallbacks
+
+const clima_dir = dirname(dirname(pathof(ClimateMachine)))
+include(joinpath(clima_dir, "docs", "plothelpers.jl"))
+
 ####################### Adding to Preexisting Interface #######################
 
 using UnPack
 using ClimateMachine.BalanceLaws: Auxiliary, TendencyDef, Flux, FirstOrder,
-    BalanceLaw, UpwardIntegrals
-using ClimateMachine.DGMethods: DGModel
-using ClimateMachine.Orientations: vertical_unit_vector
+    BalanceLaw, UpwardIntegrals, Source
+using ClimateMachine.DGMethods: SpaceDiscretization
+using ClimateMachine.Orientations: vertical_unit_vector, projection_tangential,
+    projection_normal
 using ClimateMachine.Atmos: nodal_update_auxiliary_state!
-import ClimateMachine.BalanceLaws: vars_state, eq_tends, flux
+import ClimateMachine.BalanceLaws: vars_state, eq_tends, flux, source
 import ClimateMachine.Atmos: update_auxiliary_state!
 
 # Define a new type of radiation model that utilizes RRTMGP.
@@ -47,21 +57,21 @@ end
 
 # Make update_auxiliary_state! also update data for radiation.
 function update_auxiliary_state!(
-    dg::DGModel,
+    spacedisc::SpaceDiscretization,
     m::AtmosModel,
     Q::MPIStateArray,
     t::Real,
     elems::UnitRange,
 )
     FT = eltype(Q)
-    state_auxiliary = dg.state_auxiliary
+    state_auxiliary = spacedisc.state_auxiliary
 
     if number_states(m, UpwardIntegrals()) > 0
-        indefinite_stack_integral!(dg, m, Q, state_auxiliary, t, elems)
-        reverse_indefinite_stack_integral!(dg, m, Q, state_auxiliary, t, elems)
+        indefinite_stack_integral!(spacedisc, m, Q, state_auxiliary, t, elems)
+        reverse_indefinite_stack_integral!(spacedisc, m, Q, state_auxiliary, t, elems)
     end
 
-    update_auxiliary_state!(nodal_update_auxiliary_state!, dg, m, Q, t, elems)
+    update_auxiliary_state!(nodal_update_auxiliary_state!, spacedisc, m, Q, t, elems)
 
     # TODO: Remove this hook. This hook was added for implementing
     # the first draft of EDMF, and should be removed so that we can
@@ -69,23 +79,35 @@ function update_auxiliary_state!(
     # us to compute globally vertical quantities specific to EDMF
     # until we're able to remove them or somehow incorporate them
     # into a higher level hierarchy.
-    update_auxiliary_state!(dg, m.turbconv, m, Q, t, elems)
+    update_auxiliary_state!(spacedisc, m.turbconv, m, Q, t, elems)
 
     # Update the radiation model's auxiliary state in a seperate traversal.
-    update_auxiliary_state!(dg, m.radiation, m, Q, t, elems)
+    if spacedisc.direction isa EveryDirection
+        update_auxiliary_state!(spacedisc, m.radiation, m, Q, t, elems)
+    end
 
     return true
 end
 
 # By default, don't do anything special for radiation.
 function update_auxiliary_state!(
-    dg::DGModel,
+    spacedisc::SpaceDiscretization,
     ::RadiationModel,
     m::BalanceLaw,
     state_prognostic::MPIStateArray,
     t::Real,
     elems::UnitRange,
 )
+end
+
+# Introduce Rayleigh friction towards a stationary profile.
+struct RayleighFriction{PV <: Momentum} <: TendencyDef{Source, PV} end
+RayleighFriction() = RayleighFriction{Momentum}()
+function source(s::RayleighFriction{Momentum}, atmos, args)
+    @unpack state, aux = args
+    FT = eltype(state)
+    return FT(-2) * projection_tangential(atmos, aux, state.ρu) .+
+        FT(-7.6) * projection_normal(atmos, aux, state.ρu)
 end
 
 ############################# New Code for RRTMGP #############################
@@ -116,7 +138,9 @@ function create_rrtmgp(grid)
     nhorzelem = length(horzelems)
     dim = dimensionality(grid)
     Nq = polynomialorders(grid) .+ 1
-    Nqj = dim == 2 ? 1 : Nq[2]
+    Nq1 = Nq[1]
+    Nq2 = dim == 2 ? 1 : Nq[2]
+    Nq3 = Nq[dim]
 
     vgeo = grid.vgeo
     FT = eltype(vgeo)
@@ -124,8 +148,8 @@ function create_rrtmgp(grid)
     device = array_device(vgeo)
 
     # Allocate the vertically flattened arrays for the GrayRRTMGP struct.
-    nvert = (Nq[dim] - 1) * nvertelem + 1
-    nhorz = Nq[1] * Nqj * nhorzelem
+    nvert = Nq3 == 1 ? nvertelem : (Nq3 - 1) * nvertelem + 1
+    nhorz = Nq1 * Nq2 * nhorzelem
     z = similar(DA, FT, nvert, nhorz)
     pressure = similar(DA, FT, nvert, nhorz)
     temperature = similar(DA, FT, nvert, nhorz)
@@ -134,7 +158,8 @@ function create_rrtmgp(grid)
 
     # Fill in the constant arrays: z, latitude, and surface_emissivity.
     event = Event(device)
-    event = kernel_init_rrtmgp!(device, (Nq[1], Nqj))(
+    kernel = Nq3 == 1 ? kernel_init_rrtmgp_fv! : kernel_init_rrtmgp_dg!
+    event = kernel(device, (Nq1, Nq2))(
         Val(dim),
         Val(Nq),
         Val(nvertelem),
@@ -143,7 +168,7 @@ function create_rrtmgp(grid)
         surface_emissivity,
         grid.vgeo,
         horzelems;
-        ndrange = (length(horzelems) * Nq[1], Nqj),
+        ndrange = (length(horzelems) * Nq1, Nq2),
         dependencies = (event,),
     )
     wait(device, event)
@@ -172,29 +197,33 @@ end
 # Update the struct used by RRTMGP, use it to calculate energy fluxes, and
 # unload those fluxes into the auxiliary state.
 function update_auxiliary_state!(
-    dg::DGModel,
+    spacedisc::SpaceDiscretization,
     ::RRTMGPModel,
     m::BalanceLaw,
     state_prognostic::MPIStateArray,
     t::Real,
     elems::UnitRange,
 )
-    RRTMGPstruct = dg.modeldata.RRTMGPstruct
+    RRTMGPstruct = spacedisc.modeldata.RRTMGPstruct
     as = RRTMGPstruct.as
 
     device = array_device(state_prognostic)
 
-    grid = dg.grid
+    grid = spacedisc.grid
     topology = grid.topology
     dim = dimensionality(grid)
     Nq = polynomialorders(grid) .+ 1
-    Nqj = dim == 2 ? 1 : Nq[2]
+    Nq1 = Nq[1]
+    Nq2 = dim == 2 ? 1 : Nq[2]
+    Nq3 = Nq[dim]
     nvertelem = topology.stacksize
     horzelems = fld1(first(elems), nvertelem):fld1(last(elems), nvertelem)
 
     # Update the pressure and temperature arrays in the GrayRRTMGP struct.
     event = Event(device)
-    event = kernel_load_into_rrtmgp!(device, (Nq[1], Nqj))(
+    kernel = Nq3 == 1 ?
+        kernel_load_into_rrtmgp_fv! : kernel_load_into_rrtmgp_dg!
+    event = kernel(device, (Nq1, Nq2))(
         m,
         Val(dim),
         Val(Nq),
@@ -205,33 +234,78 @@ function update_auxiliary_state!(
         as.t_lay,
         as.t_sfc,
         state_prognostic.data,
-        dg.state_auxiliary.data,
+        spacedisc.state_auxiliary.data,
         horzelems;
-        ndrange = (length(horzelems) * Nq[1], Nqj),
+        ndrange = (length(horzelems) * Nq1, Nq2),
         dependencies = (event,),
     )
     wait(device, event)
+
+    if length(elems) > 0
+        println("{$t, $(sum(as.t_lev[end, :]) / size(as.t_lev, 2))},")
+    end
 
     # Update the energy flux array in the GrayRRTMGP struct.
     gray_atmos_lw!(RRTMGPstruct)
 
     # Update the energy flux array in the auxiliary state.
     event = Event(device)
-    event = kernel_unload_from_rrtmgp!(device, (Nq[1], Nqj))(
+    kernel = Nq3 == 1 ?
+        kernel_unload_from_rrtmgp_fv! : kernel_unload_from_rrtmgp_dg!
+    event = kernel(device, (Nq1, Nq2))(
         Val(dim),
         Val(Nq),
         Val(nvertelem),
-        Val(varsindex(vars(dg.state_auxiliary), :radiation, :flux)[1]),
-        dg.state_auxiliary.data,
+        Val(varsindex(vars(spacedisc.state_auxiliary), :radiation, :flux)[1]),
+        spacedisc.state_auxiliary.data,
         RRTMGPstruct.flux.flux_net,
         horzelems;
-        ndrange = (length(horzelems) * Nq[1], Nqj),
+        ndrange = (length(horzelems) * Nq1, Nq2),
         dependencies = (event,),
     )
     wait(device, event)
 end
 
-@kernel function kernel_init_rrtmgp!(
+@kernel function kernel_init_rrtmgp_fv!(
+    ::Val{dim},
+    ::Val{Nq},
+    ::Val{nvertelem},
+    z,
+    latitude,
+    surface_emissivity,
+    vgeo,
+    elems,
+) where {dim, Nq, nvertelem}
+    @uniform begin
+        Nq1 = Nq[1]
+        Nq2 = dim == 2 ? 1 : Nq[2]
+
+        FT = eltype(vgeo)
+    end
+
+    _eh = @index(Group, Linear)
+    i, j = @index(Local, NTuple)
+
+    @inbounds begin
+        eh = elems[_eh]
+        hindex = Nq1 * (Nq2 * (eh - 1) + (j - 1)) + i
+        
+        # Fill in the z-coordinates.
+        for ev in 1:nvertelem
+            e = nvertelem * (eh - 1) + ev
+            ijk = Nq1 * (j - 1) + i
+            z[ev, hindex] = vgeo[ijk, Grids._x3, e]
+        end
+
+        # TODO: get the latitudes from the Orientation struct.
+        latitude[hindex] = FT(π) * FT(17) / FT(180)
+
+        # TODO: get the surface emissivities from the boundary conditions.
+        surface_emissivity[hindex] = FT(1)
+    end
+end
+
+@kernel function kernel_init_rrtmgp_dg!(
     ::Val{dim},
     ::Val{Nq},
     ::Val{nvertelem},
@@ -279,7 +353,73 @@ end
     end
 end
 
-@kernel function kernel_load_into_rrtmgp!(
+@kernel function kernel_load_into_rrtmgp_fv!(
+    balance_law::BalanceLaw,
+    ::Val{dim},
+    ::Val{Nq},
+    ::Val{nvertelem},
+    p_lev,
+    p_lay,
+    t_lev,
+    t_lay,
+    t_sfc,
+    state_prognostic,
+    state_auxiliary,
+    elems,
+) where {dim, Nq, nvertelem}
+    @uniform begin
+        Nq1 = Nq[1]
+        Nq2 = dim == 2 ? 1 : Nq[2]
+
+        FT = eltype(state_prognostic)
+        num_state_prognostic = number_states(balance_law, Prognostic())
+        num_state_auxiliary = number_states(balance_law, Auxiliary())
+        local_state_prognostic = MArray{Tuple{num_state_prognostic}, FT}(undef)
+        local_state_auxiliary = MArray{Tuple{num_state_auxiliary}, FT}(undef)
+        prog = Vars{vars_state(balance_law, Prognostic(), FT)}(
+            local_state_prognostic,
+        )
+        aux = Vars{vars_state(balance_law, Auxiliary(), FT)}(
+            local_state_auxiliary,
+        )
+    end
+
+    _eh = @index(Group, Linear)
+    i, j = @index(Local, NTuple)
+
+    @inbounds begin
+        eh = elems[_eh]
+        hindex = Nq1 * (Nq2 * (eh - 1) + (j - 1)) + i
+
+        # Fill in the level data.
+        for ev in 1:nvertelem
+            e = nvertelem * (eh - 1) + ev
+            ijk = Nq1 * (j - 1) + i
+            @unroll for s in 1:num_state_prognostic
+                local_state_prognostic[s] = state_prognostic[ijk, s, e]
+            end
+            @unroll for s in 1:num_state_auxiliary
+                local_state_auxiliary[s] = state_auxiliary[ijk, s, e]
+            end
+            thermo_state = recover_thermo_state(balance_law, prog, aux)
+            p_lev[ev, hindex] = air_pressure(thermo_state)
+            t_lev[ev, hindex] = air_temperature(thermo_state)
+        end
+
+        # Average the level data to obtain the layer data.
+        for ev in 1:nvertelem - 1
+            p_lay[ev, hindex] =
+                (p_lev[ev, hindex] + p_lev[ev + 1, hindex]) * FT(0.5)
+            t_lay[ev, hindex] =
+                (t_lev[ev, hindex] + t_lev[ev + 1, hindex]) * FT(0.5)
+        end
+
+        # Fill in the surface data.
+        t_sfc[hindex] = t_lev[1, hindex]
+    end
+end
+
+@kernel function kernel_load_into_rrtmgp_dg!(
     balance_law::BalanceLaw,
     ::Val{dim},
     ::Val{Nq},
@@ -371,7 +511,7 @@ end
             end
         end
 
-        # Average level data to obtain layer data.
+        # Average the level data to obtain the layer data.
         for vindex in 1:(Nq3 - 1) * nvertelem
             p_lay[vindex, hindex] =
                 (p_lev[vindex, hindex] + p_lev[vindex + 1, hindex]) * FT(0.5)
@@ -379,12 +519,41 @@ end
                 (t_lev[vindex, hindex] + t_lev[vindex + 1, hindex]) * FT(0.5)
         end
 
-        # Set the surface data.
+        # Fill in the surface data.
         t_sfc[hindex] = t_lev[1, hindex]
     end
 end
 
-@kernel function kernel_unload_from_rrtmgp!(
+@kernel function kernel_unload_from_rrtmgp_fv!(
+    ::Val{dim},
+    ::Val{Nq},
+    ::Val{nvertelem},
+    ::Val{fluxindex},
+    state_auxiliary,
+    flux,
+    elems,
+) where {dim, Nq, nvertelem, fluxindex}
+    @uniform begin
+        Nq1 = Nq[1]
+        Nq2 = dim == 2 ? 1 : Nq[2]
+    end
+
+    _eh = @index(Group, Linear)
+    i, j = @index(Local, NTuple)
+
+    @inbounds begin
+        eh = elems[_eh]
+        hindex = Nq1 * (Nq2 * (eh - 1) + (j - 1)) + i
+
+        for ev in 1:nvertelem
+            e = nvertelem * (eh - 1) + ev
+            ijk = Nq1 * (j - 1) + i
+            state_auxiliary[ijk, fluxindex, e] = flux[ev, hindex]
+        end
+    end
+end
+
+@kernel function kernel_unload_from_rrtmgp_dg!(
     ::Val{dim},
     ::Val{Nq},
     ::Val{nvertelem},
@@ -553,18 +722,18 @@ function config_balanced(
         config_type,
         param_set;
         init_state_prognostic = init_to_ref_state!,
-        problem = AtmosProblem(
-            boundaryconditions = (
-                AtmosBC(energy = PrescribedEnergyFlux(radfluxup)),   # surface
-                AtmosBC(energy = PrescribedEnergyFlux(radfluxdown)), # TOA
-            ),
-            init_state_prognostic = init_to_ref_state!,
-        ),
+        # problem = AtmosProblem(
+        #     boundaryconditions = (
+        #         AtmosBC(energy = PrescribedEnergyFlux(radfluxup)),   # surface
+        #         AtmosBC(energy = PrescribedEnergyFlux(radfluxdown)), # TOA
+        #     ),
+        #     init_state_prognostic = init_to_ref_state!,
+        # ),
         ref_state = HydrostaticState(temp_profile),
         turbulence = ConstantDynamicViscosity(FT(0)),
         moisture = DryModel(),
-        radiation = RRTMGPModel(),
-        source = (Gravity(),),
+        # radiation = RRTMGPModel(),
+        source = (Gravity(),), # RayleighFriction()),
     )
 
     config = config_fun(
@@ -575,28 +744,78 @@ function config_balanced(
         nothing;
         model = model,
         numerical_flux_first_order = numflux,
+        fv_reconstruction = FVLinear(),
     )
 
     return config
 end
 
+function save_plots(data_avg, data_var, data_node, times, z, z_label, args...)
+    l = length(times)
+    n = 20
+    if l <= n
+        indices = 1:l
+    else
+        indices = [1; l - n + 2:l] # first data point and last n-1 data points
+    end
+    for arg in args
+        export_plot(
+            z,
+            times[indices],
+            data_avg[indices],
+            arg[1],
+            joinpath(@__DIR__, arg[2] * "_vs_time_avg.png");
+            xlabel = "Horizontal average of " * arg[3],
+            ylabel = z_label,
+            legend = :outertopright,
+        )
+        export_plot(
+            z,
+            times[indices],
+            data_var[indices],
+            arg[1],
+            joinpath(@__DIR__, arg[2] * "_vs_time_var.png");
+            xlabel = "Horizontal variance of " * arg[3],
+            ylabel = z_label,
+            legend = :outertopright,
+        )
+        export_plot(
+            z,
+            times[indices],
+            data_node[indices],
+            arg[1],
+            joinpath(@__DIR__, arg[2] * "_vs_time_node.png");
+            xlabel = "Value at southwest node of " * arg[3],
+            ylabel = z_label,
+            legend = :outertopright,
+        )
+    end
+end
+
 function main()
     FT = Float64
-    poly_order = 4
 
     timestart = FT(0)
-    timeend = FT(81)
+    timeend = FT(60) * FT(12.5)
+    timestep = FT(60) * FT(0.5)
     domain_height = FT(70e3)
+    polyorder_horz = 4
+    polyorder_vert = 2
+    nelem_horz = 1
+    nelem_vert = 20
 
     LES_params = let
-        LES_resolution = ntuple(_ -> domain_height / 20poly_order, 3)
-        LES_domain = (domain_height / 20, domain_height / 20, domain_height)
+        npoints_horz = polyorder_horz == 0 ? nelem_horz : nelem_horz * polyorder_horz
+        npoints_vert = polyorder_vert == 0 ? nelem_vert : nelem_vert * polyorder_vert
+        LES_resolution = (
+            domain_height / npoints_horz,
+            domain_height / npoints_horz,
+            domain_height / npoints_vert,
+        )
+        LES_domain = (domain_height, domain_height, domain_height)
         (LES_resolution, LES_domain...)
     end
-    GCM_params = let
-        GCM_resolution = (3, 3)
-        (GCM_resolution, domain_height)
-    end
+    GCM_params = ((nelem_horz, nelem_vert), domain_height)
 
     LES = (AtmosLESConfigType, ClimateMachine.AtmosLESConfiguration, LES_params)
     GCM = (AtmosGCMConfigType, ClimateMachine.AtmosGCMConfiguration, GCM_params)
@@ -617,8 +836,9 @@ function main()
             #imex_solver_type,
         )
             @testset for numflux in (
-                CentralNumericalFluxFirstOrder(),
-                #RoeNumericalFlux(),
+                #CentralNumericalFluxFirstOrder(),
+                #RusanovNumericalFlux(),
+                RoeNumericalFlux(),
                 #HLLCNumericalFlux(),
             )
                 @testset for temp_profile in (
@@ -627,7 +847,7 @@ function main()
                 )
                     driver_config = config_balanced(
                         FT,
-                        poly_order,
+                        (polyorder_horz, polyorder_vert),
                         temp_profile,
                         numflux,
                         config,
@@ -638,12 +858,91 @@ function main()
                         timeend,
                         driver_config,
                         ode_solver_type = ode_solver_type,
+                        ode_dt = timestep,
                         modeldata = (RRTMGPstruct = create_rrtmgp(driver_config.grid),),
                     )
 
+                    dg = solver_config.dg
+                    Q = solver_config.Q
+                    solver_config.solver = ARK548L2SA2KennedyCarpenter(
+                        dg,
+                        DGModel(
+                            driver_config;
+                            state_auxiliary = dg.state_auxiliary,
+                            direction = VerticalDirection(),
+                            modeldata = dg.modeldata,
+                        ),
+                        NonLinearBackwardEulerSolver(
+                            JacobianFreeNewtonKrylovSolver(
+                                Q,
+                                BatchedGeneralizedMinimalResidual(
+                                    dg,
+                                    Q;
+                                    max_subspace_size = 30,
+                                    atol = -1.0,
+                                    rtol = 1e-5,
+                                );
+                                tol = 1e-4,
+                            );
+                            #preconditioner_update_freq = 1000,
+                        ),
+                        Q;
+                        dt = solver_config.dt,
+                        t0 = solver_config.t0,
+                        split_explicit_implicit = false,
+                        variant = NaiveVariant(),
+                    )
+
+                    data_avg = Dict[]
+                    data_var = Dict[]
+                    data_node = Dict[]
+                    times = FT[]
+                    function push_data()
+                        state_vars_avg = get_horizontal_mean(
+                            driver_config.grid,
+                            solver_config.Q,
+                            vars_state(driver_config.bl, Prognostic(), FT),
+                        )
+                        state_vars_var = get_horizontal_variance(
+                            driver_config.grid,
+                            solver_config.Q,
+                            vars_state(driver_config.bl, Prognostic(), FT),
+                        )
+                        state_vars_node = get_vars_from_nodal_stack(
+                            driver_config.grid,
+                            solver_config.Q,
+                            vars_state(driver_config.bl, Prognostic(), FT),
+                            i = 1,
+                            j = 1,
+                        )
+                        push!(data_avg, state_vars_avg)
+                        push!(data_var, state_vars_var)
+                        push!(data_node, state_vars_node)
+                        push!(times, gettime(solver_config.solver))
+                        return nothing
+                    end
+                    push_data()
+                    callback = GenericCallbacks.EveryXSimulationSteps(
+                        push_data,
+                        1,
+                    )
+
                     print_debug(solver_config.Q, solver_config.dg, timestart)
-                    ClimateMachine.invoke!(solver_config)
+                    ClimateMachine.invoke!(solver_config; user_callbacks = (callback,))
                     print_debug(solver_config.Q, solver_config.dg, timeend)
+
+                    save_plots(
+                        data_avg,
+                        data_var,
+                        data_node,
+                        times,
+                        get_z(driver_config.grid; z_scale = 1e-3),
+                        "z [km]",
+                        (("ρu[1]", "ρu[2]"), "ρuh", "horizontal components of ρu [m/s]"),
+                        (("ρu[3]",), "ρuv", "vertical component of ρu [m/s]"),
+                        (("ρe",), "ρe", "ρe [J]"),
+                        (("ρ",), "ρ", "ρ [kg/m^3]"),
+                    )
 
                     @test all(isfinite.(solver_config.Q.data))
                 end
