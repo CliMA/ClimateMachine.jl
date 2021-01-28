@@ -96,10 +96,14 @@ mutable struct AdditiveRungeKutta{
     RKA_explicit::SArray{NTuple{2, Nstages}, RT, 2, Nstages_sq}
     "RK coefficient matrix A for the implicit scheme"
     RKA_implicit::SArray{NTuple{2, Nstages}, RT, 2, Nstages_sq}
-    "RK coefficient vector B (rhs add in scaling)"
-    RKB::SArray{Tuple{Nstages}, RT, 1, Nstages}
-    "RK coefficient vector C (time scaling)"
-    RKC::SArray{Tuple{Nstages}, RT, 1, Nstages}
+    "RK coefficient vector B for the explicit scheme (rhs add in scaling)"
+    RKB_explicit::SArray{Tuple{Nstages}, RT, 1, Nstages}
+    "RK coefficient vector B for the implicit scheme (rhs add in scaling)"
+    RKB_implicit::SArray{Tuple{Nstages}, RT, 1, Nstages}
+    "RK_explicit coefficient vector C for the explicit scheme (time scaling)"
+    RKC_explicit::SArray{Tuple{Nstages}, RT, 1, Nstages}
+    "RK_implicit coefficient vector C for the implicit scheme (time scaling)"
+    RKC_implicit::SArray{Tuple{Nstages}, RT, 1, Nstages}
     split_explicit_implicit::Bool
     "Variant of the ARK scheme"
     variant::V
@@ -112,8 +116,10 @@ mutable struct AdditiveRungeKutta{
         backward_euler_solver,
         RKA_explicit,
         RKA_implicit,
-        RKB,
-        RKC,
+        RKB_explicit,
+        RKB_implicit,
+        RKC_explicit,
+        RKC_implicit,
         split_explicit_implicit,
         variant,
         Q::AT;
@@ -143,6 +149,9 @@ mutable struct AdditiveRungeKutta{
             @assert RKA_implicit[is, is] ≈ RKA_implicit[2, 2]
         end
 
+        # NOTE: this is only for composing an ARK method with
+        # a MIS timestepper
+        # TODO: Clean this up
         if isempty(nsubsteps)
             α = dt * RKA_implicit[2, 2]
             besolver! = setup_backward_Euler_solver(
@@ -180,8 +189,10 @@ mutable struct AdditiveRungeKutta{
             Qhat,
             RKA_explicit,
             RKA_implicit,
-            RKB,
-            RKC,
+            RKB_explicit,
+            RKB_implicit,
+            RKC_explicit,
+            RKC_implicit,
             split_explicit_implicit,
             variant,
             variant_storage,
@@ -266,7 +277,8 @@ function dostep!(
 
     besolver! = ark.besolver!
     RKA_explicit, RKA_implicit = ark.RKA_explicit, ark.RKA_implicit
-    RKB, RKC = ark.RKB, ark.RKC
+    RKB_explicit, RKC_explicit = ark.RKB_explicit, ark.RKC_explicit
+    RKB_implicit, RKC_implicit = ark.RKB_implicit, ark.RKC_implicit
     rhs!, rhs_implicit! = ark.rhs!, ark.rhs_implicit!
     Qstages, Rstages = (Q, ark.Qstages...), ark.Rstages
     Qhat = ark.Qhat
@@ -284,19 +296,20 @@ function dostep!(
     groupsize = 256
 
     # calculate the rhs at first stage to initialize the stage loop
-    rhs!(Rstages[1], Qstages[1], p, time + RKC[1] * dt, increment = false)
+    rhs!(Rstages[1], Qstages[1], p, time + RKC_explicit[1] * dt, increment = false)
 
     rhs_implicit!(
         Lstages[1],
         Qstages[1],
         p,
-        time + RKC[1] * dt,
+        time + RKC_implicit[1] * dt,
         increment = false,
     )
 
     # note that it is important that this loop does not modify Q!
     for istage in 2:Nstages
-        stagetime = time + RKC[istage] * dt
+        stagetime_implicit = time + RKC_implicit[istage] * dt
+        stagetime_explicit = time + RKC_explicit[istage] * dt
 
         # this kernel also initializes Qstages[istage] with an initial guess
         # for the linear solver
@@ -323,14 +336,19 @@ function dostep!(
         # solves
         # Qs = Qhat + dt * RKA_implicit[istage, istage] * rhs_implicit!(Qs)
         α = dt * RKA_implicit[istage, istage]
-        besolver!(Qstages[istage], Qhat, α, p, stagetime)
-
-        rhs!(Rstages[istage], Qstages[istage], p, stagetime, increment = false)
+        besolver!(Qstages[istage], Qhat, α, p, stagetime_implicit)
+        rhs!(
+            Rstages[istage],
+            Qstages[istage],
+            p,
+            stagetime_explicit,
+            increment = false,
+        )
         rhs_implicit!(
             Lstages[istage],
             Qstages[istage],
             p,
-            stagetime,
+            stagetime_implicit,
             increment = false,
         )
     end
@@ -342,7 +360,8 @@ function dostep!(
         rv_Q,
         rv_Lstages,
         rv_Rstages,
-        RKB,
+        RKB_explicit,
+        RKB_implicit,
         dt,
         Val(Nstages),
         Val(split_explicit_implicit),
@@ -545,7 +564,8 @@ end
     Q,
     Lstages,
     Rstages,
-    RKB,
+    RKB_explicit,
+    RKB_implicit,
     dt,
     ::Val{Nstages},
     ::Val{split_explicit_implicit},
@@ -563,9 +583,9 @@ end
         end
 
         @unroll for is in 1:Nstages
-            Q[i] += RKB[is] * dt * Rstages[is][i]
+            Q[i] += RKB_explicit[is] * dt * Rstages[is][i]
             if split_explicit_implicit
-                Q[i] += RKB[is] * dt * Lstages[is][i]
+                Q[i] += RKB_implicit[is] * dt * Lstages[is][i]
             end
         end
     end
@@ -792,6 +812,73 @@ function ARK2GiraldoKellyConstantinescu(
 
     RKB = [RT(1 / (2 * sqrt(2))), RT(1 / (2 * sqrt(2))), RT(1 - 1 / sqrt(2))]
     RKC = [RT(0), RT(2 - sqrt(2)), RT(1)]
+
+    Nstages = length(RKB)
+
+    AdditiveRungeKutta(
+        F,
+        L,
+        backward_euler_solver,
+        RKA_explicit,
+        RKA_implicit,
+        RKB,
+        RKC,
+        split_explicit_implicit,
+        variant,
+        Q;
+        dt = dt,
+        t0 = t0,
+        nsubsteps = nsubsteps,
+    )
+end
+
+"""
+Trap2(2,3,2) with δ_s = 1, δ_f = 0
+"""
+function Trap2LockWoodWeller(
+    F,
+    L,
+    backward_euler_solver,
+    Q::AT;
+    dt = nothing,
+    t0 = 0,
+    nsubsteps = [],
+    split_explicit_implicit = false,
+    variant = NaiveVariant(),
+    paperversion = false,
+) where {AT <: AbstractArray}
+
+    @assert dt !== nothing
+    # In this scheme B and C vectors do not coincide, hence we can't use the LowStorageVariant optimization
+    @assert variant !== LowStorageVariant()
+
+    T = eltype(Q)
+    RT = real(T)
+
+    δ_s = RT(1)
+    δ_f = RT(0)
+    α = RT(0)
+
+    #! format: off
+    RKA_explicit = [
+        RT(0)    RT(0)    RT(0)    RT(0)
+        δ_s      RT(0)    RT(0)    RT(0)
+        RT(1//2) RT(1//2) RT(0)    RT(0)
+        RT(1//2) RT(0)    RT(1//2) RT(0)
+    ]
+
+    RKA_implicit = [
+        RT(0)                  RT(0)                   RT(0)    RT(0)
+        RT(δ_f * (1 - α) // 2) RT(δ_f * (1 + α) // 2)  RT(0)    RT(0)
+        RT(1//2)               RT(0)                   RT(1//2) RT(0)
+        RT(1//2)               RT(0)                   RT(0)    RT(1//2)
+    ]
+    #! format: on
+
+    RKB_explicit = [RT(1 / (2 * sqrt(2))), RT(1 / (2 * sqrt(2))), RT(1 - 1 / sqrt(2))]
+    RKB_implicit =
+    RKC_exlpicit = [RT(0), RT(2 - sqrt(2)), RT(1)]
+    RKC_imlpicit =
 
     Nstages = length(RKB)
 
