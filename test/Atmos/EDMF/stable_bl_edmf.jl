@@ -245,6 +245,6 @@ end
 
 solver_config, diag_arr, time_data = main(Float64)
 
-include(joinpath(@__DIR__, "report_mse_sbl_fv.jl"))
+include(joinpath(@__DIR__, "report_mse_sbl.jl"))
 
 nothing
