@@ -216,6 +216,8 @@ Land
 
 """
   Set any source terms for prognostic state external sources.
+  Also use to record boundary flux terms into shadow variables 
+  for export to coupler.
 """
 function source!(bl::l_type,S::Vars,Q::Vars,G::Vars,A::Vars,_...)
   S.θ=bl.bl_prop.source_theta(S.θ,A.npt,A.elnum,A.xc,A.yc,A.zc)
