@@ -30,4 +30,5 @@ Diagnostics.setup_atmos_mass_energy_loss
 Diagnostics.setup_atmos_spectra_diagnostics
 Diagnostics.setup_dump_state_diagnostics
 Diagnostics.setup_dump_aux_diagnostics
+Diagnostics.setup_dump_tendencies_diagnostics
 ```

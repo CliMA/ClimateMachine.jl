@@ -151,8 +151,7 @@ flattened_tuple(::RetainArr, a::AbstractArray) = tuple(a)
 flattened_tuple(::FlattenArr, a::Diagonal) = tuple(a.diag...)
 flattened_tuple(::RetainArr, a::Diagonal) = tuple(a.diag)
 
-flattened_tuple(::FlattenArr, a::SHermitianCompact) =
-    tuple(a.lowertriangle...)
+flattened_tuple(::FlattenArr, a::SHermitianCompact) = tuple(a.lowertriangle...)
 flattened_tuple(::RetainArr, a::SHermitianCompact) = tuple(a.lowertriangle)
 
 # when we splat an empty tuple `b` into `flattened_tuple(ft, b...)`
@@ -167,5 +166,4 @@ flattened_tuple(ft::FlattenType, a, b...) =
 
 flattened_tuple(ft::FlattenType, a::Tuple) = flattened_tuple(ft, a...)
 
-flattened_tuple(ft::FlattenType, a::NamedTuple) =
-    flattened_tuple(ft, Tuple(a))
+flattened_tuple(ft::FlattenType, a::NamedTuple) = flattened_tuple(ft, Tuple(a))
