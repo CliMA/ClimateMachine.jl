@@ -1087,14 +1087,16 @@ end
 """
     DYNSGS
 """
-struct DynamicSubgridStabilization <: TurbulenceClosureModel end
+struct DynamicSubgridStabilization{FT} <: TurbulenceClosureModel 
+    C::FT
+end
 
-vars_state(::DynamicSubgridStabilization, ::Auxiliary, FT) = @vars(Δ::FT, μ_sgs::FT)
+vars_state(::DynamicSubgridStabilization, ::Auxiliary, FT) = @vars(Δ::FT, μ_sgs::FT, μ_acoustic::FT)
 vars_state(::DynamicSubgridStabilization, ::Gradient, FT) = @vars()
 vars_state(::DynamicSubgridStabilization, ::GradientFlux, FT) =
     @vars(∇u::SMatrix{3, 3, FT, 9})
 
-function atmos_init_aux!(
+function init_aux_turbulence!(
     ::DynamicSubgridStabilization,
     ::BalanceLaw,
     aux::Vars,
@@ -1136,21 +1138,22 @@ function turbulence_tensors(
     α = diffusive.turbulence.∇u
     S = symmetrize(α)
     Δ = aux.turbulence.Δ
-    ν = min(abs(Δ^2 * aux.χ̅), FT(0.5) * Δ * aux.moisture.c)
+    ν = min(FT(m.C)^2 * abs(Δ^2 * aux.turbulence.μ_sgs), FT(m.C)^2 * FT(0.5) * Δ * aux.moisture.c)
     ν = SDiagonal(ν,ν,ν)
     D_t = diag(ν) * _inv_Pr_turb
     τ = -2 *ν * S
     return ν, D_t, τ
 end
-function atmos_nodal_update_aux!(
-    ::DynamicSubgridStabilization,
+function turbulence_nodal_update_auxiliary_state!(
+    m::DynamicSubgridStabilization,
     ::BalanceLaw,
     state::Vars,
     aux::Vars,
     t::Real,
 ) 
+    FT = eltype(state)
     aux.turbulence.μ_sgs = aux.χ̅
+    aux.turbulence.μ_acoustic = FT(m.C)^2 * FT(0.5) * aux.turbulence.Δ * aux.moisture.c
 end
-
 
 end #module TurbulenceClosures.jl
