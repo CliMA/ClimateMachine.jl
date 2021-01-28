@@ -2,6 +2,7 @@ using ClimateMachine
 using ClimateMachine.Atmos
 using ClimateMachine.BalanceLaws
 using ClimateMachine.ConfigTypes
+using ClimateMachine.Courant
 using ClimateMachine.DGMethods
 using ClimateMachine.DGMethods.NumericalFluxes
 using ClimateMachine.GenericCallbacks
@@ -27,13 +28,13 @@ using MPI, Logging, StaticArrays, LinearAlgebra, Printf, Dates, Test
 include("bickley_jet_setup.jl")
 
 const output_vtk = true
+const monitor_courant_steps = 200 # in timesteps, 0 to turn off
 
 function main()
     ClimateMachine.init(parse_clargs = true)
     ArrayType = ClimateMachine.array_type()
 
     mpicomm = MPI.COMM_WORLD
-
 
     #npts = [32,64,128,256];
     #polynomialorder = [3,4,5,6,7,8];
@@ -48,43 +49,43 @@ function main()
     Roe = RoeNumericalFlux()
     HLLC = HLLCNumericalFlux()
 
-        for FT in (Float64,), dims in (2,)
-            for NumericalFlux in (
-                Rusanov,
-                #Central,
-                #Roe,
-                #HLLC,
-            )
-                @info @sprintf """Configuration
-                                  ArrayType     = %s
-                                  FT        = %s
-                                  NumericalFlux = %s
-                                  dims          = %d
-                                  """ ArrayType "$FT" "$NumericalFlux" dims
+    for FT in (Float64,), dims in (2,)
+        for NumericalFlux in (
+            Rusanov,
+            #Central,
+            #Roe,
+            #HLLC,
+        )
+            @info @sprintf """Configuration
+                              ArrayType     = %s
+                              FT        = %s
+                              NumericalFlux = %s
+                              dims          = %d
+                              """ ArrayType "$FT" "$NumericalFlux" dims
 
-                setup = BickleyJetSetup{FT}()
-                errors = Vector{FT}(undef,24)
-                level = 0.0
-                for pts in npts
-                    for polyorder in polynomialorder
-                        level = pts
-                        numelems = (pts + 1) ÷ polyorder#TODO are we counting repeated nodes
-                        test_run(
-                            mpicomm,
-                            ArrayType,
-                            polyorder,
-                            numelems,
-                            NumericalFlux,
-                            setup,
-                            FT,
-                            dims,
-                            level,
-                        )
-                    end
+            setup = BickleyJetSetup{FT}()
+            errors = Vector{FT}(undef,24)
+            level = 0.0
+            for pts in npts
+                for polyorder in polynomialorder
+                    level = pts
+                    numelems = (pts + 1) ÷ polyorder#TODO are we counting repeated nodes
+                    test_run(
+                        mpicomm,
+                        ArrayType,
+                        polyorder,
+                        numelems,
+                        NumericalFlux,
+                        setup,
+                        FT,
+                        dims,
+                        level,
+                    )
                 end
             end
         end
     end
+end
 
 function test_run(
     mpicomm,
@@ -166,20 +167,17 @@ function test_run(
     # Set up the information callback
     starttime = Ref(now())
     cbinfo = EveryXWallTimeSeconds(60, mpicomm) do (s = false)
-        if s
-            starttime[] = now()
-        else
-            energy = norm(Q)
-            runtime = Dates.format(
-                convert(DateTime, now() - starttime[]),
-                dateformat"HH:MM:SS",
-            )
-            @info @sprintf """Update
-                              simtime = %.16e
-                              runtime = %s
-                              norm(Q) = %.16e
-                              """ gettime(lsrk) runtime energy
-        end
+        energy = norm(Q)
+        runtime = Dates.format(
+            convert(DateTime, now() - starttime[]),
+            dateformat"HH:MM:SS",
+        )
+        @info @sprintf """Update
+                          simtime = %.16e
+                          runtime = %s
+                          norm(Q) = %.16e
+                          """ gettime(lsrk) runtime energy
+        nothing
     end
     callbacks = (cbinfo,)
 
@@ -204,6 +202,86 @@ function test_run(
             do_output(mpicomm, vtkdir, vtkstep, dg, Q, Qe, model)
         end
         callbacks = (callbacks..., cbvtk)
+    end
+
+    if monitor_courant_steps > 0
+        simtime = gettime(lsrk)
+        cbmcn = EveryXSimulationSteps(monitor_courant_steps) do
+            c_v = courant(
+                nondiffusive_courant,
+                dg,
+                model,
+                Q,
+                dt,
+                simtime,
+                VerticalDirection(),
+            )
+            c_h = courant(
+                nondiffusive_courant,
+                dg,
+                model,
+                Q,
+                dt,
+                simtime,
+                HorizontalDirection(),
+            )
+            ca_v = courant(
+                advective_courant,
+                dg,
+                model,
+                Q,
+                dt,
+                simtime,
+                VerticalDirection(),
+            )
+            ca_h = courant(
+                advective_courant,
+                dg,
+                model,
+                Q,
+                dt,
+                simtime,
+                HorizontalDirection(),
+            )
+            cd_v = courant(
+                diffusive_courant,
+                dg,
+                model,
+                Q,
+                dt,
+                simtime,
+                VerticalDirection(),
+            )
+            cd_h = courant(
+                diffusive_courant,
+                dg,
+                model,
+                Q,
+                dt,
+                simtime,
+                HorizontalDirection(),
+            )
+            @info @sprintf(
+                """
+                Courant numbers at simtime: %8.2f, Δt = %8.2f s
+                    Acoustic (vertical) Courant number    = %.2g
+                    Acoustic (horizontal) Courant number  = %.2g
+                    Advection (vertical) Courant number   = %.2g
+                    Advection (horizontal) Courant number = %.2g
+                    Diffusion (vertical) Courant number   = %.2g
+                    Diffusion (horizontal) Courant number = %.2g""",
+                simtime,
+                dt,
+                c_v,
+                c_h,
+                ca_v,
+                ca_h,
+                cd_v,
+                cd_h,
+            )
+            nothing
+        end
+        callbacks = (callbacks..., cbmcn)
     end
 
     solve!(Q, lsrk; timeend = timeend, callbacks = callbacks)
