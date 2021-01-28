@@ -30,6 +30,7 @@ using ClimateMachine.SingleStackUtils
 using ClimateMachine.BalanceLaws:
     BalanceLaw, Prognostic, Auxiliary, Gradient, GradientFlux, vars_state
 using ClimateMachine.ArtifactWrappers
+import ClimateMachine.DGMethods.FVReconstructions: FVLinear
 
 haverkamp_dataset = ArtifactWrapper(
     @__DIR__,
