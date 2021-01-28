@@ -53,6 +53,7 @@ function main()
         moisture_model = moisture_model,
     )
     ics = model.problem.init_state_prognostic
+
     # Assemble configuration
     driver_config = ClimateMachine.SingleStackConfiguration(
         "BOMEX_SINGLE_STACK",
@@ -71,7 +72,7 @@ function main()
         init_on_cpu = true,
         Courant_number = CFLmax,
     )
-    dgn_config = config_diagnostics(driver_config)
+    dgn_config = config_diagnostics(driver_config, timeend)
 
     cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(1) do
         Filters.apply!(
@@ -95,6 +96,34 @@ function main()
         check_cons = check_cons,
         check_euclidean_distance = true,
     )
+end
+
+function config_diagnostics(driver_config, timeend)
+    FT = eltype(driver_config.grid)
+    info = driver_config.config_info
+    interval = "$(cld(timeend, 2) + 10)ssecs"
+
+    boundaries = [
+        FT(0) FT(0) FT(0)
+        FT(info.hmax) FT(info.hmax) FT(info.zmax)
+    ]
+    axes = (
+        [FT(1)],
+        [FT(1)],
+        collect(range(boundaries[1, 3], boundaries[2, 3], step = FT(50)),),
+    )
+    interpol = ClimateMachine.InterpolationConfiguration(
+        driver_config,
+        boundaries;
+        axes = axes,
+    )
+    dgngrp = setup_dump_state_diagnostics(
+        SingleStackConfigType(),
+        interval,
+        driver_config.name,
+        interpol = interpol,
+    )
+    return ClimateMachine.DiagnosticsConfiguration([dgngrp])
 end
 
 main()
