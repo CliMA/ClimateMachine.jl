@@ -12,7 +12,7 @@ include(joinpath(@__DIR__, "compute_mse.jl"))
 data_file = Dataset(joinpath(PyCLES_output_dataset_path, "Bomex.nc"), "r")
 
 #! format: off
-best_mse = Dict()
+best_mse = OrderedDict()
 best_mse["prog_ρ"] = 3.4917543567416755e-02
 best_mse["prog_ρu_1"] = 3.0715061616506719e+03
 best_mse["prog_ρu_2"] = 1.2895273328644972e-03
