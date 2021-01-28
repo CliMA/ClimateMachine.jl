@@ -599,6 +599,29 @@ function compute_gradient_flux!(
     )
 end
 
+
+function compute_gradient_hyperflux!(
+    atmos::AtmosModel,
+    diffusive::Vars,
+    ∇transform::Grad,
+    state::Vars,
+    aux::Vars,
+    t::Real,
+)
+    diffusive.∇h_tot = ∇transform.h_tot
+
+    compute_gradient_hyperflux!(
+        atmos.turbconv,
+        atmos,
+        diffusive,
+        ∇transform,
+        state,
+        aux,
+        t,
+    )
+end
+
+
 function transform_post_gradient_laplacian!(
     atmos::AtmosModel,
     hyperdiffusive::Vars,
@@ -672,6 +695,7 @@ function. Contributions from subcomponents are then assembled (pointwise).
     flux_second_order!(atmos.precipitation, flux, atmos, args)
     flux_second_order!(atmos.tracers, flux, atmos, args)
     flux_second_order!(atmos.turbconv, flux, atmos, args)
+    flux_second_order!(atmos.hyperdiffusion, flux, aux)
 end
 
 @inline function wavespeed(
@@ -1149,7 +1173,7 @@ function numerical_flux_first_order!(
     # Compute p * D = p * (0, n₁, n₂, n₃, S⁰)
     pD = @MVector zeros(FT, num_state_prognostic)
     if balance_law.ref_state isa HydrostaticState &&
-       balance_law.ref_state.subtract_off
+        balance_law.ref_state.subtract_off
         # pressure should be continuous but it doesn't hurt to average
         ref_p⁻ = state_auxiliary⁻.ref_state.p
         ref_p⁺ = state_auxiliary⁺.ref_state.p

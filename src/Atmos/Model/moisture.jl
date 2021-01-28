@@ -95,6 +95,7 @@ vars_state(::EquilMoist, ::Prognostic, FT) = @vars(ρq_tot::FT)
 vars_state(::EquilMoist, ::Primitive, FT) = @vars(q_tot::FT)
 vars_state(::EquilMoist, ::Gradient, FT) = @vars(q_tot::FT)
 vars_state(::EquilMoist, ::GradientFlux, FT) = @vars(∇q_tot::SVector{3, FT})
+vars_state(::EquilMoist, ::GradientHyperFlux, FT) = @vars(∇q_tot::SVector{3, FT})
 vars_state(::EquilMoist, ::Auxiliary, FT) =
     @vars(temperature::FT, θ_v::FT, q_liq::FT, q_ice::FT)
 
@@ -178,6 +179,11 @@ vars_state(::NonEquilMoist, ::Primitive, FT) =
 vars_state(::NonEquilMoist, ::Gradient, FT) =
     @vars(q_tot::FT, q_liq::FT, q_ice::FT)
 vars_state(::NonEquilMoist, ::GradientFlux, FT) = @vars(
+    ∇q_tot::SVector{3, FT},
+    ∇q_liq::SVector{3, FT},
+    ∇q_ice::SVector{3, FT}
+)
+vars_state(::NonEquilMoist, ::GradientHyperFlux, FT) = @vars(
     ∇q_tot::SVector{3, FT},
     ∇q_liq::SVector{3, FT},
     ∇q_ice::SVector{3, FT}

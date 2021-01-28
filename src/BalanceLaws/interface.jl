@@ -219,6 +219,7 @@ function compute_gradient_flux!(
     compute_gradient_flux!(
         balance_law,
         Vars{vars_state(balance_law, GradientFlux(), FT)}(state_gradient_flux),
+        Vars{vars_state(balance_law, GradientFlux(), FT)}(state_gradient_flux),
         Grad{vars_state(balance_law, Gradient(), FT)}(∇transformstate),
         Vars{vars_state(balance_law, Prognostic(), FT)}(state_prognostic),
         Vars{vars_state(balance_law, Auxiliary(), FT)}(state_auxiliary),
