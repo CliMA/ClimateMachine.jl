@@ -2,6 +2,8 @@ using Test
 using StaticArrays
 using ClimateMachine.VariableTemplates
 using ClimateMachine.VariableTemplates: wrap_val
+import ClimateMachine.VariableTemplates
+VT = VariableTemplates
 
 @testset "Test complex models" begin
     include("complex_models.jl")
@@ -90,6 +92,12 @@ using ClimateMachine.VariableTemplates: wrap_val
         j += 1
     end
     @test fn[j] === "scalar_model.x"
+
+    # flattened_tup_chain - empty/generic cases
+    struct Foo end
+    @test flattened_tup_chain(NamedTuple{(), Tuple{}}) == ()
+    @test flattened_tup_chain(Foo, RetainArr()) == ((Symbol(),),)
+    @test flattened_tup_chain(Foo, FlattenArr()) == ((Symbol(),),)
 
     # flattened_tup_chain - Retain arrays
 
@@ -229,5 +237,66 @@ using ClimateMachine.VariableTemplates: wrap_val
     @test fnt.vector_model_x_2 == 22.0
     @test fnt.vector_model_x_3 == 23.0
     @test fnt.scalar_model_x == 24.0f0
+
+    struct Foo end
+    nt = (;
+        nest = (;
+            v = SVector(1, 2, 3),
+            nt = (;
+                shc = SHermitianCompact{3, FT, 6}(collect(1:6)),
+                f = FT(1.0),
+            ),
+            d = SDiagonal(collect(1:3)...),
+            tt = (Foo(), Foo()),
+            t = Foo(),
+        ),
+    )
+    # Test flattened_nt_vals:
+
+    @test VT.flattened_nt_vals(RetainArr(), NamedTuple()) == ()
+    @test VT.flattened_nt_vals(FlattenArr(), NamedTuple()) == ()
+    @test VT.flattened_nt_vals(RetainArr(), Tuple(NamedTuple())) == ()
+    @test VT.flattened_nt_vals(FlattenArr(), Tuple(NamedTuple())) == ()
+
+    ft = FlattenArr()
+    @test VT.flattened_nt_vals(ft, nt.nest.nt.f) == (1.0f0,)
+    @test VT.flattened_nt_vals(ft, nt.nest.nt) ==
+          (1.0f0, 2.0f0, 3.0f0, 4.0f0, 5.0f0, 6.0f0, 1.0f0)
+    @test VT.flattened_nt_vals(ft, nt.nest.d) == (1, 2, 3)
+    @test VT.flattened_nt_vals(ft, nt.nest.t) == (Foo(),)
+    @test VT.flattened_nt_vals(ft, nt.nest.tt) == (Foo(), Foo())
+
+    ft = RetainArr()
+    @test VT.flattened_nt_vals(ft, nt.nest.nt.f) == (1.0f0,)
+    @test VT.flattened_nt_vals(ft, nt.nest.nt)[1] ==
+          nt.nest.nt.shc.lowertriangle
+    @test VT.flattened_nt_vals(ft, nt.nest.nt)[2] == 1.0f0
+    @test VT.flattened_nt_vals(ft, nt.nest.d) == (nt.nest.d.diag,)
+    @test VT.flattened_nt_vals(ft, nt.nest.t) == (Foo(),)
+    @test VT.flattened_nt_vals(ft, nt.nest.tt) == (Foo(), Foo())
+
+    # Test flattened_named_tuple for NamedTuples
+    fnt = flattened_named_tuple(nt, FlattenArr())
+    @test fnt.nest_v_1 == 1
+    @test fnt.nest_v_2 == 2
+    @test fnt.nest_v_3 == 3
+    @test fnt.nest_nt_shc_1 == 1.0
+    @test fnt.nest_nt_shc_2 == 2.0
+    @test fnt.nest_nt_shc_3 == 3.0
+    @test fnt.nest_nt_shc_4 == 4.0
+    @test fnt.nest_nt_shc_5 == 5.0
+    @test fnt.nest_nt_shc_6 == 6.0
+    @test fnt.nest_nt_f == 1.0
+    @test fnt.nest_tt_1 == Foo()
+    @test fnt.nest_tt_2 == Foo()
+    @test fnt.nest_t == Foo()
+
+    fnt = flattened_named_tuple(nt, RetainArr())
+    @test fnt.nest_v == SVector(1, 2, 3)
+    @test fnt.nest_nt_shc == nt.nest.nt.shc.lowertriangle
+    @test fnt.nest_nt_f == 1.0
+    @test fnt.nest_tt_1 == Foo()
+    @test fnt.nest_tt_2 == Foo()
+    @test fnt.nest_t == Foo()
 
 end

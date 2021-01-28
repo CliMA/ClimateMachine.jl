@@ -17,6 +17,7 @@ ImplicitSolverType
 SplitExplicitSolverType
 ConfigTypes
 IMEXSolverType
+HEVISolverType
 getdtmodel
 ```
 

@@ -483,20 +483,3 @@ function bomex_model(
 
     return model
 end
-
-function config_diagnostics(driver_config)
-    default_dgngrp = setup_atmos_default_diagnostics(
-        AtmosLESConfigType(),
-        "2500steps",
-        driver_config.name,
-    )
-    core_dgngrp = setup_atmos_core_diagnostics(
-        AtmosLESConfigType(),
-        "2500steps",
-        driver_config.name,
-    )
-    return ClimateMachine.DiagnosticsConfiguration([
-        default_dgngrp,
-        core_dgngrp,
-    ])
-end

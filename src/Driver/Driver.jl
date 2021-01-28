@@ -77,6 +77,11 @@ Base.@kwdef mutable struct ClimateMachine_Settings
     sim_time::Float64 = NaN
     fixed_number_of_steps::Int = -1
     degree::NTuple{2, Int} = (-1, -1)
+    nelems::NTuple{2, Int} = (-1, -1)
+    domain_height::Float64 = -1
+    resolution::NTuple{3, Float64} = (-1, -1, -1)
+    domain_min::NTuple{3, Float64} = (-1, -1, -1)
+    domain_max::NTuple{3, Float64} = (-1, -1, -1)
 end
 
 const Settings = ClimateMachine_Settings()
@@ -112,7 +117,8 @@ function get_setting(setting_name::Symbol, settings, defaults)
         env_val = ENV[setting_env]
         if setting_type == String
             v = env_val
-        elseif setting_type == NTuple{2, Int}
+        elseif setting_type == NTuple{2, Int} ||
+               setting_type == NTuple{3, Float64}
             v = ArgParse.parse_item(setting_type, env_val)
         else
             v = tryparse(setting_type, env_val)
@@ -300,6 +306,31 @@ function parse_commandline(
         metavar = "<horizontal>,<vertical>"
         arg_type = NTuple{2, Int}
         default = get_setting(:degree, defaults, global_defaults)
+        "--nelems"
+        help = "tuple of number of elements in each direction: 2 for GCM or 1 for single-stack (no space before/after comma)"
+        metavar = "<nelem_1>,<nelem_2>"
+        arg_type = NTuple{2, Int}
+        default = get_setting(:nelems, defaults, global_defaults)
+        "--domain-height"
+        help = "domain height (in meters) for GCM or single-stack configurations"
+        metavar = "<number>"
+        arg_type = Float64
+        default = get_setting(:domain_height, defaults, global_defaults)
+        "--resolution"
+        help = "tuple of three element resolutions (in meters) for LES and MultiColumnLandModel configurations"
+        metavar = "<Δx>,<Δy>,<Δz>"
+        arg_type = NTuple{3, Float64}
+        default = get_setting(:resolution, defaults, global_defaults)
+        "--domain-min"
+        help = "tuple of three minima for the domain size (in meters) for LES and MultiColumnLandModel configurations"
+        metavar = "<xmin>,<ymin>,<zmin>"
+        arg_type = NTuple{3, Float64}
+        default = get_setting(:domain_min, defaults, global_defaults)
+        "--domain-max"
+        help = "tuple of three maxima for the domain size (in meters) for LES and MultiColumnLandModel configurations"
+        metavar = "<xmax>,<ymax>,<zmax>"
+        arg_type = NTuple{3, Float64}
+        default = get_setting(:domain_max, defaults, global_defaults)
     end
     # add custom cli argparse settings if provided
     if !isnothing(custom_clargs)
@@ -377,6 +408,16 @@ Recognized keyword arguments are:
         if `≥0` perform specified number of steps
 - `degree::NTuple{2, Int} = (-1, -1)`:
         tuple of horizontal and vertical polynomial degrees for spatial discretization order
+- `nelems::NTuple{2, Int} = (-1, -1)`:
+        tuple of number of elements in each direction: 2 for GCM or 1 for single-stack
+- `domain_height::Float64 = -1`:
+        domain height (in meters) for GCM or single-stack configurations
+- `resolution::NTuple{3, Float64} = (-1, -1, -1)`:
+        tuple of three element resolutions (in meters) for LES and MultiColumnLandModel configurations
+- `domain_min::NTuple{3, Float64} = (-1, -1, -1)`:
+        tuple of three minima for the domain size (in meters) for LES and MultiColumnLandModel configurations
+- `domain_max::NTuple{3, Float64} = (-1, -1, -1)`:
+        tuple of three maxima for the domain size (in meters) for LES and MultiColumnLandModel configurations
 
 Returns `nothing`, or if `parse_clargs = true`, returns parsed command line
 arguments.

@@ -621,6 +621,12 @@ git-tree-sha1 = "82c072fd7d7341001b3337e8bb3a26ac3b7e407f"
 uuid = "8913a72c-1f9b-4ce2-8d82-65094dcecaec"
 version = "0.3.4"
 
+[[NonlinearSolvers]]
+deps = ["CUDA", "DocStringExtensions", "ForwardDiff"]
+git-tree-sha1 = "13de2bfa3716485129b59d2fdc1c48904c2cfa15"
+uuid = "f4b8ab15-8e73-4e04-9661-b5912071d22b"
+version = "0.1.0"
+
 [[OffsetArrays]]
 deps = ["Adapt"]
 git-tree-sha1 = "5b644e46f71e744fac0775b885809fd82c4ca904"

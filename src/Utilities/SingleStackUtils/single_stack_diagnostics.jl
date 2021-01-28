@@ -1,4 +1,12 @@
 using ..Orientations
+import ..VariableTemplates: flattened_named_tuple
+using ..VariableTemplates
+
+# Sometimes `NodalStack` returns local states
+# that is `nothing`. Here, we return `nothing`
+# to preserve the keys (e.g., `hyperdiff`)
+# when misssing.
+flattened_named_tuple(v::Nothing, ft::FlattenType = FlattenArr()) = nothing
 
 """
     single_stack_diagnostics(
