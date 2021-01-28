@@ -1,3 +1,5 @@
+module TestVTK
+
 using Test
 using GaussQuadrature: legendre, both
 using ClimateMachine.VTK: writemesh_highorder, writemesh_raw
@@ -167,3 +169,5 @@ let
         end
     end
 end
+
+end #module TestVTK

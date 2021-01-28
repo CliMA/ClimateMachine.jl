@@ -1,3 +1,5 @@
+module TestWriters
+
 using Dates
 using NCDatasets
 using OrderedCollections
@@ -47,3 +49,5 @@ using ClimateMachine.Writers
         @test v2[:, :, :, 1] == vals2
     end
 end
+
+end #module TestWriters

@@ -1,3 +1,5 @@
+module TestSurfaceFluxes
+
 using ClimateMachine
 ClimateMachine.init()
 const ArrayType = ClimateMachine.array_type()
@@ -144,3 +146,5 @@ const param_set = EarthParameterSet()
 end
 
 include("test_universal_functions.jl")
+
+end # module TestSurfaceFluxes
