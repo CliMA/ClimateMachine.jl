@@ -337,6 +337,16 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
     ###################
     # RHS Computation #
     ###################
+    comp_stream = launch_compute_dynsgs!(
+        dg,
+        tendency,
+        state_prognostic,
+        t,
+        α,
+        β;
+        dependencies = (comp_stream,),
+    )
+
     comp_stream = launch_volume_tendency!(
         dg,
         tendency,
@@ -1473,11 +1483,11 @@ function launch_interface_gradients_of_laplacians!(
 end
 
 """
-    launch_volume_tendency!(dg, state_prognostic, t; dependencies)
+    launch_compute_dynsgs!(dg, state_prognostic, t; dependencies)
 
 Launches horizontal and vertical volume kernels for computing tendencies (sources, sinks, etc).
 """
-function launch_volume_tendency!(
+function launch_compute_dynsgs!(
     dg,
     tendency,
     state_prognostic,
@@ -1486,7 +1496,6 @@ function launch_volume_tendency!(
     β;
     dependencies,
 )
-    Qhypervisc_grad, _ = dg.states_higher_order
 
     # Workgroup is determined by the number of quadrature points
     # in the horizontal direction. For each horizontal quadrature
@@ -1505,16 +1514,7 @@ function launch_volume_tendency!(
     # If the model direction is EveryDirection, we need to perform
     # both horizontal AND vertical kernel calls; otherwise, we only
     # call the kernel corresponding to the model direction `dg.diffusion_direction`
-    
-    dynsgs!(
-       dg, 
-       dg.balance_law, 
-       state_prognostic.data, 
-       tendency.data, 
-       dg.state_auxiliary.data, 
-       t, 
-       dg.grid.topology.realelems
-    )
+
     if dg.direction isa EveryDirection || dg.direction isa HorizontalDirection
 
         # Horizontal polynomial degree
@@ -1584,8 +1584,144 @@ function launch_volume_tendency!(
             dependencies = comp_stream,
         )
     end
+    # FIXME : Attach w.r.t GenericCallbacks methods 
+    if t >  0.0 
+        if rem(t,40) <= 0.1
+            @show("Operating with DYNSGS")
+            dynsgs_kernel!(
+               dg, 
+               dg.balance_law, 
+               state_prognostic.data, 
+               tendency.data, 
+               dg.state_auxiliary.data, 
+               t, 
+               dg.grid.topology.realelems
+            )
+        end
+    end
 
+    return comp_stream
+end
 
+"""
+    launch_volume_tendency!(dg, state_prognostic, t; dependencies)
+
+Launches horizontal and vertical volume kernels for computing tendencies (sources, sinks, etc).
+"""
+function launch_volume_tendency!(
+    dg,
+    tendency,
+    state_prognostic,
+    t,
+    α,
+    β;
+    dependencies,
+)
+    Qhypervisc_grad, _ = dg.states_higher_order
+
+    # Workgroup is determined by the number of quadrature points
+    # in the horizontal direction. For each horizontal quadrature
+    # point, we operate on a stack of quadrature in the vertical
+    # direction. (Iteration space is in the horizontal)
+    info = basic_launch_info(dg)
+
+    # Since We assume (in 3-D) that both x and y directions
+    # are discretized using the same polynomial order, Nq[1] == Nq[2].
+    # In 2-D, the workgroup spans the entire set of quadrature points:
+    # Nq[1] * Nq[2]
+    workgroup = (info.Nq[1], info.Nq[2])
+    ndrange = (info.Nq[1] * info.nrealelem, info.Nq[2])
+    comp_stream = dependencies
+
+    # If the model direction is EveryDirection, we need to perform
+    # both horizontal AND vertical kernel calls; otherwise, we only
+    # call the kernel corresponding to the model direction `dg.diffusion_direction`
+    
+
+    if dg.direction isa EveryDirection || dg.direction isa HorizontalDirection
+
+        # Horizontal polynomial degree
+        horizontal_polyorder = info.N[1]
+        # Horizontal quadrature weights and differentiation matrix
+        horizontal_ω = dg.grid.ω[1]
+        horizontal_D = dg.grid.D[1]
+
+        comp_stream = volume_tendency!(info.device, workgroup)(
+            dg.balance_law,
+            Val(info),
+            dg.direction,
+            HorizontalDirection(),
+            tendency.data,
+            state_prognostic.data,
+            dg.state_gradient_flux.data,
+            Qhypervisc_grad.data,
+            dg.state_auxiliary.data,
+            dg.grid.vgeo,
+            t,
+            horizontal_ω,
+            horizontal_D,
+            dg.grid.topology.realelems,
+            α,
+            β,
+            # If the model direction is horizontal, we want to be sure to add sources
+            dg.direction isa HorizontalDirection,
+            ndrange = ndrange,
+            dependencies = comp_stream,
+        )
+    end
+
+    # Vertical kernel
+    if dg.direction isa EveryDirection || dg.direction isa VerticalDirection
+
+        # Vertical polynomial degree
+        vertical_polyorder = info.N[info.dim]
+        # Vertical quadrature weights and differentiation matrix
+        vertical_ω = dg.grid.ω[info.dim]
+        vertical_D = dg.grid.D[info.dim]
+
+        comp_stream = volume_tendency!(info.device, workgroup)(
+            dg.balance_law,
+            Val(info),
+            dg.direction,
+            VerticalDirection(),
+            tendency.data,
+            state_prognostic.data,
+            dg.state_gradient_flux.data,
+            Qhypervisc_grad.data,
+            dg.state_auxiliary.data,
+            dg.grid.vgeo,
+            t,
+            vertical_ω,
+            vertical_D,
+            dg.grid.topology.realelems,
+            α,
+            # If we are computing the volume gradient in every direction, we
+            # need to increment into the appropriate fields _after_ the
+            # horizontal computation.
+            dg.direction isa EveryDirection ? true : β,
+            # Boolean to add source. In the case of EveryDirection, we always add the sources
+            # in the vertical kernel. Here, we make the assumption that we're either computing
+            # in every direction, or _just_ the vertical direction.
+            true;
+            ndrange = ndrange,
+            dependencies = comp_stream,
+        )
+    end
+    
+    if t >  0.0 
+        if rem(t,40) <= 0.1
+            @show("Operating with DYNSGS")
+            dynsgs!(
+               dg, 
+               dg.balance_law, 
+               state_prognostic.data, 
+               tendency.data, 
+               dg.state_auxiliary.data, 
+               t, 
+               dg.grid.topology.realelems
+            )
+        end
+    end
 
     return comp_stream
 end
@@ -1696,91 +1832,3 @@ function launch_interface_tendency!(
     return comp_stream
 end
 
-
-"""
-    dynsgs!(...)
-Returns the viscosity computed using the DynamicSubgridStabilization method.
-"""
-function dynsgs!(
-    dg::DGModel,
-    m::BalanceLaw,
-    Q,
-    dQdt,
-    state_auxiliary,
-    t::Real,
-    elems::UnitRange = dg.grid.topology.elems
-)
-    
-    FT = eltype(Q)
-    grid = dg.grid
-    topology = grid.topology
-    
-    N = polynomialorders(grid)[1]
-    dim = dimensionality(grid)
-    
-    Nq = N + 1
-    Nqk = dim == 2 ? 1 : Nq
-    
-    nrealelem = length(topology.realelems)
-    nelem = length(elems)
-    nvertelem = topology.stacksize
-    horzelems = fld1(first(elems), nvertelem):fld1(last(elems), nvertelem)
-    nhorzelem = length(horzelems)
-
-    device = typeof(Q) <: Array ? CPU() : CUDA()
-    
-    μ_dynsgs = similar(Q, Nq^dim, number_states(dg.balance_law,Prognostic()), nrealelem)
-    vgeo = Array(grid.vgeo)
-    localQ = Array(Q)
-    S = zero(FT)
-    Q_ave = Array(similar(Q, number_states(dg.balance_law,Prognostic())))
-    fill!(Q_ave, zero(FT))
-    for e in 1:nrealelem
-      for ijk in 1:Nq^dim
-        M = vgeo[ijk, _M, e]
-	S += M
-	for s in 1:number_states(dg.balance_law,Prognostic())
-	  Q_ave[s] += M * localQ[ijk,s,e]
-	end
-      end
-    end
-    Q_ave = Q_ave ./ S
-    l_δ̅ = Array(similar(Q, Nq^dim, number_states(dg.balance_law,Prognostic()), nrealelem))
-    fill!(l_δ̅, zero(FT))
-    for e in 1:nrealelem
-      for ijk in 1:Nq^dim
-        for s in 1:number_states(dg.balance_law,Prognostic())
-          l_δ̅[ijk,s,e] = localQ[ijk,s,e] - Q_ave[s]
-        end
-      end
-    end
-   rhs = dQdt
-   l_rhs_m = Array(similar(Q, number_states(dg.balance_law,Prognostic()), nrealelem))
-   l_δ̅_m = Array(similar(Q, number_states(dg.balance_law,Prognostic())))
-   for s in 1:number_states(dg.balance_law,Prognostic())
-       l_δ̅_m[s] = maximum(abs.(l_δ̅[:,s,:]))
-       #l_rhs_m[s] = MPI.Allreduce(l_rhs_m[s], max, topology.mpicomm)
-       l_δ̅_m[s] = MPI.Allreduce(l_δ̅_m[s], max, topology.mpicomm)
-   end
-   for e in 1:nrealelem
-     for s in 1:number_states(dg.balance_law,Prognostic())
-       l_rhs_m[s,e] = maximum(abs.(rhs[:,s,e]))
-     end
-   end
-
-   μ = Array(similar(Q, number_states(dg.balance_law,Prognostic()), nrealelem))
-   for e in 1:nrealelem
-     for s in 1:number_states(dg.balance_law,Prognostic())
-       μ[s,e] = l_rhs_m[s,e] / l_δ̅_m[s]
-     end
-   end
-   
-   μ = l_rhs_m ./ (l_δ̅_m .+ eps(FT))
-   ida = 22
-   for e in 1:nrealelem
-       if size(state_auxiliary)[2] == 22
-        state_auxiliary[:,ida,e] .= maximum(μ[:,e]) 
-       end
-   end
-   nothing
-end

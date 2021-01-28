@@ -187,6 +187,7 @@ fluxes, respectively.
                 local_flux_3[s] = local_flux[3, s]
             end
 
+
             # Computes the local viscous fluxes Fᵛⁱˢᶜ
             fill!(local_flux, -zero(eltype(local_flux)))
             flux_second_order!(
@@ -3362,4 +3363,90 @@ end
             end
         end
     end
+end
+
+
+"""
+    dynsgs_kernel!(...)
+Returns the viscosity computed using the DynamicSubgridStabilization method.
+"""
+function dynsgs_kernel!(
+    dg::DGModel,
+    m::BalanceLaw,
+    Q,
+    dQdt,
+    state_auxiliary,
+    t::Real,
+    elems::UnitRange = dg.grid.topology.elems
+)
+    
+    FT = eltype(Q)
+    grid = dg.grid
+    topology = grid.topology
+    
+    N = polynomialorders(grid)[1]
+    dim = dimensionality(grid)
+    
+    Nq = N + 1
+    Nqk = dim == 2 ? 1 : Nq
+    
+    nrealelem = length(topology.realelems)
+    nelem = length(elems)
+    nvertelem = topology.stacksize
+    horzelems = fld1(first(elems), nvertelem):fld1(last(elems), nvertelem)
+    nhorzelem = length(horzelems)
+
+    device = typeof(Q) <: Array ? CPU() : CUDADevice()
+    
+    vgeo = grid.vgeo
+    μ_dynsgs = similar(Q, Nq^dim, number_states(dg.balance_law,Prognostic()), nrealelem)
+    l_rhs_m = Array(similar(Q, number_states(dg.balance_law,Prognostic()), nrealelem))
+    l_δ̅_m = Array(similar(Q, number_states(dg.balance_law,Prognostic())))
+    μ = Array(similar(Q, number_states(dg.balance_law,Prognostic()), nrealelem))
+    l_δ̅ = Array(similar(Q, Nq^dim, number_states(dg.balance_law,Prognostic()), nrealelem))
+    fill!(l_δ̅, zero(FT))
+    
+    localQ = Array(Q)
+    S = zero(FT)
+    Q_ave = Array(similar(Q, number_states(dg.balance_law,Prognostic())))
+    fill!(Q_ave, zero(FT))
+    
+    for e in 1:nrealelem
+      for ijk in 1:Nq^dim
+        M = vgeo[ijk, _M, e]
+    S += M
+    for s in 1:number_states(dg.balance_law,Prognostic())
+      Q_ave[s] += M * localQ[ijk,s,e]
+    end
+      end
+    end 
+    Q_ave = Q_ave ./ S
+    for e in 1:nrealelem
+      for ijk in 1:Nq^dim
+        for s in 1:number_states(dg.balance_law,Prognostic())
+          l_δ̅[ijk,s,e] = localQ[ijk,s,e] - Q_ave[s]
+        end
+      end
+    end
+   rhs = dQdt
+   
+   for s in 1:number_states(dg.balance_law,Prognostic())
+       l_δ̅_m[s] = maximum(abs.(l_δ̅[:,s,:]))
+   end
+   for e in 1:nrealelem
+     for s in 1:number_states(dg.balance_law,Prognostic())
+       l_rhs_m[s,e] = maximum(abs.(rhs[:,s,e]))
+     end
+   end
+   for e in 1:nrealelem
+     for s in 1:number_states(dg.balance_law,Prognostic())
+         μ[s,e] = l_rhs_m[s,e] / (maximum(l_δ̅_m[s]) + eps(FT))
+     end
+   end
+   
+   ida = number_states(dg.balance_law,Auxiliary())
+   for e in 1:nrealelem
+       state_auxiliary[:,ida,e] .= (minimum(μ[:,e]))
+   end
+   nothing
 end

@@ -55,7 +55,8 @@ export DGModel,
     basic_grid_info,
     init_state_auxiliary!,
     continuous_field_gradient!,
-    courant
+    courant,
+    dynsgs! 
 
 include("custom_filter.jl")
 include("NumericalFluxes.jl")
