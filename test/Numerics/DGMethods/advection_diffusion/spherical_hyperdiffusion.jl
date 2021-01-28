@@ -146,7 +146,9 @@ function run(
 
     lsrk = LSRK54CarpenterKennedy(dg1, Q_DGlsrk; dt = dt, t0 = 0)
     solve!(Q_DGlsrk, lsrk; timeend = dt)
-    @info "DG stepper vs rhs: " norm(Q_anal-Q_DGlsrk)/norm(Q_anal) 
+    @info "DG stepper vs rhs: " norm(Q_anal-Q_DGlsrk)/norm(Q_anal)
+    @show norm(rhs_DGsource) 
+    @show norm(rhs_anal.ρ) 
 
     # ana ρ(t) + finite diff in time
     # rhs_FD = (init_ode_state(dg, FT(ϵ)) .- Q0) ./ ϵ
