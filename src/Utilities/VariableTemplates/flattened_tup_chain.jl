@@ -1,6 +1,6 @@
 using LinearAlgebra
 
-export flattened_tup_chain, flattened_named_tuple
+export flattened_tup_chain, flattened_named_tuple, flattened_tuple
 export FlattenType, FlattenArr, RetainArr
 
 abstract type FlattenType end
@@ -140,33 +140,32 @@ end
 function flattened_named_tuple(nt::NamedTuple, ft::FlattenType = FlattenArr())
     ftc = flattened_tup_chain(typeof(nt), ft)
     keys_ = Symbol.(join.(ftc, :_))
-    vals = flattened_nt_vals(ft, nt)
+    vals = flattened_tuple(ft, nt)
     length(keys_) == length(vals) || error("key-value mismatch")
     return (; zip(keys_, vals)...)
 end
 
+flattened_tuple(::FlattenArr, a::AbstractArray) = tuple(a...)
+flattened_tuple(::RetainArr, a::AbstractArray) = tuple(a)
 
-flattened_nt_vals(::FlattenArr, a::AbstractArray) = tuple(a...)
-flattened_nt_vals(::RetainArr, a::AbstractArray) = tuple(a)
+flattened_tuple(::FlattenArr, a::Diagonal) = tuple(a.diag...)
+flattened_tuple(::RetainArr, a::Diagonal) = tuple(a.diag)
 
-flattened_nt_vals(::FlattenArr, a::Diagonal) = tuple(a.diag...)
-flattened_nt_vals(::RetainArr, a::Diagonal) = tuple(a.diag)
-
-flattened_nt_vals(::FlattenArr, a::SHermitianCompact) =
+flattened_tuple(::FlattenArr, a::SHermitianCompact) =
     tuple(a.lowertriangle...)
-flattened_nt_vals(::RetainArr, a::SHermitianCompact) = tuple(a.lowertriangle)
+flattened_tuple(::RetainArr, a::SHermitianCompact) = tuple(a.lowertriangle)
 
-# when we splat an empty tuple `b` into `flattened_nt_vals(ft, b...)`
-flattened_nt_vals(::FlattenType) = ()
+# when we splat an empty tuple `b` into `flattened_tuple(ft, b...)`
+flattened_tuple(::FlattenType) = ()
 
 # for structs
-flattened_nt_vals(::FlattenType, a) = (a,)
+flattened_tuple(::FlattenType, a) = (a,)
 
-# Divide and concur:
-flattened_nt_vals(ft::FlattenType, a, b...) =
-    tuple(flattened_nt_vals(ft, a)..., flattened_nt_vals(ft, b...)...)
+# Divide and conquer:
+flattened_tuple(ft::FlattenType, a, b...) =
+    tuple(flattened_tuple(ft, a)..., flattened_tuple(ft, b...)...)
 
-flattened_nt_vals(ft::FlattenType, a::Tuple) = flattened_nt_vals(ft, a...)
+flattened_tuple(ft::FlattenType, a::Tuple) = flattened_tuple(ft, a...)
 
-flattened_nt_vals(ft::FlattenType, a::NamedTuple) =
-    flattened_nt_vals(ft, Tuple(a))
+flattened_tuple(ft::FlattenType, a::NamedTuple) =
+    flattened_tuple(ft, Tuple(a))
