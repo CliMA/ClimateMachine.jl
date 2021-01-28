@@ -102,7 +102,7 @@ function main(::Type{FT}) where {FT}
 
     surface_flux = cl_args["surface_flux"]
 
-    # DG polynomial order
+    # horizontal,vertical polynomial orders, set N[2]=0 for FV
     N = (1, 0)
     nelem_vert = 80
 
@@ -135,6 +135,13 @@ function main(::Type{FT}) where {FT}
         turbconv = turbconv,
     )
 
+    if !(N[2] == 0)
+        println("using DG in the vertical axis")
+        fv_reconstruction = nothing
+    else
+        println("using FV in the vertical axis")
+        fv_reconstruction = HBFVReconstruction(model, FVLinear())
+    end
     # Assemble configuration
     driver_config = ClimateMachine.SingleStackConfiguration(
         "SBL_EDMF",
@@ -145,7 +152,7 @@ function main(::Type{FT}) where {FT}
         model;
         hmax = FT(40),
         solver_type = ode_solver_type,
-        fv_reconstruction = HBFVReconstruction(model, FVLinear()),
+        fv_reconstruction = fv_reconstruction,
     )
 
     solver_config = ClimateMachine.SolverConfiguration(

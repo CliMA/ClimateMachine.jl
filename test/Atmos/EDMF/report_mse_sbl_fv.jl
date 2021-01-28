@@ -16,11 +16,11 @@ best_mse = OrderedDict()
 best_mse["prog_ρ"] = 8.3680112312261336e-03
 best_mse["prog_ρu_1"] = 6.2785134765912162e+03
 best_mse["prog_ρu_2"] = 2.4045175004577872e-04
-best_mse["prog_turbconv_environment_ρatke"] = 2.4914851952135550e+02
-best_mse["prog_turbconv_environment_ρaθ_liq_cv"] = 8.7727430612979987e+01
-best_mse["prog_turbconv_updraft_1_ρa"] = 3.7450897497674823e+01
-best_mse["prog_turbconv_updraft_1_ρaw"] = 2.2105954381383359e+00
-best_mse["prog_turbconv_updraft_1_ρaθ_liq"] = 1.0323448393908452e+01
+best_mse["prog_turbconv_environment_ρatke"] = 2.4914848140548023e+02
+best_mse["prog_turbconv_environment_ρaθ_liq_cv"] = 8.7727430628661253e+01
+best_mse["prog_turbconv_updraft_1_ρa"] = 3.7451325681073804e+01
+best_mse["prog_turbconv_updraft_1_ρaw"] = 2.2105942785946642e+00
+best_mse["prog_turbconv_updraft_1_ρaθ_liq"] = 1.0323459917678932e+01
 #! format: on
 
 computed_mse = compute_mse(
