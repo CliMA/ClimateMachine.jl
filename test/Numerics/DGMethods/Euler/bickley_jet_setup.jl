@@ -39,7 +39,8 @@ function (setup::BickleyJetSetup)(
     u = u₀ + ϵ*u₀
     v = ϵ * v₀ 
         
-    u⃗ = SVector{3,FT}(u,v,0)
+    #u⃗ = SVector{3,FT}(u,v,0)
+    u⃗ = SVector{3,FT}(0,0,0)
     T_0 = FT(273.16) # T_ref
     ρ = FT(1.0)
     ts = PhaseDry_ρT(bl.param_set, ρ, T_0)

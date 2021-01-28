@@ -35,8 +35,10 @@ function main()
     mpicomm = MPI.COMM_WORLD
 
 
-    npts = [32,64,128,256];
-    polynomialorder = [3,4,5,6,7,8];
+    #npts = [32,64,128,256];
+    #polynomialorder = [3,4,5,6,7,8];
+    npts = [64];
+    polynomialorder = [4];
 
     expected_error = Dict()
 
@@ -184,12 +186,13 @@ function test_run(
     if output_vtk
         # create vtk dir
         vtkdir =
+            "/home/user/2TB/Clima_runs/" *
             "vtk_bickleyjet" *
             "_poly$(polyorder)_dims$(dims)_$(ArrayType)_$(FT)_npts$(level)"
         mkpath(vtkdir)
 
         vtkstep = 0
-        output_interval = 12
+        output_interval = 3
         # output initial step
         do_output(mpicomm, vtkdir, vtkstep, dg, Q, Q, model)
 
