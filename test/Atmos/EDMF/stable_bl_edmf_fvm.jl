@@ -1,3 +1,4 @@
+using JLD2, FileIO
 using ClimateMachine
 ClimateMachine.init(;
     parse_clargs = true,
@@ -6,15 +7,11 @@ ClimateMachine.init(;
 )
 using ClimateMachine.SingleStackUtils
 using ClimateMachine.Checkpoint
-using ClimateMachine.DGMethods
-using ClimateMachine.SystemSolvers
-import ClimateMachine.DGMethods: custom_filter!
-using ClimateMachine.Mesh.Filters: apply!
 using ClimateMachine.BalanceLaws: vars_state
-using JLD2, FileIO
+import ClimateMachine.DGMethods.FVReconstructions: FVLinear
 const clima_dir = dirname(dirname(pathof(ClimateMachine)));
 
-include(joinpath(clima_dir, "experiments", "AtmosLES", "bomex_model.jl"))
+include(joinpath(clima_dir, "experiments", "AtmosLES", "stable_bl_model.jl"))
 include("edmf_model.jl")
 include("edmf_kernels.jl")
 
@@ -48,16 +45,10 @@ function init_state_prognostic!(
     z = altitude(m, aux)
 
     # SCM setting - need to have separate cases coded and called from a folder - see what LES does
-    # a moist_thermo state is used here to convert the input θ,q_tot to e_int, q_tot profile
+    # a thermo state is used here to convert the input θ to e_int profile
     e_int = internal_energy(m, state, aux)
 
-    if m.moisture isa DryModel
-        ρq_tot = FT(0)
-        ts = PhaseDry(m.param_set, e_int, state.ρ)
-    else
-        ρq_tot = gm.moisture.ρq_tot
-        ts = PhaseEquil(m.param_set, e_int, state.ρ, ρq_tot / state.ρ)
-    end
+    ts = PhaseDry(m.param_set, e_int, state.ρ)
     T = air_temperature(ts)
     p = air_pressure(ts)
     q = PhasePartition(ts)
@@ -68,84 +59,98 @@ function init_state_prognostic!(
         up[i].ρa = gm.ρ * a_min
         up[i].ρaw = gm.ρu[3] * a_min
         up[i].ρaθ_liq = gm.ρ * a_min * θ_liq
-        up[i].ρaq_tot = ρq_tot * a_min
+        up[i].ρaq_tot = FT(0)
     end
 
     # initialize environment covariance with zero for now
-    if z <= FT(2500)
-        en.ρatke = gm.ρ * (FT(1) - z / FT(3000))
+    if z <= FT(250)
+        en.ρatke =
+            gm.ρ *
+            FT(0.4) *
+            FT(1 - z / 250.0) *
+            FT(1 - z / 250.0) *
+            FT(1 - z / 250.0)
+        en.ρaθ_liq_cv =
+            gm.ρ *
+            FT(0.4) *
+            FT(1 - z / 250.0) *
+            FT(1 - z / 250.0) *
+            FT(1 - z / 250.0)
     else
         en.ρatke = FT(0)
+        en.ρaθ_liq_cv = FT(0)
     end
-    en.ρaθ_liq_cv = FT(1e-5) / max(z, FT(10))
-    en.ρaq_tot_cv = FT(1e-5) / max(z, FT(10))
-    en.ρaθ_liq_q_tot_cv = FT(1e-7) / max(z, FT(10))
+    en.ρaq_tot_cv = FT(0)
+    en.ρaθ_liq_q_tot_cv = FT(0)
     return nothing
 end;
-
-struct ZeroVerticalVelocityFilter <: AbstractCustomFilter end
-function custom_filter!(::ZeroVerticalVelocityFilter, bl, state, aux)
-    state.ρu = SVector(state.ρu[1], state.ρu[2], 0)
-end
 
 function main(::Type{FT}) where {FT}
     # add a command line argument to specify the kind of surface flux
     # TODO: this will move to the future namelist functionality
-    bomex_args = ArgParseSettings(autofix_names = true)
-    add_arg_group!(bomex_args, "BOMEX")
-    @add_arg_table! bomex_args begin
+    sbl_args = ArgParseSettings(autofix_names = true)
+    add_arg_group!(sbl_args, "StableBoundaryLayer")
+    @add_arg_table! sbl_args begin
         "--surface-flux"
         help = "specify surface flux for energy and moisture"
         metavar = "prescribed|bulk"
         arg_type = String
-        default = "prescribed"
+        default = "bulk"
     end
 
-    cl_args =
-        ClimateMachine.init(parse_clargs = true, custom_clargs = bomex_args)
+    cl_args = ClimateMachine.init(parse_clargs = true, custom_clargs = sbl_args)
 
     surface_flux = cl_args["surface_flux"]
 
     # DG polynomial order
-    N = 4
-    nelem_vert = 20
+    N = (1, 0)
+    nelem_vert = 80
 
     # Prescribe domain parameters
-    zmax = FT(3000)
+    zmax = FT(400)
 
     t0 = FT(0)
 
     # Simulation time
-    timeend = FT(400)
-    CFLmax = FT(1.2)
+    timeend = FT(60)
+    CFLmax = FT(0.50)
 
     config_type = SingleStackConfigType
 
-    ode_solver_type = ClimateMachine.IMEXSolverType(
-        implicit_model = AtmosAcousticGravityLinearModel,
-        implicit_solver = SingleColumnLU,
-        solver_method = ARK2GiraldoKellyConstantinescu,
-        split_explicit_implicit = true,
-        discrete_splitting = false,
+    ode_solver_type = ClimateMachine.ExplicitSolverType(
+        # solver_method = LSRK144NiegemannDiehlBusch,
+        solver_method = LSRK54CarpenterKennedy,
     )
 
     N_updrafts = 1
-    N_quad = 3
+    N_quad = 3 # Using N_quad = 1 leads to norm(Q) = NaN at init.
     turbconv = EDMF(FT, N_updrafts, N_quad)
+    # turbconv = NoTurbConv()
 
-    model =
-        bomex_model(FT, config_type, zmax, surface_flux; turbconv = turbconv)
+    model = stable_bl_model(
+        FT,
+        config_type,
+        zmax,
+        surface_flux;
+        turbconv = turbconv,
+        ref_state = HydrostaticState(
+            DecayingTemperatureProfile{FT}(param_set);
+            subtract_off = false,
+        ),
+    )
 
     # Assemble configuration
     driver_config = ClimateMachine.SingleStackConfiguration(
-        "BOMEX_EDMF",
+        "SBL_EDMF",
         N,
         nelem_vert,
         zmax,
         param_set,
         model;
-        hmax = zmax,
+        hmax = FT(40),
         solver_type = ode_solver_type,
+        numerical_flux_first_order = RoeNumericalFlux(),
+        fv_reconstruction = HBFVReconstruction(model, FVLinear()),
     )
 
     solver_config = ClimateMachine.SolverConfiguration(
@@ -168,12 +173,6 @@ function main(::Type{FT}) where {FT}
         solver_config.Q,
         varsindex(vsp, :energy, :ρe),
     )
-    horizontally_average!(
-        driver_config.grid,
-        solver_config.Q,
-        varsindex(vsp, :moisture, :ρq_tot),
-    )
-
     vsa = vars_state(model, Auxiliary(), FT)
     horizontally_average!(
         driver_config.grid,
@@ -182,21 +181,16 @@ function main(::Type{FT}) where {FT}
     )
     # ---
 
-    dgn_config = config_diagnostics(driver_config, timeend)
+    dgn_config = config_diagnostics(driver_config)
 
-    cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(1) do
+    cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(100) do
+        nstep = getsteps(solver_config.solver)
+        @show nstep
         Filters.apply!(
             solver_config.Q,
-            ("moisture.ρq_tot", turbconv_filters(turbconv)...),
+            (turbconv_filters(turbconv)...,),
             solver_config.dg.grid,
             TMARFilter(),
-        )
-        Filters.apply!(
-            ZeroVerticalVelocityFilter(),
-            solver_config.dg.grid,
-            solver_config.dg.balance_law,
-            solver_config.Q,
-            solver_config.dg.state_auxiliary,
         )
         nothing
     end
@@ -205,7 +199,7 @@ function main(::Type{FT}) where {FT}
     time_data = FT[0]
 
     # Define the number of outputs from `t0` to `timeend`
-    n_outputs = 10
+    n_outputs = 5
     # This equates to exports every ceil(Int, timeend/n_outputs) time-step:
     every_x_simulation_time = ceil(Int, timeend / n_outputs)
 
@@ -224,7 +218,7 @@ function main(::Type{FT}) where {FT}
 
     check_cons = (
         ClimateMachine.ConservationCheck("ρ", "3000steps", FT(0.001)),
-        ClimateMachine.ConservationCheck("energy.ρe", "3000steps", FT(0.0025)),
+        ClimateMachine.ConservationCheck("energy.ρe", "3000steps", FT(0.1)),
     )
 
     cb_print_step = GenericCallbacks.EveryXSimulationSteps(100) do
@@ -247,44 +241,8 @@ function main(::Type{FT}) where {FT}
     return solver_config, diag_arr, time_data
 end
 
-function config_diagnostics(driver_config, timeend)
-    FT = eltype(driver_config.grid)
-    info = driver_config.config_info
-    interval = "$(cld(timeend, 2) + 10)ssecs"
-    #interval = "10steps"
-
-    boundaries = [
-        FT(0) FT(0) FT(0)
-        FT(info.hmax) FT(info.hmax) FT(info.zmax)
-    ]
-    axes = (
-        [FT(1)],
-        [FT(1)],
-        collect(range(boundaries[1, 3], boundaries[2, 3], step = FT(50)),),
-    )
-    interpol = ClimateMachine.InterpolationConfiguration(
-        driver_config,
-        boundaries;
-        axes = axes,
-    )
-    ds_dgngrp = setup_dump_state_diagnostics(
-        SingleStackConfigType(),
-        interval,
-        driver_config.name,
-        interpol = interpol,
-    )
-    dt_dgngrp = setup_dump_tendencies_diagnostics(
-        SingleStackConfigType(),
-        interval,
-        driver_config.name,
-        interpol = interpol,
-    )
-    return ClimateMachine.DiagnosticsConfiguration([ds_dgngrp, dt_dgngrp])
-end
-
-
 solver_config, diag_arr, time_data = main(Float64)
 
-include(joinpath(@__DIR__, "report_mse_bomex.jl"))
+include(joinpath(@__DIR__, "report_mse_sbl_fv.jl"))
 
 nothing

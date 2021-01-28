@@ -12,7 +12,7 @@ include(joinpath(@__DIR__, "compute_mse.jl"))
 data_file = Dataset(joinpath(PyCLES_output_dataset_path, "Bomex.nc"), "r")
 
 #! format: off
-best_mse = Dict()
+best_mse = OrderedDict()
 best_mse["prog_ρ"] = 3.4917543567416755e-02
 best_mse["prog_ρu_1"] = 3.0715061616506719e+03
 best_mse["prog_ρu_2"] = 1.2895273328644972e-03
@@ -34,6 +34,7 @@ computed_mse = compute_mse(
     data_file,
     "Bomex",
     best_mse,
+    400,
     plot_dir,
 )
 
@@ -41,13 +42,14 @@ computed_mse = compute_mse(
     #! format: off
     test_mse(computed_mse, best_mse, "prog_ρ")
     test_mse(computed_mse, best_mse, "prog_ρu_1")
+    test_mse(computed_mse, best_mse, "prog_ρu_2")
     test_mse(computed_mse, best_mse, "prog_moisture_ρq_tot")
+    test_mse(computed_mse, best_mse, "prog_turbconv_environment_ρatke")
+    test_mse(computed_mse, best_mse, "prog_turbconv_environment_ρaθ_liq_cv")
+    test_mse(computed_mse, best_mse, "prog_turbconv_environment_ρaq_tot_cv")
     test_mse(computed_mse, best_mse, "prog_turbconv_updraft_1_ρa")
     test_mse(computed_mse, best_mse, "prog_turbconv_updraft_1_ρaw")
     test_mse(computed_mse, best_mse, "prog_turbconv_updraft_1_ρaθ_liq")
     test_mse(computed_mse, best_mse, "prog_turbconv_updraft_1_ρaq_tot")
-    test_mse(computed_mse, best_mse, "prog_turbconv_environment_ρatke")
-    test_mse(computed_mse, best_mse, "prog_turbconv_environment_ρaθ_liq_cv")
-    test_mse(computed_mse, best_mse, "prog_turbconv_environment_ρaq_tot_cv")
     #! format: on
 end

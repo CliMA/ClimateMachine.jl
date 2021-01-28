@@ -539,6 +539,9 @@ struct NodalStack{N, BL, G, S, VR, TI, TJ, CI, IN}
         vrange = 1:size(prognostic, 3)
         grid_info = basic_grid_info(grid)
         @unpack Nqk = grid_info
+        if polynomialorders(grid)[end] == 0
+            interp = false
+        end
         # Store cartesian indices, so we can map the iter_state
         # to the cartesian space `Q[i, var, j]`
         if interp
