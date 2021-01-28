@@ -642,13 +642,14 @@ function weightedsum(A::MPIStateArray, states = 1:size(A, 2))
     isempty(A.weights) && error("`weightedsum` requires weights")
 
     FT = eltype(A)
+    DoubleFT = FT <: DoubleFloat ? FT : DoubleFloat{FT}
     states = SVector{length(states)}(states)
 
     C = @view A.data[:, states, A.realelems]
     w = @view A.weights[:, :, A.realelems]
-    init = zero(DoubleFloat{FT})
+    init = zero(DoubleFT)
 
-    E = @~ DoubleFloat{FT}.(C) .* DoubleFloat{FT}.(w)
+    E = @~ DoubleFT.(C) .* DoubleFT.(w)
 
     locwsum = mapreduce(identity, +, E, init = init)
 
