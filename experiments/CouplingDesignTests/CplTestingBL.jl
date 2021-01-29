@@ -88,6 +88,7 @@ struct PenaltyNumFluxDiffusive <: NumericalFluxSecondOrder end
   - calc_kappa_diff :: function to set diffusion coeffiecient(s).
   - get_wavespeed   :: function to return a wavespeed for Rusanov computations (there aren't any in this model)
   - get_penalty_tau :: function to set timescale on which to bring state+ and state- together
+  - theta_shadow_boundary_flux :: function to set boundary flux into shadow variable for passing to coupler
 """
 function prop_defaults()
   bl_prop=NamedTuple()
@@ -104,19 +105,32 @@ function prop_defaults()
   calc_kappa_diff(_...)=(return 0., 0., 0.)
   bl_prop=( bl_prop..., calc_kappa_diff=calc_kappa_diff)
 
-  get_wavespeed(_...)=return(0.)
+  get_wavespeed(_...)=(return 0.)
   bl_prop=( bl_prop..., get_wavespeed=get_wavespeed )
   bl_prop=( bl_prop..., get_penalty_tau=(1.) )
+
+  theta_shadow_boundary_flux(_...)=(return 0.)
+  bl_prop=( bl_prop..., theta_shadow_boundary_flux=theta_shadow_boundary_flux )
 
   bl_prop=( bl_prop..., LAW=CplTestBL )
 end
 
 """
   Declare single prognostic state variable, θ
+  and a shadow variable, θ_boundary_export, for accumulating boundary flux over a single 
+  timestep.
+
+  "Shadow" variables XX_boundary_export will be used to capture boundary fluxes that we 
+  want to export to coupling as time integrals. We use a shadow variable 
+  because we want to integrate over whatever timestepper is being used. 
+  Eventually we should have the ability to potentially use a 2d field here. 
+  The shadow variable needs to be zeroed at the start of each
+  coupling cycle for a component.
 """
 function vars_state(bl::l_type, ::Prognostic, FT)
   @vars begin
-    θ::FT
+     θ::FT
+     θ_boundary_export::FT
   end
 end
 
@@ -201,9 +215,14 @@ Land
 
 """
   Set any source terms for prognostic state external sources.
+  Also use to record boundary flux terms into shadow variables 
+  for export to coupler.
 """
 function source!(bl::l_type,S::Vars,Q::Vars,G::Vars,A::Vars,_...)
   S.θ=bl.bl_prop.source_theta(S.θ,A.npt,A.elnum,A.xc,A.yc,A.zc)
+  # Record boundary condition fluxes as needed by adding to shadow 
+  # prognostic variable
+  S.θ_boundary_export=bl.bl_prop.theta_shadow_boundary_flux(S.θ_boundary_export,A.boundary_in,A.npt,A.elnum,A.xc,A.yc,A.zc)
   nothing
 end
 
