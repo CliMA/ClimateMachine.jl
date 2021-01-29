@@ -57,12 +57,13 @@ function init_state_prognostic!(
     localgeo,
     t,
 ) end
+#=
 function nodal_update_auxiliary_state!(
     m::VorticityModel,
     state::Vars,
     aux::Vars,
     t::Real,
-) end;
+) end =#
 function flux_first_order!(
     ::VorticityModel,
     flux::Grad,

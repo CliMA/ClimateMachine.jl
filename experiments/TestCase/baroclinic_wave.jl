@@ -161,7 +161,13 @@ function init_baroclinic_wave!(problem, bl, state, aux, localgeo, t)
     nothing
 end
 
-function config_baroclinic_wave(FT, poly_order, resolution, with_moisture)
+function config_baroclinic_wave(
+    FT,
+    hd_timescale,
+    poly_order,
+    resolution,
+    with_moisture,
+)
     # Set up a reference state for linearization of equations
     temp_profile_ref =
         DecayingTemperatureProfile{FT}(param_set, FT(290), FT(220), FT(8e3))
@@ -171,11 +177,11 @@ function config_baroclinic_wave(FT, poly_order, resolution, with_moisture)
     exp_name = "BaroclinicWave"
     domain_height::FT = 30e3 # distance between surface and top of atmosphere (m)
     if with_moisture
-        hyperdiffusion = EquilMoistBiharmonic(FT(8 * 3600))
+        hyperdiffusion = EquilMoistBiharmonic(hd_timescale)
         moisture = EquilMoist{FT}()
         source = (Gravity(), Coriolis())
     else
-        hyperdiffusion = DryBiharmonic(FT(8 * 3600))
+        hyperdiffusion = DryBiharmonic(hd_timescale)
         moisture = DryModel()
         source = (Gravity(), Coriolis())
     end
@@ -227,10 +233,18 @@ function main()
     n_days::FT = 1
     timestart::FT = 0                        # start time (s)
     timeend::FT = n_days * day(param_set)    # end time (s)
+    dgn_ssecs = (timeend / 2) + 30
+    dgn_interval = "$(dgn_ssecs)ssecs"
+    hd_timescale::FT = 8 * 3600
 
     # Set up driver configuration
-    driver_config =
-        config_baroclinic_wave(FT, poly_order, (n_horz, n_vert), with_moisture)
+    driver_config = config_baroclinic_wave(
+        FT,
+        hd_timescale,
+        poly_order,
+        (n_horz, n_vert),
+        with_moisture,
+    )
 
     # Set up experiment
     ode_solver_type = ClimateMachine.IMEXSolverType(
@@ -255,7 +269,8 @@ function main()
     )
 
     # Set up diagnostics
-    dgn_config = config_diagnostics(FT, driver_config)
+    dgn_config =
+        config_diagnostics(FT, driver_config, dgn_interval, hd_timescale)
 
     # Set up user-defined callbacks
     filterorder = 20
@@ -291,9 +306,7 @@ function main()
     )
 end
 
-function config_diagnostics(FT, driver_config)
-    interval = "12shours" # chosen to allow diagnostics every 12 simulated hours
-
+function config_diagnostics(FT, driver_config, interval, hd_timescale)
     _planet_radius = FT(planet_radius(param_set))
 
     info = driver_config.config_info
@@ -333,6 +346,7 @@ function config_diagnostics(FT, driver_config)
         AtmosGCMConfigType(),
         interval,
         driver_config.name,
+        timescale = hd_timescale,
         interpol = interpol,
     )
 

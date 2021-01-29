@@ -247,11 +247,10 @@ function atmos_les_default_perturbations_init(
 
         # create the output file
         dprefix = @sprintf(
-            "%s_%s_%s_rank%04d",
+            "%s_%s_%s",
             dgngrp.out_prefix,
             dgngrp.name,
             Settings.starttime,
-            mpirank,
         )
         dfilename = joinpath(Settings.output_dir, dprefix)
         init_data(dgngrp.writer, dfilename, dims, vars)

@@ -52,3 +52,16 @@ function extract_state(dg, state, ijk, e, st::AbstractStateType)
     end
     return Vars{vars_state(bl, st, FT)}(local_state)
 end
+
+# Filter out prefixes from diagnostic variable names
+function prefix_filter(s)
+    if startswith(s, "moisture.")
+        s[10:end]
+    elseif startswith(s, "precipitation.")
+        s[15:end]
+    elseif startswith(s, "hyperdiffusion.")
+        s[16:end]
+    else
+        s
+    end
+end
