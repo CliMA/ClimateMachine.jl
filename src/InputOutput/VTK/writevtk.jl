@@ -32,8 +32,8 @@ function writevtk(
     number_sample_points = 0,
 )
     vgeo = dg.grid.vgeo
-    device = array_device(Q)
-    (h_vgeo, h_Q) = device isa CPU ? (vgeo, Q.data) : (Array(vgeo), Array(Q))
+    h_vgeo = array_device(vgeo) isa CPU ? vgeo : Array(vgeo)
+    h_Q = array_device(Q) isa CPU ? Q.data : Array(Q)
     writevtk_helper(
         prefix,
         h_vgeo,
