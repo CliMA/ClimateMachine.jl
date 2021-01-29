@@ -133,6 +133,10 @@ function main(::Type{FT}) where {FT}
         zmax,
         surface_flux;
         turbconv = turbconv,
+        ref_state = HydrostaticState(
+            DecayingTemperatureProfile{FT}(param_set);
+            subtract_off = false,
+        ),
     )
 
     # Assemble configuration
@@ -145,6 +149,7 @@ function main(::Type{FT}) where {FT}
         model;
         hmax = FT(40),
         solver_type = ode_solver_type,
+        numerical_flux_first_order = RoeNumericalFlux(),
         fv_reconstruction = HBFVReconstruction(model, FVLinear()),
     )
 
