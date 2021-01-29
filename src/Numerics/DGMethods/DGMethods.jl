@@ -57,7 +57,9 @@ export DGModel,
     basic_grid_info,
     init_state_auxiliary!,
     auxiliary_field_gradient!,
-    courant
+    courant,
+    ftpxv!,
+    ftpxv_hex!
 
 include("custom_filter.jl")
 include("FVReconstructions.jl")
@@ -66,6 +68,7 @@ include("DGModel.jl")
 include("DGModel_kernels.jl")
 include("DGFVModel_kernels.jl")
 include("create_states.jl")
+include("FTP.jl")
 
 """
     calculate_dt(dg, model, Q, Courant_number, direction, t)

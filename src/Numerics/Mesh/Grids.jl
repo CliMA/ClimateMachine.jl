@@ -177,8 +177,29 @@ struct DiscontinuousSpectralElementGrid{
     "1-D lgl weights on the device (one for each dimension)"
     ω::DAT1
 
+    "1-D lgl nodes on the device (one for each dimension) for over-integration"
+    ξ_m2::DAT1
+
+    "1-D lgl weights on the device (one for each dimension) for over-integration"
+    ω_m2::DAT1
+
+    "1-D basis function matrix, on mesh 2 (for over-integration), on the device (one for each dimension)"
+    B_m2::DAT2
+
+    "transpose of 1-D basis function matrix, on mesh 2 (for over-integration), on the device (one for each dimension)"
+    B_m2ᵀ::DAT2
+
     "1-D derivative operator on the device (one for each dimension)"
     D::DAT2
+
+    "transpose of 1-D derivative operator on the device (one for each dimension)"
+    Dᵀ::DAT2
+
+    "1-D derivative operator, on mesh 2 (for over-integration), on the device (one for each dimension)"
+    D_m2::DAT2
+
+    "transpose of 1-D derivative operator, on mesh 2 (for over-integration), on the device (one for each dimension)"
+    D_m2ᵀ::DAT2
 
     "1-D indefinite integral operator on the device (one for each dimension)"
     Imat::DAT2
@@ -188,6 +209,12 @@ struct DiscontinuousSpectralElementGrid{
     other cases these match `vgeo` values
     """
     x_vtk::TVTK
+
+    "Temporary Storage for FTP"
+    ftp_storage::DAT3
+
+    "Temporary Storage for FTP on m1"
+    m1_storage::DAT3
 
     # Constructor for a tuple of polynomial orders
     function DiscontinuousSpectralElementGrid(
@@ -208,6 +235,7 @@ struct DiscontinuousSpectralElementGrid{
         @assert dim == length(polynomialorder)
 
         N = polynomialorder
+        N_m2 = Int.(ceil.(N .* 1.5)) # polynomial order for overintegration
 
         (vmap⁻, vmap⁺) = mappings(
             N,
@@ -239,12 +267,28 @@ struct DiscontinuousSpectralElementGrid{
             dim,
         )
         ξ, ω = ntuple(j -> map(x -> x[j], ξω), 2)
+        # for over-integration grid
+        ξω_m2 = ntuple(
+            j ->
+                N_m2[j] == 0 ? Elements.glpoints(FloatType, N_m2[j]) :
+                Elements.lglpoints(FloatType, N_m2[j]),
+            dim,
+        )
+        ξ_m2, ω_m2 = ntuple(j -> map(x -> x[j], ξω_m2), 2)
 
         Imat = ntuple(
             j -> indefinite_integral_interpolation_matrix(ξ[j], ω[j]),
             dim,
         )
+        wb = Elements.baryweights.(ξ)
         D = ntuple(j -> Elements.spectralderivative(ξ[j]), dim)
+        Dᵀ = ntuple(j -> Array(transpose(D[j])), dim)
+
+        B_m2 =
+            ntuple(j -> Elements.interpolationmatrix(ξ[j], ξ_m2[j], wb[j]), dim)
+        B_m2ᵀ = ntuple(j -> Array(transpose(B_m2[j])), dim)
+        D_m2 = ntuple(j -> B_m2[j] * D[j], dim)
+        D_m2ᵀ = ntuple(j -> Array(transpose(D_m2[j])), dim)
 
         (vgeo, sgeo, x_vtk) =
             computegeometry(topology.elemtocoord, D, ξ, ω, meshwarp)
@@ -265,9 +309,28 @@ struct DiscontinuousSpectralElementGrid{
         vmaprecv = DeviceArray(vmaprecv)
         activedofs = DeviceArray(activedofs)
         ω = DeviceArray.(ω)
+        ξ_m2 = DeviceArray.(ξ_m2)
+        ω_m2 = DeviceArray.(ω_m2)
+        B_m2 = DeviceArray.(B_m2)
+        B_m2ᵀ = DeviceArray.(B_m2ᵀ)
         D = DeviceArray.(D)
+        Dᵀ = DeviceArray.(Dᵀ)
+        D_m2 = DeviceArray.(D_m2)
+        D_m2ᵀ = DeviceArray.(D_m2ᵀ)
         Imat = DeviceArray.(Imat)
 
+        ftp_storage = DeviceArray(Array{FloatType}(
+            undef,
+            Np,
+            2,
+            length(topology.realelems),
+        ))
+        m1_storage = DeviceArray(Array{FloatType}(
+            undef,
+            Np,
+            3,
+            length(topology.realelems),
+        ))
         # FIXME: There has got to be a better way!
         DAT1 = typeof(ω)
         DAT2 = typeof(D)
@@ -309,9 +372,18 @@ struct DiscontinuousSpectralElementGrid{
             DeviceArray(topology.exteriorelems),
             activedofs,
             ω,
+            ξ_m2,
+            ω_m2,
+            B_m2,
+            B_m2ᵀ,
             D,
+            Dᵀ,
+            D_m2,
+            D_m2ᵀ,
             Imat,
             x_vtk,
+            ftp_storage,
+            m1_storage,
         )
     end
 end
