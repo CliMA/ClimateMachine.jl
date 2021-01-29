@@ -77,6 +77,7 @@ end
 
 function preatmos(_)
         println("Atmos import fill callback")
+        mA.discretization.state_auxiliary.boundary_in[mA.discretization.grid.vgeo[:,_x3:_x3,:] .== 0] .= cState.CplStateBlob[:OceanSST]
         println(" Atmos component start stepping...")
         nothing
 end
@@ -95,6 +96,10 @@ compO=(pre_step=preocean,component_model=mO,post_step=postocean)
 component_list=( atmosphere=compA,ocean=compO,)
 cC=Coupling.CplSolver(component_list=component_list,
                       coupling_dt=5.,t0=0.)
+
+# We also need to initialize the imports so they can be read.
+cState.CplStateBlob[:OceanSST]=deepcopy( mO.discretization.state_auxiliary.boundary_out[mO.discretization.grid.vgeo[:,_x3:_x3,:] .== 0] )
+cState.CplStateBlob[:AtmosAirSeaHeatFlux]=deepcopy(mA.discretization.state_auxiliary.boundary_out[mA.discretization.grid.vgeo[:,_x3:_x3,:] .== 0] )
 
 # Invoke solve! with coupled timestepper and callback list.
 solve!(nothing,cC;numberofsteps=2)
