@@ -17,6 +17,22 @@ abstraction controls
  1. the outer time stepping sequencing of components
  2. actions mapping exports from one or more components to imports of
     other components
+
+We also pass in a pre- and port- function hook that is invoked before 
+and after each component runs. This may work better than a callback at the end 
+of each time step. Both are here for now, while we try out designs.
+
+Some thinking out loud notes for me -
+
+For now components need to include slightly wasteful "shadow" variables for 
+accumulating boundary flux terms they compute across RK stages and across
+timesteps. The first pass of this uses a shadow vairable in source! that duplicates
+some boundary flux code used in a diffusive boundary condition. The shadown variable 
+is a full 3d array because of wat current infrastructure works. This can be tidied up later once
+design is settled. One way to tody (pending any support for mixed sizes in core vars)
+would be to call out to a function that then accesses a pre-defined MPI state array
+of correct size and using A.el etc.... to determine whether we are at interface.
+We could probably also do this in bc code.
 """
 mutable struct CplSolver{CL, FT} <: AbstractODESolver
     "Named list of pre-defined components"
