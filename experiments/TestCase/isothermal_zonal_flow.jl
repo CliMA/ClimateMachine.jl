@@ -163,9 +163,10 @@ function main()
     ode_solver_type = ClimateMachine.IMEXSolverType(
         implicit_model = AtmosAcousticGravityLinearModel,
         implicit_solver = ManyColumnLU,
-        solver_method = ARK2GiraldoKellyConstantinescu,
+        solver_method = Trap2LockWoodWeller,
         split_explicit_implicit = false,
         discrete_splitting = true,
+        solver_storage_variant = NaiveVariant(),
     )
     CFL = FT(0.4)
     solver_config = ClimateMachine.SolverConfiguration(
