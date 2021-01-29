@@ -1061,11 +1061,10 @@ vars_state(::HorizDryBiharmonic, ::GradientLaplacian, FT) =
 vars_state(::HorizDryBiharmonic, ::Hyperdiffusive, FT) =
     @vars(ν∇³u_h::SMatrix{3, 3, FT, 9}, ν∇³h_tot::SVector{3, FT})
 vars_state(::HorizDryBiharmonic, ::Auxiliary, FT) = @vars begin
-        H::SVector{3, FT}
-        P::SVector{3, FT}
+        H::SMatrix{3, 3, FT, 9}
+        P::SMatrix{3, 3, FT, 9}
         Δ::FT
 end
-
 
 vars_state(::HorizDryBiharmonic, ::GradientHyperFlux, FT) =
     @vars(χ_u_h::SMatrix{3, 3, FT, 9}, χ_h_tot::SVector{3, FT})
