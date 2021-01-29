@@ -261,7 +261,9 @@ function soil_boundary_flux!(
     if incident_water_flux < -norm(diff⁻.soil.water.K∇h)
         nothing
     else
-        diff⁺.soil.water.K∇h = n̂ *  (-FT(2)*incident_water_flux) - diff⁻.soil.water.K∇h
+        #        diff⁺.soil.water.K∇h = n̂ *  (-FT(2)*incident_water_flux) - diff⁻.soil.water.K∇h
+        diff⁺.soil.water.K∇h = n̂ *  (-FT(1)*incident_water_flux)
+        diff⁻.soil.water.K∇h = n̂ *  (-FT(1)*incident_water_flux)
     end
 end
 

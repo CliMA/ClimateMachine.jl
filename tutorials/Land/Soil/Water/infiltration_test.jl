@@ -85,14 +85,14 @@ timeend = FT(60*40) # * 300)
 dt = FT(0.12); #5
 
 # We are ignoring sources and sinks here, like runoff or freezing and thawing.
-sources = (Pond{FT}(),);
+sources = ()#Pond{FT}(),);
 
 # Define the function that initializes the prognostic variables. This
 # in turn calls the functions supplied to `soil_water_model`.
 function init_soil_water!(land, state, aux, localgeo, time)
     state.soil.water.ϑ_l = eltype(state)(land.soil.water.initialϑ_l(aux))
     state.soil.water.θ_i = eltype(state)(land.soil.water.initialθ_i(aux))
-    state.soil.water.l = eltype(state)(0.0)
+    #state.soil.water.l = eltype(state)(0.0)
 end
 
 
@@ -162,7 +162,7 @@ grads = solver_config.dg.state_gradient_flux
 x_ind = varsindex(vars_state(m, Auxiliary(), FT), :x)
 y_ind = varsindex(vars_state(m, Auxiliary(), FT), :y)
 z_ind = varsindex(vars_state(m, Auxiliary(), FT), :z)
-l_ind = varsindex(vars_state(m, Prognostic(), FT),:soil,:water,:l)
+#l_ind = varsindex(vars_state(m, Prognostic(), FT),:soil,:water,:l)
 ϑ_l_ind = varsindex(vars_state(m, Prognostic(), FT), :soil, :water, :ϑ_l)
 K∇h_vert_ind = varsindex(vars_state(m, GradientFlux(), FT), :soil, :water)[3]
 
@@ -170,10 +170,10 @@ x = aux[:, x_ind, :][:]
 y = aux[:, y_ind, :][:]
 z = aux[:, z_ind, :][:]
 ϑ_l = Q[:, ϑ_l_ind, :][:]
-l = Q[:, l_ind, :][:]
+#l = Q[:, l_ind, :][:]
 K∇h_vert = zeros(length(ϑ_l)) .+ FT(NaN)
 
-all_data = [Dict{String, Array}("ϑ_l" => ϑ_l,"l"=> l, "K∇h" => K∇h_vert, "x" => x, "y" =>y, "z" => z)]
+all_data = [Dict{String, Array}("ϑ_l" => ϑ_l, "K∇h" => K∇h_vert, "x" => x, "y" =>y, "z" => z)]
 time_data = FT[0] # store time data
 
 callback = GenericCallbacks.EveryXSimulationTime(every_x_simulation_time) do
@@ -181,11 +181,11 @@ callback = GenericCallbacks.EveryXSimulationTime(every_x_simulation_time) do
     y = aux[:, y_ind, :][:]
     z = aux[:, z_ind, :][:]
     ϑ_l = Q[:, ϑ_l_ind, :][:]
-    l = Q[:, l_ind, :][:]
+    #l = Q[:, l_ind, :][:]
 
     K∇h_vert = grads[:, K∇h_vert_ind, :][:]
 
-    dons = Dict{String, Array}("ϑ_l" => ϑ_l, "l"=> l, "K∇h" => K∇h_vert, "x" => x, "y" =>y, "z" => z)
+    dons = Dict{String, Array}("ϑ_l" => ϑ_l, "K∇h" => K∇h_vert, "x" => x, "y" =>y, "z" => z)
     push!(all_data, dons)
     push!(time_data, gettime(solver_config.solver))
     nothing
@@ -193,7 +193,7 @@ end;
 
 # # Run the integration
 ClimateMachine.invoke!(solver_config; user_callbacks = (callback,));
-
+#=
 N = length(all_data)
 L = [all_data[k]["l"][end] for k in 1:N]
 tm = [all_data[k]["ϑ_l"][end] for k in 1:N]

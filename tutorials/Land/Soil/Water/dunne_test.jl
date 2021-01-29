@@ -75,14 +75,14 @@ soil_water_model = SoilWaterModel(
 m_soil = SoilModel(soil_param_functions, soil_water_model, soil_heat_model);
 
 # We are ignoring sources and sinks here, like runoff or freezing and thawing.
-sources = (Pond{FT}(),);
+sources = ()#Pond{FT}(),);
 
 # Define the function that initializes the prognostic variables. This
 # in turn calls the functions supplied to `soil_water_model`.
 function init_soil_water!(land, state, aux, localgeo, time)
     state.soil.water.ϑ_l = eltype(state)(land.soil.water.initialϑ_l(aux))
     state.soil.water.θ_i = eltype(state)(land.soil.water.initialθ_i(aux))
-    state.soil.water.l = eltype(state)(0.0)
+    #state.soil.water.l = eltype(state)(0.0)
 end
 
 
@@ -180,6 +180,7 @@ z = get_z(solver_config.dg.grid; rm_dupes = true);
 N  = length(dons_arr)
 tm  = [dons_arr[k]["soil.water.ϑ_l"][end] for k in 1:N]
 tf  = [dons_arr[k]["soil.water.K∇h[3]"][end] for k in 1:N]
+#=
 save("./runoff_test_data/dunne_alt_pond.jld2", "data", dons_arr)
 
 pond_data = load("./runoff_test_data/dunne_alt_pond.jld2")["data"]
