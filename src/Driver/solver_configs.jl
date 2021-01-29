@@ -171,7 +171,7 @@ function SolverConfiguration(
                 Q,
                 :,
                 dg.grid,
-                filter,
+                driver_config.filter,
             )
         end
 
