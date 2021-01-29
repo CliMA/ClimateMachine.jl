@@ -534,7 +534,7 @@ equations.
 
     flux_pad = SVector(1, 1, 1)
     tend = Flux{FirstOrder}()
-    _args = (state = state, aux = aux, t = t, direction = direction)
+    _args = (; state, aux, t, direction)
     args = merge(_args, (precomputed = precompute(atmos, _args, tend),))
     flux.ρ = Σfluxes(eq_tends(Mass(), atmos, tend), atmos, args) .* flux_pad
     flux.ρu =
@@ -679,13 +679,7 @@ function. Contributions from subcomponents are then assembled (pointwise).
     flux_pad = SVector(1, 1, 1)
     tend = Flux{SecondOrder}()
 
-    _args = (
-        state = state,
-        aux = aux,
-        t = t,
-        diffusive = diffusive,
-        hyperdiffusive = hyperdiffusive,
-    )
+    _args = (; state, aux, t, diffusive, hyperdiffusive)
 
     args = merge(_args, (precomputed = precompute(atmos, _args, tend),))
 
@@ -877,13 +871,7 @@ function source!(
     ρu_pad = SVector(1, 1, 1)
     tend = Source()
 
-    _args = (
-        state = state,
-        aux = aux,
-        t = t,
-        direction = direction,
-        diffusive = diffusive,
-    )
+    _args = (; state, aux, t, direction, diffusive)
 
     args = merge(_args, (precomputed = precompute(atmos, _args, tend),))
 
