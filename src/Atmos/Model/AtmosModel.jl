@@ -750,11 +750,13 @@ function update_auxiliary_state!(
         hyper_state.dg.state_auxiliary.temperature .=
             view(MPIStateArrays.realview(dg.state_auxiliary), :, ix_temp, :)
         hyper_state.dg(hyper_state.dQ, hyper_state.state, nothing, FT(0))
-        Q.ρ .= hyper_state.dQ.ρ 
         Q.ρu .= hyper_state.dQ.ρu
         Q.ρe .= hyper_state.dQ.ρe
     end
     @show "update2"
+    @show Q.ρ
+    @show Q.ρu
+    @show Q.ρe
     return true
 end
 

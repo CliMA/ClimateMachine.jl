@@ -165,8 +165,8 @@ function flux_second_order!(
     state_auxiliary::Vars,
     t::Real,
 )
-    flux.ρu= state_prognostic.ρ * hyperdiffusive.ν∇³u_h
-    flux.ρe = hyperdiffusive.ν∇³u_h * state_prognostic.ρu
+    flux.ρu += state_prognostic.ρ * hyperdiffusive.ν∇³u_h
+    flux.ρe += hyperdiffusive.ν∇³u_h * state_prognostic.ρu
     flux.ρe += hyperdiffusive.ν∇³h_tot * state_prognostic.ρ
 end
 
