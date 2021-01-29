@@ -142,7 +142,7 @@ end
 function main()
     # Driver configuration parameters
     FT = Float64                             # floating type precision
-    poly_order = 5                           # discontinuous Galerkin polynomial order
+    poly_order = 4                           # discontinuous Galerkin polynomial order
     cutoff_order = 4
     n_horz = 10                              # horizontal element number
     n_vert = 5                               # vertical element number
@@ -162,15 +162,18 @@ function main()
         ref_state,
     )
 
-    # Set up experiment
-    ode_solver_type = ClimateMachine.IMEXSolverType(
-        implicit_model = AtmosAcousticGravityLinearModel,
-        implicit_solver = ManyColumnLU,
-        solver_method = ARK2GiraldoKellyConstantinescu,
-        split_explicit_implicit = false,
-        discrete_splitting = true,
+    # # Set up experiment
+    # ode_solver_type = ClimateMachine.IMEXSolverType(
+    #     implicit_model = AtmosAcousticGravityLinearModel,
+    #     implicit_solver = ManyColumnLU,
+    #     solver_method = ARK2GiraldoKellyConstantinescu,
+    #     split_explicit_implicit = false,
+    #     discrete_splitting = true,
+    # )
+    ode_solver_type = ClimateMachine.ExplicitSolverType(
+        solver_method = LSRK144NiegemannDiehlBusch,
     )
-    CFL = FT(0.4)
+    CFL = FT(1)
     solver_config = ClimateMachine.SolverConfiguration(
         timestart,
         timeend,
@@ -178,7 +181,7 @@ function main()
         Courant_number = CFL,
         init_on_cpu = true,
         ode_solver_type = ode_solver_type,
-        CFL_direction = HorizontalDirection(),
+        CFL_direction = VerticalDirection(),
     )
 
     # save the initial condition for testing
@@ -206,7 +209,7 @@ function main()
         solver_config;
         diagnostics_config = dgn_config,
         user_callbacks = (cbfilter,),
-        check_euclidean_distance = true,
+        check_euclidean_distance = false,
     )
 
     relative_error = norm(solver_config.Q .- Q0) / norm(Q0)
