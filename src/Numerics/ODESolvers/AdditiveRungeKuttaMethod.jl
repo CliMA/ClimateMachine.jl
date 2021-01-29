@@ -5,6 +5,7 @@ export ARK1ForwardBackwardEuler
 export ARK2ImplicitExplicitMidpoint
 export ARK2GiraldoKellyConstantinescu
 export ARK548L2SA2KennedyCarpenter, ARK437L2SA1KennedyCarpenter
+export Trap2LockWoodWeller
 
 # Naive formulation that uses equation 3.8 from Giraldo, Kelly, and
 # Constantinescu (2013) directly.  Seems to cut the number of solver iterations
@@ -60,6 +61,7 @@ The available concrete implementations are:
   - [`ARK2GiraldoKellyConstantinescu`](@ref)
   - [`ARK548L2SA2KennedyCarpenter`](@ref)
   - [`ARK437L2SA1KennedyCarpenter`](@ref)
+  - [`Trap2LockWoodWeller`](@ref)
 """
 mutable struct AdditiveRungeKutta{
     T,
@@ -128,12 +130,12 @@ mutable struct AdditiveRungeKutta{
         nsubsteps = [],
     ) where {AT <: AbstractArray}
 
-        @assert dt != nothing
+        @assert dt !== nothing
 
         T = eltype(Q)
         RT = real(T)
 
-        Nstages = length(RKB)
+        Nstages = length(RKB_explicit)
 
         Qstages = ntuple(i -> similar(Q), Nstages - 1)
         Rstages = ntuple(i -> similar(Q), Nstages)
@@ -145,9 +147,9 @@ mutable struct AdditiveRungeKutta{
 
         # The code throughout assumes SDIRK implicit tableau so we assert that
         # here.
-        for is in 2:Nstages
-            @assert RKA_implicit[is, is] ≈ RKA_implicit[2, 2]
-        end
+        # for is in 2:Nstages
+        #     @assert RKA_implicit[is, is] ≈ RKA_implicit[2, 2]
+        # end
 
         # NOTE: this is only for composing an ARK method with
         # a MIS timestepper
@@ -291,7 +293,7 @@ function dostep!(
     rv_Rstages = realview.(Rstages)
     rv_Qhat = realview(Qhat)
 
-    Nstages = length(RKB)
+    Nstages = length(RKB_explicit)
 
     groupsize = 256
 
@@ -336,7 +338,13 @@ function dostep!(
         # solves
         # Qs = Qhat + dt * RKA_implicit[istage, istage] * rhs_implicit!(Qs)
         α = dt * RKA_implicit[istage, istage]
+        # compare α at current stage with the coefficient in the already
+        # built implicit solver
+        if α !== besolver!.α
+            update_backward_Euler_solver!(besolver!, Q, α)
+        end
         besolver!(Qstages[istage], Qhat, α, p, stagetime_implicit)
+
         rhs!(
             Rstages[istage],
             Qstages[istage],
@@ -388,7 +396,10 @@ function dostep!(
 
     besolver! = ark.besolver!
     RKA_explicit, RKA_implicit = ark.RKA_explicit, ark.RKA_implicit
-    RKB, RKC = ark.RKB, ark.RKC
+    # NOTE: Using low-storage variant assumes that the butcher tables
+    # for both the explicit and implicit parts have the same B and C
+    # vectors
+    RKB, RKC = ark.RKB_explicit, ark.RKC_explicit
     rhs!, rhs_implicit! = ark.rhs!, ark.rhs_implicit!
     Qstages, Rstages = (Q, ark.Qstages...), ark.Rstages
     Qhat = ark.Qhat
@@ -411,7 +422,6 @@ function dostep!(
     # note that it is important that this loop does not modify Q!
     for istage in 2:Nstages
         stagetime = time + RKC[istage] * dt
-
 
         # this kernel also initializes Qtt for the linear solver
         event = Event(array_device(Q))
@@ -668,10 +678,14 @@ function ARK1ForwardBackwardEuler(
         RT(0) RT(1)
     ]
 
-    RKB = [RT(0), RT(1)]
-    RKC = [RT(0), RT(1)]
+    RKB_explicit = [RT(0), RT(1)]
+    RKC_explicit = [RT(0), RT(1)]
+    # For this ARK method, both RK methods share the same
+    # B and C vectors in the Butcher table
+    RKB_implicit = RKB_explicit
+    RKC_implicit = RKC_explicit
 
-    Nstages = length(RKB)
+    Nstages = length(RKB_explicit)
 
     AdditiveRungeKutta(
         F,
@@ -679,8 +693,10 @@ function ARK1ForwardBackwardEuler(
         backward_euler_solver,
         RKA_explicit,
         RKA_implicit,
-        RKB,
-        RKC,
+        RKB_explicit,
+        RKB_implicit,
+        RKC_explicit,
+        RKC_implicit,
         split_explicit_implicit,
         variant,
         Q;
@@ -740,10 +756,14 @@ function ARK2ImplicitExplicitMidpoint(
         RT(0) RT(1 / 2)
     ]
 
-    RKB = [RT(0), RT(1)]
-    RKC = [RT(0), RT(1 / 2)]
+    RKB_explicit = [RT(0), RT(1)]
+    RKC_explicit = [RT(0), RT(1 / 2)]
+    # For this ARK method, both RK methods share the same
+    # B and C vectors in the Butcher table
+    RKB_implicit = RKB_explicit
+    RKC_implicit = RKC_explicit
 
-    Nstages = length(RKB)
+    Nstages = length(RKB_explicit)
 
     AdditiveRungeKutta(
         F,
@@ -751,8 +771,10 @@ function ARK2ImplicitExplicitMidpoint(
         backward_euler_solver,
         RKA_explicit,
         RKA_implicit,
-        RKB,
-        RKC,
+        RKB_explicit,
+        RKB_implicit,
+        RKC_explicit,
+        RKC_implicit,
         split_explicit_implicit,
         variant,
         Q;
@@ -792,7 +814,7 @@ function ARK2GiraldoKellyConstantinescu(
     paperversion = false,
 ) where {AT <: AbstractArray}
 
-    @assert dt != nothing
+    @assert dt !== nothing
 
     T = eltype(Q)
     RT = real(T)
@@ -810,10 +832,14 @@ function ARK2GiraldoKellyConstantinescu(
         RT(1 / (2 * sqrt(2))) RT(1 / (2 * sqrt(2))) RT(1 - 1 / sqrt(2))
     ]
 
-    RKB = [RT(1 / (2 * sqrt(2))), RT(1 / (2 * sqrt(2))), RT(1 - 1 / sqrt(2))]
-    RKC = [RT(0), RT(2 - sqrt(2)), RT(1)]
+    RKB_explicit = [RT(1 / (2 * sqrt(2))), RT(1 / (2 * sqrt(2))), RT(1 - 1 / sqrt(2))]
+    RKC_explicit = [RT(0), RT(2 - sqrt(2)), RT(1)]
+    # For this ARK method, both RK methods share the same
+    # B and C vectors in the Butcher table
+    RKB_implicit = RKB_explicit
+    RKC_implicit = RKC_explicit
 
-    Nstages = length(RKB)
+    Nstages = length(RKB_explicit)
 
     AdditiveRungeKutta(
         F,
@@ -821,8 +847,10 @@ function ARK2GiraldoKellyConstantinescu(
         backward_euler_solver,
         RKA_explicit,
         RKA_implicit,
-        RKB,
-        RKC,
+        RKB_explicit,
+        RKB_implicit,
+        RKC_explicit,
+        RKC_implicit,
         split_explicit_implicit,
         variant,
         Q;
@@ -832,8 +860,23 @@ function ARK2GiraldoKellyConstantinescu(
     )
 end
 
+# TODO: nice docstring
 """
 Trap2(2,3,2) with δ_s = 1, δ_f = 0
+
+### References
+    @article{Ascher1997,
+      title = {Numerical analyses of Runge–Kutta implicit–explicit schemes
+               for horizontally explicit, vertically implicit solutions of
+               atmospheric models},
+      author = {S.-J. Lock and N. Wood and H. Weller},
+      volume = {140},
+      number = {682},
+      pages = {1654-1669},
+      year = {2014},
+      journal = {Quarterly Journal of the Royal Meteorological Society},
+      publisher = {{RMetS}}
+    }
 """
 function Trap2LockWoodWeller(
     F,
@@ -849,7 +892,8 @@ function Trap2LockWoodWeller(
 ) where {AT <: AbstractArray}
 
     @assert dt !== nothing
-    # In this scheme B and C vectors do not coincide, hence we can't use the LowStorageVariant optimization
+    # In this scheme B and C vectors do not coincide,
+    # hence we can't use the LowStorageVariant optimization
     @assert variant !== LowStorageVariant()
 
     T = eltype(Q)
@@ -863,24 +907,24 @@ function Trap2LockWoodWeller(
     RKA_explicit = [
         RT(0)    RT(0)    RT(0)    RT(0)
         δ_s      RT(0)    RT(0)    RT(0)
-        RT(1//2) RT(1//2) RT(0)    RT(0)
-        RT(1//2) RT(0)    RT(1//2) RT(0)
+        RT(1/2)  RT(1/2)  RT(0)    RT(0)
+        RT(1/2)  RT(0)    RT(1/2)  RT(0)
     ]
 
     RKA_implicit = [
-        RT(0)                  RT(0)                   RT(0)    RT(0)
-        RT(δ_f * (1 - α) // 2) RT(δ_f * (1 + α) // 2)  RT(0)    RT(0)
-        RT(1//2)               RT(0)                   RT(1//2) RT(0)
-        RT(1//2)               RT(0)                   RT(0)    RT(1//2)
+        RT(0)                 RT(0)                  RT(0)    RT(0)
+        RT(δ_f * (1 - α) / 2) RT(δ_f * (1 + α) / 2)  RT(0)    RT(0)
+        RT(1/2)               RT(0)                  RT(1/2)  RT(0)
+        RT(1/2)               RT(0)                  RT(0)    RT(1/2)
     ]
     #! format: on
 
-    RKB_explicit = [RT(1 / (2 * sqrt(2))), RT(1 / (2 * sqrt(2))), RT(1 - 1 / sqrt(2))]
-    RKB_implicit =
-    RKC_exlpicit = [RT(0), RT(2 - sqrt(2)), RT(1)]
-    RKC_imlpicit =
+    RKB_explicit = [RT(1/2), RT(0), RT(1/2), RT(0)]
+    RKB_implicit = [RT(1/2), RT(0), RT(0), RT(1/2)]
+    RKC_explicit = [RT(0), δ_s, RT(1), RT(1)]
+    RKC_implicit = [RT(0), δ_f, RT(1), RT(1)]
 
-    Nstages = length(RKB)
+    Nstages = length(RKB_explicit)
 
     AdditiveRungeKutta(
         F,
@@ -888,8 +932,10 @@ function Trap2LockWoodWeller(
         backward_euler_solver,
         RKA_explicit,
         RKA_implicit,
-        RKB,
-        RKC,
+        RKB_explicit,
+        RKB_implicit,
+        RKC_explicit,
+        RKC_implicit,
         split_explicit_implicit,
         variant,
         Q;
@@ -925,7 +971,7 @@ function ARK548L2SA2KennedyCarpenter(
     variant = LowStorageVariant(),
 ) where {AT <: AbstractArray}
 
-    @assert dt != nothing
+    @assert dt !== nothing
 
     T = eltype(Q)
     RT = real(T)
@@ -937,8 +983,8 @@ function ARK548L2SA2KennedyCarpenter(
     # arrays
     RKA_explicit = zeros(RT, Nstages, Nstages)
     RKA_implicit = zeros(RT, Nstages, Nstages)
-    RKB = zeros(RT, Nstages)
-    RKC = zeros(RT, Nstages)
+    RKB_explicit = zeros(RT, Nstages)
+    RKC_explicit = zeros(RT, Nstages)
 
     # the main diagonal
     for is in 2:Nstages
@@ -989,42 +1035,47 @@ function ARK548L2SA2KennedyCarpenter(
     RKA_explicit[8, 6] = RT(572599549169 // 6265429158920)
     RKA_explicit[8, 7] = RT(-457874356192 // 11306498036315)
 
-    RKB[2] = 0
-    RKB[3] = RT(3517720773327 // 20256071687669)
-    RKB[4] = RT(4569610470461 // 17934693873752)
-    RKB[5] = RT(2819471173109 // 11655438449929)
-    RKB[6] = RT(3296210113763 // 10722700128969)
-    RKB[7] = RT(-1142099968913 // 5710983926999)
+    RKB_explicit[2] = 0
+    RKB_explicit[3] = RT(3517720773327 // 20256071687669)
+    RKB_explicit[4] = RT(4569610470461 // 17934693873752)
+    RKB_explicit[5] = RT(2819471173109 // 11655438449929)
+    RKB_explicit[6] = RT(3296210113763 // 10722700128969)
+    RKB_explicit[7] = RT(-1142099968913 // 5710983926999)
 
-    RKC[2] = RT(4 // 9)
-    RKC[3] = RT(6456083330201 // 8509243623797)
-    RKC[4] = RT(1632083962415 // 14158861528103)
-    RKC[5] = RT(6365430648612 // 17842476412687)
-    RKC[6] = RT(18 // 25)
-    RKC[7] = RT(191 // 200)
+    RKC_explicit[2] = RT(4 // 9)
+    RKC_explicit[3] = RT(6456083330201 // 8509243623797)
+    RKC_explicit[4] = RT(1632083962415 // 14158861528103)
+    RKC_explicit[5] = RT(6365430648612 // 17842476412687)
+    RKC_explicit[6] = RT(18 // 25)
+    RKC_explicit[7] = RT(191 // 200)
 
     for is in 2:Nstages
         RKA_implicit[is, 1] = RKA_implicit[is, 2]
     end
 
     for is in 1:(Nstages - 1)
-        RKA_implicit[Nstages, is] = RKB[is]
+        RKA_implicit[Nstages, is] = RKB_explicit[is]
     end
 
-    RKB[1] = RKB[2]
-    RKB[8] = gamma
+    RKB_explicit[1] = RKB_explicit[2]
+    RKB_explicit[8] = gamma
 
-    RKA_explicit[2, 1] = RKC[2]
+    RKA_explicit[2, 1] = RKC_explicit[2]
     RKA_explicit[Nstages, 1] = RKA_explicit[Nstages, 2]
 
-    RKC[1] = 0
-    RKC[Nstages] = 1
+    RKC_explicit[1] = 0
+    RKC_explicit[Nstages] = 1
 
     # conversion to static arrays
     RKA_explicit = SMatrix{Nstages, Nstages}(RKA_explicit)
     RKA_implicit = SMatrix{Nstages, Nstages}(RKA_implicit)
-    RKB = SVector{Nstages}(RKB)
-    RKC = SVector{Nstages}(RKC)
+    RKB_explicit = SVector{Nstages}(RKB_explicit)
+    RKC_explicit = SVector{Nstages}(RKC_explicit)
+
+    # For this ARK method, both RK methods share the same
+    # B and C vectors in the Butcher table
+    RKB_implicit = RKB_explicit
+    RKC_implicit = RKC_explicit
 
     ark = AdditiveRungeKutta(
         F,
@@ -1032,8 +1083,10 @@ function ARK548L2SA2KennedyCarpenter(
         backward_euler_solver,
         RKA_explicit,
         RKA_implicit,
-        RKB,
-        RKC,
+        RKB_explicit,
+        RKB_implicit,
+        RKC_explicit,
+        RKC_implicit,
         split_explicit_implicit,
         variant,
         Q;
@@ -1081,8 +1134,8 @@ function ARK437L2SA1KennedyCarpenter(
     # arrays
     RKA_explicit = zeros(RT, Nstages, Nstages)
     RKA_implicit = zeros(RT, Nstages, Nstages)
-    RKB = zeros(RT, Nstages)
-    RKC = zeros(RT, Nstages)
+    RKB_explicit = zeros(RT, Nstages)
+    RKC_explicit = zeros(RT, Nstages)
 
     # the main diagonal
     for is in 2:Nstages
@@ -1125,40 +1178,45 @@ function ARK437L2SA1KennedyCarpenter(
     RKA_explicit[7, 5] = RT(-13330509492149 // 9695768672337)
     RKA_explicit[7, 6] = RT(11565764226357 // 8513123442827)
 
-    RKB[2] = 0
-    RKB[3] = RT(9164257142617 // 17756377923965)
-    RKB[4] = RT(-10812980402763 // 74029279521829)
-    RKB[5] = RT(1335994250573 // 5691609445217)
-    RKB[6] = RT(2273837961795 // 8368240463276)
-    RKB[7] = RT(247 // 2000)
+    RKB_explicit[2] = 0
+    RKB_explicit[3] = RT(9164257142617 // 17756377923965)
+    RKB_explicit[4] = RT(-10812980402763 // 74029279521829)
+    RKB_explicit[5] = RT(1335994250573 // 5691609445217)
+    RKB_explicit[6] = RT(2273837961795 // 8368240463276)
+    RKB_explicit[7] = RT(247 // 2000)
 
-    RKC[2] = RT(247 // 1000)
-    RKC[3] = RT(4276536705230 // 10142255878289)
-    RKC[4] = RT(67 // 200)
-    RKC[5] = RT(3 // 40)
-    RKC[6] = RT(7 // 10)
+    RKC_explicit[2] = RT(247 // 1000)
+    RKC_explicit[3] = RT(4276536705230 // 10142255878289)
+    RKC_explicit[4] = RT(67 // 200)
+    RKC_explicit[5] = RT(3 // 40)
+    RKC_explicit[6] = RT(7 // 10)
 
     for is in 2:Nstages
         RKA_implicit[is, 1] = RKA_implicit[is, 2]
     end
 
     for is in 1:(Nstages - 1)
-        RKA_implicit[Nstages, is] = RKB[is]
+        RKA_implicit[Nstages, is] = RKB_explicit[is]
     end
 
-    RKB[1] = RKB[2]
+    RKB_explicit[1] = RKB_explicit[2]
 
-    RKA_explicit[2, 1] = RKC[2]
+    RKA_explicit[2, 1] = RKC_explicit[2]
     RKA_explicit[Nstages, 1] = RKA_explicit[Nstages, 2]
 
-    RKC[1] = 0
-    RKC[Nstages] = 1
+    RKC_explicit[1] = 0
+    RKC_explicit[Nstages] = 1
 
     # conversion to static arrays
     RKA_explicit = SMatrix{Nstages, Nstages}(RKA_explicit)
     RKA_implicit = SMatrix{Nstages, Nstages}(RKA_implicit)
-    RKB = SVector{Nstages}(RKB)
-    RKC = SVector{Nstages}(RKC)
+    RKB_explicit = SVector{Nstages}(RKB_explicit)
+    RKC_explicit = SVector{Nstages}(RKC_explicit)
+
+    # For this ARK method, both RK methods share the same
+    # B and C vectors in the Butcher table
+    RKB_implicit = RKB_explicit
+    RKC_implicit = RKC_explicit
 
     ark = AdditiveRungeKutta(
         F,
@@ -1166,8 +1224,10 @@ function ARK437L2SA1KennedyCarpenter(
         backward_euler_solver,
         RKA_explicit,
         RKA_implicit,
-        RKB,
-        RKC,
+        RKB_explicit,
+        RKB_implicit,
+        RKC_explicit,
+        RKC_implicit,
         split_explicit_implicit,
         variant,
         Q;
