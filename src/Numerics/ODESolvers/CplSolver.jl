@@ -3,7 +3,7 @@ export CplSolver
 """
     CplSolver( ;component_list, cdt, t0 = 0 )
 
-A stepping object for advancing a coupled system made up of a pre-defined
+A time stepping like object for advancing a coupled system made up of a pre-defined
 set of named components specified in `component_list`. Each component is a
 balance law, discretization and timestepper collection that can be stepped
 forward by an amount `cdt` the coupling timestep. Individual components may
