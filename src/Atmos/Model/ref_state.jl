@@ -200,7 +200,6 @@ vars_state(::PressureGradientModel, ::Auxiliary, T) = @vars(p::T)
 vars_state(::PressureGradientModel, ::Prognostic, T) = @vars(∇p::SVector{3, T})
 vars_state(::PressureGradientModel, ::Gradient, T) = @vars()
 vars_state(::PressureGradientModel, ::GradientFlux, T) = @vars()
-vars_state(::PressureGradientModel, ::GradientHyperFlux, T) = @vars()
 function init_state_auxiliary!(
     m::PressureGradientModel,
     state_auxiliary::MPIStateArray,

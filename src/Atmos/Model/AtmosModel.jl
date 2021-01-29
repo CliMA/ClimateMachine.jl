@@ -608,11 +608,11 @@ function compute_gradient_hyperflux!(
     aux::Vars,
     t::Real,
 )
-    diffusive.∇h_tot = ∇transform.h_tot
 
+    # diffusion terms required for SGS turbulence computations
     compute_gradient_hyperflux!(
-        atmos.turbconv,
-        atmos,
+        atmos.turbulence,
+        atmos.orientation,
         diffusive,
         ∇transform,
         state,
