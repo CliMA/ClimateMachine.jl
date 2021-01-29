@@ -695,7 +695,6 @@ function. Contributions from subcomponents are then assembled (pointwise).
     flux_second_order!(atmos.precipitation, flux, atmos, args)
     flux_second_order!(atmos.tracers, flux, atmos, args)
     flux_second_order!(atmos.turbconv, flux, atmos, args)
-    flux_second_order!(atmos.hyperdiffusion, flux, aux)
 end
 
 @inline function wavespeed(
