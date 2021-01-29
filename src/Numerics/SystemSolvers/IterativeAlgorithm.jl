@@ -179,13 +179,14 @@ macro checkargs(string, check, args...)
     return block
 end
 
-include("GeneralizedMinimalResidualAlgorithm.jl")
-include("BatchedGeneralizedMinimalResidualAlgorithm.jl")
 include("JacobianFreeNewtonKrylovAlgorithm.jl")
 include("StandardPicardAlgorithm.jl")
+include("GeneralizedMinimalResidualAlgorithm.jl")
+include("BatchedGeneralizedMinimalResidualAlgorithm.jl")
 include("AccelerationAlgorithm.jl")
 include("GeneralizedConjugateResidualAlgorithm.jl")
 include("ConjugateGradientAlgorithm.jl")
+include("Operator.jl")
 
 # TODO:
 #   - Make GeneralizedMinimalResidualAlgorithm look more like BatchedGeneralizedMinimalResidualAlgorithm
@@ -209,9 +210,8 @@ include("ConjugateGradientAlgorithm.jl")
 #       - We are also planning to add a new condition based on Q instead of f(Q), so this part of the code will have to change anyway.
 #       - There was also a bug in the original GMRES initialize!() related to the stopping criteria, which has now been fixed.
 #           - It occasionally caused GMRES to terminate before reaching the stopping criteria, putting Newton's method into an infinite loop (until it reached max_newton_iters).
-#   - Consider where EulerOperator needs to be
+#   - [DONE - Operators.jl]Consider where EulerOperator needs to be
 #       - It should be explicitly dealt with in Preconditioners.jl and enable_duals.jl, but BackwardEulerSolvers.jl is included after those files.
-#       - Has been commented out in BackwardEulerSolvers.jl and moved to Problem.jl as a temporary workaround.
 #   - Get a reference for stepsize() computation in JacobianFreeNewtonKrylovSolver
 #   - [DONE] Check whether weighted_norm needs to be passed around everywhere
 #   - Pass α for EulerOperator in args... to solve!()
@@ -233,5 +233,6 @@ include("ConjugateGradientAlgorithm.jl")
 #       - Correctness testing with large and small problems
 #       - Organize test directory
 #       - Remove `sarrays` param after benchmarking
-#       - Some solvers break in tests when switching to min threshold;
+#       - Some solvers (GCR) break in tests when switching to min threshold;
 #           this seems to be when atol and rtol are related to eps(FT), as defaulted.
+#   - Remove comments in IterativeAlgorithm, BackwardEulerSolvers,...
