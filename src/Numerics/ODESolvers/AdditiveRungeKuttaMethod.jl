@@ -860,9 +860,16 @@ function ARK2GiraldoKellyConstantinescu(
     )
 end
 
-# TODO: nice docstring
 """
-Trap2(2,3,2) with δ_s = 1, δ_f = 0
+Trap2LockWoodWeller(F, L, backward_euler_solver, Q; dt, t0, nsubsteps,
+                    split_explicit_implicit, variant)
+
+This function returns an [`AdditiveRungeKutta`](@ref) time stepping object,
+    see the documentation of [`AdditiveRungeKutta`](@ref) for arguments definitions.
+    This time stepping object is intended to be passed to the `solve!` command.
+
+The time integrator scheme used is Trap2(2,3,2) with δ_s = 1, δ_f = 0, from
+the following reference
 
 ### References
     @article{Ascher1997,
@@ -888,7 +895,6 @@ function Trap2LockWoodWeller(
     nsubsteps = [],
     split_explicit_implicit = false,
     variant = NaiveVariant(),
-    paperversion = false,
 ) where {AT <: AbstractArray}
 
     @assert dt !== nothing
