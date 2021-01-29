@@ -70,6 +70,7 @@ ClimateMachine.Atmos.BulkFormulaMoisture
 ClimateMachine.Atmos.FreeSlip
 ClimateMachine.Atmos.PrescribedTemperature
 ClimateMachine.Atmos.PrescribedEnergyFlux
+ClimateMachine.Atmos.Adiabaticθ
 ClimateMachine.Atmos.BulkFormulaEnergy
 ClimateMachine.Atmos.OutflowPrecipitation
 ClimateMachine.Atmos.ImpermeableTracer

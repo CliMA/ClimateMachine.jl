@@ -5,7 +5,7 @@ function add_perturbations!(state, localgeo)
     FT = eltype(state)
     z = localgeo.coord[3]
     if z <= FT(400) # Add random perturbations to bottom 400m of model
-        state.ρe += (rand() - 0.5) * state.ρe / 100
+        state.energy.ρe += (rand() - 0.5) * state.energy.ρe / 100
         state.moisture.ρq_tot += (rand() - 0.5) * state.moisture.ρq_tot / 100
     end
 end
@@ -112,7 +112,7 @@ function main()
 
     check_cons = (
         ClimateMachine.ConservationCheck("ρ", "3000steps", FT(0.0001)),
-        ClimateMachine.ConservationCheck("ρe", "3000steps", FT(0.0025)),
+        ClimateMachine.ConservationCheck("energy.ρe", "3000steps", FT(0.0025)),
     )
 
     result = ClimateMachine.invoke!(

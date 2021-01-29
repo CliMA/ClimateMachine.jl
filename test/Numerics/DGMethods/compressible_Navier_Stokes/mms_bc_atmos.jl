@@ -56,7 +56,7 @@ function mms2_init_state!(problem, bl, state::Vars, aux::Vars, localgeo, t)
         V_g(t, x1, x2, x3, Val(2)),
         W_g(t, x1, x2, x3, Val(2)),
     )
-    state.ρe = E_g(t, x1, x2, x3, Val(2))
+    state.energy.ρe = E_g(t, x1, x2, x3, Val(2))
 end
 
 struct MMSSource{PV <: Union{Mass, Momentum, Energy}, N} <:
@@ -94,7 +94,7 @@ function mms3_init_state!(problem, bl, state::Vars, aux::Vars, localgeo, t)
         V_g(t, x1, x2, x3, Val(3)),
         W_g(t, x1, x2, x3, Val(3)),
     )
-    state.ρe = E_g(t, x1, x2, x3, Val(3))
+    state.energy.ρe = E_g(t, x1, x2, x3, Val(3))
 end
 
 # initial condition
