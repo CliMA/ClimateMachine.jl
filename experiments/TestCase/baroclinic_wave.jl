@@ -181,10 +181,16 @@ function config_baroclinic_wave(
         moisture = EquilMoist{FT}()
         source = (Gravity(), Coriolis())
     else
-        hyperdiffusion = DryBiharmonic(hd_timescale)
+        hyperdiffusion = DryBiharmonic(10000.0)
         moisture = DryModel()
         source = (Gravity(), Coriolis())
     end
+
+    BLIgrp = setup_BLI(
+        AtmosGCMConfigType(),
+        timescale = hd_timescale,
+        )
+
     model = AtmosModel{FT}(
         AtmosGCMConfigType,
         param_set;
@@ -194,7 +200,9 @@ function config_baroclinic_wave(
         hyperdiffusion = hyperdiffusion,
         moisture = moisture,
         source = source,
+        extra_params_BLI = BLIgrp,
     )
+    
 
     config = ClimateMachine.AtmosGCMConfiguration(
         exp_name,

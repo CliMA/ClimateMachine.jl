@@ -224,6 +224,7 @@ function SolverConfiguration(
         timeend = sim_time
     end
     if fixed_number_of_steps < 0
+        @show ode_dt
         numberofsteps = convert(Int, cld(timeend - t0, ode_dt))
         timeend_dt_adjust && (ode_dt = (timeend - t0) / numberofsteps)
     else

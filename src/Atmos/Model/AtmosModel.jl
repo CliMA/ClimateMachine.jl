@@ -5,7 +5,9 @@ export AtmosModel,
     AtmosAcousticGravityLinearModel,
     HLLCNumericalFlux,
     RoeNumericalFlux,
-    RoeNumericalFluxMoist
+    RoeNumericalFluxMoist,
+    BLIGroup,
+    setup_BLI
 
 using UnPack
 using CLIMAParameters
@@ -96,6 +98,8 @@ using ..DGMethods.NumericalFluxes:
 import ..Courant: advective_courant, nondiffusive_courant, diffusive_courant
 
 
+include("hyperdiffusion_balancelaw_interactive.jl")
+
 """
     AtmosModel <: BalanceLaw
 
@@ -118,12 +122,13 @@ default values for each field.
         source,
         tracers,
         data_config,
+        extra_params_BLI,
     )
 
 # Fields
 $(DocStringExtensions.FIELDS)
 """
-struct AtmosModel{FT, PS, PR, O, RS, T, TC, HD, VS, M, P, R, S, TR, LF, DC} <:
+struct AtmosModel{FT, PS, PR, O, RS, T, TC, HD, VS, M, P, R, S, TR, LF, DC, BLI} <:
        BalanceLaw
     "Parameter Set (type to dispatch on, e.g., planet parameters. See CLIMAParameters.jl package)"
     param_set::PS
@@ -155,6 +160,8 @@ struct AtmosModel{FT, PS, PR, O, RS, T, TC, HD, VS, M, P, R, S, TR, LF, DC} <:
     lsforcing::LF
     "Data Configuration (Helper field for experiment configuration)"
     data_config::DC
+    "LN: extra params for testim HD mini BL in AtmosGCM"
+    extra_params_BLI::BLI
 end
 
 """
@@ -251,6 +258,7 @@ function AtmosModel{FT}(
     tracers::TR = NoTracers(),
     lsforcing::LF = NoLSForcing(),
     data_config::DC = nothing,
+    extra_params_BLI = nothing,
 ) where {
     FT <: AbstractFloat,
     ISP,
@@ -268,6 +276,7 @@ function AtmosModel{FT}(
     TR,
     LF,
     DC,
+    BLI,
 }
 
     @assert !any(isa.(source, Tuple))
@@ -288,6 +297,7 @@ function AtmosModel{FT}(
         tracers,
         lsforcing,
         data_config,
+        extra_params_BLI,
     )
 
     return AtmosModel{FT, typeof.(atmos)...}(atmos...)
@@ -725,7 +735,26 @@ function update_auxiliary_state!(
     # until we're able to remove them or somehow incorporate them
     # into a higher level hierarchy.
     update_auxiliary_state!(dg, m.turbconv, m, Q, t, elems)
-
+    
+    # BLI
+    params = m.extra_params_BLI.params # the params from BLIGroup 
+    hyper_state = params.hyper_state
+    
+    @show "update1"
+    do_hyperdiffusion = isfinite(params.timescale)
+    if do_hyperdiffusion
+        hyper_state.dQ.ρ .= Q.ρ
+        hyper_state.dQ.ρu .= Q.ρu
+        hyper_state.dQ.ρe .= Q.ρe
+        ix_temp = varsindex(vars(dg.state_auxiliary), :moisture, :temperature) # because temperature is under aux.moisture
+        hyper_state.dg.state_auxiliary.temperature .=
+            view(MPIStateArrays.realview(dg.state_auxiliary), :, ix_temp, :)
+        hyper_state.dg(hyper_state.dQ, hyper_state.state, nothing, FT(0))
+        Q.ρ .= hyper_state.dQ.ρ 
+        Q.ρu .= hyper_state.dQ.ρu
+        Q.ρe .= hyper_state.dQ.ρe
+    end
+    @show "update2"
     return true
 end
 
@@ -800,6 +829,7 @@ end
 Initialise auxiliary variables for each AtmosModel subcomponent.
 Store Cartesian coordinate information in `aux.coord`.
 """
+
 function init_state_auxiliary!(
     m::AtmosModel,
     state_auxiliary::MPIStateArray,
@@ -827,7 +857,11 @@ function init_state_auxiliary!(
         direction;
         state_temporary = ∇p,
     )
-end
+    @show "init1"
+    params = m.extra_params_BLI.params # the params from BLIGroup 
+    HD_DGModel_init(m, grid, params)
+    @show "init2"
+ end
 
 function precompute(atmos::AtmosModel, args, tt::Source)
     ts = recover_thermo_state(atmos, args.state, args.aux)

@@ -67,6 +67,7 @@ export TurbulenceClosureModel,
     HyperDiffusion,
     NoHyperDiffusion,
     DryBiharmonic,
+    DryBiharmonicBLI,
     EquilMoistBiharmonic,
     NoViscousSponge,
     UpperAtmosSponge,
@@ -945,6 +946,64 @@ function transform_post_gradient_laplacian!(
     hyperdiffusive.hyperdiffusion.ν∇³u_h = ν₄ * ∇Δu_h
     hyperdiffusive.hyperdiffusion.ν∇³h_tot = ν₄ * ∇Δh_tot
 end
+
+# BLI - essentially a copy of the above - only using the struct s a flag, so will need to delete this upon clean up - the actual BL is defined in 
+struct DryBiharmonicBLI{FT} <: HyperDiffusion
+    τ_timescale::FT
+end
+vars_state(::DryBiharmonicBLI, ::Auxiliary, FT) = @vars(Δ::FT)
+vars_state(::DryBiharmonicBLI, ::Gradient, FT) =
+    @vars(u_h::SVector{3, FT}, h_tot::FT)
+vars_state(::DryBiharmonicBLI, ::GradientLaplacian, FT) =
+    @vars(u_h::SVector{3, FT}, h_tot::FT)
+vars_state(::DryBiharmonicBLI, ::Hyperdiffusive, FT) =
+    @vars(ν∇³u_h::SMatrix{3, 3, FT, 9}, ν∇³h_tot::SVector{3, FT})
+
+function init_aux_hyperdiffusion!(
+    ::DryBiharmonicBLI,
+    ::BalanceLaw,
+    aux::Vars,
+    geom::LocalGeometry,
+)
+    aux.hyperdiffusion.Δ = lengthscale(geom)
+end
+
+function compute_gradient_argument!(
+    h::DryBiharmonicBLI,
+    bl::BalanceLaw,
+    transform::Vars,
+    state::Vars,
+    aux::Vars,
+    t::Real,
+)
+    ρinv = 1 / state.ρ
+    u = state.ρu * ρinv
+    k̂ = vertical_unit_vector(bl, aux)
+    u_h = (SDiagonal(1, 1, 1) - k̂ * k̂') * u
+    transform.hyperdiffusion.u_h = u_h
+    transform.hyperdiffusion.h_tot = transform.h_tot
+end
+
+function transform_post_gradient_laplacian!(
+    h::DryBiharmonicBLI,
+    bl::BalanceLaw,
+    hyperdiffusive::Vars,
+    hypertransform::Grad,
+    state::Vars,
+    aux::Vars,
+    t::Real,
+)
+    _inv_Pr_turb = eltype(state)(inv_Pr_turb(bl.param_set))
+    ∇Δu_h = hypertransform.hyperdiffusion.u_h
+    ∇Δh_tot = hypertransform.hyperdiffusion.h_tot
+    # Unpack
+    τ_timescale = h.τ_timescale
+    # Compute hyperviscosity coefficient
+    ν₄ = (aux.hyperdiffusion.Δ / 2)^4 / 2 / τ_timescale
+    hyperdiffusive.hyperdiffusion.ν∇³u_h = ν₄ * ∇Δu_h
+    hyperdiffusive.hyperdiffusion.ν∇³h_tot = ν₄ * ∇Δh_tot
+end
+
 
 # ### [Viscous Sponge](@id viscous-sponge)
 # `ViscousSponge` requires a user to specify a constant viscosity (kinematic),
