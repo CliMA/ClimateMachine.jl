@@ -65,9 +65,10 @@ function GeneralizedMinimalResidualAlgorithm(;
     )
 end
 
-struct GeneralizedMinimalResidualSolver{PT, KT, GT, HT, FT} <: IterativeSolver
+struct GeneralizedMinimalResidualSolver{PT, KT, AT, GT, HT, FT} <: IterativeSolver
     preconditioner::PT # right preconditioner
     krylovbasis::KT    # containers for Krylov basis vectors
+    w::AT              # work vector
     g0::GT             # container for r.h.s. of least squares problem
     H::HT              # container for Hessenberg matrix
     atol::FT           # absolute tolerance
@@ -103,6 +104,7 @@ function IterativeSolver(
     return GeneralizedMinimalResidualSolver(
         preconditioner,
         ntuple(i -> similar(Q), M + 1),
+        similar(Q),
         sarrays ? (@MArray zeros(FT, M + 1, 1)) : zeros(FT, M + 1, 1),
         sarrays ? (@MArray zeros(FT, M + 1, M)) : zeros(FT, M + 1, M),
         atol,
@@ -168,6 +170,8 @@ function doiteration!(
     krylovbasis = solver.krylovbasis
     g0 = solver.g0
     H = solver.H
+    w = solver.w
+    w .= krylovbasis[1] # initialize work vector
 
     Ω = LinearAlgebra.Rotation{eltype(Q)}([])
 
@@ -177,10 +181,10 @@ function doiteration!(
         j += 1
 
         # Apply the right preconditioner.
-        preconditioner_solve!(preconditioner, krylovbasis[j])
+        preconditioner_solve!(preconditioner, w)
 
         # Apply the linear operator.
-        f!(krylovbasis[j + 1], krylovbasis[j], args...)
+        f!(krylovbasis[j + 1], w, args...)
 
         # Do Arnoldi iteration using modified Gram Schmidt orthonormalization.
         for i in 1:j
@@ -189,6 +193,7 @@ function doiteration!(
         end
         H[j + 1, j] = norm(krylovbasis[j + 1], weighted_norm)
         krylovbasis[j + 1] ./= H[j + 1, j]
+        w .= krylovbasis[j + 1]
 
         # Apply the previous Givens rotations to the new column of H.
         @views H[1:j, j:j] .= Ω * H[1:j, j:j]
@@ -212,20 +217,26 @@ function doiteration!(
     y = SVector{j}(@views UpperTriangular(H[1:j, 1:j]) \ g0[1:j])
 
     # Compose the solution vector.
-    # TODO: Should this be `for i in 1:j Q .+= y[i] .* krylovbasis[i] end`?
-    event = Event(array_device(Q))
-    event = linearcombination!(array_device(Q), solver.groupsize)(
-        realview(Q),
-        y,
-        realview.(krylovbasis),
-        true;
-        ndrange = length(Q),
-        dependencies = (event,),
-    )
-    wait(array_device(Q), event)
+    ΔQ = krylovbasis[1]
+    ΔQ .= y[1] .* krylovbasis[1]
+    for i in 2:j
+        ΔQ .+= krylovbasis[i] .* y[i]
+    end
+
+    # event = Event(array_device(Q))
+    # event = linearcombination!(array_device(Q), solver.groupsize)(
+    #     realview(Q),
+    #     view(y),
+    #     realview.(krylovbasis),
+    #     true;
+    #     ndrange = length(Q),
+    #     dependencies = (event,),
+    # )
+    # wait(array_device(Q), event)
 
     # Un-apply the right preconditioner.
-    preconditioner_solve!(preconditioner, Q)
+    preconditioner_solve!(preconditioner, ΔQ)
+    Q .+= ΔQ
 
     has_converged && return has_converged, j
 
