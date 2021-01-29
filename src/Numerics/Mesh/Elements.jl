@@ -115,4 +115,41 @@ function interpolationmatrix(
     I
 end
 
+"""
+    function jacobip(α::Int, β::Int, np::Int, x::AbstractVector)
+
+Returns a `(nx, np+1)` array containing the `np+1` Jacobi polynomials, with parameter `(α, β)`, evaluated on 1D grid `x`.
+"""
+function jacobip(
+    α::Int,
+    β::Int,
+    np::Int,
+    x::AbstractArray{FT, 1},
+) where {FT <: AbstractFloat}
+    nx = length(x)
+    a = Vector{FT}(undef, 4)
+    V = Array{FT}(undef, nx, np + 1)
+    @assert np ≥ 0
+    V .= 0.0
+    V[:, 1] .= 1.0
+
+    if np > 0
+        V[:, 2] .= 0.5 .* (α .- β .+ (α .+ β .+ 2.0) .* x)
+        if (np > 1)
+            for i in 2:np
+                a[1] = (2 * i) * (i + α + β) * (2 * i + α + β - 2)
+                a[2] = (2 * i + α + β - 1) * (α * α - β * β)
+                a[3] =
+                    (2 * i + α + β - 2) * (2 * i + α + β - 1) * (2 * i + α + β)
+                a[4] = 2 * (i + α - 1) * (i + β - 1) * (2 * i + α + β)
+
+                V[:, i + 1] .=
+                    ((a[2] .+ a[3] .* x) .* V[:, i] .- a[4] .* V[:, i - 1]) ./
+                    a[1]
+            end
+        end
+    end
+    return V
+end
+
 end # module

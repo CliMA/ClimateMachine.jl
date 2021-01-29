@@ -101,3 +101,19 @@ end
         @test D * P6(r) ≈ DP6(r)
     end
 end
+
+@testset "Jacobip" begin
+    for T in (Float32, Float64, BigFloat)
+        let
+            α, β, np = Int(0), Int(0), Int(3)
+            x, _ = Elements.lglpoints(T, np)
+            V = Elements.jacobip(α, β, np, x)
+            @test maximum(abs.(V[:, 1] .- ones(T, np + 1))) ≤ 2 * eps(T)
+            @test maximum(abs.(V[:, 2] .- x)) ≤ 2 * eps(T)
+            @test maximum(abs.(V[:, 3] .- T(0.5) * (3 * x .^ 2 .- T(1)))) ≤
+                  2 * eps(T)
+            @test maximum(abs.(V[:, 4] .- T(0.5) * (5 * x .^ 3 .- 3 * x))) ≤
+                  2 * eps(T)
+        end
+    end
+end

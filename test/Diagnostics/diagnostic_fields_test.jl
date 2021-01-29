@@ -141,7 +141,7 @@ function run_brick_diagostics_fields_test()
     npr = MPI.Comm_size(mpicomm)
     toler = Dict(Float64 => 1e-8, Float32 => 1e-4)
     # Working precision
-    for FT in (Float32, Float64)
+    for FT in (Float64,)#(Float32, Float64)
         # DG polynomial order
         N = (4, 5)
         # Domain resolution and size
@@ -168,7 +168,6 @@ function run_brick_diagostics_fields_test()
             Courant_number = CFL,
         )
         #------------------------------------------------------------------------
-
         model = driver_config.bl
         Q = solver_config.Q
         dg = solver_config.dg
@@ -201,7 +200,7 @@ function run_brick_diagostics_fields_test()
             -sin.(pi * x ./ xmax) .* cos.(pi * y ./ ymax) .*
             sin.(pi * z ./ zmax) .* pi ./ zmax # ∂/∂z
 
-        Q.data[:, _ρ, 1:Nel] .= 1.0 .+ fcn0(x1, x2, x3, xmax, ymax, zmax) * 5.0
+        Q.data[:, _ρ, 1:Nel] .= 1.0 .+ fcn0(x1, x2, x3, xmax, ymax, zmax) * 0.2 #5.0
         Q.data[:, _ρu, 1:Nel] .=
             Q.data[:, _ρ, 1:Nel] .* fcn0(x1, x2, x3, xmax, ymax, zmax)
         Q.data[:, _ρv, 1:Nel] .=
@@ -241,6 +240,7 @@ function run_brick_diagostics_fields_test()
         err[12] = maximum(abs.(vort.Ω₃ - Ω₃_exact))
 
         errg = MPI.Allreduce(err, max, mpicomm)
+        #--------------------
         @test maximum(errg) < toler[FT]
     end
 end

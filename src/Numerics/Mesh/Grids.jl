@@ -6,17 +6,21 @@ import ..BrickMesh
 using MPI
 using LinearAlgebra
 using KernelAbstractions
+using Adapt
+using DocStringExtensions
 
 export DiscontinuousSpectralElementGrid, AbstractGrid
 export dofs_per_element, arraytype, dimensionality, polynomialorders
 export referencepoints, min_node_distance, get_z
 export EveryDirection, HorizontalDirection, VerticalDirection, Direction
+export ftpxv!
 
 abstract type Direction end
 struct EveryDirection <: Direction end
 struct HorizontalDirection <: Direction end
 struct VerticalDirection <: Direction end
 Base.in(::T, ::S) where {T <: Direction, S <: Direction} = T == S
+
 
 abstract type AbstractGrid{
     FloatType,
@@ -144,6 +148,9 @@ struct DiscontinuousSpectralElementGrid{
     "surface metric terms"
     sgeo::DAT4
 
+    "volume metric terms on mesh 2"
+    vgeo_m2::DAT3
+
     "element to boundary condition map"
     elemtobndy::DAI2
 
@@ -177,8 +184,35 @@ struct DiscontinuousSpectralElementGrid{
     "1-D lgl weights on the device (one for each dimension)"
     ω::DAT1
 
+    "1-D lgl nodes on the device (one for each dimension) for over-integration on mesh 2"
+    ξ_m2::DAT1
+
+    "1-D lgl weights on the device (one for each dimension) for over-integration on mesh 2"
+    ω_m2::DAT1
+
+    "1-D basis function matrix, on mesh 2 (for over-integration), on the device (one for each dimension)"
+    B_m2::DAT2
+
+    "transpose of 1-D basis function matrix, on mesh 2 (for over-integration), on the device (one for each dimension)"
+    B_m2ᵀ::DAT2
+
     "1-D derivative operator on the device (one for each dimension)"
     D::DAT2
+
+    "transpose of 1-D derivative operator on the device (one for each dimension)"
+    Dᵀ::DAT2
+
+    "1-D transfer matrix (Lagrangian to Legendre) for filtering (one for each dimension)"
+    lag2leg::DAT2
+
+    "1-D transfer matrix (Legendre to Lagrangian) for filtering (one for each dimension)"
+    leg2lag::DAT2
+
+    "1-D derivative operator, on mesh 2 (for over-integration), on the device (one for each dimension)"
+    D_m2::DAT2
+
+    "transpose of 1-D derivative operator, on mesh 2 (for over-integration), on the device (one for each dimension)"
+    D_m2ᵀ::DAT2
 
     "1-D indefinite integral operator on the device (one for each dimension)"
     Imat::DAT2
@@ -188,6 +222,15 @@ struct DiscontinuousSpectralElementGrid{
     other cases these match `vgeo` values
     """
     x_vtk::TVTK
+
+    "Temporary Storage for FTP"
+    ftp_storage::DAT3
+
+    "Temporary Storage for FTP on m1"
+    m1_storage::DAT3
+
+    "Temporary Storage for FTP on m2"
+    m2_storage::DAT3
 
     # Constructor for a tuple of polynomial orders
     function DiscontinuousSpectralElementGrid(
@@ -208,6 +251,7 @@ struct DiscontinuousSpectralElementGrid{
         @assert dim == length(polynomialorder)
 
         N = polynomialorder
+        N_m2 = Int.(ceil.(N .* 1.5)) # polynomial order for overintegration
 
         (vmap⁻, vmap⁺) = mappings(
             N,
@@ -230,6 +274,7 @@ struct DiscontinuousSpectralElementGrid{
         )
 
         Np = prod(N .+ 1)
+        Np_m2 = prod(N_m2 .+ 1)
 
         # Create element operators for each polynomial order
         ξω = ntuple(
@@ -239,14 +284,31 @@ struct DiscontinuousSpectralElementGrid{
             dim,
         )
         ξ, ω = ntuple(j -> map(x -> x[j], ξω), 2)
+        # for over-integration grid
+        ξω_m2 = ntuple(
+            j ->
+                N_m2[j] == 0 ? Elements.glpoints(FloatType, N_m2[j]) :
+                Elements.lglpoints(FloatType, N_m2[j]),
+            dim,
+        )
+        ξ_m2, ω_m2 = ntuple(j -> map(x -> x[j], ξω_m2), 2)
 
         Imat = ntuple(
             j -> indefinite_integral_interpolation_matrix(ξ[j], ω[j]),
             dim,
         )
+        wb = Elements.baryweights.(ξ)
         D = ntuple(j -> Elements.spectralderivative(ξ[j]), dim)
+        Dᵀ = ntuple(j -> Array(transpose(D[j])), dim)
+        leg2lag = ntuple(j -> Elements.jacobip(0, 0, N[j], ξ[j]), dim)
+        lag2leg = ntuple(j -> inv(leg2lag[j]), dim)
+        B_m2 =
+            ntuple(j -> Elements.interpolationmatrix(ξ[j], ξ_m2[j], wb[j]), dim)
+        B_m2ᵀ = ntuple(j -> Array(transpose(B_m2[j])), dim)
+        D_m2 = ntuple(j -> B_m2[j] * D[j], dim)
+        D_m2ᵀ = ntuple(j -> Array(transpose(D_m2[j])), dim)
 
-        (vgeo, sgeo, x_vtk) =
+        (vgeo, sgeo, x_vtk, J) =
             computegeometry(topology.elemtocoord, D, ξ, ω, meshwarp)
 
         @assert Np == size(vgeo, 1)
@@ -265,9 +327,52 @@ struct DiscontinuousSpectralElementGrid{
         vmaprecv = DeviceArray(vmaprecv)
         activedofs = DeviceArray(activedofs)
         ω = DeviceArray.(ω)
+        ξ_m2 = DeviceArray.(ξ_m2)
+        B_m2 = DeviceArray.(B_m2)
+        B_m2ᵀ = DeviceArray.(B_m2ᵀ)
         D = DeviceArray.(D)
+        Dᵀ = DeviceArray.(Dᵀ)
+        lag2leg = DeviceArray.(lag2leg)
+        leg2lag = DeviceArray.(leg2lag)
+        D_m2 = DeviceArray.(D_m2)
+        D_m2ᵀ = DeviceArray.(D_m2ᵀ)
         Imat = DeviceArray.(Imat)
 
+        vgeo_m2 = DeviceArray(Array{FloatType}(
+            undef,
+            Np_m2,
+            size(vgeo, 2),
+            size(vgeo, 3),
+        ))
+        ftp_storage = DeviceArray(Array{FloatType}(
+            undef,
+            Np_m2,
+            2,
+            length(topology.realelems),
+        ))
+        m1_storage = DeviceArray(Array{FloatType}(
+            undef,
+            Np,
+            3,
+            length(topology.realelems),
+        ))
+        m2_storage = DeviceArray(Array{FloatType}(
+            undef,
+            Np_m2,
+            3,
+            length(topology.realelems),
+        ))
+        J = DeviceArray(J)
+        computegeometry_m2!(
+            vgeo,
+            vgeo_m2,
+            B_m2,
+            J,
+            ω_m2,
+            ftp_storage,
+            DeviceArray,
+        )
+        ω_m2 = DeviceArray.(ω_m2)
         # FIXME: There has got to be a better way!
         DAT1 = typeof(ω)
         DAT2 = typeof(D)
@@ -298,6 +403,7 @@ struct DiscontinuousSpectralElementGrid{
             topology,
             vgeo,
             sgeo,
+            vgeo_m2,
             elemtobndy,
             vmap⁻,
             vmap⁺,
@@ -309,9 +415,21 @@ struct DiscontinuousSpectralElementGrid{
             DeviceArray(topology.exteriorelems),
             activedofs,
             ω,
+            ξ_m2,
+            ω_m2,
+            B_m2,
+            B_m2ᵀ,
             D,
+            Dᵀ,
+            lag2leg,
+            leg2lag,
+            D_m2,
+            D_m2ᵀ,
             Imat,
             x_vtk,
+            ftp_storage,
+            m1_storage,
+            m2_storage,
         )
     end
 end
@@ -859,7 +977,7 @@ function computegeometry(elemtocoord, D, ξ, ω, meshwarp)
     # edge values)
     x_vtk = (vgeo[:, _x1, :], vgeo[:, _x2, :], vgeo[:, _x3, :])
 
-    (vgeo, sgeo, x_vtk)
+    (vgeo, sgeo, x_vtk, J)
 end
 
 function horizontal_metrics(vgeo, Nq, ω)
@@ -1075,6 +1193,117 @@ neighbors.
     end
 
     min_neighbor_distance[ijk, e] = md
+end
+
+"""
+    VGeo{FT,FTA2D}
+
+This struct contains the volume metric terms
+# Fields
+$(DocStringExtensions.FIELDS)
+"""
+struct VGeo{FT <: AbstractFloat, FTA2D <: AbstractArray{FT, 2}}
+    "ξ1x1 (`npts`,`Nel`)"
+    ξ1x1::FTA2D
+    "ξ2x1(`npts`,`Nel`)"
+    ξ2x1::FTA2D
+    "ξ3x1 (`npts`,`Nel`)"
+    ξ3x1::FTA2D
+    "ξ1x2 (`npts`,`Nel`)"
+    ξ1x2::FTA2D
+    "ξ2x2 (`npts`,`Nel`)"
+    ξ2x2::FTA2D
+    "ξ3x2 (`npts`,`Nel`)"
+    ξ3x2::FTA2D
+    "ξ1x3 (`npts`,`Nel`)"
+    ξ1x3::FTA2D
+    "ξ1x3 (`npts`,`Nel`)"
+    ξ2x3::FTA2D
+    "ξ1x3 (`npts`,`Nel`)"
+    ξ3x3::FTA2D
+    " wt * Jacobian (`npts`,`Nel`)"
+    wtxjac::FTA2D
+    "inverse of mass matrix  (`npts`,`Nel`)"
+    MI::FTA2D
+    MH::FTA2D
+    "x1 (`npts`,`Nel`)"
+    x1::FTA2D
+    "x2 (`npts`,`Nel`)"
+    x2::FTA2D
+    "x3 (`npts`,`Nel`)"
+    x3::FTA2D
+    JcV::FTA2D
+end
+Adapt.@adapt_structure VGeo
+
+include("FTP.jl")
+
+function computegeometry_m2!(
+    vgeo::FTA3D,
+    vgeo_m2::FTA3D,
+    B_m2::Tuple{FTA2D, FTA2D, FTA2D},
+    J::FTA2D,
+    ω_m2::Tuple{FTA1D, FTA1D, FTA1D},
+    temp::AbstractArray{FT, 3},
+    ::Type{DA},
+) where {
+    FT <: AbstractFloat,
+    FTA1D <: AbstractArray{FT, 1},
+    FTA2D <: AbstractArray{FT, 2},
+    FTA3D <: AbstractArray{FT, 3},
+    DA,
+}
+    si, sj, sk = size(B_m2[1], 2), size(B_m2[2], 2), size(B_m2[3], 2)
+    sr, ss, st = size(B_m2[1], 1), size(B_m2[2], 1), size(B_m2[3], 1)
+    for i in (
+        _ξ1x1,
+        _ξ2x1,
+        _ξ3x1,
+        _ξ1x2,
+        _ξ2x2,
+        _ξ3x2,
+        _ξ1x3,
+        _ξ2x3,
+        _ξ3x3,
+        _x1,
+        _x2,
+        _x3,
+    )
+        ftpxv!(
+            view(vgeo, :, i, :),
+            view(vgeo_m2, :, i, :),
+            B_m2[1],
+            B_m2[2],
+            B_m2[3],
+            si,
+            sj,
+            sk,
+            sr,
+            ss,
+            st,
+            temp,
+        )
+    end
+    ftpxv!(
+        J,
+        view(vgeo_m2, :, _M, :),
+        B_m2[1],
+        B_m2[2],
+        B_m2[3],
+        si,
+        sj,
+        sk,
+        sr,
+        ss,
+        st,
+        temp,
+    )
+    ω_m2_full = DA(kron(1, reverse(ω_m2)...))
+    for i in 1:size(J, 2)
+        vgeo_m2[:, _M, i] .*= ω_m2_full
+    end
+    # _MI, _MH, _JcV
+    # TODO: Need to create geo struct, build vgeo_m1, vgeo_m2 objects
 end
 
 end # module
