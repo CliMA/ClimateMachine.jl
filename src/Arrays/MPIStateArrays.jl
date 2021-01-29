@@ -33,7 +33,7 @@ export MPIStateArray,
 
 """
     MPIStateArray{FT, DATN<:AbstractArray{FT,3}, DAI1, DAV,
-                  DAT2<:AbstractArray{FT,2}} <: AbstractArray{FT, 3}
+                  Buf<:CMBuffer, DATW} <: AbstractArray{FT, 3}
 """
 mutable struct MPIStateArray{
     FT,
@@ -42,6 +42,7 @@ mutable struct MPIStateArray{
     DAI1,
     DAV,
     Buf <: CMBuffer,
+    DATW,
 } <: AbstractArray{FT, 3}
     mpicomm::MPI.Comm
     data::DATN
@@ -63,7 +64,7 @@ mutable struct MPIStateArray{
     nabrtovmaprecv::Array{UnitRange{Int64}, 1}
     nabrtovmapsend::Array{UnitRange{Int64}, 1}
 
-    weights::DATN
+    weights::DATW
 end
 
 function MPIStateArray{FT, V}(
@@ -134,7 +135,8 @@ function MPIStateArray{FT, V}(
         typeof(data),
         typeof(vmaprecv),
         typeof(realdata),
-        typeof(send_buffer)
+        typeof(send_buffer),
+        typeof(weights),
     }(
         # Make sure that each MPIStateArray has its own MPI context.  This
         # allows multiple MPIStateArrays to be communicating asynchronously

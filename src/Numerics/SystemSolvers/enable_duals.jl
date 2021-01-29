@@ -30,10 +30,8 @@ enable_duals(input::Any, n::Int = 1, tag = nothing) = input
 
 # If the input contains cached objects like operators or arrays, those objects
 # should be modified to accept dual numbers.
-enable_duals(op::EulerOperator, n::Int = 1, tag = nothing) =
-    EulerOperator(enable_duals(op.f!, n, tag), op.ϵ)
-enable_duals(dg::DGModel, n::Int = 1, tag = nothing) =
-    DGModel(
+function enable_duals(dg::DGModel, n::Int = 1, tag = nothing)
+    newdg = DGModel(
         dg.balance_law,
         dg.grid,
         dg.numerical_flux_first_order,
@@ -46,19 +44,37 @@ enable_duals(dg::DGModel, n::Int = 1, tag = nothing) =
         dg.diffusion_direction,
         dg.modeldata,
     )
+    FT = eltype(dg.state_auxiliary)
+    for i in 1:n
+        fill!(partial(newdg.state_auxiliary, i), zero(FT))
+        fill!(partial(newdg.state_gradient_flux, i), zero(FT))
+        for array in newdg.states_higher_order
+            fill!(partial(array, i), zero(FT))
+        end
+    end
+    return newdg
+end
 
 # If necessary, modify the data and realdata in an MPIStateArray to make them
 # accept dual numbers.
 enable_duals(Q::MPIStateArray{<:Dual}, n::Int = 1, tag = nothing) = Q
 function enable_duals(
-    Q::MPIStateArray{FT},
+    Q::MPIStateArray{FT, V, DATN, DAI1, DAV, Buf, DATW},
     n::Int = 1,
     tag = nothing
-) where {FT}
+) where {FT, V, DATN, DAI1, DAV, Buf, DATW}
     data = enable_duals(Q.data)
     realdata =
         view(data, ntuple(i -> Colon(), ndims(data) - 1)..., Q.realelems)
-    return MPIStateArray(
+    return MPIStateArray{
+        eltype(data),
+        V,
+        typeof(data),
+        DAI1,
+        typeof(realdata),
+        Buf,
+        DATW,
+    }(
         Q.mpicomm,
         data,
         realdata,
@@ -123,9 +139,9 @@ setvalue!(Q::StructArray{DT, N, NTup}, value::AT) where {
     NTup <: NamedTuple{(:value, :partials), <:Tuple{AT, StructArray}}
 } = StructArray{DT, N, NTup}(NTup((value, Q.partials)))
 function setvalue!(
-    Q::MPIStateArray{<:Dual{FT}},
+    Q::MPIStateArray{DT},
     value::MPIStateArray{FT}
-) where {FT}
+) where {Tag, FT, N, DT <: Dual{Tag, FT, N}}
     Q.data = setvalue!(Q.data, value.data)
     Q.realdata =
         view(Q.data, ntuple(i -> Colon(), ndims(Q.data) - 1)..., Q.realelems)

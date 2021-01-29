@@ -1,4 +1,4 @@
-export JacobianFreeNewtonKrylovAlgorithm
+export JacobianFreeNewtonKrylovAlgorithm, JaCobIanfrEEneWtONKryLovSoLVeR
 
 include("enable_duals.jl")
 
@@ -100,12 +100,14 @@ function (jvp!::JacobianVectorProductAD)(JΔQ, ΔQ, args...)
     return nothing
 end
 
-function initializejvp!(jvp!::JacobianVectorProductFD, Q)
+function initializejvp!(jvp!::JacobianVectorProductFD, Q, f!)
     jvp!.Q = Q
+    jvp!.f! = f!
     return nothing
 end
-function initializejvp!(jvp!::JacobianVectorProductAD, Q)
+function initializejvp!(jvp!::JacobianVectorProductAD, Q, f!)
     jvp!.QdQ = setvalue!(jvp!.QdQ, Q)
+    jvp!.f! = enable_duals(f!) # TODO: don't allocate new dual DGModel each time
     return nothing
 end
 
@@ -269,7 +271,7 @@ function initialize!(
     rhs,
     args...;
 )
-    initializejvp!(solver.jvp!, Q)
+    initializejvp!(solver.jvp!, Q, f!)
     return residual!(solver, threshold, iters, Q, f!, rhs, args...)
 end
 
