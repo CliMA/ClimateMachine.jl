@@ -209,6 +209,15 @@ steps:
       config: cpu
       queue: central
       slurm_ntasks: 3
+  
+  - label: "cpu_isentropicvortex_lmars"
+    key: "cpu_isentropicvortex_lmars"
+    command:
+      - "mpiexec julia --color=yes --project test/Numerics/DGMethods/Euler/isentropicvortex_lmars.jl "
+    agents:
+      config: cpu
+      queue: central
+      slurm_ntasks: 3
 
   - label: "cpu_isentropicvortex_multirate"
     key: "cpu_isentropicvortex_multirate"
@@ -682,6 +691,16 @@ steps:
     key: "gpu_isentropicvortex_imex"
     command:
       - "mpiexec julia --color=yes --project test/Numerics/DGMethods/Euler/isentropicvortex_imex.jl "
+    agents:
+      config: gpu
+      queue: central
+      slurm_ntasks: 3
+      slurm_gres: "gpu:1"
+
+  - label: "gpu_isentropicvortex_lmars"
+    key: "gpu_isentropicvortex_lmars"
+    command:
+      - "mpiexec julia --color=yes --project test/Numerics/DGMethods/Euler/isentropicvortex_lmars.jl "
     agents:
       config: gpu
       queue: central
