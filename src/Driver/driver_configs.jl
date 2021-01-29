@@ -101,6 +101,8 @@ struct DriverConfiguration{FT}
     numerical_flux_gradient::NumericalFluxGradient
     # DGFVModel details, used when polyorder_vert = 0
     fv_reconstruction::Union{Nothing, AbstractReconstruction}
+    # Cutoff filter to emulate overintegration
+    filter
     #
     # Configuration-specific info
     config_info::ConfigSpecificInfo
@@ -120,6 +122,7 @@ struct DriverConfiguration{FT}
         numerical_flux_second_order::NumericalFluxSecondOrder,
         numerical_flux_gradient::NumericalFluxGradient,
         fv_reconstruction::Union{Nothing, AbstractReconstruction},
+        filter,
         config_info::ConfigSpecificInfo,
     )
         return new{FT}(
@@ -136,6 +139,7 @@ struct DriverConfiguration{FT}
             numerical_flux_second_order,
             numerical_flux_gradient,
             fv_reconstruction,
+            filter,
             config_info,
         )
     end
@@ -190,9 +194,11 @@ function AtmosLESConfiguration(
     numerical_flux_gradient = CentralNumericalFluxGradient(),
     fv_reconstruction = nothing,
     grid_stretching = (nothing, nothing, nothing),
+    Ncutoff = N,
 ) where {FT <: AbstractFloat}
 
     (polyorder_horz, polyorder_vert) = get_polyorders(N)
+    (cutofforder_horz, cutofforder_vert) = get_polyorders(Ncutoff)
 
     # Check if the element resolution was passed as a CL option
     if ClimateMachine.Settings.resolution != (-1, -1, -1)
@@ -246,12 +252,21 @@ function AtmosLESConfiguration(
         meshwarp = meshwarp,
     )
 
+    if cutofforder_horz < polyorder_horz || cutofforder_vert < polyorder_vert
+        filter = CutoffFilter(grid, (cutofforder_horz + 1, cutofforder_horz + 1, cutofforder_vert + 1))
+    else
+        filter = nothing
+    end
+
+
     @info @sprintf(
         """
 Establishing Atmos LES configuration for %s
     precision               = %s
     horiz polynomial order  = %d
     vert polynomial order   = %d
+    cutofforder_horz        = %d
+    cutofforder_vert        = %d
     domain_min              = %.2f m, %.2f m, %.2f m
     domain_max              = %.2f m, %.2f m, %.2f m
     resolution              = %dx%dx%d
@@ -262,6 +277,8 @@ Establishing Atmos LES configuration for %s
         FT,
         polyorder_horz,
         polyorder_vert,
+        cutofforder_horz,
+        cutofforder_vert,
         xmin,
         ymin,
         zmin,
@@ -291,6 +308,7 @@ Establishing Atmos LES configuration for %s
         numerical_flux_second_order,
         numerical_flux_gradient,
         fv_reconstruction,
+        filter,
         AtmosLESSpecificInfo(),
     )
 end
@@ -316,9 +334,11 @@ function AtmosGCMConfiguration(
     numerical_flux_gradient = CentralNumericalFluxGradient(),
     fv_reconstruction = nothing,
     grid_stretching = nothing,
+    Ncutoff = N,
 ) where {FT <: AbstractFloat}
 
     (polyorder_horz, polyorder_vert) = get_polyorders(N)
+    (cutofforder_horz, cutofforder_vert) = get_polyorders(Ncutoff)
 
     # Check if the number of elements was passed as a CL option
     if ClimateMachine.Settings.nelems != (-1, -1)
@@ -355,12 +375,21 @@ function AtmosGCMConfiguration(
         meshwarp = meshwarp,
     )
 
+
+    if cutofforder_horz < polyorder_horz || cutofforder_vert < polyorder_vert
+        filter = CutoffFilter(grid, (cutofforder_horz + 1, cutofforder_horz + 1, cutofforder_vert + 1))
+    else
+        filter = nothing
+    end
+
     @info @sprintf(
         """
 Establishing Atmos GCM configuration for %s
     precision               = %s
     horiz polynomial order  = %d
     vert polynomial order   = %d
+    cutofforder_horz        = %d
+    cutofforder_vert        = %d
     # horiz elem            = %d
     # vert elems            = %d
     domain height           = %.2e m
@@ -371,6 +400,8 @@ Establishing Atmos GCM configuration for %s
         FT,
         polyorder_horz,
         polyorder_vert,
+        cutofforder_horz,
+        cutofforder_vert,
         nelem_horz,
         nelem_vert,
         domain_height,
@@ -394,6 +425,7 @@ Establishing Atmos GCM configuration for %s
         numerical_flux_second_order,
         numerical_flux_gradient,
         fv_reconstruction,
+        filter,
         AtmosGCMSpecificInfo(domain_height, nelem_vert, nelem_horz),
     )
 end
@@ -455,6 +487,7 @@ function OceanBoxGCMConfiguration(
         numerical_flux_second_order,
         numerical_flux_gradient,
         fv_reconstruction,
+        nothing, # filter
         OceanBoxGCMSpecificInfo(),
     )
 end
@@ -560,6 +593,7 @@ Establishing single stack configuration for %s
         numerical_flux_second_order,
         numerical_flux_gradient,
         fv_reconstruction,
+        nothing, # filter
         SingleStackSpecificInfo(),
     )
 end
@@ -673,6 +707,7 @@ Establishing MultiColumnLandModel configuration for %s
         numerical_flux_second_order,
         numerical_flux_gradient,
         fv_reconstruction,
+        nothing, # filter
         MultiColumnLandSpecificInfo(),
     )
 end
@@ -692,6 +727,8 @@ DGModel(driver_config; kwargs...) = DGModel(
     driver_config.numerical_flux_first_order,
     driver_config.numerical_flux_second_order,
     driver_config.numerical_flux_gradient;
+    gradient_filter=driver_config.filter,
+    tendency_filter=driver_config.filter,
     kwargs...,
 )
 
