@@ -59,6 +59,7 @@ import ..BalanceLaws:
     boundary_state!,
     compute_gradient_argument!,
     compute_gradient_flux!,
+    compute_gradient_hyperflux!,
     transform_post_gradient_laplacian!,
     prognostic_to_primitive!,
     primitive_to_prognostic!,

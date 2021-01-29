@@ -1077,6 +1077,17 @@ function init_aux_hyperdiffusion!(
     geom::LocalGeometry,
 )
     aux.hyperdiffusion.Δ = lengthscale(geom)
+
+    FT = eltype(aux)
+
+    k = geom.coord / norm(geom.coord)
+    # horizontal hyperdiffusion tensor
+    aux.hyperdiffusion.H = (I - k * k')
+    # horizontal hyperdiffusion projection of gradients
+    aux.hyperdiffusion.P = I - k * k'
+    # vertical diffusion tensor
+    #aux.diffusion.D = vert_diff_ν * k * k'
+
 end
 
 function compute_gradient_argument!(
@@ -1109,7 +1120,8 @@ function compute_gradient_hyperflux!(
     ∇h_tot = ∇transform.hyperdiffusion.h_tot
     P = 1.0 #aux.hyperdiffusion.P
 
-    auxHDG.χ_u_h   = ∇u_h .* P #hcat(ntuple(n -> P * [:, :] * ∇u_h[:, n], Val(3))...)
+    #auxHDG.χ_u_h   = ∇u_h .* P #
+    auxHDG.χ_u_h = hcat(ntuple(n -> P * [:, :] * ∇u_h[:, n], Val(3))...)
     auxHDG.χ_h_tot = P .* ∇h_tot
 
 end
@@ -1149,9 +1161,9 @@ function transform_post_gradient_laplacian!(
     t::Real,
 )
     H = aux.hyperdiffusion.H
-    H = 1.0
 
-    ∇Δu_h = H .* hypertransform.hyperdiffusion.u_h # hcat(ntuple(n -> H * [:, :] .* hypertransform.hyperdiffusion.u_h[:, n], Val(3))...)
+    #∇Δu_h = H .* hypertransform.hyperdiffusion.u_h # 
+    ∇Δu_h =  hcat(ntuple(n -> H * [:, :] .* hypertransform.hyperdiffusion.u_h[:, n], Val(3))...)
     ∇Δh_tot = H .* hypertransform.hyperdiffusion.h_tot
 
     # Unpack
