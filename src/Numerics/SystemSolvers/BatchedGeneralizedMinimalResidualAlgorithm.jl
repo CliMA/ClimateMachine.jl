@@ -186,9 +186,7 @@ function defaultbatches(Q, f!::Any, coupledstates)
     )
     return size(Q), Tuple(1:ndims(Q))
 end
-function defaultbatches(Q, op::EulerOperator, coupledstates)
-    return defaultbatches(Q, op.f!, coupledstates)
-end
+
 function defaultbatches(Q, dg::DGModel, coupledstates)
     direction = dg.direction
     grid = dg.grid
@@ -228,7 +226,7 @@ function defaultbatches(Q, dg::DGModel, coupledstates)
     return dims, batchdimindices
 end
 
-struct BatechedGeneralizedMinimalResidualSolver{BT, PT, AT, BMT, BAT, FT} <:
+struct BatchedGeneralizedMinimalResidualSolver{BT, PT, AT, BMT, BAT, FT} <:
         IterativeSolver
     batcher::BT        # batcher that can transform, e.g., basisveccurr to Qs
     preconditioner::PT # right preconditioner
@@ -284,7 +282,7 @@ function IterativeSolver(
     batchsize = prod(dims[[batchdimindices...]])
     nbatches = prod(dims[[remainingdimindices...]])
     rvQ = realview(Q)
-    return BatechedGeneralizedMinimalResidualSolver(
+    return BatchedGeneralizedMinimalResidualSolver(
         Batcher(dims, (batchdimindices..., remainingdimindices...)),
         preconditioner,
         similar(Q),
@@ -304,12 +302,12 @@ function IterativeSolver(
     )
 end
 
-atol(solver::BatechedGeneralizedMinimalResidualSolver) = solver.atol
-rtol(solver::BatechedGeneralizedMinimalResidualSolver) = solver.rtol
-maxiters(solver::BatechedGeneralizedMinimalResidualSolver) = solver.maxrestarts + 1
+atol(solver::BatchedGeneralizedMinimalResidualSolver) = solver.atol
+rtol(solver::BatchedGeneralizedMinimalResidualSolver) = solver.rtol
+maxiters(solver::BatchedGeneralizedMinimalResidualSolver) = solver.maxrestarts + 1
 
 function residual!(
-    solver::BatechedGeneralizedMinimalResidualSolver,
+    solver::BatchedGeneralizedMinimalResidualSolver,
     threshold,
     iters,
     Q,
@@ -347,7 +345,7 @@ function residual!(
 end
 
 function initialize!(
-    solver::BatechedGeneralizedMinimalResidualSolver,
+    solver::BatchedGeneralizedMinimalResidualSolver,
     threshold,
     iters,
     args...;
@@ -356,7 +354,7 @@ function initialize!(
 end
 
 function doiteration!(
-    solver::BatechedGeneralizedMinimalResidualSolver,
+    solver::BatchedGeneralizedMinimalResidualSolver,
     threshold,
     iters,
     Q,

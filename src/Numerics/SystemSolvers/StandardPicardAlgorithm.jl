@@ -1,4 +1,4 @@
-export StandardPicardAlgorithm
+export StandardPicardAlgorithm, StandardPicardSolver
 
 struct StandardPicardAlgorithm <: IterativeAlgorithm
     atol

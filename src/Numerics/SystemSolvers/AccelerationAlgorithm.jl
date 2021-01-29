@@ -1,4 +1,4 @@
-export AndersonAccelerationAlgorithm
+export AndersonAccelerationAlgorithm, AccelerationSolver
 
 abstract type AccelerationSolver <: IterativeSolver end
 

@@ -1,33 +1,6 @@
 export LinearBackwardEulerSolver, AbstractBackwardEulerSolver
 export NonLinearBackwardEulerSolver
 
-# abstract type AbstractImplicitOperator end
-
-# """
-#     op! = EulerOperator(f!, ϵ)
-
-# Construct a linear operator which performs an explicit Euler step ``Q + α
-# f(Q)``, where `f!` and `op!` both operate inplace, with extra arguments passed
-# through, i.e.
-# ```
-# op!(LQ, Q, args...)
-# ```
-# is equivalent to
-# ```
-# f!(dQ, Q, args...)
-# LQ .= Q .+ ϵ .* dQ
-# ```
-# """
-# mutable struct EulerOperator{F, FT} <: AbstractImplicitOperator
-#     f!::F
-#     ϵ::FT
-# end
-
-# function (op::EulerOperator)(LQ, Q, args...)
-#     op.f!(LQ, Q, args..., increment = false)
-#     @. LQ = Q + op.ϵ * LQ
-# end
-
 """
     AbstractBackwardEulerSolver
 
@@ -269,9 +242,12 @@ function setup_backward_Euler_solver(
     f_imp!,
 )
     # Create an empty JacobianAction (without operator)
-    jvp! = JacobianAction(nothing, Q, nlbesolver.nlsolver.ϵ)
-
-    # Create an empty preconditioner if preconditioner_update_freq > 0
+    if nlbesolver.nlsolver isa JacobianFreeNewtonKrylovSolver
+        jvp! = JacobianAction(nothing, Q, nlbesolver.nlsolver.ϵ)
+    else
+        jvp! = JacobianAction(nothing, Q, α)
+    end
+        # Create an empty preconditioner if preconditioner_update_freq > 0
     preconditioner_update_freq = nlbesolver.preconditioner_update_freq
     # construct an empty preconditioner
     preconditioner = (
@@ -290,27 +266,48 @@ function setup_backward_Euler_solver(
 end
 
 """
-Nonlinear solve
+    (nlbesolver::NonLinBESolver)(Q, Qhat, α, p, t)
 
-Update rhs! with α
-
-Update the rhs! in the jacobian action jvp!
+Set up and solve the nonlinear system as specified by the internal `nlsolver`.
 """
 function (nlbesolver::NonLinBESolver)(Q, Qhat, α, p, t)
+    solve!(nlbesolver.nlsolver, Q, nlbesolver.f_imp!, Qhat, α, p, t, nlbesolver.jvp!, nlbesolver.preconditioner)
+end
 
-    rhs! = EulerOperator(nlbesolver.f_imp!, -α)
+"""
+    solve!
 
-    nlbesolver.jvp!.rhs! = rhs!
+Sets up the backward Euler problem in the format needed by the nlsolver
+and calls solve!.
+"""
+function solve!(solver::JacobianFreeNewtonKrylovSolver, Q, f!, Qhat, α, p, t, jvp!, pc)
+    rhs! = EulerOperator(f!, -α)
 
+    jvp!.rhs! = rhs!
     nonlinearsolve!(
         rhs!,
-        nlbesolver.jvp!,
-        nlbesolver.preconditioner,
-        nlbesolver.nlsolver,
+        jvp!,
+        pc,
+        solver,
         Q,
         Qhat,
         p,
         t,
     )
+end
 
+function solve!(solver::JaCobIanfrEEneWtONKryLovSoLVeR, Q, f!, Qhat, α, p, t, args...)
+    rhs! = NewtonOperator(f!, -α)
+    solve!(solver, Q, rhs!, Qhat, p, t)
+end
+
+# Q^{n+1} = F(Q^{n+1})
+# F = Q^n + α f(Q^{n+1,k}) = Q^{n+1,k+1}
+function solve!(solver::StandardPicardSolver, Q, f!, Qhat, α, p, t, args...)
+    rhs! = PicardOperator(f!, α, Qhat)
+    solve!(solver, Q, rhs!, p, t)
+end
+
+function solve!(solver::AccelerationSolver, Q, f!, Qhat, α, p, t, args...)
+    solve!(solver.iterativesolver, Q, f!, Qhat, α, p, t, args...)
 end
