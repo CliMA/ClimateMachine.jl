@@ -54,24 +54,40 @@ mA=Coupling.CplTestModel(;domain=domainA,BL_module=CplTestingBL, nsteps=5)
 mO=Coupling.CplTestModel(;domain=domainO,BL_module=CplTestingBL, nsteps=2)
 #mL=Coupling.CplTestModel(;domain=domainL,BL_module=CplTestingBL)
 
+# I think each BL can have a pre- and post- couple function?
 function postatmos(_)
+    println(" Ocean component finished stepping...")
     println("Atmos export fill callback")
-
+    # Pass atmos exports to "coupler"
     mO.discretization.state_auxiliary.boundary_in[mO.discretization.grid.vgeo[:,_x3:_x3,:] .== 0] .= mA.discretization.state_auxiliary.boundary_out[mA.discretization.grid.vgeo[:,_x3:_x3,:] .== 0]
-
 end
+
 function postocean(_)
+    println(" Ocean component finished stepping...")
     println("Ocean export fill callback")
+    # Pass ocean exports to "coupler"
     mA.discretization.state_auxiliary.boundary_in[mA.discretization.grid.vgeo[:,_x3:_x3,:] .== 0] .= mO.discretization.state_auxiliary.boundary_out[mO.discretization.grid.vgeo[:,_x3:_x3,:] .== 0]
+end
+
+function preatmos(_)
+        println("Atmos import fill callback")
+        println(" Atmos component start stepping...")
+        nothing
+end
+function preocean(_)
+        println("Ocean import fill callback")
+        println(" Ocean component start stepping...")
+        nothing
 end
 
 # Instantiate a coupled timestepper that steps forward the components and
 # implements mapings between components export bondary states and
 # other components imports.
-component_list=(atmosphere=mA,ocean=mO,)
-callback_list =(atmosphere=postatmos,ocean=postocean,)
+
+compA=(pre_step=preatmos,component_model=mA,post_step=postatmos)
+compO=(pre_step=preocean,component_model=mO,post_step=postocean)
+component_list=( atmosphere=compA,ocean=compO,)
 cC=Coupling.CplSolver(component_list=component_list,
-                      callback_list=callback_list,
                       coupling_dt=5.,t0=0.)
 
 # Invoke solve! with coupled timestepper and callback list.
