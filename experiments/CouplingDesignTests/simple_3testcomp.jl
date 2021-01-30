@@ -63,7 +63,8 @@ function postatmos(_)
     println("Atmos export fill callback")
     # Pass atmos exports to "coupler" namespace
     # For now we use deepcopy here.
-    cState.CplStateBlob[:Atmos_MeanAirSeaHeatFlux]=deepcopy(mA.discretization.state_auxiliary.boundary_out[mA.discretization.grid.vgeo[:,_x3:_x3,:] .== 0] )
+    # 1. Save mean θ flux at the Atmos boundary during the couling period
+    cState.CplStateBlob[:Atmos_MeanAirSeaHeatFlux]=deepcopy(mA.state.θ_boundary_export[mA.discretization.grid.vgeo[:,_x3:_x3,:] .== 0] )
     # mO.discretization.state_auxiliary.boundary_in[mO.discretization.grid.vgeo[:,_x3:_x3,:] .== 0] .= mA.discretization.state_auxiliary.boundary_out[mA.discretization.grid.vgeo[:,_x3:_x3,:] .== 0]
 end
 
@@ -71,22 +72,23 @@ function postocean(_)
     println(" Ocean component finished stepping...")
     println("Ocean export fill callback")
     # Pass ocean exports to "coupler" namespace
+    #  1. Ocean SST (value of θ at z=0)
     cState.CplStateBlob[:Ocean_SST]=deepcopy( mO.state.θ[mO.discretization.grid.vgeo[:,_x3:_x3,:] .== 0] )
     # mA.discretization.state_auxiliary.boundary_in[mA.discretization.grid.vgeo[:,_x3:_x3,:] .== 0] .= mO.discretization.state_auxiliary.boundary_out[mO.discretization.grid.vgeo[:,_x3:_x3,:] .== 0]
 end
 
 function preatmos(_)
         println("Atmos import fill callback")
-        # Set boundary SST to SST of ocean surface at start of coupling cycle.
+        # Set boundary SST used in atmos to SST of ocean surface at start of coupling cycle.
         mA.discretization.state_auxiliary.boundary_in[mA.discretization.grid.vgeo[:,_x3:_x3,:] .== 0] .= cState.CplStateBlob[:OceanSST]
-        # Set boundary export accumulators to 0.
+        # Set atmos boundary flux accumulator to 0.
         mA.state.θ_boundary_export.=0
         println(" Atmos component start stepping...")
         nothing
 end
 function preocean(_)
         println("Ocean import fill callback")
-        # Set boundary export accumulators to 0.
+        # Set ocean boundary flux accumulator to 0. (this isn't used)
         mO.state.θ_boundary_export.=0
         println(" Ocean component start stepping...")
         nothing
