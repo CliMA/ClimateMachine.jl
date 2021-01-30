@@ -55,6 +55,7 @@ mO=Coupling.CplTestModel(;domain=domainO,BL_module=CplTestingBL, nsteps=2)
 #mL=Coupling.CplTestModel(;domain=domainL,BL_module=CplTestingBL)
  
 # Create a Coupler State object for holding imort/export fields.
+# Try using Dict here - not sure if that will be OK with GPU
 cState=CplState( Dict(:Atmos_MeanAirSeaθFlux=>[ ], :Ocean_SST=>[ ] ) )
 
 # I think each BL can have a pre- and post- couple function?
