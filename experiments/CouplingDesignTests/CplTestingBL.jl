@@ -1,6 +1,5 @@
 """
     module CplTestingBL
-
  Defines an equation set for testing coupling
 
  Defines kernels to evaluates RHS of
