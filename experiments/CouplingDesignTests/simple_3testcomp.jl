@@ -55,7 +55,7 @@ mO=Coupling.CplTestModel(;domain=domainO,BL_module=CplTestingBL, nsteps=2)
 #mL=Coupling.CplTestModel(;domain=domainL,BL_module=CplTestingBL)
  
 # Create a Coupler State object for holding imort/export fields.
-cState=CplState( Dict(:AtmosAirSeaHeatFlux=>[ ], :OceanSST=>[ ] ) )
+cState=CplState( Dict(:Atmos_MeanAirSeaHeatFlux=>[ ], :Ocean_SST=>[ ] ) )
 
 # I think each BL can have a pre- and post- couple function?
 function postatmos(_)
@@ -63,7 +63,7 @@ function postatmos(_)
     println("Atmos export fill callback")
     # Pass atmos exports to "coupler" namespace
     # For now we use deepcopy here.
-    cState.CplStateBlob[:AtmosAirSeaHeatFlux]=deepcopy(mA.discretization.state_auxiliary.boundary_out[mA.discretization.grid.vgeo[:,_x3:_x3,:] .== 0] )
+    cState.CplStateBlob[:Atmos_MeanAirSeaHeatFlux]=deepcopy(mA.discretization.state_auxiliary.boundary_out[mA.discretization.grid.vgeo[:,_x3:_x3,:] .== 0] )
     # mO.discretization.state_auxiliary.boundary_in[mO.discretization.grid.vgeo[:,_x3:_x3,:] .== 0] .= mA.discretization.state_auxiliary.boundary_out[mA.discretization.grid.vgeo[:,_x3:_x3,:] .== 0]
 end
 
@@ -71,18 +71,23 @@ function postocean(_)
     println(" Ocean component finished stepping...")
     println("Ocean export fill callback")
     # Pass ocean exports to "coupler" namespace
-    cState.CplStateBlob[:OceanSST]=deepcopy( mO.discretization.state_auxiliary.boundary_out[mO.discretization.grid.vgeo[:,_x3:_x3,:] .== 0] )
+    cState.CplStateBlob[:Ocean_SST]=deepcopy( mO.state.θ[mO.discretization.grid.vgeo[:,_x3:_x3,:] .== 0] )
     # mA.discretization.state_auxiliary.boundary_in[mA.discretization.grid.vgeo[:,_x3:_x3,:] .== 0] .= mO.discretization.state_auxiliary.boundary_out[mO.discretization.grid.vgeo[:,_x3:_x3,:] .== 0]
 end
 
 function preatmos(_)
         println("Atmos import fill callback")
+        # Set boundary SST to SST of ocean surface at start of coupling cycle.
         mA.discretization.state_auxiliary.boundary_in[mA.discretization.grid.vgeo[:,_x3:_x3,:] .== 0] .= cState.CplStateBlob[:OceanSST]
+        # Set boundary export accumulators to 0.
+        mA.state.θ_boundary_export.=0
         println(" Atmos component start stepping...")
         nothing
 end
 function preocean(_)
         println("Ocean import fill callback")
+        # Set boundary export accumulators to 0.
+        mO.state.θ_boundary_export.=0
         println(" Ocean component start stepping...")
         nothing
 end
