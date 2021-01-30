@@ -340,7 +340,8 @@ function dostep!(
         α = dt * RKA_implicit[istage, istage]
         # compare α at current stage with the coefficient in the already
         # built implicit solver
-        if α !== besolver!.α
+        α_impl = get_implicit_operator_coefficient(besolver!)
+        if α_impl !== nothing && α_impl !== α
             update_backward_Euler_solver!(besolver!, Q, α)
         end
         besolver!(Qstages[istage], Qhat, α, p, stagetime_implicit)
@@ -895,6 +896,9 @@ function Trap2LockWoodWeller(
     nsubsteps = [],
     split_explicit_implicit = false,
     variant = NaiveVariant(),
+    δ_s = 1,
+    δ_f = 0,
+    α = 0,
 ) where {AT <: AbstractArray}
 
     @assert dt !== nothing
@@ -905,30 +909,26 @@ function Trap2LockWoodWeller(
     T = eltype(Q)
     RT = real(T)
 
-    δ_s = RT(1)
-    δ_f = RT(0)
-    α = RT(0)
-
     #! format: off
     RKA_explicit = [
         RT(0)    RT(0)    RT(0)    RT(0)
-        δ_s      RT(0)    RT(0)    RT(0)
+        RT(δ_s)  RT(0)    RT(0)    RT(0)
         RT(1/2)  RT(1/2)  RT(0)    RT(0)
         RT(1/2)  RT(0)    RT(1/2)  RT(0)
     ]
 
     RKA_implicit = [
-        RT(0)                 RT(0)                  RT(0)    RT(0)
-        RT(δ_f * (1 - α) / 2) RT(δ_f * (1 + α) / 2)  RT(0)    RT(0)
-        RT(1/2)               RT(0)                  RT(1/2)  RT(0)
-        RT(1/2)               RT(0)                  RT(0)    RT(1/2)
+        RT(0)                  RT(0)                  RT(0)    RT(0)
+        RT(δ_f * (1 - α) / 2)  RT(δ_f * (1 + α) / 2)  RT(0)    RT(0)
+        RT(1/2)                RT(0)                  RT(1/2)  RT(0)
+        RT(1/2)                RT(0)                  RT(0)    RT(1/2)
     ]
     #! format: on
 
     RKB_explicit = [RT(1/2), RT(0), RT(1/2), RT(0)]
     RKB_implicit = [RT(1/2), RT(0), RT(0), RT(1/2)]
-    RKC_explicit = [RT(0), δ_s, RT(1), RT(1)]
-    RKC_implicit = [RT(0), δ_f, RT(1), RT(1)]
+    RKC_explicit = [RT(0), RT(δ_s), RT(1), RT(1)]
+    RKC_implicit = [RT(0), RT(δ_f), RT(1), RT(1)]
 
     Nstages = length(RKB_explicit)
 
