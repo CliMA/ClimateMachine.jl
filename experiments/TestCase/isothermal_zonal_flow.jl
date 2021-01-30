@@ -79,7 +79,7 @@ function init_isothermal_zonal_flow!(problem, bl, state, aux, localgeo, t)
     state.energy.ρe = ρ * total_energy(bl.param_set, e_kin, e_pot, T₀)
 end
 
-function config_isothermal_zonal_flow(FT, poly_order, resolution, ref_state)
+function config_isothermal_zonal_flow(FT, poly_order, cutoff_order, resolution, ref_state)
     # Set up a reference state for linearization of equations
 
     domain_height = FT(10e3)
@@ -106,6 +106,7 @@ function config_isothermal_zonal_flow(FT, poly_order, resolution, ref_state)
         init_isothermal_zonal_flow!;
         model = model,
         numerical_flux_first_order = RoeNumericalFlux(),
+        Ncutoff = cutoff_order,
     )
 
     return config
@@ -141,7 +142,8 @@ end
 function main()
     # Driver configuration parameters
     FT = Float64                             # floating type precision
-    poly_order = 5                           # discontinuous Galerkin polynomial order
+    poly_order = 4                           # discontinuous Galerkin polynomial order
+    cutoff_order = 4
     n_horz = 10                              # horizontal element number
     n_vert = 5                               # vertical element number
     timestart = FT(0)                        # start time (s)
@@ -155,19 +157,23 @@ function main()
     driver_config = config_isothermal_zonal_flow(
         FT,
         poly_order,
+        cutoff_order,
         (n_horz, n_vert),
         ref_state,
     )
 
-    # Set up experiment
-    ode_solver_type = ClimateMachine.IMEXSolverType(
-        implicit_model = AtmosAcousticGravityLinearModel,
-        implicit_solver = ManyColumnLU,
-        solver_method = ARK2GiraldoKellyConstantinescu,
-        split_explicit_implicit = false,
-        discrete_splitting = true,
+    # # Set up experiment
+    # ode_solver_type = ClimateMachine.IMEXSolverType(
+    #     implicit_model = AtmosAcousticGravityLinearModel,
+    #     implicit_solver = ManyColumnLU,
+    #     solver_method = ARK2GiraldoKellyConstantinescu,
+    #     split_explicit_implicit = false,
+    #     discrete_splitting = true,
+    # )
+    ode_solver_type = ClimateMachine.ExplicitSolverType(
+        solver_method = LSRK144NiegemannDiehlBusch,
     )
-    CFL = FT(0.4)
+    CFL = FT(1)
     solver_config = ClimateMachine.SolverConfiguration(
         timestart,
         timeend,
@@ -175,7 +181,7 @@ function main()
         Courant_number = CFL,
         init_on_cpu = true,
         ode_solver_type = ode_solver_type,
-        CFL_direction = HorizontalDirection(),
+        CFL_direction = VerticalDirection(),
     )
 
     # save the initial condition for testing
@@ -203,7 +209,7 @@ function main()
         solver_config;
         diagnostics_config = dgn_config,
         user_callbacks = (cbfilter,),
-        check_euclidean_distance = true,
+        check_euclidean_distance = false,
     )
 
     relative_error = norm(solver_config.Q .- Q0) / norm(Q0)

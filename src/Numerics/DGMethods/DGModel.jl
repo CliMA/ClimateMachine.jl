@@ -14,7 +14,7 @@ Must have the following properties:
 """
 abstract type SpaceDiscretization end
 
-struct DGFVModel{BL, G, FVR, NFND, NFD, GNF, AS, DS, HDS, D, DD, MD} <:
+struct DGFVModel{BL, G, FVR, NFND, NFD, GNF, AS, DS, HDS, D, DD, MD, GF, TF} <:
        SpaceDiscretization
     balance_law::BL
     grid::G
@@ -28,6 +28,8 @@ struct DGFVModel{BL, G, FVR, NFND, NFD, GNF, AS, DS, HDS, D, DD, MD} <:
     direction::D
     diffusion_direction::DD
     modeldata::MD
+    gradient_filter::GF
+    tendency_filter::TF
 end
 
 function DGFVModel(
@@ -52,6 +54,8 @@ function DGFVModel(
     direction = EveryDirection(),
     diffusion_direction = direction,
     modeldata = nothing,
+    gradient_filter = nothing,
+    tendency_filter = nothing,
 )
     # Make sure we are FVM in the vertical
     @assert polynomialorders(grid)[end] == 0
@@ -71,10 +75,12 @@ function DGFVModel(
         direction,
         diffusion_direction,
         modeldata,
+        gradient_filter,
+        tendency_filter,
     )
 end
 
-struct DGModel{BL, G, NFND, NFD, GNF, AS, DS, HDS, D, DD, MD} <:
+struct DGModel{BL, G, NFND, NFD, GNF, AS, DS, HDS, D, DD, MD, GF, TF} <:
        SpaceDiscretization
     balance_law::BL
     grid::G
@@ -87,6 +93,8 @@ struct DGModel{BL, G, NFND, NFD, GNF, AS, DS, HDS, D, DD, MD} <:
     direction::D
     diffusion_direction::DD
     modeldata::MD
+    gradient_filter::GF
+    tendency_filter::TF
 end
 
 function DGModel(
@@ -110,6 +118,8 @@ function DGModel(
     direction = EveryDirection(),
     diffusion_direction = direction,
     modeldata = nothing,
+    gradient_filter = nothing,
+    tendency_filter = nothing,
 )
     state_auxiliary =
         init_state(state_auxiliary, balance_law, grid, direction, Auxiliary())
@@ -125,6 +135,8 @@ function DGModel(
         direction,
         diffusion_direction,
         modeldata,
+        gradient_filter,
+        tendency_filter,
     )
 end
 
@@ -294,6 +306,17 @@ function (dgfvm::DGFVModel)(tendency, state_prognostic, _, t, α, β)
             dependencies = (comp_stream, exchange_state_prognostic),
         )
 
+        if dgfvm.gradient_filter !== nothing
+            wait(device, comp_stream)
+            Filters.apply!(
+                dgfvm.state_gradient_flux,
+                1:num_state_gradient_flux,
+                dgfvm.grid,
+                dgfvm.gradient_filter,
+            )
+        end
+
+
         if communicate
             if num_state_gradient_flux > 0
                 exchange_state_gradient_flux =
@@ -402,6 +425,15 @@ function (dgfvm::DGFVModel)(tendency, state_prognostic, _, t, α, β)
     # other default stream kernels from launching before the work scheduled in
     # this function is finished.
     wait(device, comp_stream)
+
+    if dgfvm.tendency_filter !== nothing
+        Filters.apply!(
+            tendency,
+            1:num_state_tendency,
+            dgfvm.grid,
+            dgfvm.tendency_filter,
+        )
+    end
 end
 
 """
@@ -511,6 +543,16 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
             surface = :exterior,
             dependencies = (comp_stream, exchange_state_prognostic),
         )
+
+        if dg.gradient_filter !== nothing
+            wait(device, comp_stream)
+            Filters.apply!(
+                dg.state_gradient_flux,
+                1:num_state_gradient_flux,
+                dg.grid,
+                dg.gradient_filter,
+            )
+        end
 
         if communicate
             if num_state_gradient_flux > 0
@@ -720,6 +762,14 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
     # other default stream kernels from launching before the work scheduled in
     # this function is finished.
     wait(device, comp_stream)
+    if dg.tendency_filter !== nothing
+        Filters.apply!(
+            tendency,
+            1:num_state_tendency,
+            dg.grid,
+            dg.tendency_filter,
+        )
+    end
 end
 
 function init_ode_state(
