@@ -456,7 +456,7 @@ function apply_async!(
     if indices isa Colon
         indices = 1:size(Q, 2)
     end
-    apply!(Q, FilterIndices(indices...), grid, filter; kwargs...)
+    apply_async!(Q, FilterIndices(indices...), grid, filter; kwargs...)
 end
 
 """
@@ -479,7 +479,7 @@ function apply_async!(
     filter::AbstractFilter;
     kwargs...,
 )
-    apply!(
+    apply_async!(
         Q,
         FilterIndices(varsindices(vars(Q), vs)...),
         grid,
