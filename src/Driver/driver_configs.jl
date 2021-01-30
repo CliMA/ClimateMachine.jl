@@ -108,7 +108,7 @@ struct DriverConfiguration{FT}
     # DGFVModel details, used when polyorder_vert = 0
     fv_reconstruction::Union{Nothing, AbstractReconstruction}
     # Cutoff filter to emulate overintegration
-    filter
+    filter::Any
     #
     # Configuration-specific info
     config_info::ConfigSpecificInfo
@@ -259,7 +259,10 @@ function AtmosLESConfiguration(
     )
 
     if cutofforder_horz < polyorder_horz || cutofforder_vert < polyorder_vert
-        filter = CutoffFilter(grid, (cutofforder_horz + 1, cutofforder_horz + 1, cutofforder_vert + 1))
+        filter = CutoffFilter(
+            grid,
+            (cutofforder_horz + 1, cutofforder_horz + 1, cutofforder_vert + 1),
+        )
     else
         filter = nothing
     end
@@ -383,7 +386,10 @@ function AtmosGCMConfiguration(
 
 
     if cutofforder_horz < polyorder_horz || cutofforder_vert < polyorder_vert
-        filter = CutoffFilter(grid, (cutofforder_horz + 1, cutofforder_horz + 1, cutofforder_vert + 1))
+        filter = CutoffFilter(
+            grid,
+            (cutofforder_horz + 1, cutofforder_horz + 1, cutofforder_vert + 1),
+        )
     else
         filter = nothing
     end
@@ -760,8 +766,8 @@ DGModel(driver_config; kwargs...) = DGModel(
     driver_config.numerical_flux_first_order,
     driver_config.numerical_flux_second_order,
     driver_config.numerical_flux_gradient;
-    gradient_filter=driver_config.filter,
-    tendency_filter=driver_config.filter,
+    gradient_filter = driver_config.filter,
+    tendency_filter = driver_config.filter,
     kwargs...,
 )
 

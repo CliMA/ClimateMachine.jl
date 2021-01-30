@@ -79,7 +79,13 @@ function init_isothermal_zonal_flow!(problem, bl, state, aux, localgeo, t)
     state.energy.ρe = ρ * total_energy(bl.param_set, e_kin, e_pot, T₀)
 end
 
-function config_isothermal_zonal_flow(FT, poly_order, cutoff_order, resolution, ref_state)
+function config_isothermal_zonal_flow(
+    FT,
+    poly_order,
+    cutoff_order,
+    resolution,
+    ref_state,
+)
     # Set up a reference state for linearization of equations
 
     domain_height = FT(10e3)

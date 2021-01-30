@@ -310,10 +310,16 @@ reference element is the vertical dimension and the rest are horizontal.
 If the target requires auxiliary state to compute its argument or results
 this state should be provided in `state_auxiliary`.
 """
-function apply!(Q, target, grid::DiscontinuousSpectralElementGrid, filter; kwargs...)
+function apply!(
+    Q,
+    target,
+    grid::DiscontinuousSpectralElementGrid,
+    filter;
+    kwargs...,
+)
     device = typeof(Q.data) <: Array ? CPU() : CUDADevice()
     event = Event(device)
-    apply_async!(Q, target, grid, filter; dependencies=event, kwargs...)
+    apply_async!(Q, target, grid, filter; dependencies = event, kwargs...)
     wait(device, event)
 end
 
@@ -398,7 +404,7 @@ function apply_async!(
     target::AbstractFilterTarget,
     grid::DiscontinuousSpectralElementGrid,
     ::TMARFilter;
-    dependencies
+    dependencies,
 )
     topology = grid.topology
 

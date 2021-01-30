@@ -167,12 +167,7 @@ function SolverConfiguration(
         @info @sprintf("Initializing %s", driver_config.name,)
         Q = init_ode_state(dg, FT(0), init_args...; init_on_cpu = init_on_cpu)
         if driver_config.filter !== nothing
-            Filters.apply!(
-                Q,
-                :,
-                dg.grid,
-                driver_config.filter,
-            )
+            Filters.apply!(Q, :, dg.grid, driver_config.filter)
         end
 
         if Settings.debug_init

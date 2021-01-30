@@ -312,7 +312,7 @@ function (dgfvm::DGFVModel)(tendency, state_prognostic, _, t, α, β)
                 1:num_state_gradient_flux,
                 dgfvm.grid,
                 dgfvm.gradient_filter;
-                dependencies = comp_stream
+                dependencies = comp_stream,
             )
         end
 
@@ -427,7 +427,7 @@ function (dgfvm::DGFVModel)(tendency, state_prognostic, _, t, α, β)
             1:num_state_tendency,
             dgfvm.grid,
             dgfvm.tendency_filter;
-            dependencies=comp_stream
+            dependencies = comp_stream,
         )
     end
 
