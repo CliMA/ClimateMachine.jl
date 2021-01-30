@@ -381,7 +381,7 @@ function state_to_entropy(::DryAtmosModel, state::Vars, aux::Vars)
     p = pressure(ρ, ρu, ρe, Φ)
     γ = FT(gamma(param_set))
     s = log(p / ρ^γ)
-    η = -ρ * s
+    η = -ρ * s / (γ - 1)
     return η
 end
 
