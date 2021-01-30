@@ -76,48 +76,84 @@ const ArrayType = ClimateMachine.array_type()
                 (exp(im * time) - exp(im * c * time)) / (im * (1 - c))
             end
 
-            @testset "IMEX methods" begin
+            @testset "IMEX methods (LowStorageVariant)" begin
                 finaltime = pi / 2
                 dts = [2.0^(-k) for k in 13:14]
                 errors = similar(dts)
 
                 q0 = ArrayType <: Array ? [1.0] : range(-1.0, 1.0, length = 303)
-                for (method, expected_order) in imex_methods
+                for (method, expected_order) in
+                    imex_methods_lowstorage_compatible
                     for split_explicit_implicit in (false, true)
-                        for variant in (LowStorageVariant(), NaiveVariant())
-                            for (n, dt) in enumerate(dts)
-                                Q = ArrayType{ComplexF64}(q0)
-                                rhs! =
-                                    split_explicit_implicit ? rhs_nonlinear! :
-                                    rhs_full!
-                                solver = method(
-                                    rhs!,
-                                    rhs_linear!,
-                                    LinearBackwardEulerSolver(
-                                        DivideLinearSolver(),
-                                        isadjustable = true,
-                                    ),
-                                    Q;
-                                    dt = dt,
-                                    t0 = 0.0,
-                                    split_explicit_implicit = split_explicit_implicit,
-                                    variant = variant,
-                                )
-                                solve!(Q, solver; timeend = finaltime)
-                                Q = Array(Q)
-                                errors[n] = maximum(@. abs(
-                                    Q - exactsolution(q0, finaltime),
-                                ))
-                            end
-
-                            rates = log2.(errors[1:(end - 1)] ./ errors[2:end])
-                            @test errors[1] < 2.0
-                            @test isapprox(
-                                rates[end],
-                                expected_order;
-                                atol = 0.35,
+                        for (n, dt) in enumerate(dts)
+                            Q = ArrayType{ComplexF64}(q0)
+                            rhs! =
+                                split_explicit_implicit ? rhs_nonlinear! :
+                                rhs_full!
+                            solver = method(
+                                rhs!,
+                                rhs_linear!,
+                                LinearBackwardEulerSolver(
+                                    DivideLinearSolver(),
+                                    isadjustable = true,
+                                ),
+                                Q;
+                                dt = dt,
+                                t0 = 0.0,
+                                split_explicit_implicit = split_explicit_implicit,
+                                variant = LowStorageVariant(),
                             )
+                            solve!(Q, solver; timeend = finaltime)
+                            Q = Array(Q)
+                            errors[n] = maximum(@. abs(
+                                Q - exactsolution(q0, finaltime),
+                            ))
                         end
+
+                        rates = log2.(errors[1:(end - 1)] ./ errors[2:end])
+                        @test errors[1] < 2.0
+                        @test isapprox(rates[end], expected_order; atol = 0.35)
+                    end
+                end
+            end
+
+            @testset "IMEX methods (NaiveVariant)" begin
+                finaltime = pi / 2
+                dts = [2.0^(-k) for k in 13:14]
+                errors = similar(dts)
+
+                q0 = ArrayType <: Array ? [1.0] : range(-1.0, 1.0, length = 303)
+                for (method, expected_order) in
+                    imex_methods_naivestorage_compatible
+                    for split_explicit_implicit in (false, true)
+                        for (n, dt) in enumerate(dts)
+                            Q = ArrayType{ComplexF64}(q0)
+                            rhs! =
+                                split_explicit_implicit ? rhs_nonlinear! :
+                                rhs_full!
+                            solver = method(
+                                rhs!,
+                                rhs_linear!,
+                                LinearBackwardEulerSolver(
+                                    DivideLinearSolver(),
+                                    isadjustable = true,
+                                ),
+                                Q;
+                                dt = dt,
+                                t0 = 0.0,
+                                split_explicit_implicit = split_explicit_implicit,
+                                variant = NaiveVariant(),
+                            )
+                            solve!(Q, solver; timeend = finaltime)
+                            Q = Array(Q)
+                            errors[n] = maximum(@. abs(
+                                Q - exactsolution(q0, finaltime),
+                            ))
+                        end
+
+                        rates = log2.(errors[1:(end - 1)] ./ errors[2:end])
+                        @test errors[1] < 2.0
+                        @test isapprox(rates[end], expected_order; atol = 0.35)
                     end
                 end
             end
@@ -355,7 +391,8 @@ const ArrayType = ClimateMachine.array_type()
                 dts = [2.0^(-k) for k in 8:9]
                 error = similar(dts)
                 for (slow_method, slow_expected_order) in slow_mrrk_methods
-                    for (fast_method, fast_expected_order) in imex_methods
+                    for (fast_method, fast_expected_order) in
+                        imex_methods_lowstorage_compatible
                         for (n, fast_dt) in enumerate(dts)
                             Q = exactsolution(0)
                             slow_dt = ω * fast_dt
@@ -371,6 +408,7 @@ const ArrayType = ClimateMachine.array_type()
                                     Q;
                                     dt = fast_dt,
                                     split_explicit_implicit = false,
+                                    variant = LowStorageVariant(),
                                 ),
                             ))
                             solve!(Q, solver; timeend = finaltime)
@@ -669,7 +707,7 @@ const ArrayType = ClimateMachine.array_type()
                 ArrayType([sqrt(3 + cos(ω * t)); sqrt(2 + cos(t))])
 
             finaltime = 1
-            dts = [2.0^(-k) for k in 6:7]
+            dts = [2.0^(-k) for k in 7:9]
             error = similar(dts)
             @testset "Explicit" begin
                 for (mri_method, mri_expected_order) in mrigark_erk_methods
@@ -731,7 +769,8 @@ const ArrayType = ClimateMachine.array_type()
             end
 
             @testset "IMEX" begin
-                for (method, expected_order) in imex_methods
+                for (method, expected_order) in
+                    imex_methods_naivestorage_compatible
                     for (n, dt) in enumerate(dts)
                         Q = exactsolution(0)
                         solver = method(

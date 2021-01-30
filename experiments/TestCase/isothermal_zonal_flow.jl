@@ -163,6 +163,7 @@ function main()
     ode_solver_type = ClimateMachine.IMEXSolverType(
         implicit_model = AtmosAcousticGravityLinearModel,
         implicit_solver = ManyColumnLU,
+        implicit_solver_adjustable = true,
         solver_method = Trap2LockWoodWeller,
         split_explicit_implicit = false,
         discrete_splitting = true,

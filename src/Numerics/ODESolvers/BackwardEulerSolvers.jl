@@ -68,6 +68,19 @@ solver.
 update_backward_Euler_solver!(::AbstractBackwardEulerSolver, Q, α) = nothing
 
 """
+    get_implicit_operator_coefficient(::AbstractBackwardEulerSolver)
+
+Returns the coefficient `α` of the implicit operator in
+an `AbstractBackwardEulerSolver` object:
+```
+    Q - α f(Q) = Qhat,
+```
+where `Q` is the state vector, `Qhat` is the right-hand side,
+and `f` is the discretized implicit operator.
+"""
+get_implicit_operator_coefficient(::AbstractBackwardEulerSolver) = nothing
+
+"""
     setup_backward_Euler_solver(solver, Q, α, tendency!)
 
 Returns a concrete implementation of an `AbstractBackwardEulerSolver` that will
@@ -121,6 +134,8 @@ mutable struct LinBESolver{FT, F, LS} <: AbstractBackwardEulerSolver
 end
 
 Δt_is_adjustable(lin::LinBESolver) = lin.isadjustable
+
+get_implcit_coefficient(lin::LinBESolver) = lin.α
 
 function setup_backward_Euler_solver(
     lin::LinearBackwardEulerSolver,
@@ -233,7 +248,7 @@ solvers of type `NLS`. See helper type
 ```
 """
 mutable struct NonLinBESolver{FT, F, NLS} <: AbstractBackwardEulerSolver
-    # Solve Q - α f_imp(Q) = Qrhs, not used
+    # Solve Q - α f_imp(Q) = Qrhs
     α::FT
     # implcit operator
     f_imp!::F
@@ -241,7 +256,7 @@ mutable struct NonLinBESolver{FT, F, NLS} <: AbstractBackwardEulerSolver
     jvp!::JacobianAction
     # nonlinear solver
     nlsolver::NLS
-    # whether adjust the time step or not, not used
+    # whether adjust the time step or not
     isadjustable::Bool
     # preconditioner, approximation of drhs!/dQ
     preconditioner::AbstractPreconditioner
@@ -249,6 +264,8 @@ mutable struct NonLinBESolver{FT, F, NLS} <: AbstractBackwardEulerSolver
 end
 
 Δt_is_adjustable(nlsolver::NonLinBESolver) = nlsolver.isadjustable
+
+get_implcit_coefficient(nlsolver::NonLinBESolver) = nlsolver.α
 
 """
     setup_backward_Euler_solver(solver::NonLinearBackwardEulerSolver, Q, α, tendency!)
