@@ -151,7 +151,7 @@ function atmos_gcm_default_simple_3d_vars!(
     vars.v = state_prognostic.ρu[2] / state_prognostic.ρ
     vars.w = state_prognostic.ρu[3] / state_prognostic.ρ
     vars.rho = state_prognostic.ρ
-    vars.et = state_prognostic.ρe / state_prognostic.ρ
+    vars.et = state_prognostic.energy.ρe / state_prognostic.ρ
 
     vars.temp = thermo.temp
     vars.pres = thermo.pres

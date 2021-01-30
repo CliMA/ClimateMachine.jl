@@ -160,13 +160,13 @@ function init_problem!(problem, bl, state, aux, localgeo, t)
     # Assign initial conditions for prognostic state variables
     state.ρ = ρ
     state.ρu = SVector(ρu, ρv, ρw)
-    state.ρe = ρe_tot
+    state.energy.ρe = ρe_tot
     if !(bl.moisture isa DryModel)
         state.moisture.ρq_tot = ρ * q_tot
     end
 
     if z <= FT(400) # Add random perturbations to bottom 400m of model
-        state.ρe += rand() * ρe_tot / 100
+        state.energy.ρe += rand() * ρe_tot / 100
     end
     init_state_prognostic!(bl.turbconv, bl, state, aux, localgeo, t)
 end

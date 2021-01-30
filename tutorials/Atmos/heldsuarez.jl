@@ -127,7 +127,7 @@ function init_heldsuarez!(problem, balance_law, state, aux, localgeo, time)
     rnd = FT(1 + rand(Uniform(-1e-3, 1e-3)))
     state.ρ = aux.ref_state.ρ
     state.ρu = SVector{3, FT}(0, 0, 0)
-    state.ρe = rnd * aux.ref_state.ρe
+    state.energy.ρe = rnd * aux.ref_state.ρe
 end;
 
 

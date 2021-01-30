@@ -62,6 +62,8 @@ function HydrostaticState(
     )
 end
 
+# TODO: change `ρe` to `energy` to support `θModel`
+# TODO: Make `moisture` sub-component, so that moisture components are optional
 vars_state(m::HydrostaticState, ::Auxiliary, FT) =
     @vars(ρ::FT, p::FT, T::FT, ρe::FT, ρq_tot::FT, ρq_liq::FT, ρq_ice::FT)
 

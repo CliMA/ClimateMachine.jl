@@ -1079,7 +1079,7 @@ function flux(::SGSFlux{Energy}, atmos, args)
             fix_void_up(
                 ρa_up[i],
                 ρa_up[i] *
-                (gm.ρe * ρ_inv - e_tot_up[i]) *
+                (gm.energy.ρe * ρ_inv - e_tot_up[i]) *
                 (gm.ρu[3] * ρ_inv - ρaw_up[i] / ρa_up[i]),
             )
         end,

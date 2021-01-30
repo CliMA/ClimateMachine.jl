@@ -11,7 +11,8 @@ export NumericalFluxGradient,
     CentralNumericalFluxFirstOrder,
     CentralNumericalFluxSecondOrder,
     CentralNumericalFluxDivergence,
-    CentralNumericalFluxHigherOrder
+    CentralNumericalFluxHigherOrder,
+    LMARSNumericalFlux
 
 
 using StaticArrays, LinearAlgebra
@@ -342,6 +343,16 @@ Requires a custom implementation for the balance law.
  - [Toro2013](@cite)
 """
 struct HLLCNumericalFlux <: NumericalFluxFirstOrder end
+
+
+"""
+    LMARSNumericalFlux <: NumericalFluxFirstOrder
+Low Mach Number Approximate Riemann Solver. Upwind biased
+first order flux function. 
+
+- [Chen2013](@cite)
+"""
+struct LMARSNumericalFlux <: NumericalFluxFirstOrder end
 
 """
     RoeNumericalFluxMoist <: NumericalFluxFirstOrder

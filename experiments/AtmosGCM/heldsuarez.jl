@@ -93,7 +93,7 @@ function init_heldsuarez!(problem, bl, state, aux, localgeo, t)
     ## Assign state variables
     state.ρ = aux.ref_state.ρ
     state.ρu = state.ρ * u_cart
-    state.ρe = aux.ref_state.ρe + state.ρ * e_kin
+    state.energy.ρe = aux.ref_state.ρe + state.ρ * e_kin
     if number_of_tracers > 0
         state.tracers.ρχ = @SVector [FT(ii) for ii in 1:number_of_tracers]
     end

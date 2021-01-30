@@ -23,7 +23,7 @@ function compute_filter_argument!(
     parent(filter_state) .= parent(state)
     # remove reference state
     filter_state.ρ -= aux.ref_state.ρ
-    filter_state.ρe -= aux.ref_state.ρe
+    filter_state.energy.ρe -= aux.ref_state.ρe
     if !(target.atmos.moisture isa DryModel)
         filter_state.moisture.ρq_tot -= aux.ref_state.ρq_tot
     end
@@ -42,7 +42,7 @@ function compute_filter_result!(
     parent(state) .= parent(filter_state)
     # add reference state
     state.ρ += aux.ref_state.ρ
-    state.ρe += aux.ref_state.ρe
+    state.energy.ρe += aux.ref_state.ρe
     if !(target.atmos.moisture isa DryModel)
         state.moisture.ρq_tot += aux.ref_state.ρq_tot
     end

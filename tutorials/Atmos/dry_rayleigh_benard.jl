@@ -97,7 +97,7 @@ function init_problem!(problem, bl, state, aux, localgeo, t)
     ρe_tot = ρ * (e_int + e_pot + e_kin)
     state.ρ = ρ
     state.ρu = SVector(ρu, ρv, ρw)
-    state.ρe = ρe_tot
+    state.energy.ρe = ρe_tot
     state.moisture.ρq_tot = FT(0)
     ρχ = zero(FT)
     if z <= 100

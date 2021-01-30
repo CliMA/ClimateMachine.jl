@@ -113,7 +113,7 @@ function atmos_refstate_perturbations!(
     vars.ref_state.pres = thermo.pres - aux.ref_state.p
     vars.ref_state.temp = thermo.temp - aux.ref_state.T
     vars.ref_state.et =
-        (state.ρe / state.ρ) - (aux.ref_state.ρe / aux.ref_state.ρ)
+        (state.energy.ρe / state.ρ) - (aux.ref_state.ρe / aux.ref_state.ρ)
     # FIXME properly
     if atmos.moisture isa EquilMoist
         vars.ref_state.qt =

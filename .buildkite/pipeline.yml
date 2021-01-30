@@ -209,6 +209,15 @@ steps:
       config: cpu
       queue: central
       slurm_ntasks: 3
+  
+  - label: "cpu_isentropicvortex_lmars"
+    key: "cpu_isentropicvortex_lmars"
+    command:
+      - "mpiexec julia --color=yes --project test/Numerics/DGMethods/Euler/isentropicvortex_lmars.jl "
+    agents:
+      config: cpu
+      queue: central
+      slurm_ntasks: 3
 
   - label: "cpu_isentropicvortex_multirate"
     key: "cpu_isentropicvortex_multirate"
@@ -682,6 +691,16 @@ steps:
     key: "gpu_isentropicvortex_imex"
     command:
       - "mpiexec julia --color=yes --project test/Numerics/DGMethods/Euler/isentropicvortex_imex.jl "
+    agents:
+      config: gpu
+      queue: central
+      slurm_ntasks: 3
+      slurm_gres: "gpu:1"
+
+  - label: "gpu_isentropicvortex_lmars"
+    key: "gpu_isentropicvortex_lmars"
+    command:
+      - "mpiexec julia --color=yes --project test/Numerics/DGMethods/Euler/isentropicvortex_lmars.jl "
     agents:
       config: gpu
       queue: central
@@ -1351,7 +1370,7 @@ steps:
   - label: "gpu_bomex_single_stack"
     key: "gpu_bomex_single_stack"
     command:
-      - "mpiexec julia --color=yes --project experiments/AtmosLES/bomex_single_stack.jl --diagnostics=default --fix-rng-seed"
+      - "mpiexec julia --color=yes --project experiments/AtmosLES/bomex_single_stack.jl --fix-rng-seed"
     agents:
       config: gpu
       queue: central
@@ -1361,7 +1380,7 @@ steps:
   - label: "gpu_bomex_single_stack_nonequil"
     key: "gpu_bomex_single_stack_nonequil"
     command:
-      - "mpiexec julia --color=yes --project experiments/AtmosLES/bomex_single_stack.jl --moisture-model nonequilibrium --diagnostics=default --fix-rng-seed"
+      - "mpiexec julia --color=yes --project experiments/AtmosLES/bomex_single_stack.jl --moisture-model nonequilibrium --fix-rng-seed"
     agents:
       config: gpu
       queue: central
@@ -1402,6 +1421,16 @@ steps:
     key: "gpu_taylor_green"
     command:
       - "mpiexec julia --color=yes --project experiments/AtmosLES/taylor_green.jl --diagnostics=default --fix-rng-seed"
+    agents:
+      config: gpu
+      queue: central
+      slurm_ntasks: 1
+      slurm_gres: "gpu:1"
+
+  - label: "gpu_rising_bubble_theta_formulation"
+    key: "gpu_rising_bubble_theta_formulation"
+    command:
+      - "mpiexec julia --color=yes --project experiments/AtmosLES/rising_bubble_theta_formulation.jl"
     agents:
       config: gpu
       queue: central

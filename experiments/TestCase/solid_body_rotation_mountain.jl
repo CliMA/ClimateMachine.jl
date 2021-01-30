@@ -55,7 +55,7 @@ function init_solid_body_rotation!(problem, bl, state, aux, localgeo, t)
     # Assign state variables
     state.ρ = aux.ref_state.ρ
     state.ρu = u_init
-    state.ρe = aux.ref_state.ρe + state.ρ * e_kin
+    state.energy.ρe = aux.ref_state.ρe + state.ρ * e_kin
 
     nothing
 end

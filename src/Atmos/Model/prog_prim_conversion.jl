@@ -22,6 +22,7 @@ function prognostic_to_primitive!(
     prog::Vars,
     aux,
 )
+    atmos.energy isa EnergyModel || error("EnergyModel only supported")
     prognostic_to_primitive!(
         atmos,
         atmos.moisture,
@@ -29,12 +30,11 @@ function prognostic_to_primitive!(
         prog,
         Thermodynamics.internal_energy(
             prog.ρ,
-            prog.ρe,
+            prog.energy.ρe,
             prog.ρu,
             gravitational_potential(atmos.orientation, aux),
         ),
     )
-    prognostic_to_primitive!(atmos.turbconv, atmos, atmos.moisture, prim, prog)
 end
 
 """
@@ -134,12 +134,13 @@ function primitive_to_prognostic!(
     prim::Vars,
     e_pot::AbstractFloat,
 )
+    atmos.energy isa EnergyModel || error("EnergyModel only supported")
     ts = PhaseDry_ρp(atmos.param_set, prim.ρ, prim.p)
     e_kin = prim.u' * prim.u / 2
 
     prog.ρ = prim.ρ
     prog.ρu = prim.ρ .* prim.u
-    prog.ρe = prim.ρ * total_energy(e_kin, e_pot, ts)
+    prog.energy.ρe = prim.ρ * total_energy(e_kin, e_pot, ts)
 end
 
 function primitive_to_prognostic!(
@@ -149,6 +150,7 @@ function primitive_to_prognostic!(
     prim::Vars,
     e_pot::AbstractFloat,
 )
+    atmos.energy isa EnergyModel || error("EnergyModel only supported")
     ts = PhaseEquil_ρpq(
         atmos.param_set,
         prim.ρ,
@@ -160,7 +162,7 @@ function primitive_to_prognostic!(
 
     prog.ρ = prim.ρ
     prog.ρu = prim.ρ .* prim.u
-    prog.ρe = prim.ρ * total_energy(e_kin, e_pot, ts)
+    prog.energy.ρe = prim.ρ * total_energy(e_kin, e_pot, ts)
     prog.moisture.ρq_tot = prim.ρ * PhasePartition(ts).tot
 end
 
@@ -171,6 +173,7 @@ function primitive_to_prognostic!(
     prim::Vars,
     e_pot::AbstractFloat,
 )
+    atmos.energy isa EnergyModel || error("EnergyModel only supported")
     q_pt = PhasePartition(
         prim.moisture.q_tot,
         prim.moisture.q_liq,
@@ -181,7 +184,7 @@ function primitive_to_prognostic!(
 
     prog.ρ = prim.ρ
     prog.ρu = prim.ρ .* prim.u
-    prog.ρe = prim.ρ * total_energy(e_kin, e_pot, ts)
+    prog.energy.ρe = prim.ρ * total_energy(e_kin, e_pot, ts)
     prog.moisture.ρq_tot = prim.ρ * PhasePartition(ts).tot
     prog.moisture.ρq_liq = prim.ρ * PhasePartition(ts).liq
     prog.moisture.ρq_ice = prim.ρ * PhasePartition(ts).ice

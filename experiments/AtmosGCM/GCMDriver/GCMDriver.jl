@@ -107,7 +107,7 @@ function init_gcm_experiment!(problem, bl, state, aux, coords, t)
     ## Assign state variables
     state.ρ = ρ
     state.ρu = ρ * u_cart
-    state.ρe = ρ * e_tot * rand_pert
+    state.energy.ρe = ρ * e_tot * rand_pert
 
     if bl.moisture isa EquilMoist
         state.moisture.ρq_tot = ρ * q_tot
@@ -388,7 +388,7 @@ function main()
 
     check_cons = (
         ClimateMachine.ConservationCheck("ρ", "100steps", FT(0.0001)),
-        ClimateMachine.ConservationCheck("ρe", "100steps", FT(0.0025)),
+        ClimateMachine.ConservationCheck("energy.ρe", "100steps", FT(0.0025)),
     )
 
     # Run the model

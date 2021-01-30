@@ -266,7 +266,7 @@ function (setup::AcousticWaveSetup)(problem, bl, state, aux, localgeo, t)
 
     state.ρ = air_density(ts)
     state.ρu = SVector{3, FT}(0, 0, 0)
-    state.ρe = state.ρ * (e_int + e_pot)
+    state.energy.ρe = state.ρ * (e_int + e_pot)
 
     state.tracers.ρχ = @SVector [FT(ii) for ii in 1:ntracers]
     nothing

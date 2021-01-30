@@ -20,8 +20,12 @@ struct AtmosGCMSpecificInfo{FT} <: ConfigSpecificInfo
     nelem_horz::Int
 end
 struct OceanBoxGCMSpecificInfo <: ConfigSpecificInfo end
-struct SingleStackSpecificInfo <: ConfigSpecificInfo end
+struct SingleStackSpecificInfo{FT} <: ConfigSpecificInfo
+    zmax::FT
+    hmax::FT
+end
 struct MultiColumnLandSpecificInfo <: ConfigSpecificInfo end
+
 include("SolverTypes/SolverTypes.jl")
 
 """
@@ -560,7 +564,7 @@ Establishing single stack configuration for %s
         numerical_flux_second_order,
         numerical_flux_gradient,
         fv_reconstruction,
-        SingleStackSpecificInfo(),
+        SingleStackSpecificInfo(zmax, hmax),
     )
 end
 

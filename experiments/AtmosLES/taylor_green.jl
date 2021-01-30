@@ -78,7 +78,7 @@ function init_greenvortex!(problem, bl, state, aux, localgeo, t)
     # Assign State Variables
     state.ρ = ρ
     state.ρu = SVector(FT(ρ * u), FT(ρ * v), FT(0))
-    state.ρe = ρe_tot
+    state.energy.ρe = ρe_tot
 end
 
 # Set up AtmosLESConfiguration for the experiment
@@ -221,7 +221,7 @@ function main()
 
     check_cons = (
         ClimateMachine.ConservationCheck("ρ", "100steps", FT(0.0001)),
-        ClimateMachine.ConservationCheck("ρe", "100steps", FT(0.0025)),
+        ClimateMachine.ConservationCheck("energy.ρe", "100steps", FT(0.0025)),
     )
 
     result = ClimateMachine.invoke!(

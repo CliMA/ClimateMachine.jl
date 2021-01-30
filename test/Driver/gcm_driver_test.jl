@@ -47,7 +47,7 @@ function (setup::AcousticWaveSetup)(problem, bl, state, aux, localgeo, t)
 
     state.ρ = air_density(ts)
     state.ρu = SVector{3, FT}(0, 0, 0)
-    state.ρe = state.ρ * (e_int + e_pot)
+    state.energy.ρe = state.ρ * (e_int + e_pot)
     return nothing
 end
 

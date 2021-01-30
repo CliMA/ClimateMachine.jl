@@ -43,7 +43,7 @@ end
     aux::Vars,
 )
     ρe_pot = state.ρ * gravitational_potential(orientation, aux)
-    return linearized_air_pressure(param_set, state.ρ, state.ρe, ρe_pot)
+    return linearized_air_pressure(param_set, state.ρ, state.energy.ρe, ρe_pot)
 end
 @inline function linearized_pressure(
     ::EquilMoist,
@@ -56,7 +56,7 @@ end
     linearized_air_pressure(
         param_set,
         state.ρ,
-        state.ρe,
+        state.energy.ρe,
         ρe_pot,
         state.moisture.ρq_tot,
     )
@@ -72,7 +72,7 @@ end
     linearized_air_pressure(
         param_set,
         state.ρ,
-        state.ρe,
+        state.energy.ρe,
         ρe_pot,
         state.moisture.ρq_tot,
         state.moisture.ρq_liq,
@@ -96,13 +96,12 @@ function vars_state(lm::AtmosLinearModel, st::Prognostic, FT)
     @vars begin
         ρ::FT
         ρu::SVector{3, FT}
-        ρe::FT
+        energy::vars_state(lm.atmos.energy, st, FT)
         turbulence::vars_state(lm.atmos.turbulence, st, FT)
         hyperdiffusion::vars_state(lm.atmos.hyperdiffusion, st, FT)
         moisture::vars_state(lm.atmos.moisture, st, FT)
     end
 end
-vars_state(lm::AtmosLinearModel, ::AbstractStateType, FT) = @vars()
 vars_state(lm::AtmosLinearModel, st::Auxiliary, FT) =
     vars_state(lm.atmos, st, FT)
 vars_state(lm::AtmosLinearModel, ::Primitive, FT) =
@@ -231,7 +230,7 @@ function flux_first_order!(
         aux,
     )
     flux.ρu += pL * I
-    flux.ρe = ((ref.ρe + ref.p) / ref.ρ - e_pot) * state.ρu
+    flux.energy.ρe = ((ref.ρe + ref.p) / ref.ρ - e_pot) * state.ρu
     nothing
 end
 source!(::AtmosAcousticLinearModel, _...) = nothing
@@ -266,7 +265,7 @@ function flux_first_order!(
         aux,
     )
     flux.ρu += pL * I
-    flux.ρe = ((ref.ρe + ref.p) / ref.ρ) * state.ρu
+    flux.energy.ρe = ((ref.ρe + ref.p) / ref.ρ) * state.ρu
     nothing
 end
 function source!(
@@ -358,7 +357,7 @@ function numerical_flux_first_order!(
 
     fluxᵀn.ρ -= ΔpL / 2c̃
     fluxᵀn.ρu -= c̃ * Δρuᵀn * normal_vector / 2
-    fluxᵀn.ρe -= h̃ * ΔpL / 2c̃
+    fluxᵀn.energy.ρe -= h̃ * ΔpL / 2c̃
 end
 
 function numerical_flux_first_order!(
@@ -503,10 +502,37 @@ function numerical_flux_first_order!(
     )
     Δρ = state_prognostic⁺.ρ - state_prognostic⁻.ρ
     Δρu = ρu⁺ - ρu⁻
-    Δρe = state_prognostic⁺.ρe - state_prognostic⁻.ρe
+    Δρe = state_prognostic⁺.energy.ρe - state_prognostic⁻.energy.ρe
     Δρq_tot =
         state_prognostic⁺.moisture.ρq_tot - state_prognostic⁻.moisture.ρq_tot
     Δstate = SVector(Δρ, Δρu[1], Δρu[2], Δρu[3], Δρe, Δρq_tot)
 
     parent(fluxᵀn) .-= M * Λ * (M \ Δstate) / 2
+end
+
+function numerical_flux_first_order!(
+    ::LMARSNumericalFlux,
+    balance_law::AtmosLinearModel,
+    fluxᵀn::Vars{S},
+    normal_vector::SVector,
+    state_prognostic⁻::Vars{S},
+    state_auxiliary⁻::Vars{A},
+    state_prognostic⁺::Vars{S},
+    state_auxiliary⁺::Vars{A},
+    t,
+    direction,
+) where {S, A}
+
+    numerical_flux_first_order!(
+        RusanovNumericalFlux(),
+        balance_law,
+        fluxᵀn,
+        normal_vector,
+        state_prognostic⁻,
+        state_auxiliary⁻,
+        state_prognostic⁺,
+        state_auxiliary⁺,
+        t,
+        direction,
+    )
 end

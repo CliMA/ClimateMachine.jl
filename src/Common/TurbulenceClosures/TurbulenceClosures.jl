@@ -851,7 +851,7 @@ function compute_gradient_argument!(
     k̂ = vertical_unit_vector(bl, aux)
     u_h = (SDiagonal(1, 1, 1) - k̂ * k̂') * u
     transform.hyperdiffusion.u_h = u_h
-    transform.hyperdiffusion.h_tot = transform.h_tot
+    transform.hyperdiffusion.h_tot = transform.energy.h_tot
     transform.hyperdiffusion.q_tot = state.moisture.ρq_tot * ρinv
 end
 
@@ -923,7 +923,7 @@ function compute_gradient_argument!(
     k̂ = vertical_unit_vector(bl, aux)
     u_h = (SDiagonal(1, 1, 1) - k̂ * k̂') * u
     transform.hyperdiffusion.u_h = u_h
-    transform.hyperdiffusion.h_tot = transform.h_tot
+    transform.hyperdiffusion.h_tot = transform.energy.h_tot
 end
 
 function transform_post_gradient_laplacian!(
