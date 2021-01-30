@@ -12,9 +12,13 @@ using ClimateMachine.GenericCallbacks:
     EveryXWallTimeSeconds, EveryXSimulationSteps
 using ClimateMachine.VTK: writevtk, writepvtu
 using ClimateMachine.VariableTemplates: flattenednames
-import ClimateMachine.ODESolvers: LSRK144NiegemannDiehlBusch, solve!, gettime
+using ClimateMachine.ODESolvers
 using StaticArrays: @SVector
 using LazyArrays
+
+using DoubleFloats
+using GaussQuadrature
+GaussQuadrature.maxiterations[Double64] = 40
 
 using ClimateMachine.TemperatureProfiles: DryAdiabaticProfile
 
@@ -95,17 +99,19 @@ end
 function main()
     ClimateMachine.init()
     ArrayType = ClimateMachine.array_type()
+    
+    #FT = Double64
+    FT = Float64
 
     mpicomm = MPI.COMM_WORLD
     polynomialorder = 4
     Ne = (10, 1, 10)
-    FT = Float64
+
     xmax = FT(10000)
     ymax = FT(500)
     zmax = FT(10000)
 
     timeend = 5000
-    FT = Float64
     result = run(
         mpicomm,
         polynomialorder,
@@ -166,8 +172,8 @@ function run(
         model,
         grid;
         volume_numerical_flux_first_order = EntropyConservative(),
-        #surface_numerical_flux_first_order = EntropyConservative(),
-        surface_numerical_flux_first_order = MatrixFlux(),
+        surface_numerical_flux_first_order = EntropyConservative(),
+        #surface_numerical_flux_first_order = MatrixFlux(),
     )
 
     # determine the time step
@@ -179,9 +185,18 @@ function run(
 
     η = similar(Q, vars = @vars(η::FT), nstate=1)
 
-    ∫η0 = entropy_integral(esdg, model, η, Q)
+    ∫η0 = entropy_integral(esdg, η, Q)
 
-    odesolver = LSRK144NiegemannDiehlBusch(esdg, Q; dt = dt, t0 = 0)
+    η_int = function(dg, Q1)
+      entropy_integral(dg, η, Q1)
+    end
+    η_prod = function(dg, Q1, Q2)
+      entropy_product(dg, η, Q1, Q2)
+    end
+
+    #odesolver = LSRK144NiegemannDiehlBusch(esdg, Q; dt = dt, t0 = 0)
+    odesolver = RLSRK144NiegemannDiehlBusch(esdg, η_int, η_prod, Q; dt = dt, t0 = 0)
+    
 
     eng0 = norm(Q)
     @info @sprintf """Starting
@@ -200,19 +215,19 @@ function run(
         if s
             starttime[] = now()
         else
-            ∫η = entropy_integral(esdg, model, η, Q)
-            dη = (∫η - ∫η0) / ∫η0
+            ∫η = entropy_integral(esdg, η, Q)
+            dη = (∫η - ∫η0) / abs(∫η0)
             energy = norm(Q)
             runtime = Dates.format(
                 convert(DateTime, now() - starttime[]),
                 dateformat"HH:MM:SS",
             )
             @info @sprintf """Update
-                              simtime          = %.16e
-                              runtime          = %s
-                              norm(Q)          = %.16e
-                              ∫η               = %.16e
-                              (∫η - ∫η0) / ∫η0 = %.16e 
+                              simtime            = %.16e
+                              runtime            = %s
+                              norm(Q)            = %.16e
+                              ∫η                 = %.16e
+                              (∫η - ∫η0) / |∫η0| = %.16e 
                               """ gettime(odesolver) runtime energy ∫η dη
         end
     end
@@ -244,14 +259,14 @@ function run(
 
     # final statistics
     engf = norm(Q)
-    ∫ηf = entropy_integral(esdg, model, η, Q)
-    dηf = (∫ηf - ∫η0) / ∫η0
+    ∫ηf = entropy_integral(esdg, η, Q)
+    dηf = (∫ηf - ∫η0) / abs(∫η0)
     @info @sprintf """Finished
     norm(Q)                 = %.16e
     norm(Q) / norm(Q₀)      = %.16e
     norm(Q) - norm(Q₀)      = %.16e
     ∫η                      = %.16e
-    (∫η - ∫η0) / ∫η0        = %.16e 
+    (∫η - ∫η0) / |∫η0|      = %.16e 
     """ engf engf / eng0 engf - eng0 ∫ηf dηf
     engf
 end
