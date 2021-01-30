@@ -1007,17 +1007,11 @@ gradient flux.
         # Compute G(q) and write the result into shared memory
         @unroll for k in 1:Nq3
             fill!(local_transform, -zero(eltype(local_transform)))
-            compute_gradient_argument!(
+            compute_gradient_argument_arr!(
                 balance_law,
-                Vars{vars_state(balance_law, Gradient(), FT)}(local_transform),
-                Vars{vars_state(balance_law, Prognostic(), FT)}(local_state_prognostic[
-                    :,
-                    k,
-                ]),
-                Vars{vars_state(balance_law, Auxiliary(), FT)}(local_state_auxiliary[
-                    :,
-                    k,
-                ]),
+                local_transform,
+                local_state_prognostic[:, k],
+                local_state_auxiliary[:, k],
                 t,
             )
 
@@ -1111,24 +1105,12 @@ gradient flux.
                 )
 
                 # Applies a linear transformation of gradients to the diffusive variables
-                compute_gradient_flux!(
+                compute_gradient_flux_arr!(
                     balance_law,
-                    Vars{vars_state(balance_law, GradientFlux(), FT)}(
-                        local_state_gradient_flux,
-                    ),
-                    Grad{vars_state(balance_law, Gradient(), FT)}(local_transform_gradient[
-                        :,
-                        :,
-                        k,
-                    ]),
-                    Vars{vars_state(balance_law, Prognostic(), FT)}(local_state_prognostic[
-                        :,
-                        k,
-                    ]),
-                    Vars{vars_state(balance_law, Auxiliary(), FT)}(local_state_auxiliary[
-                        :,
-                        k,
-                    ]),
+                    local_state_gradient_flux,
+                    local_transform_gradient[:, :, k],
+                    local_state_prognostic[:, k],
+                    local_state_auxiliary[:, k],
                     t,
                 )
 
@@ -1243,17 +1225,11 @@ end
         # Compute G(q) and write the result into shared memory
         @unroll for k in 1:Nq3
             fill!(local_transform, -zero(eltype(local_transform)))
-            compute_gradient_argument!(
+            compute_gradient_argument_arr!(
                 balance_law,
-                Vars{vars_state(balance_law, Gradient(), FT)}(local_transform),
-                Vars{vars_state(balance_law, Prognostic(), FT)}(local_state_prognostic[
-                    :,
-                    k,
-                ]),
-                Vars{vars_state(balance_law, Auxiliary(), FT)}(local_state_auxiliary[
-                    :,
-                    k,
-                ]),
+                local_transform,
+                local_state_prognostic[:, k],
+                local_state_auxiliary[:, k],
                 t,
             )
 
@@ -1327,24 +1303,12 @@ end
                 )
 
                 # Applies a linear transformation of gradients to the diffusive variables
-                compute_gradient_flux!(
+                compute_gradient_flux_arr!(
                     balance_law,
-                    Vars{vars_state(balance_law, GradientFlux(), FT)}(
-                        local_state_gradient_flux,
-                    ),
-                    Grad{vars_state(balance_law, Gradient(), FT)}(local_transform_gradient[
-                        :,
-                        :,
-                        k,
-                    ]),
-                    Vars{vars_state(balance_law, Prognostic(), FT)}(local_state_prognostic[
-                        :,
-                        k,
-                    ]),
-                    Vars{vars_state(balance_law, Auxiliary(), FT)}(local_state_auxiliary[
-                        :,
-                        k,
-                    ]),
+                    local_state_gradient_flux,
+                    local_transform_gradient[:, :, k],
+                    local_state_prognostic[:, k],
+                    local_state_auxiliary[:, k],
                     t,
                 )
 
@@ -1506,15 +1470,11 @@ auxiliary gradient flux, and G* is the associated numerical flux.
 
         # Compute G(q) on the minus side write the result into registers
         fill!(local_transform⁻, -zero(eltype(local_transform⁻)))
-        compute_gradient_argument!(
+        compute_gradient_argument_arr!(
             balance_law,
-            Vars{vars_state(balance_law, Gradient(), FT)}(local_transform⁻),
-            Vars{vars_state(balance_law, Prognostic(), FT)}(
-                local_state_prognostic⁻,
-            ),
-            Vars{vars_state(balance_law, Auxiliary(), FT)}(
-                local_state_auxiliary⁻,
-            ),
+            local_transform⁻,
+            local_state_prognostic⁻,
+            local_state_auxiliary⁻,
             t,
         )
 
@@ -1529,15 +1489,11 @@ auxiliary gradient flux, and G* is the associated numerical flux.
 
         # Compute G(q) on the plus side and write the result into registers
         fill!(local_transform⁺, -zero(eltype(local_transform⁺)))
-        compute_gradient_argument!(
+        compute_gradient_argument_arr!(
             balance_law,
-            Vars{vars_state(balance_law, Gradient(), FT)}(local_transform⁺),
-            Vars{vars_state(balance_law, Prognostic(), FT)}(
-                local_state_prognostic⁺,
-            ),
-            Vars{vars_state(balance_law, Auxiliary(), FT)}(
-                local_state_auxiliary⁺,
-            ),
+            local_transform⁺,
+            local_state_prognostic⁺,
+            local_state_auxiliary⁺,
             t,
         )
 
@@ -1573,20 +1529,12 @@ auxiliary gradient flux, and G* is the associated numerical flux.
             if num_state_gradient_flux > 0
                 # Applies linear transformation of gradients to the diffusive variables
                 # on the minus side
-                compute_gradient_flux!(
+                compute_gradient_flux_arr!(
                     balance_law,
-                    Vars{vars_state(balance_law, GradientFlux(), FT)}(
-                        local_state_gradient_flux,
-                    ),
-                    Grad{vars_state(balance_law, Gradient(), FT)}(
-                        local_transform_gradient,
-                    ),
-                    Vars{vars_state(balance_law, Prognostic(), FT)}(
-                        local_state_prognostic⁻,
-                    ),
-                    Vars{vars_state(balance_law, Auxiliary(), FT)}(
-                        local_state_auxiliary⁻,
-                    ),
+                    local_state_gradient_flux,
+                    local_transform_gradient,
+                    local_state_prognostic⁻,
+                    local_state_auxiliary⁻,
                     t,
                 )
             end
@@ -1656,20 +1604,12 @@ auxiliary gradient flux, and G* is the associated numerical flux.
                 if num_state_gradient_flux > 0
                     # Applies linear transformation of gradients to the diffusive variables
                     # on the minus side
-                    compute_gradient_flux!(
+                    compute_gradient_flux_arr!(
                         balance_law,
-                        Vars{vars_state(balance_law, GradientFlux(), FT)}(
-                            local_state_gradient_flux,
-                        ),
-                        Grad{vars_state(balance_law, Gradient(), FT)}(
-                            local_transform_gradient,
-                        ),
-                        Vars{vars_state(balance_law, Prognostic(), FT)}(
-                            local_state_prognostic⁻,
-                        ),
-                        Vars{vars_state(balance_law, Auxiliary(), FT)}(
-                            local_state_auxiliary⁻,
-                        ),
+                        local_state_gradient_flux,
+                        local_transform_gradient,
+                        local_state_prognostic⁻,
+                        local_state_auxiliary⁻,
                         t,
                     )
                 end
@@ -1696,18 +1636,12 @@ auxiliary gradient flux, and G* is the associated numerical flux.
 
         # Applies linear transformation of gradients to the diffusive variables
         # on the minus side
-        compute_gradient_flux!(
+        compute_gradient_flux_arr!(
             balance_law,
-            Vars{vars_state(balance_law, GradientFlux(), FT)}(
-                local_state_prognostic⁻visc,
-            ),
-            Grad{vars_state(balance_law, Gradient(), FT)}(l_nG⁻),
-            Vars{vars_state(balance_law, Prognostic(), FT)}(
-                local_state_prognostic⁻,
-            ),
-            Vars{vars_state(balance_law, Auxiliary(), FT)}(
-                local_state_auxiliary⁻,
-            ),
+            local_state_prognostic⁻visc,
+            l_nG⁻,
+            local_state_prognostic⁻,
+            local_state_auxiliary⁻,
             t,
         )
 

@@ -798,7 +798,7 @@ end
         # gradient of)
         @unroll for k in 1:3
             fill!(l_grad_arg[k], -zero(eltype(l_grad_arg[k])))
-            compute_gradient_argument!(
+            compute_gradient_argument_arr!(
                 balance_law,
                 l_grad_arg[k],
                 local_state_prognostic[k],
@@ -858,7 +858,7 @@ end
 
         # Applies linear transformation of gradients to the diffusive variables
         # for storage
-        compute_gradient_flux!(
+        compute_gradient_flux_arr!(
             balance_law,
             local_state_gradient_flux,
             l_nG,
