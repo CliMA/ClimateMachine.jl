@@ -310,11 +310,21 @@ reference element is the vertical dimension and the rest are horizontal.
 If the target requires auxiliary state to compute its argument or results
 this state should be provided in `state_auxiliary`.
 """
-function apply!(
+function apply!(Q, target, grid::DiscontinuousSpectralElementGrid, filter; kwargs...)
+    device = typeof(Q.data) <: Array ? CPU() : CUDADevice()
+    event = Event(device)
+    apply_async!(Q, target, grid, filter; dependencies=event, kwargs...)
+    wait(device, event)
+end
+
+
+
+function apply_async!(
     Q,
     target::AbstractFilterTarget,
     grid::DiscontinuousSpectralElementGrid,
     filter::AbstractSpectralFilter;
+    dependencies,
     state_auxiliary = nothing,
     direction = EveryDirection(),
 )
@@ -337,11 +347,11 @@ function apply!(
     Nq3 = dim == 2 ? 1 : Nq[dim]
 
     nrealelem = length(topology.realelems)
+    event = dependencies
 
     if direction isa EveryDirection || direction isa HorizontalDirection
         @assert dim == 2 || Nq1 == Nq2
         filtermatrix = filter.filter_matrices[1]
-        event = Event(device)
         event = kernel_apply_filter!(device, (Nq1, Nq2, Nq3))(
             Val(dim),
             Val(N),
@@ -353,12 +363,11 @@ function apply!(
             target,
             filtermatrix,
             ndrange = (nrealelem * Nq1, Nq2, Nq3),
-            dependencies = (event,),
+            dependencies = event,
         )
     end
     if direction isa EveryDirection || direction isa VerticalDirection
         filtermatrix = filter.filter_matrices[end]
-        event = Event(device)
         event = kernel_apply_filter!(device, (Nq1, Nq2, Nq3))(
             Val(dim),
             Val(N),
@@ -370,10 +379,10 @@ function apply!(
             target,
             filtermatrix,
             ndrange = (nrealelem * Nq1, Nq2, Nq3),
-            dependencies = (event,),
+            dependencies = event,
         )
     end
-    wait(device, event)
+    return event
 end
 
 
@@ -384,11 +393,12 @@ Applies the truncation and mass aware rescaling to `Q` given a
 `grid` and a custom `target`. This rescaling keeps
 the states nonegative while keeping the element average the same.
 """
-function apply!(
+function apply_async!(
     Q,
     target::AbstractFilterTarget,
     grid::DiscontinuousSpectralElementGrid,
-    ::TMARFilter,
+    ::TMARFilter;
+    dependencies
 )
     topology = grid.topology
 
@@ -405,7 +415,7 @@ function apply!(
     nrealelem = length(topology.realelems)
     nreduce = 2^ceil(Int, log2(Nq * Nqj))
 
-    event = Event(device)
+    event = dependencies
     event = kernel_apply_TMAR_filter!(device, (Nq, Nqj), (nrealelem * Nq, Nqj))(
         Val(nreduce),
         Val(dim),
@@ -413,9 +423,9 @@ function apply!(
         Q.data,
         target,
         grid.vgeo,
-        dependencies = (event,),
+        dependencies = event,
     )
-    wait(device, event)
+    event
 end
 
 """
@@ -430,7 +440,7 @@ Filters.apply!(Q, :, grid, TMARFilter())
 Filters.apply!(Q, (1, 3), grid, CutoffFilter(grid); direction=VerticalDirection())
 ```
 """
-function apply!(
+function apply_async!(
     Q,
     indices::Union{Colon, AbstractRange, Tuple{Vararg{Integer}}},
     grid::DiscontinuousSpectralElementGrid,
@@ -456,7 +466,7 @@ Filters.apply!(Q, ("moisture.ρq_tot",), grid, CutoffFilter(grid);
                direction=VerticalDirection())
 ```
 """
-function apply!(
+function apply_async!(
     Q,
     vs::Tuple,
     grid::DiscontinuousSpectralElementGrid,

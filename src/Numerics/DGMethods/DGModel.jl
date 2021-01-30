@@ -307,12 +307,12 @@ function (dgfvm::DGFVModel)(tendency, state_prognostic, _, t, α, β)
         )
 
         if dgfvm.gradient_filter !== nothing
-            wait(device, comp_stream)
-            Filters.apply!(
+            comp_stream = Filters.apply_async!(
                 dgfvm.state_gradient_flux,
                 1:num_state_gradient_flux,
                 dgfvm.grid,
-                dgfvm.gradient_filter,
+                dgfvm.gradient_filter;
+                dependencies = comp_stream
             )
         end
 
@@ -421,19 +421,20 @@ function (dgfvm::DGFVModel)(tendency, state_prognostic, _, t, α, β)
         ),
     )
 
+    if dgfvm.tendency_filter !== nothing
+        Filters.apply_async!(
+            tendency,
+            1:num_state_tendency,
+            dgfvm.grid,
+            dgfvm.tendency_filter;
+            dependencies=comp_stream
+        )
+    end
+
     # The synchronization here through a device event prevents CuArray based and
     # other default stream kernels from launching before the work scheduled in
     # this function is finished.
     wait(device, comp_stream)
-
-    if dgfvm.tendency_filter !== nothing
-        Filters.apply!(
-            tendency,
-            1:num_state_tendency,
-            dgfvm.grid,
-            dgfvm.tendency_filter,
-        )
-    end
 end
 
 """
