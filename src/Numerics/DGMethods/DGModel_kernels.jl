@@ -169,15 +169,11 @@ fluxes, respectively.
 
             # Computes the local inviscid fluxes Fⁱⁿᵛ
             fill!(local_flux, -zero(eltype(local_flux)))
-            flux_first_order!(
+            flux_first_order_arr!(
                 balance_law,
-                Grad{vars_state(balance_law, Prognostic(), FT)}(local_flux),
-                Vars{vars_state(balance_law, Prognostic(), FT)}(
-                    local_state_prognostic,
-                ),
-                Vars{vars_state(balance_law, Auxiliary(), FT)}(
-                    local_state_auxiliary,
-                ),
+                local_flux,
+                local_state_prognostic,
+                local_state_auxiliary,
                 t,
                 (model_direction,),
             )
@@ -190,21 +186,13 @@ fluxes, respectively.
 
             # Computes the local viscous fluxes Fᵛⁱˢᶜ
             fill!(local_flux, -zero(eltype(local_flux)))
-            flux_second_order!(
+            flux_second_order_arr!(
                 balance_law,
-                Grad{vars_state(balance_law, Prognostic(), FT)}(local_flux),
-                Vars{vars_state(balance_law, Prognostic(), FT)}(
-                    local_state_prognostic,
-                ),
-                Vars{vars_state(balance_law, GradientFlux(), FT)}(
-                    local_state_gradient_flux,
-                ),
-                Vars{vars_state(balance_law, Hyperdiffusive(), FT)}(
-                    local_state_hyperdiffusion,
-                ),
-                Vars{vars_state(balance_law, Auxiliary(), FT)}(
-                    local_state_auxiliary,
-                ),
+                local_flux,
+                local_state_prognostic,
+                local_state_gradient_flux,
+                local_state_hyperdiffusion,
+                local_state_auxiliary,
                 t,
             )
 
@@ -236,17 +224,11 @@ fluxes, respectively.
             if model_direction isa EveryDirection && balance_law isa RemBL
                 if rembl_has_subs_direction(HorizontalDirection(), balance_law)
                     fill!(local_flux, -zero(eltype(local_flux)))
-                    flux_first_order!(
+                    flux_first_order_arr!(
                         balance_law,
-                        Grad{vars_state(balance_law, Prognostic(), FT)}(
-                            local_flux,
-                        ),
-                        Vars{vars_state(balance_law, Prognostic(), FT)}(
-                            local_state_prognostic,
-                        ),
-                        Vars{vars_state(balance_law, Auxiliary(), FT)}(
-                            local_state_auxiliary,
-                        ),
+                        local_flux,
+                        local_state_prognostic,
+                        local_state_auxiliary,
                         t,
                         (HorizontalDirection(),),
                     )
@@ -277,20 +259,12 @@ fluxes, respectively.
             # Computes the contribution due to the source term S
             if add_source
                 fill!(local_source, -zero(eltype(local_source)))
-                source!(
+                source_arr!(
                     balance_law,
-                    Vars{vars_state(balance_law, Prognostic(), FT)}(
-                        local_source,
-                    ),
-                    Vars{vars_state(balance_law, Prognostic(), FT)}(
-                        local_state_prognostic,
-                    ),
-                    Vars{vars_state(balance_law, GradientFlux(), FT)}(
-                        local_state_gradient_flux,
-                    ),
-                    Vars{vars_state(balance_law, Auxiliary(), FT)}(
-                        local_state_auxiliary,
-                    ),
+                    local_source,
+                    local_state_prognostic,
+                    local_state_gradient_flux,
+                    local_state_auxiliary,
                     t,
                     (model_direction,),
                 )
@@ -443,15 +417,11 @@ end
 
             # Computes the local inviscid fluxes Fⁱⁿᵛ
             fill!(local_flux, -zero(eltype(local_flux)))
-            flux_first_order!(
+            flux_first_order_arr!(
                 balance_law,
-                Grad{vars_state(balance_law, Prognostic(), FT)}(local_flux),
-                Vars{vars_state(balance_law, Prognostic(), FT)}(
-                    local_state_prognostic,
-                ),
-                Vars{vars_state(balance_law, Auxiliary(), FT)}(
-                    local_state_auxiliary,
-                ),
+                local_flux,
+                local_state_prognostic,
+                local_state_auxiliary,
                 t,
                 (model_direction,),
             )
@@ -464,21 +434,13 @@ end
 
             # Computes the local viscous fluxes Fᵛⁱˢᶜ
             fill!(local_flux, -zero(eltype(local_flux)))
-            flux_second_order!(
+            flux_second_order_arr!(
                 balance_law,
-                Grad{vars_state(balance_law, Prognostic(), FT)}(local_flux),
-                Vars{vars_state(balance_law, Prognostic(), FT)}(
-                    local_state_prognostic,
-                ),
-                Vars{vars_state(balance_law, GradientFlux(), FT)}(
-                    local_state_gradient_flux,
-                ),
-                Vars{vars_state(balance_law, Hyperdiffusive(), FT)}(
-                    local_state_hyperdiffusion,
-                ),
-                Vars{vars_state(balance_law, Auxiliary(), FT)}(
-                    local_state_auxiliary,
-                ),
+                local_flux,
+                local_state_prognostic,
+                local_state_gradient_flux,
+                local_state_hyperdiffusion,
+                local_state_auxiliary,
                 t,
             )
 
@@ -506,17 +468,11 @@ end
             if model_direction isa EveryDirection && balance_law isa RemBL
                 if rembl_has_subs_direction(VerticalDirection(), balance_law)
                     fill!(local_flux, -zero(eltype(local_flux)))
-                    flux_first_order!(
+                    flux_first_order_arr!(
                         balance_law,
-                        Grad{vars_state(balance_law, Prognostic(), FT)}(
-                            local_flux,
-                        ),
-                        Vars{vars_state(balance_law, Prognostic(), FT)}(
-                            local_state_prognostic,
-                        ),
-                        Vars{vars_state(balance_law, Auxiliary(), FT)}(
-                            local_state_auxiliary,
-                        ),
+                        local_flux,
+                        local_state_prognostic,
+                        local_state_auxiliary,
                         t,
                         (VerticalDirection(),),
                     )
@@ -548,20 +504,12 @@ end
             # Computes the contribution due to the source term S
             if add_source
                 fill!(local_source, -zero(eltype(local_source)))
-                source!(
+                source_arr!(
                     balance_law,
-                    Vars{vars_state(balance_law, Prognostic(), FT)}(
-                        local_source,
-                    ),
-                    Vars{vars_state(balance_law, Prognostic(), FT)}(
-                        local_state_prognostic,
-                    ),
-                    Vars{vars_state(balance_law, GradientFlux(), FT)}(
-                        local_state_gradient_flux,
-                    ),
-                    Vars{vars_state(balance_law, Auxiliary(), FT)}(
-                        local_state_auxiliary,
-                    ),
+                    local_source,
+                    local_state_prognostic,
+                    local_state_gradient_flux,
+                    local_state_auxiliary,
                     t,
                     (model_direction,),
                 )

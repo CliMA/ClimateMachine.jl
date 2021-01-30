@@ -8,7 +8,7 @@ on:
 
 jobs:
   test-os:
-    timeout-minutes: 150
+    timeout-minutes: 210
     strategy:
       fail-fast: true
       matrix:
@@ -72,10 +72,11 @@ jobs:
 
     - name: Build System Image
       if: steps.filter.outputs.run_test == 'true'
+      continue-on-error: true
       run: |
         julia --project=@. .dev/systemimage/climate_machine_image.jl ClimateMachine.so true
 
     - name: Run Unit Tests
       if: steps.filter.outputs.run_test == 'true'
       run: |
-        julia --project=@. -J ClimateMachine.so -e 'using Pkg; Pkg.test()'
+        julia --project=@. -e 'using Pkg; Pkg.test()'

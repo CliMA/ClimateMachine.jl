@@ -167,7 +167,7 @@ function init_problem!(problem, bl, state, aux, localgeo, t)
     # Assign initial conditions for prognostic state variables
     state.ρ = ρ
     state.ρu = SVector(ρu, ρv, ρw)
-    state.ρe = ρe_tot
+    state.energy.ρe = ρe_tot
     if !(bl.moisture isa DryModel)
         state.moisture.ρq_tot = ρ * q_tot
     end

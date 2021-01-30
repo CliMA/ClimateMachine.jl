@@ -2,6 +2,9 @@
 
 import ..BalanceLaws: prognostic_vars
 
+prognostic_vars(::EnergyModel) = (Energy(),)
+prognostic_vars(::θModel) = (ρθ_liq_ice(),)
+
 prognostic_vars(::DryModel) = ()
 prognostic_vars(::EquilMoist) = (TotalMoisture(),)
 prognostic_vars(::NonEquilMoist) =
@@ -17,7 +20,7 @@ prognostic_vars(::NTracers{N}) where {N} = (Tracers{N}(),)
 prognostic_vars(m::AtmosModel) = (
     Mass(),
     Momentum(),
-    Energy(),
+    prognostic_vars(m.energy)...,
     prognostic_vars(m.moisture)...,
     prognostic_vars(m.precipitation)...,
     prognostic_vars(m.tracers)...,

@@ -1,3 +1,5 @@
+module TestSurfaceFluxes
+
 using ClimateMachine
 ClimateMachine.init()
 const ArrayType = ClimateMachine.array_type()
@@ -111,7 +113,6 @@ const param_set = EarthParameterSet()
         z_rough = ArrayType(FT[Tuple(z0)[ii], Tuple(zt)[ii], Tuple(zq)[ii]])
 
         # Constants
-        a = FT(4.7)
         Δz = Tuple(z)[ii]
 
         # F_exchange
@@ -128,7 +129,6 @@ const param_set = EarthParameterSet()
             qt_ave,
             Δz,
             z_ave / 2,
-            a,
         )
 
         ## Assuming surface fluxes are not given
@@ -144,3 +144,5 @@ const param_set = EarthParameterSet()
 end
 
 include("test_universal_functions.jl")
+
+end # module TestSurfaceFluxes

@@ -496,7 +496,7 @@ function (setup::RemainderTestSetup)(problem, bl, state, aux, localgeo, t)
     # Vary around the reference state by 10% and a random velocity field
     state.ρ = (4 + rand(FT)) / 5 + aux.ref_state.ρ
     state.ρu = 2 * (@SVector rand(FT, 3)) .- 1
-    state.ρe = (4 + rand(FT)) / 5 + aux.ref_state.ρe
+    state.energy.ρe = (4 + rand(FT)) / 5 + aux.ref_state.ρe
 
     nothing
 end

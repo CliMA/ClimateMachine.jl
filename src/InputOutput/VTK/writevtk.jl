@@ -97,6 +97,13 @@ function writevtk(
     return nothing
 end
 
+reshaped_view(fields, ind, Np_N1, Nq, nelem) =
+    ntuple(length(fields)) do i
+        fld = reshape(fields[i], Nq..., nelem)
+        fld2 = @view fld[ind..., :]
+        reshape(fld2, (Np_N1, nelem))
+    end
+
 """
     writevtk_helper(prefix, vgeo::Array, Q::Array, grid, fieldnames)
 
@@ -138,16 +145,8 @@ function writevtk_helper(
         Nq_N1 = max.(Nq, 2)
         Np_N1 = prod(Nq_N1)
         ind = ntuple(i -> N[i] == 0 ? [1, 1] : Colon(), dim)
-        fields = ntuple(length(fields)) do i
-            fld = reshape(fields[i], Nq..., nelem)
-            fld2 = @view fld[ind..., :]
-            reshape(fld2, (Np_N1, nelem))
-        end
-        auxfields = ntuple(length(auxfields)) do i
-            fld = reshape(auxfields[i], Nq..., nelem)
-            fld2 = @view fld[ind..., :]
-            reshape(fld2, (Np_N1, nelem))
-        end
+        fields = reshaped_view(fields, ind, Np_N1, Nq, nelem)
+        auxfields = reshaped_view(auxfields, ind, Np_N1, Nq, nelem)
         Nq = Nq_N1
     end
 
@@ -169,22 +168,18 @@ function writevtk_helper(
     end
 
     X = ntuple(i -> reshape(X[i], Nq..., nelem), length(X))
-    fields = ntuple(i -> reshape(fields[i], Nq..., nelem), length(fields))
-    auxfields =
-        ntuple(i -> reshape(auxfields[i], Nq..., nelem), length(auxfields))
 
-    if fieldnames === nothing
-        fields = ntuple(i -> ("Q$i", fields[i]), length(fields))
-    else
-        fields = ntuple(i -> (fieldnames[i], fields[i]), length(fields))
+    function get_fields(x, fieldnames, name)
+        x = ntuple(i -> reshape(x[i], Nq..., nelem), length(x))
+        if fieldnames === nothing
+            return ntuple(i -> ("$name$i", x[i]), length(x))
+        else
+            return ntuple(i -> (fieldnames[i], x[i]), length(x))
+        end
     end
 
-    if auxfieldnames === nothing
-        auxfields = ntuple(i -> ("aux$i", auxfields[i]), length(auxfields))
-    else
-        auxfields =
-            ntuple(i -> (auxfieldnames[i], auxfields[i]), length(auxfields))
-    end
+    fields = get_fields(fields, fieldnames, "Q")
+    auxfields = get_fields(auxfields, auxfieldnames, "aux")
 
     fields = (fields..., auxfields...)
     if number_sample_points > 0

@@ -5,7 +5,8 @@ export AtmosModel,
     AtmosAcousticGravityLinearModel,
     HLLCNumericalFlux,
     RoeNumericalFlux,
-    RoeNumericalFluxMoist
+    RoeNumericalFluxMoist,
+    LMARSNumericalFlux
 
 using UnPack
 using CLIMAParameters
@@ -91,7 +92,8 @@ using ..DGMethods.NumericalFluxes:
     RoeNumericalFlux,
     HLLCNumericalFlux,
     RusanovNumericalFlux,
-    RoeNumericalFluxMoist
+    RoeNumericalFluxMoist,
+    LMARSNumericalFlux
 
 import ..Courant: advective_courant, nondiffusive_courant, diffusive_courant
 
@@ -122,14 +124,33 @@ default values for each field.
 # Fields
 $(DocStringExtensions.FIELDS)
 """
-struct AtmosModel{FT, PS, PR, O, RS, T, TC, HD, VS, M, P, R, S, TR, LF, DC} <:
-       BalanceLaw
+struct AtmosModel{
+    FT,
+    PS,
+    PR,
+    O,
+    E,
+    RS,
+    T,
+    TC,
+    HD,
+    VS,
+    M,
+    P,
+    R,
+    S,
+    TR,
+    LF,
+    DC,
+} <: BalanceLaw
     "Parameter Set (type to dispatch on, e.g., planet parameters. See CLIMAParameters.jl package)"
     param_set::PS
     "Problem (initial and boundary conditions)"
     problem::PR
     "An orientation model"
     orientation::O
+    "Energy sub-model, can be energy-based or θ_liq_ice-based"
+    energy::E
     "Reference State (For initial conditions, or for linearisation when using implicit solvers)"
     ref_state::RS
     "Turbulence Closure (Equations for dynamics of under-resolved turbulent flows)"
@@ -168,6 +189,7 @@ function AtmosModel{FT}(
     init_state_prognostic::ISP = nothing,
     problem::PR = AtmosProblem(init_state_prognostic = init_state_prognostic),
     orientation::O = FlatOrientation(),
+    energy::E = EnergyModel(),
     ref_state::RS = HydrostaticState(DecayingTemperatureProfile{FT}(param_set),),
     turbulence::T = SmagorinskyLilly{FT}(0.21),
     turbconv::TC = NoTurbConv(),
@@ -190,6 +212,7 @@ function AtmosModel{FT}(
     ISP,
     PR,
     O,
+    E,
     RS,
     T,
     TC,
@@ -209,6 +232,7 @@ function AtmosModel{FT}(
         param_set,
         problem,
         orientation,
+        energy,
         ref_state,
         turbulence,
         turbconv,
@@ -238,6 +262,7 @@ function AtmosModel{FT}(
     init_state_prognostic::ISP = nothing,
     problem::PR = AtmosProblem(init_state_prognostic = init_state_prognostic),
     orientation::O = SphericalOrientation(),
+    energy::E = EnergyModel(),
     ref_state::RS = HydrostaticState(DecayingTemperatureProfile{FT}(param_set),),
     turbulence::T = SmagorinskyLilly{FT}(C_smag(param_set)),
     turbconv::TC = NoTurbConv(),
@@ -255,6 +280,7 @@ function AtmosModel{FT}(
     ISP,
     PR,
     O,
+    E,
     RS,
     T,
     TC,
@@ -275,6 +301,7 @@ function AtmosModel{FT}(
         param_set,
         problem,
         orientation,
+        energy,
         ref_state,
         turbulence,
         turbconv,
@@ -307,7 +334,7 @@ function vars_state(m::AtmosModel, st::Prognostic, FT)
         # start of inclusion in `AtmosLinearModel`
         ρ::FT
         ρu::SVector{3, FT}
-        ρe::FT
+        energy::vars_state(m.energy, st, FT) # TODO: adjust linearmodel
         turbulence::vars_state(m.turbulence, st, FT)
         hyperdiffusion::vars_state(m.hyperdiffusion, st, FT)
         moisture::vars_state(m.moisture, st, FT)
@@ -337,7 +364,7 @@ Pre-transform gradient variables.
 function vars_state(m::AtmosModel, st::Gradient, FT)
     @vars begin
         u::SVector{3, FT}
-        h_tot::FT
+        energy::vars_state(m.energy, st, FT)
         turbulence::vars_state(m.turbulence, st, FT)
         turbconv::vars_state(m.turbconv, st, FT)
         hyperdiffusion::vars_state(m.hyperdiffusion, st, FT)
@@ -355,7 +382,7 @@ Post-transform gradient variables.
 """
 function vars_state(m::AtmosModel, st::GradientFlux, FT)
     @vars begin
-        ∇h_tot::SVector{3, FT}
+        energy::vars_state(m.energy, st, FT)
         turbulence::vars_state(m.turbulence, st, FT)
         turbconv::vars_state(m.turbconv, st, FT)
         hyperdiffusion::vars_state(m.hyperdiffusion, st, FT)
@@ -463,6 +490,7 @@ include("tendencies_tracers.jl")      # specify tracer tendencies
 include("problem.jl")
 include("ref_state.jl")
 include("moisture.jl")
+include("energy.jl")
 include("precipitation.jl")
 include("thermo_states.jl")
 include("radiation.jl")
@@ -506,13 +534,13 @@ equations.
 
     flux_pad = SVector(1, 1, 1)
     tend = Flux{FirstOrder}()
-    _args = (state = state, aux = aux, t = t, direction = direction)
+    _args = (; state, aux, t, direction)
     args = merge(_args, (precomputed = precompute(atmos, _args, tend),))
     flux.ρ = Σfluxes(eq_tends(Mass(), atmos, tend), atmos, args) .* flux_pad
     flux.ρu =
         Σfluxes(eq_tends(Momentum(), atmos, tend), atmos, args) .* flux_pad
-    flux.ρe = Σfluxes(eq_tends(Energy(), atmos, tend), atmos, args) .* flux_pad
 
+    flux_first_order!(atmos.energy, atmos, flux, args)
     flux_first_order!(atmos.moisture, atmos, flux, args)
     flux_first_order!(atmos.precipitation, atmos, flux, args)
     flux_first_order!(atmos.tracers, atmos, flux, args)
@@ -529,10 +557,8 @@ function compute_gradient_argument!(
 )
     ρinv = 1 / state.ρ
     transform.u = ρinv * state.ρu
-    ts = recover_thermo_state(atmos, state, aux)
-    e_tot = state.ρe * (1 / state.ρ)
-    transform.h_tot = total_specific_enthalpy(ts, e_tot)
 
+    compute_gradient_argument!(atmos.energy, atmos, transform, state, aux, t)
     compute_gradient_argument!(atmos.moisture, transform, state, aux, t)
     compute_gradient_argument!(atmos.precipitation, transform, state, aux, t)
     compute_gradient_argument!(atmos.turbulence, transform, state, aux, t)
@@ -557,7 +583,7 @@ function compute_gradient_flux!(
     aux::Vars,
     t::Real,
 )
-    diffusive.∇h_tot = ∇transform.h_tot
+    compute_gradient_flux!(atmos.energy, diffusive, ∇transform, state, aux, t)
 
     # diffusion terms required for SGS turbulence computations
     compute_gradient_flux!(
@@ -653,21 +679,15 @@ function. Contributions from subcomponents are then assembled (pointwise).
     flux_pad = SVector(1, 1, 1)
     tend = Flux{SecondOrder}()
 
-    _args = (
-        state = state,
-        aux = aux,
-        t = t,
-        diffusive = diffusive,
-        hyperdiffusive = hyperdiffusive,
-    )
+    _args = (; state, aux, t, diffusive, hyperdiffusive)
 
     args = merge(_args, (precomputed = precompute(atmos, _args, tend),))
 
     flux.ρ = Σfluxes(eq_tends(Mass(), atmos, tend), atmos, args) .* flux_pad
     flux.ρu =
         Σfluxes(eq_tends(Momentum(), atmos, tend), atmos, args) .* flux_pad
-    flux.ρe = Σfluxes(eq_tends(Energy(), atmos, tend), atmos, args) .* flux_pad
 
+    flux_second_order!(atmos.energy, flux, atmos, args)
     flux_second_order!(atmos.moisture, flux, atmos, args)
     flux_second_order!(atmos.precipitation, flux, atmos, args)
     flux_second_order!(atmos.tracers, flux, atmos, args)
@@ -687,7 +707,6 @@ end
     uN = abs(dot(nM, u))
     ts = recover_thermo_state(m, state, aux)
     ss = soundspeed_air(ts)
-
     FT = typeof(state.ρ)
     ws = fill(uN + ss, MVector{number_states(m, Prognostic()), FT})
     vars_ws = Vars{vars_state(m, Prognostic(), FT)}(ws)
@@ -804,7 +823,6 @@ function init_state_auxiliary!(
 )
     # update the geopotential Φ in state_auxiliary.orientation.Φ
     init_aux!(m, m.orientation, state_auxiliary, grid, direction)
-
     atmos_init_aux!(m, m.ref_state, state_auxiliary, grid, direction)
 
     init_state_auxiliary!(
@@ -853,20 +871,14 @@ function source!(
     ρu_pad = SVector(1, 1, 1)
     tend = Source()
 
-    _args = (
-        state = state,
-        aux = aux,
-        t = t,
-        direction = direction,
-        diffusive = diffusive,
-    )
+    _args = (; state, aux, t, direction, diffusive)
 
     args = merge(_args, (precomputed = precompute(atmos, _args, tend),))
 
     source.ρ = Σsources(eq_tends(Mass(), atmos, tend), atmos, args)
     source.ρu =
         Σsources(eq_tends(Momentum(), atmos, tend), atmos, args) .* ρu_pad
-    source.ρe = Σsources(eq_tends(Energy(), atmos, tend), atmos, args)
+    source!(atmos.energy, source, atmos, args)
     source!(atmos.moisture, source, atmos, args)
     source!(atmos.precipitation, source, atmos, args)
     source!(atmos.turbconv, source, atmos, args)
@@ -944,7 +956,7 @@ function numerical_flux_first_order!(
 
     ρ⁻ = state_prognostic⁻.ρ
     ρu⁻ = state_prognostic⁻.ρu
-    ρe⁻ = state_prognostic⁻.ρe
+    ρe⁻ = state_prognostic⁻.energy.ρe
     ts⁻ = recover_thermo_state(
         balance_law,
         balance_law.moisture,
@@ -961,7 +973,7 @@ function numerical_flux_first_order!(
 
     ρ⁺ = state_prognostic⁺.ρ
     ρu⁺ = state_prognostic⁺.ρu
-    ρe⁺ = state_prognostic⁺.ρe
+    ρe⁺ = state_prognostic⁺.energy.ρe
 
     # TODO: state_auxiliary⁺ is not up-to-date
     # with state_prognostic⁺ on the boundaries
@@ -1004,7 +1016,7 @@ function numerical_flux_first_order!(
             w3 * ũ +
             w4 * (Δu - Δuᵀn * normal_vector)
         ) / 2
-    fluxᵀn.ρe -=
+    fluxᵀn.energy.ρe -=
         (
             w1 * (h̃ - c̃ * ũᵀn) +
             w2 * (h̃ + c̃ * ũᵀn) +
@@ -1098,7 +1110,7 @@ function numerical_flux_first_order!(
     # the positive + and negative - sides of the interior facets
     ρ⁻ = state_prognostic⁻.ρ
     ρu⁻ = state_prognostic⁻.ρu
-    ρe⁻ = state_prognostic⁻.ρe
+    ρe⁻ = state_prognostic⁻.energy.ρe
     ts⁻ = recover_thermo_state(
         balance_law,
         balance_law.moisture,
@@ -1115,7 +1127,7 @@ function numerical_flux_first_order!(
 
     ρ⁺ = state_prognostic⁺.ρ
     ρu⁺ = state_prognostic⁺.ρu
-    ρe⁺ = state_prognostic⁺.ρe
+    ρe⁺ = state_prognostic⁺.energy.ρe
     ts⁺ = recover_thermo_state(
         balance_law,
         balance_law.moisture,
@@ -1219,7 +1231,7 @@ function numerical_flux_first_order!(
 
     ρ⁻ = state_prognostic⁻.ρ
     ρu⁻ = state_prognostic⁻.ρu
-    ρe⁻ = state_prognostic⁻.ρe
+    ρe⁻ = state_prognostic⁻.energy.ρe
     ρq_tot⁻ = state_prognostic⁻.moisture.ρq_tot
 
     u⁻ = ρu⁻ / ρ⁻
@@ -1231,7 +1243,7 @@ function numerical_flux_first_order!(
 
     ρ⁺ = state_prognostic⁺.ρ
     ρu⁺ = state_prognostic⁺.ρu
-    ρe⁺ = state_prognostic⁺.ρe
+    ρe⁺ = state_prognostic⁺.energy.ρe
     ρq_tot⁺ = state_prognostic⁺.moisture.ρq_tot
 
     u⁺ = ρu⁺ / ρ⁺
@@ -1419,6 +1431,100 @@ function numerical_flux_first_order!(
     Δρq_tot = ρq_tot⁺ - ρq_tot⁻
     Δstate = SVector(Δρ, Δρu[1], Δρu[2], Δρu[3], Δρe, Δρq_tot)
     parent(fluxᵀn) .-= M * Λ * (M \ Δstate) / 2
+end
+
+function numerical_flux_first_order!(
+    numerical_flux::LMARSNumericalFlux,
+    balance_law::AtmosModel,
+    fluxᵀn::Vars{S},
+    normal_vector::SVector,
+    state_prognostic⁻::Vars{S},
+    state_auxiliary⁻::Vars{A},
+    state_prognostic⁺::Vars{S},
+    state_auxiliary⁺::Vars{A},
+    t,
+    direction,
+) where {S, A}
+
+
+    @assert balance_law.moisture isa DryModel ||
+            balance_law.moisture isa EquilMoist
+
+    FT = eltype(fluxᵀn)
+    param_set = balance_law.param_set
+
+    ρ⁻ = state_prognostic⁻.ρ
+    ρu⁻ = state_prognostic⁻.ρu
+    ρe⁻ = state_prognostic⁻.energy.ρe
+    ts⁻ = recover_thermo_state(
+        balance_law,
+        balance_law.moisture,
+        state_prognostic⁻,
+        state_auxiliary⁻,
+    )
+
+    u⁻ = ρu⁻ / ρ⁻
+    e⁻ = ρe⁻ / ρ⁻
+    uᵀn⁻ = u⁻' * normal_vector
+    p⁻ = air_pressure(ts⁻)
+    if balance_law.ref_state isa HydrostaticState &&
+       balance_law.ref_state.subtract_off
+        p⁻ -= state_auxiliary⁻.ref_state.p
+    end
+    c⁻ = soundspeed_air(ts⁻)
+    h⁻ = total_specific_enthalpy(ts⁻, e⁻)
+
+    ρ⁺ = state_prognostic⁺.ρ
+    ρu⁺ = state_prognostic⁺.ρu
+    ρe⁺ = state_prognostic⁺.energy.ρe
+    ts⁺ = recover_thermo_state(
+        balance_law,
+        balance_law.moisture,
+        state_prognostic⁺,
+        state_auxiliary⁺,
+    )
+    u⁺ = ρu⁺ / ρ⁺
+    e⁺ = ρe⁺ / ρ⁺
+    uᵀn⁺ = u⁺' * normal_vector
+    p⁺ = air_pressure(ts⁺)
+    if balance_law.ref_state isa HydrostaticState &&
+       balance_law.ref_state.subtract_off
+        p⁺ -= state_auxiliary⁺.ref_state.p
+    end
+    c⁺ = soundspeed_air(ts⁺)
+    h⁺ = total_specific_enthalpy(ts⁺, e⁺)
+
+    # Eqn (49), (50), β the tuning parameter
+    β = FT(1)
+    u_half = 1 / 2 * (uᵀn⁺ + uᵀn⁻) - β * 1 / (ρ⁻ + ρ⁺) / c⁻ * (p⁺ - p⁻)
+    p_half = 1 / 2 * (p⁺ + p⁻) - β * ((ρ⁻ + ρ⁺) * c⁻) / 4 * (uᵀn⁺ - uᵀn⁻)
+
+    # Eqn (46), (47)
+    ρ_b = u_half > FT(0) ? ρ⁻ : ρ⁺
+    ρu_b = u_half > FT(0) ? ρu⁻ : ρu⁺
+    ρh_b = u_half > FT(0) ? ρ⁻ * h⁻ : ρ⁺ * h⁺
+
+    # Update fluxes Eqn (18)
+    fluxᵀn.ρ = ρ_b * u_half
+    fluxᵀn.ρu = ρu_b * u_half .+ p_half * normal_vector
+    fluxᵀn.energy.ρe = ρh_b * u_half
+
+    if balance_law.moisture isa EquilMoist
+        ρq⁻ = state_prognostic⁻.moisture.ρq_tot
+        q⁻ = ρq⁻ / ρ⁻
+        ρq⁺ = state_prognostic⁺.moisture.ρq_tot
+        q⁺ = ρq⁺ / ρ⁺
+        ρq_b = u_half > FT(0) ? ρq⁻ : ρq⁺
+        fluxᵀn.moisture.ρq_tot = ρq_b * u_half
+    end
+    if !(balance_law.tracers isa NoTracers)
+        ρχ⁻ = state_prognostic⁻.tracers.ρχ
+        χ⁻ = ρχ⁻ / ρ⁻
+        ρχ⁺ = state_prognostic⁺.tracers.ρχ
+        χ⁺ = ρχ⁺ / ρ⁺
+        ρχ_b = u_half > FT(0) ? ρχ⁻ : ρχ⁺
+        fluxᵀn.tracers.ρχ = ρχ_b * u_half
+    end
 end
 
 end # module

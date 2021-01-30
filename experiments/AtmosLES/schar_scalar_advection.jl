@@ -96,7 +96,7 @@ function init_schar!(problem, bl, state, aux, localgeo, t)
 
     state.ρ = ρ
     state.ρu = SVector{3, FT}(ρ * u, 0, 0)
-    state.ρe = ρe_tot
+    state.energy.ρe = ρe_tot
     state.tracers.ρχ = ρ * SVector{1, FT}(χ)
 end
 

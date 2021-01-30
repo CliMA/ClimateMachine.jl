@@ -6,6 +6,7 @@
 # - AtmosGCMConfiguration
 # - OceanBoxGCMConfiguration
 # - SingleStackConfiguration
+# - MultiColumnLandModel
 #
 # User-customized configurations can use these as templates.
 
@@ -20,22 +21,27 @@ struct AtmosGCMSpecificInfo{FT} <: ConfigSpecificInfo
     nelem_horz::Int
 end
 struct OceanBoxGCMSpecificInfo <: ConfigSpecificInfo end
-struct SingleStackSpecificInfo <: ConfigSpecificInfo end
+struct SingleStackSpecificInfo{FT} <: ConfigSpecificInfo
+    zmax::FT
+    hmax::FT
+end
 struct MultiColumnLandSpecificInfo <: ConfigSpecificInfo end
+
 include("SolverTypes/SolverTypes.jl")
 
 """
     ArgParse.parse_item
 
-Parses custom command line option for tuples of two integers.
+Parses custom command line option for tuples of three or fewer integers.
 """
-function ArgParse.parse_item(::Type{NTuple{2, Int}}, s::AbstractString)
+function ArgParse.parse_item(::Type{NTuple{3, Int}}, s::AbstractString)
 
     str_array = split(s, ",")
     int_1 = length(str_array) > 0 ? parse(Int, str_array[1]) : 0
     int_2 = length(str_array) > 1 ? parse(Int, str_array[2]) : 0
+    int_3 = length(str_array) > 2 ? parse(Int, str_array[3]) : 0
 
-    return (int_1, int_2)
+    return (int_1, int_2, int_3)
 end
 
 """
@@ -341,7 +347,7 @@ function AtmosGCMConfiguration(
     (cutofforder_horz, cutofforder_vert) = get_polyorders(Ncutoff)
 
     # Check if the number of elements was passed as a CL option
-    if ClimateMachine.Settings.nelems != (-1, -1)
+    if ClimateMachine.Settings.nelems != (-1, -1, -1)
         (nelem_horz, nelem_vert) = ClimateMachine.Settings.nelems
     end
 
@@ -452,6 +458,11 @@ function OceanBoxGCMConfiguration(
 
     (polyorder_horz, polyorder_vert) = get_polyorders(N)
 
+    # Check if the number of elements was passed as a CL option
+    if ClimateMachine.Settings.nelems != (-1, -1, -1)
+        (Nˣ, Nʸ, Nᶻ) = ClimateMachine.Settings.nelems
+    end
+
     brickrange = (
         range(FT(0); length = Nˣ + 1, stop = model.problem.Lˣ),
         range(FT(0); length = Nʸ + 1, stop = model.problem.Lʸ),
@@ -470,6 +481,28 @@ function OceanBoxGCMConfiguration(
         FloatType = FT,
         DeviceArray = array_type,
         polynomialorder = (polyorder_horz, polyorder_vert),
+    )
+
+    @info @sprintf(
+        """
+Establishing Ocean Box GCM configuration for %s
+    precision               = %s
+    horiz polynomial order  = %d
+    vert polynomial order   = %d
+    Nˣ # elems              = %d
+    Nʸ # elems              = %d
+    Nᶻ # elems              = %d
+    domain depth            = %.2e m
+    MPI ranks               = %d""",
+        name,
+        FT,
+        polyorder_horz,
+        polyorder_vert,
+        Nˣ,
+        Nʸ,
+        Nᶻ,
+        -model.problem.H,
+        MPI.Comm_size(mpicomm)
     )
 
     return DriverConfiguration(
@@ -516,7 +549,7 @@ function SingleStackConfiguration(
     (polyorder_horz, polyorder_vert) = get_polyorders(N)
 
     # Check if the number of elements was passed as a CL option
-    if ClimateMachine.Settings.nelems != (-1, -1)
+    if ClimateMachine.Settings.nelems != (-1, -1, -1)
         nE = ClimateMachine.Settings.nelems
         nelem_vert = nE[1]
     end
@@ -594,7 +627,7 @@ Establishing single stack configuration for %s
         numerical_flux_gradient,
         fv_reconstruction,
         nothing, # filter
-        SingleStackSpecificInfo(),
+        SingleStackSpecificInfo(zmax, hmax),
     )
 end
 

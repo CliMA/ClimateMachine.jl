@@ -76,7 +76,7 @@ function init_isothermal_zonal_flow!(problem, bl, state, aux, localgeo, t)
 
     state.ρ = ρ
     state.ρu = ρ * u_init
-    state.ρe = ρ * total_energy(bl.param_set, e_kin, e_pot, T₀)
+    state.energy.ρe = ρ * total_energy(bl.param_set, e_kin, e_pot, T₀)
 end
 
 function config_isothermal_zonal_flow(FT, poly_order, cutoff_order, resolution, ref_state)

@@ -76,6 +76,8 @@ VT = VariableTemplates
         @test v.scalar_model.x == FT(Nv + 1) + offset
     end
 
+    @test vuntuple(x -> x, 5) == ntuple(i -> Val(i), Val(5))
+
     # test flattenednames
     fn = flattenednames(st)
     j = 1
@@ -98,6 +100,16 @@ VT = VariableTemplates
     @test flattened_tup_chain(NamedTuple{(), Tuple{}}) == ()
     @test flattened_tup_chain(Foo, RetainArr()) == ((Symbol(),),)
     @test flattened_tup_chain(Foo, FlattenArr()) == ((Symbol(),),)
+
+    # flattened_tup_chain - SHermitianCompact
+    Nv, M = 3, 6
+    A = SHermitianCompact{Nv, FT, M}(collect(1:(1 + M - 1)))
+
+    ftc = flattened_tup_chain(typeof(A), FlattenArr())
+    @test ftc == ntuple(i -> (Symbol(), i), M)
+
+    ftc = flattened_tup_chain(typeof(A), RetainArr())
+    @test ftc == ((Symbol(),),)
 
     # flattened_tup_chain - Retain arrays
 
@@ -209,6 +221,39 @@ VT = VariableTemplates
     # test getproperty with tup-chain
     for k in 1:Nv
         @test v.vector_model.x[k] == getproperty(v, (:vector_model, :x, Val(k)))
+    end
+
+    # test getindex with Val
+    @test getindex((1, 2), Val(1)) == 1
+    @test getindex((1, 2), Val(2)) == 2
+    @test getindex(SVector(1, 2), Val(1)) == 1
+    @test getindex(SVector(1, 2), Val(2)) == 2
+
+    nt = (; a = ((; x = 1), (; x = 2)))
+    fnt = VT.flattened_nt_vals(FlattenArr(), nt)
+    vg = Grad{typeof(nt)}(zeros(MMatrix{3, length(fnt), FT}))
+    parent(vg)[1, :] .= fnt
+    parent(vg)[2, :] .= fnt
+    parent(vg)[3, :] .= fnt
+    for i in 1:2
+        @test getindex(vg.a, Val(i)).x[1] == i
+        @test getindex(vg.a, Val(i)).x[2] == i
+        @test getindex(vg.a, Val(i)).x[3] == i
+    end
+
+    # getpropertyorindex
+    @test VT.getpropertyorindex((1, 2), Val(1)) == 1
+    @test VT.getpropertyorindex((1, 2), Val(2)) == 2
+    @test VT.getpropertyorindex([1, 2], Val(1)) == 1
+    @test VT.getpropertyorindex([1, 2], Val(2)) == 2
+    @test VT.getpropertyorindex(v, :scalar_model) == v.scalar_model
+    for i in 1:N
+        @test VT.getpropertyorindex(v.ntuple_model, Val(i)) ==
+              v.ntuple_model[Val(i)]
+        @test VT.getpropertyorindex(v.ntuple_model, (Val(i),)) ==
+              v.ntuple_model[Val(i)]
+        @test getindex(v.ntuple_model, (Val(i),)) ==
+              VT.getpropertyorindex(v.ntuple_model, (Val(i),))
     end
 
     # Test converting to flattened NamedTuple

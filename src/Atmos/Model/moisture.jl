@@ -47,7 +47,7 @@ internal_energy(atmos::AtmosModel, state::Vars, aux::Vars) =
 )
     Thermodynamics.internal_energy(
         state.ρ,
-        state.ρe,
+        state.energy.ρe,
         state.ρu,
         gravitational_potential(orientation, aux),
     )

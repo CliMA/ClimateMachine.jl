@@ -65,7 +65,7 @@
 # specific to atmospheric and ocean flow modeling.
 
 using ClimateMachine
-ClimateMachine.init()
+ClimateMachine.init(; parse_clargs = true)
 using ClimateMachine.Atmos
 using ClimateMachine.Orientations
 using ClimateMachine.ConfigTypes
@@ -76,7 +76,8 @@ using ClimateMachine.TemperatureProfiles
 using ClimateMachine.Thermodynamics
 using ClimateMachine.TurbulenceClosures
 using ClimateMachine.VariableTemplates
-
+using ClimateMachine.Mesh.Geometry
+using ClimateMachine.Mesh.Grids
 # In ClimateMachine we use `StaticArrays` for our variable arrays.
 # We also use the `Test` package to help with unit tests and continuous
 # integration systems to design sensible tests for our experiment to ensure new
@@ -131,7 +132,7 @@ function init_risingbubble!(problem, bl, state, aux, localgeo, t)
     θamplitude::FT = 2
 
     ## This is configured in the reference hydrostatic state
-    θ_ref::FT = bl.ref_state.virtual_temperature_profile.T_surface
+    θ_ref::FT = 300
 
     ## Add the thermal perturbation:
     Δθ::FT = 0
@@ -168,7 +169,7 @@ function init_risingbubble!(problem, bl, state, aux, localgeo, t)
     ## Assign State Variables
     state.ρ = ρ
     state.ρu = ρu
-    state.energy.ρe = ρe_tot
+    state.energy.ρθ_liq_ice = ρ * θ
     state.tracers.ρχ = ρχ
 end
 
@@ -193,6 +194,7 @@ function config_risingbubble(
     ode_solver = ClimateMachine.ExplicitSolverType(
         solver_method = LSRK144NiegemannDiehlBusch,
     )
+    ## ode_solver = ClimateMachine.IMEXSolverType()
     ## If the user prefers a multi-rate explicit time integrator,
     ## the ode_solver above can be replaced with
     ##
@@ -220,15 +222,30 @@ function config_risingbubble(
     T_surface = FT(300)
     T_min_ref = FT(0)
     T_profile = DryAdiabaticProfile{FT}(param_set, T_surface, T_min_ref)
-    ref_state = HydrostaticState(T_profile)
+
+    problem = AtmosProblem(
+        boundaryconditions = (
+            AtmosBC(
+                momentum = Impenetrable(FreeSlip()),
+                energy = Adiabaticθ((state, aux, t) -> FT(0)),
+            ),
+            AtmosBC(
+                momentum = Impenetrable(FreeSlip()),
+                energy = Adiabaticθ((state, aux, t) -> FT(0)),
+            ),
+        ),
+        init_state_prognostic = init_risingbubble!,
+    )
 
     ## Here we assemble the `AtmosModel`.
-    _C_smag = FT(C_smag(param_set))
+    _C_smag = FT(0)
     model = AtmosModel{FT}(
         AtmosLESConfigType,                            ## Flow in a box, requires the AtmosLESConfigType
         param_set;                                     ## Parameter set corresponding to earth parameters
         init_state_prognostic = init_risingbubble!,    ## Apply the initial condition
-        ref_state = ref_state,                         ## Reference state
+        problem = problem,                             ## Problem (boundary conditions)
+        ref_state = NoReferenceState(),                ## Reference state
+        energy = θModel(),                             ## Energy model
         turbulence = SmagorinskyLilly(_C_smag),        ## Turbulence closure model
         moisture = DryModel(),                         ## Exclude moisture variables
         source = (Gravity(),),                         ## Gravity is the only source term here
@@ -289,7 +306,7 @@ function main()
     ymax = FT(500)
     zmax = FT(10000)
     t0 = FT(0)
-    timeend = FT(100)
+    timeend = FT(1000)
     ## For full simulation set `timeend = 1000`
 
     ## Use up to 1.7 if ode_solver is the single rate LSRK144.
@@ -303,6 +320,7 @@ function main()
         driver_config,
         init_on_cpu = true,
         Courant_number = CFL,
+        CFL_direction = HorizontalDirection(),
     )
     dgn_config = config_diagnostics(driver_config)
 
