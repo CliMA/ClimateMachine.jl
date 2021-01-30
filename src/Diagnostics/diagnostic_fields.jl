@@ -3,6 +3,7 @@ using KernelAbstractions
 
 using ..Mesh.Geometry
 using ..VariableTemplates
+using ..DGMethods.FTP
 
 import ..Mesh.Grids:
     _ξ1x1, _ξ2x1, _ξ3x1, _ξ1x2, _ξ2x2, _ξ3x2, _ξ1x3, _ξ2x3, _ξ3x3
@@ -123,6 +124,13 @@ function VectorGradients(dg::SpaceDiscretization, Q::MPIStateArray)
     )
     wait(comp_stream)
 
+    #-----testing-----------------------------
+    vin = view(Q.data, :, _ρ, 1:nrealelem)
+    vout = view(Q.data, :, _ρu, 1:nrealelem)
+    ftpxv!(dg.grid, :m1, :∂ξ₁, false, vin, vout)
+
+    #-----------------------------------------
+
     return VectorGradients(data)
 end
 
@@ -175,8 +183,8 @@ end
             g[i + ((s - 1) + (t - 1) * qm[2]) * qm[1], e, 2, 1] = s_V[i, 1] # ∂u₂∂ξ₁
             g[i + ((s - 1) + (t - 1) * qm[2]) * qm[1], e, 3, 1] = s_W[i, 1] # ∂u₃∂ξ₁
         end
+        @synchronize
     end
-    @synchronize
     # computing derivatives with respect to ξ2
     if i ≤ qm[2] && j ≤ qm[2]
         s_D[i, j] = D[2][i, j]
@@ -204,8 +212,8 @@ end
             g[r + ((i - 1) + (t - 1) * qm[2]) * qm[1], e, 2, 2] = s_V[i, 1] # ∂u₂∂ξ₂
             g[r + ((i - 1) + (t - 1) * qm[2]) * qm[1], e, 3, 2] = s_W[i, 1] # ∂u₃∂ξ₂
         end
+        @synchronize
     end
-    @synchronize
     # computing derivatives with respect to ξ3
     if i ≤ qm[3] && j ≤ qm[3]
         s_D[i, j] = D[3][i, j]
@@ -234,8 +242,8 @@ end
             g[r + ((s - 1) + (i - 1) * qm[2]) * qm[1], e, 2, 3] = s_V[i, 1] # ∂u₂∂ξ₃
             g[r + ((s - 1) + (i - 1) * qm[2]) * qm[1], e, 3, 3] = s_W[i, 1] # ∂u₃∂ξ₃
         end
+        @synchronize
     end
-    @synchronize
 
     ∂₁u₁, ∂₂u₁, ∂₃u₁ = 1, 2, 3
     ∂₁u₂, ∂₂u₂, ∂₃u₂ = 4, 5, 6
