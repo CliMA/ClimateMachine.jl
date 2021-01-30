@@ -77,7 +77,7 @@ Base.@kwdef mutable struct ClimateMachine_Settings
     sim_time::Float64 = NaN
     fixed_number_of_steps::Int = -1
     degree::NTuple{2, Int} = (-1, -1)
-    nelems::NTuple{2, Int} = (-1, -1)
+    nelems::NTuple{3, Int} = (-1, -1, -1)
     domain_height::Float64 = -1
     resolution::NTuple{3, Float64} = (-1, -1, -1)
     domain_min::NTuple{3, Float64} = (-1, -1, -1)
@@ -307,9 +307,9 @@ function parse_commandline(
         arg_type = NTuple{2, Int}
         default = get_setting(:degree, defaults, global_defaults)
         "--nelems"
-        help = "tuple of number of elements in each direction: 2 for GCM or 1 for single-stack (no space before/after comma)"
-        metavar = "<nelem_1>,<nelem_2>"
-        arg_type = NTuple{2, Int}
+        help = "number of elements in each direction: 3 for Ocean GCM, 2 for Atmos GCM or 1 for Atmos single-stack (no space before/after comma)"
+        metavar = "<nelem_1>[,<nelem_2>[,<nelem_3>]]"
+        arg_type = NTuple{3, Int}
         default = get_setting(:nelems, defaults, global_defaults)
         "--domain-height"
         help = "domain height (in meters) for GCM or single-stack configurations"
@@ -408,8 +408,8 @@ Recognized keyword arguments are:
         if `≥0` perform specified number of steps
 - `degree::NTuple{2, Int} = (-1, -1)`:
         tuple of horizontal and vertical polynomial degrees for spatial discretization order
-- `nelems::NTuple{2, Int} = (-1, -1)`:
-        tuple of number of elements in each direction: 2 for GCM or 1 for single-stack
+- `nelems::NTuple{3, Int} = (-1, -1, -1)`:
+        tuple of number of elements in each direction: 3 for Ocean, 2 for GCM or 1 for single-stack
 - `domain_height::Float64 = -1`:
         domain height (in meters) for GCM or single-stack configurations
 - `resolution::NTuple{3, Float64} = (-1, -1, -1)`:

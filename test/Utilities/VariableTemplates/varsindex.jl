@@ -22,6 +22,7 @@ using StaticArrays
             ρu::SVector{3, FT}
             ρe::FT
             moisture::vars_state(m.moisture, FT)
+            S::SHermitianCompact{3, FT, 6}
         end
     end
     FT = Float64
@@ -45,6 +46,8 @@ using StaticArrays
     @test 7:11 === moist[varsindex(vars_state(m.moisture, FT), :ρq_x)]
     @test 12:12 === moist[varsindex(vars_state(m.moisture, FT), :ρq_liq)]
     @test 13:13 === moist[varsindex(vars_state(m.moisture, FT), :ρq_vap)]
+
+    @test 14:19 == varsindex(vars_state(m, FT), :S)
 
     @test (1,) === varsindices(vars_state(m, FT), :ρ)
     @test (2, 3, 4) === varsindices(vars_state(m, FT), :ρu)

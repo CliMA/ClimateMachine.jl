@@ -1,3 +1,5 @@
+module TestThermodynamics
+
 using Test
 using ClimateMachine.Thermodynamics
 using ClimateMachine.TemperatureProfiles
@@ -1216,5 +1218,7 @@ end
         sat_adjust_method = SecantMethod,
         maxiter = 50,
     )
+
+end
 
 end

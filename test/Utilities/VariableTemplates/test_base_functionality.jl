@@ -33,6 +33,7 @@ model = TestModel(SubModelA(), SubModelB(), SubModelC{5}())
 st = state(model, Float64)
 
 @test varsize(st) == 17
+@test varsize(typeof(())) == 0
 
 v = Vars{st}(zeros(MVector{varsize(st), Float64}))
 g = Grad{st}(zeros(MMatrix{3, varsize(st), Float64}))

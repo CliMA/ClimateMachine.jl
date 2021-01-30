@@ -118,7 +118,6 @@ Surface conditions given
  - `VDSE_scale` virtual dry static energy (i.e., basic potential temperature)
  - `Δz` layer thickness (not spatial discretization)
  - `z` coordinate axis
- - `a` free model parameter with prescribed value of 4.7
  - `VDSE_flux_star` potential temperature flux (optional)
 
 If `VDSE_flux_star` is not given, then it is computed by iteration
@@ -135,7 +134,6 @@ function surface_conditions(
     qt_bar::FT,
     Δz::FT,
     z::FT,
-    a::FT,
     scheme,
     VDSE_flux_star::Union{Nothing, FT} = nothing,
 ) where {FT <: AbstractFloat, AbstractEarthParameterSet}
@@ -148,17 +146,17 @@ function surface_conditions(
     @assert length(F_exchange) == n_vars
     local sol
 
-    args = (
-        param_set = param_set,
-        VDSE_flux_star = VDSE_flux_star,
-        Δz = Δz,
-        z_0 = z_0,
-        n_vars = n_vars,
-        x_ave = x_ave,
-        x_s = x_s,
-        scheme = scheme,
-        VDSE_scale = VDSE_scale,
-        x_initial = x_initial,
+    args = (;
+        param_set,
+        VDSE_flux_star,
+        Δz,
+        z_0,
+        n_vars,
+        x_ave,
+        x_s,
+        scheme,
+        VDSE_scale,
+        x_initial,
     )
 
     # Define closure over args
@@ -187,14 +185,13 @@ function surface_conditions(
         param_set,
         z,
         F_exchange,
-        a,
         x_star,
         VDSE_scale,
         L_MO,
     )
 
     C_exchange =
-        get_flux_coefficients(param_set, z, a, x_star, VDSE_scale, L_MO, z_0)
+        get_flux_coefficients(param_set, z, x_star, VDSE_scale, L_MO, z_0)
 
     VFT = typeof(flux)
     return SurfaceFluxConditions{FT, VFT}(
@@ -270,7 +267,7 @@ function monin_obukhov_length(
 end
 
 """
-    exchange_coefficients(z, F_exchange, a, x_star, VDSE_scale, L_MO)
+    exchange_coefficients(z, F_exchange, x_star, VDSE_scale, L_MO)
 
 Computes exchange transfer coefficients
   - `K_exchange` exchange coefficients
@@ -279,7 +276,6 @@ function exchange_coefficients(
     param_set,
     z,
     F_exchange,
-    a,
     x_star::VFT,
     VDSE_scale,
     L_MO,
@@ -305,7 +301,6 @@ end
 function get_flux_coefficients(
     param_set,
     z,
-    a,
     x_star::VFT,
     VDSE_scale,
     L_MO,

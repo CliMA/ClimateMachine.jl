@@ -19,7 +19,6 @@ using ClimateMachine.TemperatureProfiles
 using ClimateMachine.VariableTemplates
 using ClimateMachine.Thermodynamics: air_density, total_energy
 import ClimateMachine.DGMethods.FVReconstructions: FVLinear
-using ClimateMachine.Spectra: compute_gaussian!
 
 using LinearAlgebra
 using StaticArrays
@@ -81,7 +80,7 @@ function config_solid_body_rotation(
         model = model,
         numerical_flux_first_order = RoeNumericalFlux(),
         fv_reconstruction = HBFVReconstruction(model, fv_reconstruction),
-        grid_stretching = SingleExponentialStretching(2),
+        #grid_stretching = SingleExponentialStretching(FT(2.0)),
     )
 
     return config
@@ -196,16 +195,15 @@ function config_diagnostics(FT, driver_config)
     info = driver_config.config_info
 
     # Setup diagnostic grid(s)
-    nlats = 128
-
-    sinθ, wts = compute_gaussian!(nlats)
-    lats = asin.(sinθ) .* 180 / π
-    lons = 180.0 ./ nlats * collect(FT, 1:1:(2nlats))[:] .- 180.0
 
     boundaries = [
-        FT(lats[1]) FT(lons[1]) _planet_radius
-        FT(lats[end]) FT(lons[end]) FT(_planet_radius + info.domain_height)
+        FT(-90.0) FT(-180.0) _planet_radius
+        FT(90.0) FT(180.0) FT(_planet_radius + info.domain_height)
     ]
+
+    lats = collect(range(boundaries[1, 1], boundaries[2, 1], step = FT(2)))
+
+    lons = collect(range(boundaries[1, 2], boundaries[2, 2], step = FT(2)))
 
     lvls = collect(range(
         boundaries[1, 3],

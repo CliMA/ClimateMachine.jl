@@ -1,3 +1,5 @@
+module TestThermodynamics
+
 using Test
 using KernelAbstractions
 using ClimateMachine.Thermodynamics
@@ -88,5 +90,7 @@ end
             RegulaFalsiMethod,
         )
     @test all(Array(d_dst)[2, :] .≈ air_temperature.(ts_correct))
+
+end
 
 end

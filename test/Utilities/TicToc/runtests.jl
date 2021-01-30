@@ -1,3 +1,5 @@
+module TestTicToc
+
 using Test
 using ClimateMachine.TicToc
 
@@ -45,3 +47,5 @@ if TicToc.tictoc_enabled
         @test findnext("tictoc__bar", str, 1) != nothing
     end
 end
+
+end # module TestTicToc

@@ -40,7 +40,9 @@ using ..Ocean: AbstractOceanProblem
 import ...DGMethods.NumericalFluxes:
     update_penalty!, numerical_flux_second_order!, NumericalFluxFirstOrder
 
-import ...DGMethods:
+import ...DGMethods: LocalGeometry, DGModel, calculate_dt
+
+import ...BalanceLaws:
     vars_state,
     flux_first_order!,
     flux_second_order!,
@@ -53,10 +55,7 @@ import ...DGMethods:
     compute_gradient_argument!,
     init_state_auxiliary!,
     init_state_prognostic!,
-    LocalGeometry,
-    DGModel,
     compute_gradient_flux!,
-    calculate_dt,
     indefinite_stack_integral!,
     reverse_indefinite_stack_integral!,
     integral_load_auxiliary_state!,
