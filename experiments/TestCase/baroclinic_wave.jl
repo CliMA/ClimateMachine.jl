@@ -161,7 +161,7 @@ function init_baroclinic_wave!(problem, bl, state, aux, localgeo, t)
     nothing
 end
 
-function config_baroclinic_wave(FT, poly_order, resolution, with_moisture)
+function config_baroclinic_wave(FT, poly_order, cutoff_order, resolution, with_moisture)
     # Set up a reference state for linearization of equations
     temp_profile_ref =
         DecayingTemperatureProfile{FT}(param_set, FT(290), FT(220), FT(8e3))
@@ -198,6 +198,8 @@ function config_baroclinic_wave(FT, poly_order, resolution, with_moisture)
         param_set,
         init_baroclinic_wave!;
         model = model,
+        numerical_flux_first_order = RoeNumericalFlux(),
+        Ncutoff = cutoff_order, 
     )
 
     return config
@@ -221,7 +223,8 @@ function main()
 
     # Driver configuration parameters
     FT = Float64                             # floating type precision
-    poly_order = (5, 6)                      # discontinuous Galerkin polynomial order
+    poly_order = (5, 5)                      # discontinuous Galerkin polynomial order
+    cutoff_order = 4                         # emulates overintegration if poly_order > cutoff_order
     n_horz = 8                               # horizontal element number
     n_vert = 3                               # vertical element number
     n_days::FT = 1
@@ -230,7 +233,11 @@ function main()
 
     # Set up driver configuration
     driver_config =
-        config_baroclinic_wave(FT, poly_order, (n_horz, n_vert), with_moisture)
+        config_baroclinic_wave(FT, 
+                               poly_order, 
+                               cutoff_order, 
+                               (n_horz, n_vert), 
+                               with_moisture)
 
     # Set up experiment
     ode_solver_type = ClimateMachine.IMEXSolverType(
