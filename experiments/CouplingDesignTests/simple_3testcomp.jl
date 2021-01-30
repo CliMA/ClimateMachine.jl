@@ -55,7 +55,7 @@ mO=Coupling.CplTestModel(;domain=domainO,BL_module=CplTestingBL, nsteps=2)
 #mL=Coupling.CplTestModel(;domain=domainL,BL_module=CplTestingBL)
  
 # Create a Coupler State object for holding imort/export fields.
-cState=CplState( Dict(:Atmos_MeanAirSeaHeatFlux=>[ ], :Ocean_SST=>[ ] ) )
+cState=CplState( Dict(:Atmos_MeanAirSeaθFlux=>[ ], :Ocean_SST=>[ ] ) )
 
 # I think each BL can have a pre- and post- couple function?
 function postatmos(_)
@@ -64,8 +64,7 @@ function postatmos(_)
     # Pass atmos exports to "coupler" namespace
     # For now we use deepcopy here.
     # 1. Save mean θ flux at the Atmos boundary during the couling period
-    cState.CplStateBlob[:Atmos_MeanAirSeaHeatFlux]=deepcopy(mA.state.θ_boundary_export[mA.discretization.grid.vgeo[:,_x3:_x3,:] .== 0] )
-    # mO.discretization.state_auxiliary.boundary_in[mO.discretization.grid.vgeo[:,_x3:_x3,:] .== 0] .= mA.discretization.state_auxiliary.boundary_out[mA.discretization.grid.vgeo[:,_x3:_x3,:] .== 0]
+    cState.CplStateBlob[:Atmos_MeanAirSeaθFlux]=deepcopy(mA.state.θ_boundary_export[mA.discretization.grid.vgeo[:,_x3:_x3,:] .== 0] )
 end
 
 function postocean(_)
@@ -74,13 +73,12 @@ function postocean(_)
     # Pass ocean exports to "coupler" namespace
     #  1. Ocean SST (value of θ at z=0)
     cState.CplStateBlob[:Ocean_SST]=deepcopy( mO.state.θ[mO.discretization.grid.vgeo[:,_x3:_x3,:] .== 0] )
-    # mA.discretization.state_auxiliary.boundary_in[mA.discretization.grid.vgeo[:,_x3:_x3,:] .== 0] .= mO.discretization.state_auxiliary.boundary_out[mO.discretization.grid.vgeo[:,_x3:_x3,:] .== 0]
 end
 
 function preatmos(_)
         println("Atmos import fill callback")
         # Set boundary SST used in atmos to SST of ocean surface at start of coupling cycle.
-        mA.discretization.state_auxiliary.boundary_in[mA.discretization.grid.vgeo[:,_x3:_x3,:] .== 0] .= cState.CplStateBlob[:OceanSST]
+        mA.discretization.state_auxiliary.boundary_in[mA.discretization.grid.vgeo[:,_x3:_x3,:] .== 0] .= cState.CplStateBlob[:Ocean_SST]
         # Set atmos boundary flux accumulator to 0.
         mA.state.θ_boundary_export.=0
         println(" Atmos component start stepping...")
@@ -88,6 +86,8 @@ function preatmos(_)
 end
 function preocean(_)
         println("Ocean import fill callback")
+        # Set mean air-sea theta flux
+        mO.discretization.state_auxiliary.boundary_in[mO.discretization.grid.vgeo[:,_x3:_x3,:] .== 0] .= cState.CplStateBlob[:Atmos_MeanAirSeaθFlux]
         # Set ocean boundary flux accumulator to 0. (this isn't used)
         mO.state.θ_boundary_export.=0
         println(" Ocean component start stepping...")
@@ -105,8 +105,8 @@ cC=Coupling.CplSolver(component_list=component_list,
                       coupling_dt=5.,t0=0.)
 
 # We also need to initialize the imports so they can be read.
-cState.CplStateBlob[:OceanSST]=deepcopy( mO.discretization.state_auxiliary.boundary_out[mO.discretization.grid.vgeo[:,_x3:_x3,:] .== 0] )
-cState.CplStateBlob[:AtmosAirSeaHeatFlux]=deepcopy(mA.discretization.state_auxiliary.boundary_out[mA.discretization.grid.vgeo[:,_x3:_x3,:] .== 0] )
+cState.CplStateBlob[:Ocean_SST]=deepcopy( mO.discretization.state_auxiliary.boundary_out[mO.discretization.grid.vgeo[:,_x3:_x3,:] .== 0] )
+cState.CplStateBlob[:Atmos_MeanAirSeaθFlux]=deepcopy(mA.discretization.state_auxiliary.boundary_out[mA.discretization.grid.vgeo[:,_x3:_x3,:] .== 0] )
 
 # Invoke solve! with coupled timestepper and callback list.
 solve!(nothing,cC;numberofsteps=2)
