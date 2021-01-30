@@ -22,7 +22,7 @@ using ClimateMachine.Thermodynamics:
     air_density, air_temperature, total_energy, internal_energy, PhasePartition
 using ClimateMachine.TurbulenceClosures
 using ClimateMachine.VariableTemplates
-using ClimateMachine.Spectra: compute_gaussian!
+import ClimateMachine.DGMethods.FVReconstructions: FVLinear
 
 using CLIMAParameters
 using CLIMAParameters.Planet: MSLP, R_d, day, grav, Omega, planet_radius
@@ -162,11 +162,17 @@ function init_baroclinic_wave!(problem, bl, state, aux, localgeo, t)
     nothing
 end
 
-function config_baroclinic_wave(FT, poly_order, resolution, with_moisture)
+function config_baroclinic_wave(
+    FT,
+    poly_order,
+    fv_reconstruction,
+    resolution,
+    with_moisture,
+)
     # Set up a reference state for linearization of equations
     temp_profile_ref =
         DecayingTemperatureProfile{FT}(param_set, FT(290), FT(220), FT(8e3))
-    ref_state = HydrostaticState(temp_profile_ref)
+    ref_state = HydrostaticState(temp_profile_ref; subtract_off = false)
 
     # Set up the atmosphere model
     exp_name = "BaroclinicWave"
@@ -200,6 +206,7 @@ function config_baroclinic_wave(FT, poly_order, resolution, with_moisture)
         init_baroclinic_wave!;
         model = model,
         numerical_flux_first_order = LMARSNumericalFlux(),
+        fv_reconstruction = HBFVReconstruction(model, fv_reconstruction),
     )
 
     return config
@@ -223,25 +230,30 @@ function main()
 
     # Driver configuration parameters
     FT = Float64                             # floating type precision
-    poly_order = (5, 5)                      # discontinuous Galerkin polynomial order
+    poly_order = (5, 0)                      # discontinuous Galerkin polynomial order
+    fv_reconstruction = FVLinear()           # finite volume reconstruction scheme
     n_horz = 8                               # horizontal element number
-    n_vert = 4                               # vertical element number
+    n_vert = 20                              # vertical element number
     n_days::FT = 20
     timestart::FT = 0                        # start time (s)
     timeend::FT = n_days * day(param_set)    # end time (s)
 
     # Set up driver configuration
-    driver_config =
-        config_baroclinic_wave(FT, poly_order, (n_horz, n_vert), with_moisture)
-
-    # Set up experiment
-    ode_solver_type = ClimateMachine.IMEXSolverType(
-        implicit_model = AtmosAcousticGravityLinearModel,
-        implicit_solver = ManyColumnLU,
-        solver_method = ARK2GiraldoKellyConstantinescu,
+    driver_config = config_baroclinic_wave(
+        FT,
+        poly_order,
+        fv_reconstruction,
+        (n_horz, n_vert),
+        with_moisture,
     )
 
-    CFL = FT(0.1) # target acoustic CFL number
+    # Set up experiment
+
+    ode_solver_type = ClimateMachine.ExplicitSolverType(
+        solver_method = LSRK144NiegemannDiehlBusch,
+    )
+
+    CFL = FT(1.0) # target acoustic CFL number
 
     # time step is computed such that the horizontal acoustic Courant number is CFL
     solver_config = ClimateMachine.SolverConfiguration(
@@ -250,14 +262,14 @@ function main()
         driver_config,
         Courant_number = CFL,
         ode_solver_type = ode_solver_type,
-        CFL_direction = HorizontalDirection(),
         diffdir = HorizontalDirection(),
     )
 
     # Set up diagnostics
     dgn_config = config_diagnostics(FT, driver_config)
 
-    # Set up user-defined callbacks
+    #TODO enable filter
+    # # Set up user-defined callbacks
     filterorder = 20
     filter = ExponentialFilter(solver_config.dg.grid, 0, filterorder)
     cbfilter = GenericCallbacks.EveryXSimulationSteps(1) do
@@ -267,19 +279,20 @@ function main()
             solver_config.dg.grid,
             filter,
             state_auxiliary = solver_config.dg.state_auxiliary,
+            direction = HorizontalDirection(),
         )
         nothing
     end
 
-    cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(1) do
-        Filters.apply!(
-            solver_config.Q,
-            ("moisture.ρq_tot",),
-            solver_config.dg.grid,
-            TMARFilter(),
-        )
-        nothing
-    end
+    # cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(1) do
+    #     Filters.apply!(
+    #         solver_config.Q,
+    #         ("moisture.ρq_tot",),
+    #         solver_config.dg.grid,
+    #         TMARFilter(),
+    #     )
+    #     nothing
+    # end
 
     # Run the model
     result = ClimateMachine.invoke!(
