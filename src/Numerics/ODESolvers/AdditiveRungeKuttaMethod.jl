@@ -298,7 +298,13 @@ function dostep!(
     groupsize = 256
 
     # calculate the rhs at first stage to initialize the stage loop
-    rhs!(Rstages[1], Qstages[1], p, time + RKC_explicit[1] * dt, increment = false)
+    rhs!(
+        Rstages[1],
+        Qstages[1],
+        p,
+        time + RKC_explicit[1] * dt,
+        increment = false,
+    )
 
     rhs_implicit!(
         Lstages[1],
@@ -833,7 +839,8 @@ function ARK2GiraldoKellyConstantinescu(
         RT(1 / (2 * sqrt(2))) RT(1 / (2 * sqrt(2))) RT(1 - 1 / sqrt(2))
     ]
 
-    RKB_explicit = [RT(1 / (2 * sqrt(2))), RT(1 / (2 * sqrt(2))), RT(1 - 1 / sqrt(2))]
+    RKB_explicit =
+        [RT(1 / (2 * sqrt(2))), RT(1 / (2 * sqrt(2))), RT(1 - 1 / sqrt(2))]
     RKC_explicit = [RT(0), RT(2 - sqrt(2)), RT(1)]
     # For this ARK method, both RK methods share the same
     # B and C vectors in the Butcher table
@@ -925,8 +932,8 @@ function Trap2LockWoodWeller(
     ]
     #! format: on
 
-    RKB_explicit = [RT(1/2), RT(0), RT(1/2), RT(0)]
-    RKB_implicit = [RT(1/2), RT(0), RT(0), RT(1/2)]
+    RKB_explicit = [RT(1 / 2), RT(0), RT(1 / 2), RT(0)]
+    RKB_implicit = [RT(1 / 2), RT(0), RT(0), RT(1 / 2)]
     RKC_explicit = [RT(0), RT(δ_s), RT(1), RT(1)]
     RKC_implicit = [RT(0), RT(δ_f), RT(1), RT(1)]
 
