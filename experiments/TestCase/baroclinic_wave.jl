@@ -1,5 +1,4 @@
 #!/usr/bin/env julia --project
-
 using ArgParse
 using LinearAlgebra
 using StaticArrays
@@ -226,8 +225,8 @@ function main()
     poly_order = (5, 5)                      # discontinuous Galerkin polynomial order
     cutoff_order = 4                         # emulates overintegration if poly_order > cutoff_order
     n_horz = 8                               # horizontal element number
-    n_vert = 3                               # vertical element number
-    n_days::FT = 1
+    n_vert = 4                               # vertical element number
+    n_days::FT = 30
     timestart::FT = 0                        # start time (s)
     timeend::FT = n_days * day(param_set)    # end time (s)
 
@@ -293,7 +292,6 @@ function main()
         solver_config;
         diagnostics_config = dgn_config,
         user_callbacks = (cbfilter,),
-        #user_callbacks = (cbtmarfilter, cbfilter),
         check_euclidean_distance = true,
     )
 end
