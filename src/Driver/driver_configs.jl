@@ -787,6 +787,8 @@ SpaceDiscretization(driver_config; kwargs...) =
         driver_config.numerical_flux_first_order,
         driver_config.numerical_flux_second_order,
         driver_config.numerical_flux_gradient;
+        gradient_filter = driver_config.filter,
+        tendency_filter = driver_config.filter,
         kwargs...,
     ) :
     DGModel(
@@ -795,5 +797,7 @@ SpaceDiscretization(driver_config; kwargs...) =
         driver_config.numerical_flux_first_order,
         driver_config.numerical_flux_second_order,
         driver_config.numerical_flux_gradient;
+        gradient_filter = driver_config.filter,
+        tendency_filter = driver_config.filter,
         kwargs...,
     )
