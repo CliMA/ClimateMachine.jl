@@ -341,7 +341,8 @@ function apply!(
 )
     device = typeof(Q.data) <: Array ? CPU() : CUDADevice()
     event = Event(device)
-    event = apply_async!(Q, target, grid, filter; dependencies = event, kwargs...)
+    event =
+        apply_async!(Q, target, grid, filter; dependencies = event, kwargs...)
     wait(device, event)
 end
 
