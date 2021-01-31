@@ -187,6 +187,7 @@ function OceanSplitExplicitConfiguration(
         numerical_flux_second_order,
         numerical_flux_gradient,
         fv_reconstruction,
+        nothing, # filter
         OceanSplitExplicitSpecificInfo(model_2D, grid_2D, dg_3D),
     )
 end
