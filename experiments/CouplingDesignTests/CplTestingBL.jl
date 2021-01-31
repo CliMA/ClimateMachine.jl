@@ -222,11 +222,11 @@ Land
   for export to coupler.
 """
 function source!(bl::l_type,S::Vars,Q::Vars,G::Vars,A::Vars,_...)
-  S.θ=bl.bl_prop.source_theta(S.θ,A.npt,A.elnum,A.xc,A.yc,A.zc,A.boundary_in)
+  S.θ=bl.bl_prop.source_theta(Q.θ,A.npt,A.elnum,A.xc,A.yc,A.zc,A.boundary_in)
   # Record boundary condition fluxes as needed by adding to shadow 
   # prognostic variable
   S.θ_boundary_export=
-   bl.bl_prop.theta_shadow_boundary_flux(S.θ_boundary_export,A.boundary_in,A.npt,A.elnum,A.xc,A.yc,A.zc)
+   bl.bl_prop.theta_shadow_boundary_flux(Q.θ,A.boundary_in,A.npt,A.elnum,A.xc,A.yc,A.zc)
   nothing
 end
 
@@ -251,7 +251,7 @@ end
 """
 function compute_gradient_flux!( bl::l_type, GF::Vars, G::Grad, Q::Vars, A::Vars, t )
   # "Non-linear" form (for time stepped)
-  κ¹,κ²,κ³=bl.bl_prop.calc_kappa_diff(G.∇θ,A.npt,A.elnum,A.xc,A.yc,A.zc)
+  ### κ¹,κ²,κ³=bl.bl_prop.calc_kappa_diff(G.∇θ,A.npt,A.elnum,A.xc,A.yc,A.zc)
   # "Linear" form (for implicit)
   κ¹,κ²,κ³=bl.bl_prop.calc_kappa_diff(G.∇θⁱⁿⁱᵗ,A.npt,A.elnum,A.xc,A.yc,A.zc)
   # Maybe I should pass both G.∇θ and G.∇θⁱⁿⁱᵗ?
@@ -305,7 +305,9 @@ function boundary_state!(nF::Union{NumericalFluxSecondOrder}, bc::ExteriorBounda
 end
 # Use boundary flux
 function boundary_state!(nF::Union{NumericalFluxSecondOrder}, bc::CoupledBoundaryCondition, bl::l_type, Q⁺::Vars, GF⁺::Vars, A⁺::Vars,n⁻,Q⁻::Vars,GF⁻::Vars,A⁻::Vars,t,_...)
-  GF⁺.κ∇θ = n⁻ * aux.boundary_in
+  ## Need to try this
+  ## GF⁺.κ∇θ = n⁻ * aux.boundary_in
+  GF⁺.κ∇θ= n⁻ * -0
   nothing
 end
 
