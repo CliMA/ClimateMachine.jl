@@ -16,6 +16,9 @@ module CplTestingBL
 
 export CplTestBL
 export PenaltyNumFluxDiffusive
+export ExteriorBoundaryCondition
+export CoupledBoundaryCondition
+
 
 using ClimateMachine.BalanceLaws:
       Auxiliary,
@@ -222,7 +225,8 @@ function source!(bl::l_type,S::Vars,Q::Vars,G::Vars,A::Vars,_...)
   S.θ=bl.bl_prop.source_theta(S.θ,A.npt,A.elnum,A.xc,A.yc,A.zc,A.boundary_in)
   # Record boundary condition fluxes as needed by adding to shadow 
   # prognostic variable
-  S.θ_boundary_export=bl.bl_prop.theta_shadow_boundary_flux(S.θ_boundary_export,A.boundary_in,A.npt,A.elnum,A.xc,A.yc,A.zc)
+  S.θ_boundary_export=
+   bl.bl_prop.theta_shadow_boundary_flux(S.θ_boundary_export,A.boundary_in,A.npt,A.elnum,A.xc,A.yc,A.zc)
   nothing
 end
 

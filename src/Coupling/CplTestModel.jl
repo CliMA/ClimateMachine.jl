@@ -19,7 +19,9 @@ to use for real).
 function CplTestModel(;
                       domain,
                       BL_module,
-                      nsteps
+                      nsteps,
+                      btags=( (0,0), (0,0), (1,2) ),
+                      bl_prop=BL_module.prop_defaults()
                      )
 
         FT = eltype(domain)
@@ -29,6 +31,7 @@ function CplTestModel(;
         grid = nothing
         grid = DiscontinuousSpectralElementGrid(
          domain;
+         boundary_tags = btags
         )
 
         # Instantiate the equations for this component.
@@ -37,7 +40,7 @@ function CplTestModel(;
         # a named tuple that can be used to configure internal functions.
         # LAW{} is an alias for the specific type used for the overall
         # balance law.
-        bl_prop=BL_module.prop_defaults()
+        # bl_prop=BL_module.prop_defaults()
         equations=bl_prop.LAW{FT}(;bl_prop=bl_prop)
 
         # Create a discretization that is the union of the spatial

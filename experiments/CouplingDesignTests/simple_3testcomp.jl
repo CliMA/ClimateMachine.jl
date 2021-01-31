@@ -48,10 +48,56 @@ domainL = RectangularDomain(
     periodicity = (true, true, true),
 )
 
+# Set some paramters
+#  Haney like relaxation 60-day time scale.
+τ_airsea=60*86400
+
+
 # Create 3 components - one on each domain, for now all are instances
 # of the same balance law
-mA=Coupling.CplTestModel(;domain=domainA,BL_module=CplTestingBL, nsteps=5)
-mO=Coupling.CplTestModel(;domain=domainO,BL_module=CplTestingBL, nsteps=2)
+
+# Atmos component
+## Set atmosphere initial state function
+function atmos_init_theta(xc,yc,zc,npt,el)
+  return 30.
+end
+## Set atmosphere shadow boundary flux function
+function atmos_theta_shadow_boundary_flux(θᵃ,θᵒ,npt,el,xc,yc,zc)
+ if zc == 0.
+  tflux=1. / ( τ_airsea*(θᵃ-θᵒ) )
+ else
+  tflux=0.
+ end
+ return tflux
+end
+## Create atmos component
+bl_prop=CplTestingBL.prop_defaults()
+bl_prop=(bl_prop..., init_theta=atmos_init_theta)
+bl_prop=(bl_prop..., theta_shadow_boundary_flux=atmos_theta_shadow_boundary_flux)
+btags=( (0,0), (0,0), (CplTestingBL.CoupledBoundaryCondition, CplTestingBL.ExteriorBoundaryCondition) )
+mA=Coupling.CplTestModel(;domain=domainA,BL_module=CplTestingBL, nsteps=5, btags=btags, bl_prop=bl_prop)
+
+# Ocean component
+## Set source from atmos export
+## S.θ=bl.bl_prop.source_theta(S.θ,A.npt,A.elnum,A.xc,A.yc,A.zc,A.boundary_in)
+function ocean_init_theta(xc,yc,zc,npt,el)
+  return 20.
+end
+function ocean_source_theta(θ,npt,el,xc,yc,zc,air_sea_flux_import)
+  sval=0.
+  if zc == 0.
+   sval=air_sea_flux_import
+  end
+  return sval
+end
+## Create ocean component
+bl_prop=CplTestingBL.prop_defaults()
+bl_prop=(bl_prop..., init_theta=ocean_init_theta)
+bl_prop=(bl_prop..., source_theta=ocean_source_theta)
+btags=( (0,0), (0,0), (CplTestingBL.ExteriorBoundaryCondition, CplTestingBL.CoupledBoundaryCondition) )
+mO=Coupling.CplTestModel(;domain=domainO,BL_module=CplTestingBL, nsteps=2, btags=btags, bl_prop=bl_prop)
+
+# No Land for now
 #mL=Coupling.CplTestModel(;domain=domainL,BL_module=CplTestingBL)
  
 # Create a Coupler State object for holding imort/export fields.
