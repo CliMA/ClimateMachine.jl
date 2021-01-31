@@ -296,25 +296,47 @@ where `grid` is the associated `DiscontinuousSpectralElementGrid`.
 struct TMARFilter <: AbstractFilter end
 
 """
-    apply!(Q, target, grid::DiscontinuousSpectralElementGrid,
-           filter::AbstractSpectralFilter;
-           direction::Direction = EveryDirection(),
-           state_auxiliary = nothing)
+    Filters.apply!(Q::MPIStateArray,
+        target,
+        grid::DiscontinuousSpectralElementGrid,
+        filter::AbstractSpectralFilter;
+        kwargs...)
 
 Applies `filter` to `Q` given a `grid` and a custom `target`.
 
-The `direction` argument controls if the filter is applied in the horizontal
-and/or vertical directions. It is assumed that the trailing dimension on the
-reference element is the vertical dimension and the rest are horizontal.
+A `target` can be any of the following:
+ - a tuple or range of indices
+ - a tuple of symbols or strings of variable names
+ - a colon (`:`) to apply to all variables
+ - a custom [`AbstractFilterTarget`]
 
-If the target requires auxiliary state to compute its argument or results
-this state should be provided in `state_auxiliary`.
+The following keyword arguments are supported for some filters:
+- `direction`: for `AbstractSpectralFilter` controls if the filter is
+  applied in the horizontal and/or vertical directions. It is assumed that the
+  trailing dimension on the reference element is the vertical dimension and the
+  rest are horizontal.
+- `state_auxiliary`: if `target` requires auxiliary state to compute its argument or results.
+
+# Examples
+
+Specifying the `target` via indices:
+```julia
+Filters.apply!(Q, :, grid, TMARFilter())
+Filters.apply!(Q, (1, 3), grid, CutoffFilter(grid); direction=VerticalDirection())
+```
+
+Speciying `target` via symbols or strings:
+```julia
+Filters.apply!(Q, (:ρ, "energy.ρe"), grid, TMARFilter())
+Filters.apply!(Q, ("moisture.ρq_tot",), grid, CutoffFilter(grid);
+               direction=VerticalDirection())
+```
 """
 function apply!(
     Q,
     target,
     grid::DiscontinuousSpectralElementGrid,
-    filter;
+    filter::AbstractFilter;
     kwargs...,
 )
     device = typeof(Q.data) <: Array ? CPU() : CUDADevice()
@@ -324,6 +346,22 @@ function apply!(
 end
 
 
+"""
+    Filters.apply_async!(Q, target, grid::DiscontinuousSpectralElementGrid,
+        filter::AbstractFilter;
+        dependencies,
+        kwargs...)
+
+An asynchronous version of [`Filters.apply!`](@ref), returning an `Event`
+object. `dependencies` should be an `Event` or tuple of `Event`s which need to
+finish before applying the filter.
+
+```julia
+compstream = Filters.apply_async!(Q, :, grid, CutoffFilter(grid); dependencies=compstream)
+wait(compstream)
+```
+"""
+function apply_async! end
 
 function apply_async!(
     Q,
@@ -392,13 +430,6 @@ function apply_async!(
 end
 
 
-"""
-    apply!(Q, target, grid::DiscontinuousSpectralElementGrid, ::TMARFilter)
-
-Applies the truncation and mass aware rescaling to `Q` given a
-`grid` and a custom `target`. This rescaling keeps
-the states nonegative while keeping the element average the same.
-"""
 function apply_async!(
     Q,
     target::AbstractFilterTarget,
@@ -434,18 +465,6 @@ function apply_async!(
     event
 end
 
-"""
-    apply!(Q, indices, grid::DiscontinuousSpectralElementGrid, filter; kwargs)
-
-Applies `filter` to the states of `Q` specified by `indices`, which
-can be either a tuple or a range.
-
-# Examples
-```julia
-Filters.apply!(Q, :, grid, TMARFilter())
-Filters.apply!(Q, (1, 3), grid, CutoffFilter(grid); direction=VerticalDirection())
-```
-"""
 function apply_async!(
     Q,
     indices::Union{Colon, AbstractRange, Tuple{Vararg{Integer}}},
@@ -459,19 +478,6 @@ function apply_async!(
     apply_async!(Q, FilterIndices(indices...), grid, filter; kwargs...)
 end
 
-"""
-    apply!(Q, vars, grid::DiscontinuousSpectralElementGrid, filter; kwargs)
-
-Applies `filter` to the states of `Q` specified by `vars`.
-The variable names `vars` can be a tuple of symbols or strings.
-
-# Examples
-```julia
-Filters.apply!(Q, (:ρ, "energy.ρe"), grid, TMARFilter())
-Filters.apply!(Q, ("moisture.ρq_tot",), grid, CutoffFilter(grid);
-               direction=VerticalDirection())
-```
-"""
 function apply_async!(
     Q,
     vs::Tuple,
