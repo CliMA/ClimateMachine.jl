@@ -341,7 +341,7 @@ function apply!(
 )
     device = typeof(Q.data) <: Array ? CPU() : CUDADevice()
     event = Event(device)
-    apply_async!(Q, target, grid, filter; dependencies = event, kwargs...)
+    event = apply_async!(Q, target, grid, filter; dependencies = event, kwargs...)
     wait(device, event)
 end
 
@@ -462,7 +462,7 @@ function apply_async!(
         grid.vgeo,
         dependencies = event,
     )
-    event
+    return event
 end
 
 function apply_async!(
