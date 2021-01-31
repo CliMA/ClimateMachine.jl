@@ -65,11 +65,11 @@ end
 Utility function that gets the polynomial orders for the given configuration
 either passed from command line or as default values
 """
-function get_polyorders(N)
+function get_polyorders(N, setting = ClimateMachine.Settings.degree)
 
     # Check if polynomial degree was passed as a CL option
-    if ClimateMachine.Settings.degree != (-1, -1)
-        ClimateMachine.Settings.degree
+    if setting != (-1, -1)
+        setting
     elseif N isa Int
         (N, N)
     else
@@ -204,7 +204,8 @@ function AtmosLESConfiguration(
 ) where {FT <: AbstractFloat}
 
     (polyorder_horz, polyorder_vert) = get_polyorders(N)
-    (cutofforder_horz, cutofforder_vert) = get_polyorders(Ncutoff)
+    (cutofforder_horz, cutofforder_vert) =
+        get_polyorders(Ncutoff, ClimateMachine.Settings.cutoff_degree)
 
     # Check if the element resolution was passed as a CL option
     if ClimateMachine.Settings.resolution != (-1, -1, -1)
@@ -347,7 +348,8 @@ function AtmosGCMConfiguration(
 ) where {FT <: AbstractFloat}
 
     (polyorder_horz, polyorder_vert) = get_polyorders(N)
-    (cutofforder_horz, cutofforder_vert) = get_polyorders(Ncutoff)
+    (cutofforder_horz, cutofforder_vert) =
+        get_polyorders(Ncutoff, ClimateMachine.Settings.cutoff_degree)
 
     # Check if the number of elements was passed as a CL option
     if ClimateMachine.Settings.nelems != (-1, -1, -1)
