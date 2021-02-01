@@ -34,6 +34,20 @@ include("SolverTypes/SolverTypes.jl")
 
 Parses custom command line option for tuples of three or fewer integers.
 """
+function ArgParse.parse_item(::Type{NTuple{2, Int}}, s::AbstractString)
+
+    str_array = split(s, ",")
+    int_1 = length(str_array) > 0 ? parse(Int, str_array[1]) : 0
+    int_2 = length(str_array) > 1 ? parse(Int, str_array[2]) : 0
+
+    return (int_1, int_2)
+end
+
+"""
+    ArgParse.parse_item
+
+Parses custom command line option for tuples of three or fewer integers.
+"""
 function ArgParse.parse_item(::Type{NTuple{3, Int}}, s::AbstractString)
 
     str_array = split(s, ",")
