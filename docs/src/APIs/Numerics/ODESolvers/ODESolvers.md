@@ -58,17 +58,6 @@ ODESolvers.MultirateRungeKutta
 ```@docs
 ODESolvers.TimeScaledRHS
 ODESolvers.MultirateInfinitesimalStep
-ODESolvers.MISRK1
-ODESolvers.MIS2
-ODESolvers.MISRK2a
-ODESolvers.MISRK2b
-ODESolvers.MIS3C
-ODESolvers.MISRK3
-ODESolvers.MIS4
-ODESolvers.MIS4a
-ODESolvers.MISKWRK43
-ODESolvers.TVDMISA
-ODESolvers.TVDMISB
 ```
 
 ## Split-explicit methods
