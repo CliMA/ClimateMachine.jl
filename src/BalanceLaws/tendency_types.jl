@@ -15,7 +15,9 @@
 #  - `T₂` - the second order flux divergence (column vector)
 #  - `S` - the non-conservative source (column vector)
 
-export PrognosticVariable
+export PrognosticVariable,
+    AbstractMomentum, AbstractEnergy, Moisture, Precipitation
+
 export FirstOrder, SecondOrder
 export AbstractTendencyType, Flux, Source
 export TendencyDef
@@ -27,6 +29,12 @@ Subtypes are used for specifying
 each prognostic variable.
 """
 abstract type PrognosticVariable end
+
+abstract type AbstractMomentum <: PrognosticVariable end
+abstract type AbstractEnergy <: PrognosticVariable end
+abstract type Moisture <: PrognosticVariable end
+abstract type Precipitation <: PrognosticVariable end
+
 
 """
     AbstractOrder
