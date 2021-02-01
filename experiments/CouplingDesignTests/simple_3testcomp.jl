@@ -17,15 +17,21 @@ using ClimateMachine.ODESolvers
 
 import ClimateMachine.Mesh.Grids: _x3
 
+import ClimateMachine.DGMethods.NumericalFluxes:
+           NumericalFluxSecondOrder
+struct PenaltyNumFluxDiffusive <: NumericalFluxSecondOrder end
+
 ClimateMachine.init()
+const FT = Float64;
 
 # Use toy balance law for now
 include("CplTestingBL.jl")
 
 # Make some meshes covering same space laterally.
+Np=4
 domainA = RectangularDomain(
     Ne = (10, 10, 5),
-    Np = 4,
+    Np = Np,
     x = (0, 1e6),
     y = (0, 1e6),
     z = (0, 1e5),
@@ -33,7 +39,7 @@ domainA = RectangularDomain(
 )
 domainO = RectangularDomain(
     Ne = (10, 10, 4),
-    Np = 4,
+    Np = Np,
     x = (0, 1e6),
     y = (0, 1e6),
     z = (-4e3, 0),
@@ -41,7 +47,7 @@ domainO = RectangularDomain(
 )
 domainL = RectangularDomain(
     Ne = (10, 10, 1),
-    Np = 4,
+    Np = Np,
     x = (0, 1e6),
     y = (0, 1e6),
     z = (0, 1),
@@ -50,15 +56,12 @@ domainL = RectangularDomain(
 
 # Set some paramters
 #  Haney like relaxation 60-day time scale.
-τ_airsea=60*86400
+const τ_airsea=FT(60*86400)
 #  Background atmos diffusivities
-κᵃʰ=1e4
-κᵃᶻ=1e-2
-κᵒʰ=1e3
-κᵒᶻ=1e-4
-# κᵒʰ=0.
-# κᵒᶻ=0.
-
+const κᵃʰ=FT(1e4)
+const κᵃᶻ=FT(1e-2)
+const κᵒʰ=FT(1e3)
+const κᵒᶻ=FT(1e-4)
 
 # Create 3 components - one on each domain, for now all are instances
 # of the same balance law
@@ -97,7 +100,7 @@ bl_prop=(bl_prop..., calc_kappa_diff=atmos_calc_kappa_diff)
 bl_prop=(bl_prop..., source_theta=atmos_source_theta)
 # btags=( (0,0), (0,0), (CplTestingBL.CoupledBoundaryCondition, CplTestingBL.ExteriorBoundaryCondition) )
 btags=( (0,0), (0,0), (2, 1) )
-mA=Coupling.CplTestModel(;domain=domainA,BL_module=CplTestingBL, nsteps=5, btags=btags, bl_prop=bl_prop)
+mA=Coupling.CplTestModel(;domain=domainA,BL_module=CplTestingBL, nsteps=5, btags=btags, bl_prop=bl_prop, NFSecondOrder=CplTestingBL.PenaltyNumFluxDiffusive() )
 
 # Ocean component
 ## Set initial temperature profile
@@ -114,15 +117,22 @@ function ocean_source_theta(θ,npt,el,xc,yc,zc,air_sea_flux_import)
 end
 ## Set ocean diffusion coeffs
 function ocean_calc_kappa_diff(_...)
-  return κᵒʰ,κᵒʰ,κᵒᶻ
+  # return κᵒʰ,κᵒʰ,κᵒᶻ*FT(100.)
+  return κᵒʰ,κᵒʰ,κᵒᶻ*FT(1000.)
+end
+## Set penalty term tau (for debugging)
+function ocean_get_penalty_tau(_...)
+  return FT(0.5)
 end
 ## Create ocean component
 bl_prop=CplTestingBL.prop_defaults()
 bl_prop=(bl_prop..., init_theta=ocean_init_theta)
 bl_prop=(bl_prop..., source_theta=ocean_source_theta)
 bl_prop=(bl_prop..., calc_kappa_diff=ocean_calc_kappa_diff)
+bl_prop=(bl_prop..., get_penalty_tau=ocean_get_penalty_tau)
 # btags=( (0,0), (0,0), (1, 2) )
-mO=Coupling.CplTestModel(;domain=domainO,BL_module=CplTestingBL, nsteps=2, btags=btags, bl_prop=bl_prop)
+btags=( (0,0), (0,0), (1, 2) )
+mO=Coupling.CplTestModel(;domain=domainO,BL_module=CplTestingBL, nsteps=2, btags=btags, bl_prop=bl_prop, dt=FT(1.), NFSecondOrder=CplTestingBL.PenaltyNumFluxDiffusive() )
 
 # No Land for now
 #mL=Coupling.CplTestModel(;domain=domainL,BL_module=CplTestingBL)
@@ -187,7 +197,7 @@ compA=(pre_step=preatmos,component_model=mA,post_step=postatmos)
 compO=(pre_step=preocean,component_model=mO,post_step=postocean)
 component_list=( atmosphere=compA,ocean=compO,)
 cC=Coupling.CplSolver(component_list=component_list,
-                      coupling_dt=5.,t0=0.)
+                      coupling_dt=500.,t0=0.)
 
 # If this is run from t=0 we also need to initialize the imports so they can be read 
 # (for restart we need to add logic to JLD2 save/restore cState.CplStateBlob ).

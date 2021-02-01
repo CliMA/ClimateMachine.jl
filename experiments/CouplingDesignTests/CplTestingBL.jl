@@ -113,7 +113,9 @@ function prop_defaults()
 
   get_wavespeed(_...)=(return 0.)
   bl_prop=( bl_prop..., get_wavespeed=get_wavespeed )
-  bl_prop=( bl_prop..., get_penalty_tau=(1.) )
+
+  get_penalty_tau(_...)=(return 1.)
+  bl_prop=( bl_prop..., get_penalty_tau=get_penalty_tau )
 
   theta_shadow_boundary_flux(_...)=(return 0.)
   bl_prop=( bl_prop..., theta_shadow_boundary_flux=theta_shadow_boundary_flux )
@@ -279,8 +281,11 @@ end
 """
   Define boundary condition flags/types to iterate over, for now keep it simple.
 """
+## function boundary_conditions( bl::l_type, _...)
+##     (CoupledBoundaryCondition(), ExteriorBoundaryCondition())
+## end
 function boundary_conditions( bl::l_type, _...)
-    (CoupledBoundaryCondition(), ExteriorBoundaryCondition())
+    (1, 2)
 end
 
 """
@@ -304,6 +309,9 @@ end
 function boundary_state!(nF::Union{NumericalFluxSecondOrder}, bc::ExteriorBoundaryCondition, bl::l_type, Q⁺::Vars, GF⁺::Vars, A⁺::Vars,n⁻,Q⁻::Vars,GF⁻::Vars,A⁻::Vars,t,_...)
  Q⁺.θ=Q⁻.θ
  GF⁺.κ∇θ= n⁻ * -0
+ if A⁻.npt == 0
+  println("Exterior!!")
+ end
  nothing
 end
 # Use boundary flux
@@ -311,6 +319,35 @@ function boundary_state!(nF::Union{NumericalFluxSecondOrder}, bc::CoupledBoundar
   ## Need to try this
   ## GF⁺.κ∇θ = n⁻ * aux.boundary_in
   GF⁺.κ∇θ= n⁻ * -0
+  if A⁻.npt == 0
+   println("Coupled!!")
+  end
+  nothing
+end
+
+# Pending types
+function boundary_state!(nF::Union{NumericalFluxSecondOrder}, bc, bl::l_type, Q⁺::Vars, GF⁺::Vars, A⁺::Vars,n⁻,Q⁻::Vars,GF⁻::Vars,A⁻::Vars,t,_...)
+  Q⁺.θ=Q⁻.θ
+  println("bc=",bc)
+  
+  if bc == 1
+   println("Exterior")
+   GF⁺.κ∇θ= n⁻ * -0
+   if A⁻.npt == 0
+    println("Exterior!!")
+   end
+  end
+
+  if bc == 2
+   println("Coupled")
+   ## Need to try this
+   ## GF⁺.κ∇θ = n⁻ * aux.boundary_in
+   GF⁺.κ∇θ= n⁻ * -0
+   if A⁻.npt == 0
+    println("Coupled!!")
+   end
+  end
+
   nothing
 end
 

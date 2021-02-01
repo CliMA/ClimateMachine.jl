@@ -21,7 +21,9 @@ function CplTestModel(;
                       BL_module,
                       nsteps,
                       btags=( (0,0), (0,0), (1,2) ),
-                      bl_prop=BL_module.prop_defaults()
+                      bl_prop=BL_module.prop_defaults(),
+                      dt=1.,
+                      NFSecondOrder=CentralNumericalFluxSecondOrder(),
                      )
 
         FT = eltype(domain)
@@ -49,7 +51,8 @@ function CplTestModel(;
         discretization = DGModel(equations,
                                  grid,
                                  RusanovNumericalFlux(),
-                                 CentralNumericalFluxSecondOrder(),
+                                 NFSecondOrder,
+                                 # CentralNumericalFluxSecondOrder(),
                                  CentralNumericalFluxGradient()
                                 )
 
@@ -62,7 +65,7 @@ function CplTestModel(;
         stepper=LSRK54CarpenterKennedy(
                                   discretization,
                                   state,
-                                  dt=1.,
+                                  dt=dt,
                                   t0=0.)
 
         # Return a CplTestModel entity that holds all the information
