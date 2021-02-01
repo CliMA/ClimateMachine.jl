@@ -612,7 +612,7 @@ function compute_gradient_hyperflux!(
 
     # diffusion terms required for SGS turbulence computations
     compute_gradient_hyperflux!(
-        atmos.turbulence,
+        atmos.hyperdiffusion,
         atmos.orientation,
         diffusive,
         ∇transform,
