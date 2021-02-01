@@ -960,12 +960,7 @@ function numerical_flux_first_order!(
     ρ⁻ = state_prognostic⁻.ρ
     ρu⁻ = state_prognostic⁻.ρu
     ρe⁻ = state_prognostic⁻.energy.ρe
-    ts⁻ = recover_thermo_state(
-        balance_law,
-        balance_law.moisture,
-        state_prognostic⁻,
-        state_auxiliary⁻,
-    )
+    ts⁻ = recover_thermo_state(balance_law, state_prognostic⁻, state_auxiliary⁻)
 
     u⁻ = ρu⁻ / ρ⁻
     uᵀn⁻ = u⁻' * normal_vector
@@ -980,12 +975,7 @@ function numerical_flux_first_order!(
 
     # TODO: state_auxiliary⁺ is not up-to-date
     # with state_prognostic⁺ on the boundaries
-    ts⁺ = recover_thermo_state(
-        balance_law,
-        balance_law.moisture,
-        state_prognostic⁺,
-        state_auxiliary⁺,
-    )
+    ts⁺ = recover_thermo_state(balance_law, state_prognostic⁺, state_auxiliary⁺)
 
     u⁺ = ρu⁺ / ρ⁺
     uᵀn⁺ = u⁺' * normal_vector
@@ -1114,12 +1104,7 @@ function numerical_flux_first_order!(
     ρ⁻ = state_prognostic⁻.ρ
     ρu⁻ = state_prognostic⁻.ρu
     ρe⁻ = state_prognostic⁻.energy.ρe
-    ts⁻ = recover_thermo_state(
-        balance_law,
-        balance_law.moisture,
-        state_prognostic⁻,
-        state_auxiliary⁻,
-    )
+    ts⁻ = recover_thermo_state(balance_law, state_prognostic⁻, state_auxiliary⁻)
 
     u⁻ = ρu⁻ / ρ⁻
     c⁻ = soundspeed_air(ts⁻)
@@ -1131,12 +1116,7 @@ function numerical_flux_first_order!(
     ρ⁺ = state_prognostic⁺.ρ
     ρu⁺ = state_prognostic⁺.ρu
     ρe⁺ = state_prognostic⁺.energy.ρe
-    ts⁺ = recover_thermo_state(
-        balance_law,
-        balance_law.moisture,
-        state_prognostic⁺,
-        state_auxiliary⁺,
-    )
+    ts⁺ = recover_thermo_state(balance_law, state_prognostic⁺, state_auxiliary⁺)
 
     u⁺ = ρu⁺ / ρ⁺
     uᵀn⁺ = u⁺' * normal_vector
@@ -1459,12 +1439,7 @@ function numerical_flux_first_order!(
     ρ⁻ = state_prognostic⁻.ρ
     ρu⁻ = state_prognostic⁻.ρu
     ρe⁻ = state_prognostic⁻.energy.ρe
-    ts⁻ = recover_thermo_state(
-        balance_law,
-        balance_law.moisture,
-        state_prognostic⁻,
-        state_auxiliary⁻,
-    )
+    ts⁻ = recover_thermo_state(balance_law, state_prognostic⁻, state_auxiliary⁻)
 
     u⁻ = ρu⁻ / ρ⁻
     e⁻ = ρe⁻ / ρ⁻
@@ -1480,12 +1455,7 @@ function numerical_flux_first_order!(
     ρ⁺ = state_prognostic⁺.ρ
     ρu⁺ = state_prognostic⁺.ρu
     ρe⁺ = state_prognostic⁺.energy.ρe
-    ts⁺ = recover_thermo_state(
-        balance_law,
-        balance_law.moisture,
-        state_prognostic⁺,
-        state_auxiliary⁺,
-    )
+    ts⁺ = recover_thermo_state(balance_law, state_prognostic⁺, state_auxiliary⁺)
     u⁺ = ρu⁺ / ρ⁺
     e⁺ = ρe⁺ / ρ⁺
     uᵀn⁺ = u⁺' * normal_vector
