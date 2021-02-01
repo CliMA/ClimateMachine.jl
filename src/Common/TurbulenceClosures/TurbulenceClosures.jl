@@ -818,6 +818,7 @@ struct NoHyperDiffusion <: HyperDiffusion end
 hyperviscosity_tensors(m::HyperDiffusion, bl::BalanceLaw, args...) =
     hyperviscosity_tensors(m, bl.orientation, bl.param_set, args...)
 
+
 """
   EquilMoistBiharmonic{FT} <: HyperDiffusion
 
@@ -840,6 +841,11 @@ EquilMoistBiharmonic(τ_timescale::FT) where {FT} =
 vars_state(::EquilMoistBiharmonic, ::Auxiliary, FT) = @vars(Δ::FT)
 vars_state(::EquilMoistBiharmonic, ::Gradient, FT) =
     @vars(u_h::SVector{3, FT}, h_tot::FT, q_tot::FT)
+vars_state(::EquilMoistBiharmonic, ::GradientHyperFlux, FT) = @vars begin
+    ∇u_h::SMatrix{3, 3, FT, 9}
+    ∇h_tot::SVector{3, FT}
+    ∇q_tot::SVector{3, FT}
+end
 vars_state(::EquilMoistBiharmonic, ::GradientLaplacian, FT) =
     @vars(u_h::SVector{3, FT}, h_tot::FT, q_tot::FT)
 vars_state(::EquilMoistBiharmonic, ::Hyperdiffusive, FT) = @vars(
@@ -915,6 +921,10 @@ end
 vars_state(::DryBiharmonic, ::Auxiliary, FT) = @vars(Δ::FT)
 vars_state(::DryBiharmonic, ::Gradient, FT) =
     @vars(u_h::SVector{3, FT}, h_tot::FT)
+vars_state(::DryBiharmonic, ::GradientHyperFlux, FT) = @vars begin
+    ∇u_h::SMatrix{3, 3, FT, 9}
+    ∇h_tot::SVector{3, FT}
+end
 vars_state(::DryBiharmonic, ::GradientLaplacian, FT) =
     @vars(u_h::SVector{3, FT}, h_tot::FT)
 vars_state(::DryBiharmonic, ::Hyperdiffusive, FT) =
@@ -1054,17 +1064,16 @@ vars_state(::HorizDryBiharmonic, ::Auxiliary, FT) = @vars begin
     P::SMatrix{3, 3, FT, 9}
     Δ::FT
 end
-
 vars_state(::HorizDryBiharmonic, ::Gradient, FT) =
     @vars(u_h::SVector{3, FT}, h_tot::FT) # creates these vars in transform and ∇transform
+vars_state(::HorizDryBiharmonic, ::GradientHyperFlux, FT) = @vars begin
+    ∇u_h::SMatrix{3, 3, FT, 9}
+    ∇h_tot::SVector{3, FT}
+end
 vars_state(::HorizDryBiharmonic, ::GradientLaplacian, FT) =
     @vars(u_h::SVector{3, FT}, h_tot::FT)
-
 vars_state(::HorizDryBiharmonic, ::Hyperdiffusive, FT) =
 @vars(ν∇³u_h::SMatrix{3, 3, FT, 9}, ν∇³h_tot::SVector{3, FT}) # nu * H (added in flux second order, and calc in post transform laplacian)
-
-vars_state(::HorizDryBiharmonic, ::GradientHyperFlux, FT) =
-    @vars(u_h::SMatrix{3, 3, FT, 9}, h_tot::SVector{3, FT}) # Xi * P clculated by compute gradient hyperfux
 
 function init_aux_hyperdiffusion!(
     ::HorizDryBiharmonic,
@@ -1117,39 +1126,34 @@ function compute_gradient_hyperflux!(
     ∇h_tot = ∇transform.hyperdiffusion.h_tot
 
     P = aux.hyperdiffusion.P
-
-    ∇transform.hyperdiffusion.h_tot = P * ∇h_tot
-    ∇transform.hyperdiffusion.u_h = P * ∇u_h
+    
+    #@show P
+    #∇transform.hyperdiffusion.h_tot = P * ∇h_tot
+    #∇transform.hyperdiffusion.u_h = P * ∇u_h
     #∇transform.hyperdiffusion.u_h = hcat(ntuple(n -> P * [:, :, n] * ∇u_h[:, n], Val(N))...) 
 
-    auxHDG.h_tot = P * ∇h_tot
-    auxHDG.u_h = hcat(ntuple(n -> P * [:, :, n] * ∇u_h[:, n], Val(N))...) 
-
+    auxHDG.hyperdiffusion.∇h_tot = P * ∇h_tot
+    auxHDG.hyperdiffusion.∇u_h = P * ∇u_h
 end
 
-compute_gradient_hyperflux!(
-    ::DryBiharmonic,
+function compute_gradient_hyperflux!(
+    ::HyperDiffusion,
     ::Orientation,
     auxHDG::Vars,
     gradvars::Grad,
     state::Vars,
     aux::Vars,
     t::Real,
-) = nothing
-compute_gradient_hyperflux!(
-    ::EquilMoistBiharmonic,
-    ::Orientation,
-    auxHDG::Vars,
-    gradvars::Grad,
-    state::Vars,
-    aux::Vars,
-    t::Real,
-) = nothing
+)
+  parent.(auxHDG) .= parent(∇transform)
+end
 compute_gradient_hyperflux!(
     ::NoHyperDiffusion,
+    ::Orientation,
     auxHDG::Vars,
     gradvars::Grad,
     aux::Vars,
+    t::Real,
 ) = nothing
 
 function transform_post_gradient_laplacian!(

@@ -367,6 +367,12 @@ function vars_state(m::AtmosModel, st::GradientFlux, FT)
     end
 end
 
+function vars_state(m::AtmosModel, st::GradientHyperFlux, FT)
+    @vars begin
+        hyperdiffusion::vars_state(m.hyperdiffusion, st, FT)
+    end
+end
+
 """
     vars_state(m::AtmosModel, ::GradientLaplacian, FT)
 
@@ -609,8 +615,6 @@ function compute_gradient_hyperflux!(
     aux::Vars,
     t::Real,
 )
-
-    # diffusion terms required for SGS turbulence computations
     compute_gradient_hyperflux!(
         atmos.hyperdiffusion,
         atmos.orientation,
