@@ -82,7 +82,8 @@ const ArrayType = ClimateMachine.array_type()
                 errors = similar(dts)
 
                 q0 = ArrayType <: Array ? [1.0] : range(-1.0, 1.0, length = 303)
-                for (method, expected_order) in imex_methods_lowstorage_compatible
+                for (method, expected_order) in
+                    imex_methods_lowstorage_compatible
                     for split_explicit_implicit in (false, true)
                         for (n, dt) in enumerate(dts)
                             Q = ArrayType{ComplexF64}(q0)
@@ -111,11 +112,7 @@ const ArrayType = ClimateMachine.array_type()
 
                         rates = log2.(errors[1:(end - 1)] ./ errors[2:end])
                         @test errors[1] < 2.0
-                        @test isapprox(
-                            rates[end],
-                            expected_order;
-                            atol = 0.35,
-                        )
+                        @test isapprox(rates[end], expected_order; atol = 0.35)
                     end
                 end
             end
@@ -126,7 +123,8 @@ const ArrayType = ClimateMachine.array_type()
                 errors = similar(dts)
 
                 q0 = ArrayType <: Array ? [1.0] : range(-1.0, 1.0, length = 303)
-                for (method, expected_order) in imex_methods_naivestorage_compatible
+                for (method, expected_order) in
+                    imex_methods_naivestorage_compatible
                     for split_explicit_implicit in (false, true)
                         for (n, dt) in enumerate(dts)
                             Q = ArrayType{ComplexF64}(q0)
@@ -155,11 +153,7 @@ const ArrayType = ClimateMachine.array_type()
 
                         rates = log2.(errors[1:(end - 1)] ./ errors[2:end])
                         @test errors[1] < 2.0
-                        @test isapprox(
-                            rates[end],
-                            expected_order;
-                            atol = 0.35,
-                        )
+                        @test isapprox(rates[end], expected_order; atol = 0.35)
                     end
                 end
             end
@@ -397,7 +391,8 @@ const ArrayType = ClimateMachine.array_type()
                 dts = [2.0^(-k) for k in 8:9]
                 error = similar(dts)
                 for (slow_method, slow_expected_order) in slow_mrrk_methods
-                    for (fast_method, fast_expected_order) in imex_methods_lowstorage_compatible
+                    for (fast_method, fast_expected_order) in
+                        imex_methods_lowstorage_compatible
                         for (n, fast_dt) in enumerate(dts)
                             Q = exactsolution(0)
                             slow_dt = ω * fast_dt
@@ -774,7 +769,8 @@ const ArrayType = ClimateMachine.array_type()
             end
 
             @testset "IMEX" begin
-                for (method, expected_order) in imex_methods_naivestorage_compatible
+                for (method, expected_order) in
+                    imex_methods_naivestorage_compatible
                     for (n, dt) in enumerate(dts)
                         Q = exactsolution(0)
                         solver = method(

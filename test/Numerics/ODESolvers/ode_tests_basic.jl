@@ -120,8 +120,7 @@ Qexact = exactsolution(finaltime, q0, t0)
             for split_explicit_implicit in (false, true)
                 for (n, dt) in enumerate(dts)
                     Q .= Qinit
-                    rhs_arg! =
-                        split_explicit_implicit ? rhs_nonlinear! : rhs!
+                    rhs_arg! = split_explicit_implicit ? rhs_nonlinear! : rhs!
                     solver = method(
                         rhs_arg!,
                         rhs_linear!,
@@ -160,8 +159,7 @@ Qexact = exactsolution(finaltime, q0, t0)
             for split_explicit_implicit in (false, true)
                 for (n, dt) in enumerate(dts)
                     Q .= Qinit
-                    rhs_arg! =
-                        split_explicit_implicit ? rhs_nonlinear! : rhs!
+                    rhs_arg! = split_explicit_implicit ? rhs_nonlinear! : rhs!
                     solver = method(
                         rhs_arg!,
                         rhs_linear!,
@@ -248,7 +246,8 @@ Qexact = exactsolution(finaltime, q0, t0)
         dts = [2.0^(-k) for k in 3:4]
         errors = similar(dts)
         for (slow_method, slow_expected_order) in slow_mrrk_methods
-            for (fast_method, fast_expected_order) in imex_methods_lowstorage_compatible
+            for (fast_method, fast_expected_order) in
+                imex_methods_lowstorage_compatible
                 for (n, dt) in enumerate(dts)
                     Q .= Qinit
                     solver = MultirateRungeKutta(
