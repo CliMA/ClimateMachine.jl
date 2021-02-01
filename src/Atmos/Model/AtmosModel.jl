@@ -502,6 +502,9 @@ include("filters.jl")
 include("prog_prim_conversion.jl")   # prognostic<->primitive conversion
 include("reconstructions.jl")   # finite-volume method reconstructions
 
+include("linear_tendencies.jl")
+include("linear_atmos_tendencies.jl")
+
 include("atmos_tendencies.jl")        # specify atmos tendencies
 include("get_prognostic_vars.jl")     # get tuple of prognostic variables
 
