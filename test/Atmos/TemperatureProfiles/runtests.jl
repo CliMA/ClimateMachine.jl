@@ -32,6 +32,7 @@ const param_set = EarthParameterSet()
                 ),
                 DryAdiabaticProfile{FT}(param_set, _T_virt_surf, _T_min_ref),
                 IsothermalProfile(param_set, _T_virt_surf),
+                IsothermalProfile(param_set, FT),
             ]
 
             for profile in profiles
