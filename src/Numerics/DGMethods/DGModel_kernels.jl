@@ -1691,12 +1691,10 @@ end
         @unroll for s in 1:num_state_prognostic
             l_state[s] = state[n, s, e]
         end
-        init_state_prognostic!(
+        init_state_prognostic_arr!(
             balance_law,
-            Vars{vars_state(balance_law, Prognostic(), FT)}(l_state),
-            Vars{vars_state(balance_law, Auxiliary(), FT)}(
-                local_state_auxiliary,
-            ),
+            l_state,
+            local_state_auxiliary,
             LocalGeometry{Np, N}(vgeo, n, e),
             args...,
         )
@@ -1978,19 +1976,11 @@ See [`BalanceLaw`](@ref) for usage.
                     local_state_auxiliary[s] = state_auxiliary[ijk, s, e]
                 end
 
-                integral_load_auxiliary_state!(
+                integral_load_auxiliary_state_arr!(
                     balance_law,
-                    Vars{vars_state(balance_law, UpwardIntegrals(), FT)}(view(
-                        local_kernel,
-                        :,
-                        k,
-                    )),
-                    Vars{vars_state(balance_law, Prognostic(), FT)}(
-                        local_state_prognostic,
-                    ),
-                    Vars{vars_state(balance_law, Auxiliary(), FT)}(
-                        local_state_auxiliary,
-                    ),
+                    view(local_kernel, :, k),
+                    local_state_prognostic,
+                    local_state_auxiliary,
                 )
 
                 # Multiply in the curve jacobian
@@ -2014,19 +2004,10 @@ See [`BalanceLaw`](@ref) for usage.
                     local_kernel[s, k] = local_integral[s, k]
                 end
                 ijk = i + Nq1 * ((j - 1) + Nq2 * (k - 1))
-                integral_set_auxiliary_state!(
+                integral_set_auxiliary_state_arr!(
                     balance_law,
-                    Vars{vars_state(balance_law, Auxiliary(), FT)}(view(
-                        state_auxiliary,
-                        ijk,
-                        :,
-                        e,
-                    )),
-                    Vars{vars_state(balance_law, UpwardIntegrals(), FT)}(view(
-                        local_kernel,
-                        :,
-                        k,
-                    )),
+                    view(state_auxiliary, ijk, :, e),
+                    view(local_kernel, :, k),
                 )
                 @unroll for ind_out in 1:nout
                     local_integral[ind_out, k] = local_integral[ind_out, Nq3]
@@ -2071,21 +2052,11 @@ end
         # (i, j, Nq3)
         ijk = i + Nq1 * ((j - 1) + Nq2 * (Nq3 - 1))
         et = nvertelem + (eh - 1) * nvertelem
-        reverse_integral_load_auxiliary_state!(
+        reverse_integral_load_auxiliary_state_arr!(
             balance_law,
-            Vars{vars_state(balance_law, DownwardIntegrals(), FT)}(l_T),
-            Vars{vars_state(balance_law, Prognostic(), FT)}(view(
-                state,
-                ijk,
-                :,
-                et,
-            )),
-            Vars{vars_state(balance_law, Auxiliary(), FT)}(view(
-                state_auxiliary,
-                ijk,
-                :,
-                et,
-            )),
+            l_T,
+            view(state, ijk, :, et),
+            view(state_auxiliary, ijk, :, et),
         )
 
         # Loop up the stack of elements
@@ -2104,33 +2075,23 @@ end
             e = ev + (eh - 1) * nvertelem
             @unroll for k in 1:Nq3
                 ijk = i + Nq1 * ((j - 1) + Nq2 * (k - 1))
-                reverse_integral_load_auxiliary_state!(
+                reverse_integral_load_auxiliary_state_arr!(
                     balance_law,
-                    Vars{vars_state(balance_law, DownwardIntegrals(), FT)}(l_V),
-                    Vars{vars_state(balance_law, Prognostic(), FT)}(view(
-                        state,
-                        ijk,
-                        :,
-                        e,
-                    )),
-                    Vars{vars_state(balance_law, Auxiliary(), FT)}(view(
-                        state_auxiliary,
-                        ijk,
-                        :,
-                        e,
-                    )),
+                    l_V,
+                    view(state, ijk, :, e),
+                    view(state_auxiliary, ijk, :, e),
                 )
                 l_V .= l_T .- l_V
-                reverse_integral_set_auxiliary_state!(
+                reverse_integral_set_auxiliary_state_arr!(
                     balance_law,
-                    Vars{vars_state(balance_law, Auxiliary(), FT)}(view(
+                    view(
                         state_auxiliary,
                         ijk,
                         :,
                         # In the N = 0 case we shift the data up
                         Nq3 == 1 ? e + 1 : e,
-                    )),
-                    Vars{vars_state(balance_law, DownwardIntegrals(), FT)}(l_V),
+                    ),
+                    l_V,
                 )
             end
         end
@@ -2141,15 +2102,10 @@ end
             k = 1
             ijk = i + Nq1 * ((j - 1) + Nq2 * (k - 1))
             e = ev + (eh - 1) * nvertelem
-            reverse_integral_set_auxiliary_state!(
+            reverse_integral_set_auxiliary_state_arr!(
                 balance_law,
-                Vars{vars_state(balance_law, Auxiliary(), FT)}(view(
-                    state_auxiliary,
-                    ijk,
-                    :,
-                    e,
-                )),
-                Vars{vars_state(balance_law, DownwardIntegrals(), FT)}(l_T),
+                view(state_auxiliary, ijk, :, e),
+                l_T,
             )
         end
     end

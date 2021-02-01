@@ -26,7 +26,7 @@ using ..BalanceLaws:
 
 import ..BalanceLaws:
     BalanceLaw,
-    init_state_prognostic!,
+    init_state_prognostic_arr!,
     init_state_auxiliary!,
     flux_first_order_arr!,
     flux_second_order_arr!,
@@ -41,12 +41,12 @@ import ..BalanceLaws:
     update_auxiliary_state_gradient!,
     nodal_update_auxiliary_state!,
     nodal_init_state_auxiliary!,
-    integral_load_auxiliary_state!,
-    integral_set_auxiliary_state!,
+    integral_load_auxiliary_state_arr!,
+    integral_set_auxiliary_state_arr!,
     indefinite_stack_integral!,
     reverse_indefinite_stack_integral!,
-    reverse_integral_load_auxiliary_state!,
-    reverse_integral_set_auxiliary_state!
+    reverse_integral_load_auxiliary_state_arr!,
+    reverse_integral_set_auxiliary_state_arr!
 
 export DGModel,
     DGFVModel,
