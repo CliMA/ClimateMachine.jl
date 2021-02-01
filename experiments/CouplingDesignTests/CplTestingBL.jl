@@ -16,8 +16,8 @@ module CplTestingBL
 
 export CplTestBL
 export PenaltyNumFluxDiffusive
-export ExteriorBoundaryCondition
-export CoupledBoundaryCondition
+export ExteriorBoundary
+export CoupledPrimaryBoundary, CoupledSecondaryBoundary
 
 
 using ClimateMachine.BalanceLaws:
@@ -64,15 +64,9 @@ using StaticArrays
     CplTestBL
 Type that holds specification for a diffusion equation balance law instance.
 """
-struct CplTestBL{FT, BLP} <: BalanceLaw
+struct CplTestBL{BLP, BCS} <: BalanceLaw
         bl_prop :: BLP
-        function CplTestBL{FT}(;
-          bl_prop::BLP=nothing,
-        ) where {FT, BLP}
-          return new{FT,BLP}(
-                 bl_prop,
-                 )
-        end
+        boundaryconditions :: BCS
 end
 
 l_type=CplTestBL
@@ -125,20 +119,20 @@ end
 
 """
   Declare single prognostic state variable, θ
-  and a shadow variable, θ_boundary_export, for accumulating boundary flux over a single 
+  and a shadow variable, θ_boundary_export, for accumulating boundary flux over a single
   timestep.
 
-  "Shadow" variables XX_boundary_export will be used to capture boundary fluxes that we 
-  want to export to coupling as time integrals. We use a shadow variable 
-  because we want to integrate over whatever timestepper is being used. 
-  Eventually we should have the ability to potentially use a 2d field here. 
+  "Shadow" variables XX_boundary_export will be used to capture boundary fluxes that we
+  want to export to coupling as time integrals. We use a shadow variable
+  because we want to integrate over whatever timestepper is being used.
+  Eventually we should have the ability to potentially use a 2d field here.
   The shadow variable needs to be zeroed at the start of each
   coupling cycle for a component.
 """
 function vars_state(bl::l_type, ::Prognostic, FT)
   @vars begin
      θ::FT
-     θ_boundary_export::FT
+     F_accum::FT # accumulated flux across boundary
   end
 end
 
@@ -154,8 +148,8 @@ function vars_state(bl::l_type, ::Auxiliary, FT)
         yc::FT
         zc::FT
      θⁱⁿⁱᵗ::FT
-     boundary_in::FT
-     boundary_out::FT
+     θ_secondary::FT # stores opposite face for primary
+     F_prescribed::FT # stores prescribed flux for secondary
   end
 end
 
@@ -188,6 +182,7 @@ function init_state_prognostic!(bl::l_type, Q::Vars, A::Vars, geom::LocalGeometr
   y=geom.coord[2]
   z=geom.coord[3]
   Q.θ=bl.bl_prop.init_theta(x,y,z,npt,elnum)
+  Q.F_accum = 0
   nothing
 end
 
@@ -202,8 +197,8 @@ function nodal_init_state_auxiliary!(bl::l_type, A::Vars, tmp::Vars, geom::Local
   z=geom.coord[3]
   A.npt, A.elnum, A.xc, A.yc, A.zc = bl.bl_prop.init_aux_geom(npt,elnum,x,y,z)
   A.θⁱⁿⁱᵗ=0
-  A.boundary_in = 0
-  A.boundary_out = 0
+  A.θ_secondary=0
+  A.F_prescribed=0
   nothing
 end
 
@@ -223,15 +218,14 @@ Land
 
 """
   Set any source terms for prognostic state external sources.
-  Also use to record boundary flux terms into shadow variables 
+  Also use to record boundary flux terms into shadow variables
   for export to coupler.
 """
 function source!(bl::l_type,S::Vars,Q::Vars,G::Vars,A::Vars,_...)
-  S.θ=bl.bl_prop.source_theta(Q.θ,A.npt,A.elnum,A.xc,A.yc,A.zc,A.boundary_in)
-  # Record boundary condition fluxes as needed by adding to shadow 
+  S.θ=bl.bl_prop.source_theta(Q.θ,A.npt,A.elnum,A.xc,A.yc,A.zc,A.θ_secondary)
+  # Record boundary condition fluxes as needed by adding to shadow
   # prognostic variable
-  S.θ_boundary_export=
-   bl.bl_prop.theta_shadow_boundary_flux(Q.θ,A.boundary_in,A.npt,A.elnum,A.xc,A.yc,A.zc)
+  S.F_accum = G.κ∇θ[3]
   nothing
 end
 
@@ -272,28 +266,13 @@ function flux_second_order!( bl::l_type, F::Grad, Q::Vars, GF::Vars, H::Vars, A:
   nothing
 end
 
-struct ExteriorBoundaryCondition
-end
-
-struct CoupledBoundaryCondition
-end
+# Boundary conditions
 
 """
   Define boundary condition flags/types to iterate over, for now keep it simple.
 """
-## function boundary_conditions( bl::l_type, _...)
-##     (CoupledBoundaryCondition(), ExteriorBoundaryCondition())
-## end
 function boundary_conditions( bl::l_type, _...)
-    (1, 2)
-end
-
-"""
-  Zero normal gradient boundary condition.
-"""
-function boundary_state!(nF::Union{CentralNumericalFluxGradient}, bc, bl::l_type, Q⁺::Vars, A⁺::Vars,n,Q⁻::Vars,A⁻::Vars,t,_...)
- Q⁺.θ=Q⁻.θ
- nothing
+    bl.boundaryconditions
 end
 
 """
@@ -303,53 +282,64 @@ end
 """
 # No first order fluxes so numerical flux needed. NumericalFluxFirstOrder
 function boundary_state!(nF::NumericalFluxFirstOrder, bc, bl::l_type, Q⁺::Vars, A⁺::Vars,n,Q⁻::Vars,A⁻::Vars,t,_...)
- nothing
+   nothing
 end
+
+
+## ExteriorBoundary
+# flux is 0 across the boundary
+struct ExteriorBoundary
+end
+
+"""
+  Zero normal gradient boundary condition.
+"""
+function boundary_state!(nF::Union{CentralNumericalFluxGradient}, bc::ExteriorBoundary, bl::l_type, Q⁺::Vars, A⁺::Vars,n,Q⁻::Vars,A⁻::Vars,t,_...)
+   Q⁺.θ=Q⁻.θ
+   nothing
+end
+
 # Zero gradient at exterior boundaries
-function boundary_state!(nF::Union{NumericalFluxSecondOrder}, bc::ExteriorBoundaryCondition, bl::l_type, Q⁺::Vars, GF⁺::Vars, A⁺::Vars,n⁻,Q⁻::Vars,GF⁻::Vars,A⁻::Vars,t,_...)
- Q⁺.θ=Q⁻.θ
- GF⁺.κ∇θ= n⁻ * -0
- if A⁻.npt == 0
-  println("Exterior!!")
- end
- nothing
-end
-# Use boundary flux
-function boundary_state!(nF::Union{NumericalFluxSecondOrder}, bc::CoupledBoundaryCondition, bl::l_type, Q⁺::Vars, GF⁺::Vars, A⁺::Vars,n⁻,Q⁻::Vars,GF⁻::Vars,A⁻::Vars,t,_...)
-  ## Need to try this
-  ## GF⁺.κ∇θ = n⁻ * aux.boundary_in
+function boundary_state!(nF::Union{NumericalFluxSecondOrder}, bc::ExteriorBoundary, bl::l_type, Q⁺::Vars, GF⁺::Vars, A⁺::Vars,n⁻,Q⁻::Vars,GF⁻::Vars,A⁻::Vars,t,_...)
+  Q⁺.θ=Q⁻.θ
   GF⁺.κ∇θ= n⁻ * -0
   if A⁻.npt == 0
-   println("Coupled!!")
+   println("Exterior!!")
   end
-  nothing
+  return nothing
 end
 
-# Pending types
-function boundary_state!(nF::Union{NumericalFluxSecondOrder}, bc, bl::l_type, Q⁺::Vars, GF⁺::Vars, A⁺::Vars,n⁻,Q⁻::Vars,GF⁻::Vars,A⁻::Vars,t,_...)
+
+## CoupledPrimaryBoundary
+# compute flux based on opposite face
+# also need to accumulate net flux across boundary
+struct CoupledPrimaryBoundary
+end
+function boundary_state!(nF::Union{CentralNumericalFluxGradient}, bc::CoupledPrimaryBoundary, bl::l_type, Q⁺::Vars, A⁺::Vars,n,Q⁻::Vars,A⁻::Vars,t,_...)
+  Q⁺.θ=A⁺.θ_secondary
+  nothing
+end
+function boundary_state!(nF::Union{NumericalFluxSecondOrder}, bc::CoupledPrimaryBoundary, bl::l_type, Q⁺::Vars, GF⁺::Vars, A⁺::Vars,n⁻,Q⁻::Vars,GF⁻::Vars,A⁻::Vars,t,_...)
   Q⁺.θ=Q⁻.θ
-  println("bc=",bc)
-  
-  if bc == 1
-   println("Exterior")
-   GF⁺.κ∇θ= n⁻ * -0
-   if A⁻.npt == 0
-    println("Exterior!!")
-   end
-  end
+  GF⁺.κ∇θ= GF⁻.κ∇θ
+  return nothing
+end
 
-  if bc == 2
-   println("Coupled")
-   ## Need to try this
-   ## GF⁺.κ∇θ = n⁻ * aux.boundary_in
-   GF⁺.κ∇θ= n⁻ * -0
-   if A⁻.npt == 0
-    println("Coupled!!")
-   end
-  end
 
+## CoupledSecondaryBoundary
+# use prescribed flux computed in primary
+struct CoupledSecondaryBoundary
+end
+function boundary_state!(nF::Union{CentralNumericalFluxGradient}, bc::CoupledSecondaryBoundary, bl::l_type, Q⁺::Vars, A⁺::Vars,n,Q⁻::Vars,A⁻::Vars,t,_...)
+  Q⁺.θ=Q⁻.θ
   nothing
 end
+function boundary_state!(nF::Union{NumericalFluxSecondOrder}, bc::CoupledPrimaryBoundary, bl::l_type, Q⁺::Vars, GF⁺::Vars, A⁺::Vars,n⁻,Q⁻::Vars,GF⁻::Vars,A⁻::Vars,t,_...)
+  Q⁺.θ=Q⁻.θ
+  GF⁺.κ∇θ= n⁻ .* A⁺.F_prescribed
+  return nothing
+end
+
 
 
 function update_auxiliary_state_gradient!(
