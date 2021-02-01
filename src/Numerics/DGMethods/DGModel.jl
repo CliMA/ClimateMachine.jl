@@ -1,5 +1,6 @@
 using .NumericalFluxes:
     CentralNumericalFluxHigherOrder, CentralNumericalFluxDivergence
+using ..Mesh.Filters
 
 """
     SpaceDiscretization
