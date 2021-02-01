@@ -280,6 +280,7 @@ function AtmosLESConfiguration(
         )
     else
         filter = nothing
+        cutofforder_horz = cutofforder_vert = nothing
     end
 
 
@@ -289,8 +290,8 @@ Establishing Atmos LES configuration for %s
     precision               = %s
     horiz polynomial order  = %d
     vert polynomial order   = %d
-    horiz cutoff order      = %d
-    vert cutoff order       = %d
+    horiz cutoff order      = %s
+    vert cutoff order       = %s
     domain_min              = %.2f m, %.2f m, %.2f m
     domain_max              = %.2f m, %.2f m, %.2f m
     resolution              = %dx%dx%d
@@ -408,6 +409,7 @@ function AtmosGCMConfiguration(
         )
     else
         filter = nothing
+        cutofforder_horz = cutofforder_vert = nothing
     end
 
     @info @sprintf(
@@ -416,8 +418,8 @@ Establishing Atmos GCM configuration for %s
     precision               = %s
     horiz polynomial order  = %d
     vert polynomial order   = %d
-    cutofforder_horz        = %d
-    cutofforder_vert        = %d
+    cutofforder_horz        = %s
+    cutofforder_vert        = %s
     # horiz elem            = %d
     # vert elems            = %d
     domain height           = %.2e m
