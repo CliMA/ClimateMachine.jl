@@ -81,11 +81,20 @@ end
 function atmos_calc_kappa_diff(_...)
   return κᵃʰ,κᵃʰ,κᵃᶻ
 end
+## Set atmos source!
+function atmos_source_theta(θᵃ,npt,el,xc,yc,zc,θᵒ)
+  tsource = 0.
+  if zc == 0.
+    tsource = -(1. / τ_airsea)*( θᵃ-θᵒ )
+  end
+  return tsource
+end
 ## Create atmos component
 bl_prop=CplTestingBL.prop_defaults()
 bl_prop=(bl_prop..., init_theta=atmos_init_theta)
 bl_prop=(bl_prop..., theta_shadow_boundary_flux=atmos_theta_shadow_boundary_flux)
 bl_prop=(bl_prop..., calc_kappa_diff=atmos_calc_kappa_diff)
+bl_prop=(bl_prop..., source_theta=atmos_source_theta)
 # btags=( (0,0), (0,0), (CplTestingBL.CoupledBoundaryCondition, CplTestingBL.ExteriorBoundaryCondition) )
 btags=( (0,0), (0,0), (2, 1) )
 mA=Coupling.CplTestModel(;domain=domainA,BL_module=CplTestingBL, nsteps=5, btags=btags, bl_prop=bl_prop)

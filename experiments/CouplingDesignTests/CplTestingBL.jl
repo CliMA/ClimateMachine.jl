@@ -96,7 +96,10 @@ struct PenaltyNumFluxDiffusive <: NumericalFluxSecondOrder end
 function prop_defaults()
   bl_prop=NamedTuple()
 
-  init_aux_geom(_...)=(return 0., 0., 0., 0., 0.)
+  function init_aux_geom(npt,elnum,x,y,z)
+    return npt, elnum,x,y,z
+  end
+  # init_aux_geom(_...)=(return 0., 0., 0., 0., 0.)
   bl_prop=( bl_prop...,init_aux_geom=init_aux_geom )
 
   init_theta(_...)=(return 0.)
