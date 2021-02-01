@@ -113,44 +113,73 @@ Qexact = exactsolution(finaltime, q0, t0)
         end
     end
 
-    @testset "IMEX methods" begin
+    @testset "IMEX methods (LowStorageVariant)" begin
         dts = [2.0^(-k) for k in 4:5]
         errors = similar(dts)
-        for (method, order) in imex_methods
+        for (method, order) in imex_methods_lowstorage_compatible
             for split_explicit_implicit in (false, true)
-                for variant in (NaiveVariant(),)
-                    for (n, dt) in enumerate(dts)
-                        Q .= Qinit
-                        rhs_arg! =
-                            split_explicit_implicit ? rhs_nonlinear! : rhs!
-                        solver = method(
-                            rhs_arg!,
-                            rhs_linear!,
-                            LinearBackwardEulerSolver(
-                                DivideLinearSolver();
-                                isadjustable = true,
-                            ),
-                            Q;
-                            dt = dt,
-                            t0 = t0,
-                            split_explicit_implicit = split_explicit_implicit,
-                            variant = variant,
-                        )
-                        solve!(Q, solver; timeend = finaltime)
-                        errors[n] = norm(Q - Qexact)
-                    end
-                    rates = log2.(errors[1:(end - 1)] ./ errors[2:end])
-                    if variant isa LowStorageVariant && split_explicit_implicit
-                        if method === ARK1ForwardBackwardEuler
-                            expected_order = 1
-                        else
-                            expected_order = 2
-                        end
-                    else
-                        expected_order = order
-                    end
-                    @test isapprox(rates[end], expected_order; rtol = 0.3)
+                for (n, dt) in enumerate(dts)
+                    Q .= Qinit
+                    rhs_arg! =
+                        split_explicit_implicit ? rhs_nonlinear! : rhs!
+                    solver = method(
+                        rhs_arg!,
+                        rhs_linear!,
+                        LinearBackwardEulerSolver(
+                            DivideLinearSolver();
+                            isadjustable = true,
+                        ),
+                        Q;
+                        dt = dt,
+                        t0 = t0,
+                        split_explicit_implicit = split_explicit_implicit,
+                        variant = LowStorageVariant(),
+                    )
+                    solve!(Q, solver; timeend = finaltime)
+                    errors[n] = norm(Q - Qexact)
                 end
+                rates = log2.(errors[1:(end - 1)] ./ errors[2:end])
+                if split_explicit_implicit
+                    if method === ARK1ForwardBackwardEuler
+                        expected_order = 1
+                    else
+                        expected_order = 2
+                    end
+                else
+                    expected_order = order
+                end
+                @test isapprox(rates[end], expected_order; rtol = 0.3)
+            end
+        end
+    end
+
+    @testset "IMEX methods (NaiveVariant)" begin
+        dts = [2.0^(-k) for k in 4:5]
+        errors = similar(dts)
+        for (method, expected_order) in imex_methods_naivestorage_compatible
+            for split_explicit_implicit in (false, true)
+                for (n, dt) in enumerate(dts)
+                    Q .= Qinit
+                    rhs_arg! =
+                        split_explicit_implicit ? rhs_nonlinear! : rhs!
+                    solver = method(
+                        rhs_arg!,
+                        rhs_linear!,
+                        LinearBackwardEulerSolver(
+                            DivideLinearSolver();
+                            isadjustable = true,
+                        ),
+                        Q;
+                        dt = dt,
+                        t0 = t0,
+                        split_explicit_implicit = split_explicit_implicit,
+                        variant = NaiveVariant(),
+                    )
+                    solve!(Q, solver; timeend = finaltime)
+                    errors[n] = norm(Q - Qexact)
+                end
+                rates = log2.(errors[1:(end - 1)] ./ errors[2:end])
+                @test isapprox(rates[end], expected_order; rtol = 0.3)
             end
         end
     end
@@ -158,7 +187,7 @@ Qexact = exactsolution(finaltime, q0, t0)
     @testset "IMEX methods with direct solver" begin
         dts = [2.0^(-k) for k in 4:5]
         errors = similar(dts)
-        for (method, order) in imex_methods
+        for (method, order) in imex_methods_naivestorage_compatible
             for split_explicit_implicit in (false, true)
                 for (n, dt) in enumerate(dts)
                     Q .= Qinit
@@ -219,7 +248,7 @@ Qexact = exactsolution(finaltime, q0, t0)
         dts = [2.0^(-k) for k in 3:4]
         errors = similar(dts)
         for (slow_method, slow_expected_order) in slow_mrrk_methods
-            for (fast_method, fast_expected_order) in imex_methods
+            for (fast_method, fast_expected_order) in imex_methods_lowstorage_compatible
                 for (n, dt) in enumerate(dts)
                     Q .= Qinit
                     solver = MultirateRungeKutta(
@@ -235,6 +264,7 @@ Qexact = exactsolution(finaltime, q0, t0)
                                 Q;
                                 dt = dt,
                                 split_explicit_implicit = false,
+                                variant = LowStorageVariant(),
                             ),
                         ),
                         t0 = t0,
