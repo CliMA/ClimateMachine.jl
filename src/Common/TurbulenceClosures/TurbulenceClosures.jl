@@ -1032,12 +1032,7 @@ function sponge_viscosity_modifier(
     return (ν, D_t, τ)
 end
 
-
-
-
-
 ###########################
-
 
 """
 HorizDryBiharmonic{FT} <: HyperDiffusion
@@ -1053,21 +1048,23 @@ $(DocStringExtensions.FIELDS)
 struct HorizDryBiharmonic{FT} <: HyperDiffusion
     τ_timescale::FT
 end
-
-vars_state(::HorizDryBiharmonic, ::Gradient, FT) =
-    @vars(u_h::SVector{3, FT}, h_tot::FT)
-vars_state(::HorizDryBiharmonic, ::GradientLaplacian, FT) =
-    @vars(u_h::SVector{3, FT}, h_tot::FT)
-vars_state(::HorizDryBiharmonic, ::Hyperdiffusive, FT) =
-    @vars(ν∇³u_h::SMatrix{3, 3, FT, 9}, ν∇³h_tot::SVector{3, FT})
+   
 vars_state(::HorizDryBiharmonic, ::Auxiliary, FT) = @vars begin
-        H::SMatrix{3, 3, FT, 9}
-        P::SMatrix{3, 3, FT, 9}
-        Δ::FT
+    H::SMatrix{3, 3, FT, 9}
+    P::SMatrix{3, 3, FT, 9}
+    Δ::FT
 end
 
+vars_state(::HorizDryBiharmonic, ::Gradient, FT) =
+    @vars(u_h::SVector{3, FT}, h_tot::FT) # creates these vars in transform and ∇transform
+vars_state(::HorizDryBiharmonic, ::GradientLaplacian, FT) =
+    @vars(u_h::SVector{3, FT}, h_tot::FT)
+
+vars_state(::HorizDryBiharmonic, ::Hyperdiffusive, FT) =
+@vars(ν∇³u_h::SMatrix{3, 3, FT, 9}, ν∇³h_tot::SVector{3, FT}) # nu * H (added in flux second order, and calc in post transform laplacian)
+
 vars_state(::HorizDryBiharmonic, ::GradientHyperFlux, FT) =
-    @vars(χ_u_h::SMatrix{3, 3, FT, 9}, χ_h_tot::SVector{3, FT})
+    @vars(u_h::SMatrix{3, 3, FT, 9}, h_tot::SVector{3, FT}) # Xi * P clculated by compute gradient hyperfux
 
 function init_aux_hyperdiffusion!(
     ::HorizDryBiharmonic,
@@ -1084,11 +1081,10 @@ function init_aux_hyperdiffusion!(
     aux.hyperdiffusion.H = (I - k * k')
     # horizontal hyperdiffusion projection of gradients
     aux.hyperdiffusion.P = I - k * k'
-    # vertical diffusion tensor
-    #aux.diffusion.D = vert_diff_ν * k * k'
 
 end
 
+# prepare variables, gradients of which will be evaluated
 function compute_gradient_argument!(
     h::HorizDryBiharmonic,
     bl::BalanceLaw,
@@ -1102,6 +1098,7 @@ function compute_gradient_argument!(
     u = state.ρu * ρinv
     k̂ = vertical_unit_vector(bl, aux)
     u_h = (SDiagonal(1, 1, 1) - k̂ * k̂') * u
+    #@show size(u_h)
     transform.hyperdiffusion.u_h = u_h
     transform.hyperdiffusion.h_tot = transform.h_tot
 end
@@ -1114,14 +1111,19 @@ function compute_gradient_hyperflux!(
     state::Vars,
     aux::Vars,
     t::Real,
-    )
+    ) # this is never called
+
     ∇u_h = ∇transform.hyperdiffusion.u_h
     ∇h_tot = ∇transform.hyperdiffusion.h_tot
-    P = 1.0 #aux.hyperdiffusion.P
 
-    #auxHDG.χ_u_h   = ∇u_h .* P #
-    auxHDG.χ_u_h = hcat(ntuple(n -> P * [:, :] * ∇u_h[:, n], Val(3))...)
-    auxHDG.χ_h_tot = P .* ∇h_tot
+    P = aux.hyperdiffusion.P
+
+    ∇transform.hyperdiffusion.h_tot = P * ∇h_tot
+    ∇transform.hyperdiffusion.u_h = P * ∇u_h
+    #∇transform.hyperdiffusion.u_h = hcat(ntuple(n -> P * [:, :, n] * ∇u_h[:, n], Val(N))...) 
+
+    auxHDG.h_tot = P * ∇h_tot
+    auxHDG.u_h = hcat(ntuple(n -> P * [:, :, n] * ∇u_h[:, n], Val(N))...) 
 
 end
 
@@ -1159,11 +1161,15 @@ function transform_post_gradient_laplacian!(
     aux::Vars,
     t::Real,
 )
+    """Computes the DG hyperdiffusion auxiliary variable `η = H ∇ Δρ` where `H` is
+the hyperdiffusion tensor."""
+
     H = aux.hyperdiffusion.H
 
-    #∇Δu_h = H .* hypertransform.hyperdiffusion.u_h # 
-    ∇Δu_h =  hcat(ntuple(n -> H * [:, :] .* hypertransform.hyperdiffusion.u_h[:, n], Val(3))...)
-    ∇Δh_tot = H .* hypertransform.hyperdiffusion.h_tot
+    ∇Δh_tot = H * hypertransform.hyperdiffusion.h_tot
+    ∇Δu_h = H * hypertransform.hyperdiffusion.u_h
+    
+    #hcat(ntuple(n -> H * [:, :, n] * hypertransform.hyperdiffusion.u_h[:, n], Val(3))...) 
 
     # Unpack
     τ_timescale = h.τ_timescale
@@ -1172,22 +1178,6 @@ function transform_post_gradient_laplacian!(
     hyperdiffusive.hyperdiffusion.ν∇³u_h = ν₄ * ∇Δu_h
     hyperdiffusive.hyperdiffusion.ν∇³h_tot = ν₄ * ∇Δh_tot
 end
-
-"""
-function flux_second_order!(
-    h::HorizDryBiharmonic,
-    flux::Grad,
-    state_prognostic::Vars,
-    state_gradient_flux::Vars,
-    hyperdiffusive::Vars,
-    state_auxiliary::Vars,
-    t::Real,
-)
-    flux.hyper_u = state_auxiliary.ρ * hyperdiffusive.ν∇³u_h
-    flux.hyper_e = hyperdiffusive.ν∇³u_h * state_auxiliary.ρu
-    flux.hyper_e += hyperdiffusive.ν∇³h_tot * state_auxiliary.ρ
-end
-"""
 
 
 const Biharmonic = Union{EquilMoistBiharmonic, DryBiharmonic, HorizDryBiharmonic}
