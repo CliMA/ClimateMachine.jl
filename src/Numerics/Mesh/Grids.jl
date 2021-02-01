@@ -56,6 +56,8 @@ function min_node_distance(
 end
 
 # {{{
+# `vgeo` stores geometry and metrics terms at the volume quadrature /
+# interpolation points
 const _nvgeo = 16
 const _ξ1x1,
 _ξ2x1,
@@ -74,6 +76,8 @@ _x2,
 _x3,
 _JcV = 1:_nvgeo
 const vgeoid = (
+    # ∂ξk/∂xi: derivative of the Cartesian reference element coordinate `ξ_k`
+    # with respect to the Cartesian physical coordinate `x_i`
     ξ1x1id = _ξ1x1,
     ξ2x1id = _ξ2x1,
     ξ3x1id = _ξ3x1,
@@ -83,19 +87,48 @@ const vgeoid = (
     ξ1x3id = _ξ1x3,
     ξ2x3id = _ξ2x3,
     ξ3x3id = _ξ3x3,
+    # M refers to the mass matrix. This is the physical mass matrix, and thus
+    # contains the Jacobian determinant:
+    #    J .* (ωᵢ ⊗ ωⱼ ⊗ ωₖ)
+    # where ωᵢ are the quadrature weights and J is the Jacobian determinant
+    # det(∂x/∂ξ)
     Mid = _M,
+    # Inverse mass matrix: 1 ./ M
     MIid = _MI,
+    # Horizontal mass matrix (used in diagnostics)
+    #    J .* norm(∂ξ3/∂x) * (ωᵢ ⊗ ωⱼ); for integrating over a plane
+    # (in 2-D ξ2 not ξ3 is used)
     MHid = _MH,
+    # Nodal degrees of freedom locations in Cartesian physical space
     x1id = _x1,
     x2id = _x2,
     x3id = _x3,
+    # Metric terms for vertical line integrals
+    #   norm(∂x/∂ξ3)
+    # (in 2-D ξ2 not ξ3 is used)
     JcVid = _JcV,
 )
-# JcV is the vertical line integral Jacobian
-# The MH terms are for integrating over a plane.
+
+# `sgeo` stores geometry and metrics terms at the surface quadrature /
+# interpolation points
 const _nsgeo = 5
 const _n1, _n2, _n3, _sM, _vMI = 1:_nsgeo
-const sgeoid = (n1id = _n1, n2id = _n2, n3id = _n3, sMid = _sM, vMIid = _vMI)
+const sgeoid = (
+    # outward pointing unit normal in physical space
+    n1id = _n1,
+    n2id = _n2,
+    n3id = _n3,
+    # sM refers to the surface mass matrix. This is the physical mass matrix,
+    # and thus contains the surface Jacobian determinant:
+    #    sJ .* (ωⱼ ⊗ ωₖ)
+    # where ωᵢ are the quadrature weights and sJ is the surface Jacobian
+    # determinant
+    sMid = _sM,
+    # Volume mass matrix at the surface nodes (needed in the lift operation,
+    # i.e., the projection of a face field back to the volume). Since DGSEM is
+    # used only collocated volume mass matrices are required.
+    vMIid = _vMI,
+)
 # }}}
 
 """
