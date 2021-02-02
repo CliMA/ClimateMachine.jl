@@ -67,7 +67,7 @@ struct HEVISolverType{FT} <: AbstractSolverType
 
     function HEVISolverType(
         FT;
-        solver_method = ARK2ImplicitExplicitMidpoint,
+        solver_method = ARK2GiraldoKellyConstantinescu,
         linear_max_subspace_size = Int(30),
         linear_atol = FT(-1.0),
         linear_rtol = FT(5e-5),

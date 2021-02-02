@@ -221,9 +221,9 @@ function main()
 
     # Driver configuration parameters
     FT = Float64                             # floating type precision
-    poly_order = (5, 6)                      # discontinuous Galerkin polynomial order
-    n_horz = 8                               # horizontal element number
-    n_vert = 3                               # vertical element number
+    poly_order = 5                           # discontinuous Galerkin polynomial order
+    n_horz = 10                              # horizontal element number
+    n_vert = 5                               # vertical element number
     n_days::FT = 1
     timestart::FT = 0                        # start time (s)
     timeend::FT = n_days * day(param_set)    # end time (s)
@@ -233,15 +233,26 @@ function main()
         config_baroclinic_wave(FT, poly_order, (n_horz, n_vert), with_moisture)
 
     # Set up experiment
-    ode_solver_type = ClimateMachine.IMEXSolverType(
-        implicit_model = AtmosAcousticGravityLinearModel,
-        implicit_solver = ManyColumnLU,
+    # ode_solver_type = ClimateMachine.IMEXSolverType(
+    #     implicit_model = AtmosAcousticGravityLinearModel,
+    #     implicit_solver = ManyColumnLU,
+    #     solver_method = ARK2GiraldoKellyConstantinescu,
+    #     split_explicit_implicit = true,
+    #     discrete_splitting = false,
+    # )
+    ode_solver_type = ClimateMachine.HEVISolverType(
+        FT;
         solver_method = ARK2GiraldoKellyConstantinescu,
-        split_explicit_implicit = true,
-        discrete_splitting = false,
+        linear_max_subspace_size = 30,
+        linear_atol = FT(-1.0),
+        linear_rtol = FT(5e-5),
+        nonlinear_max_iterations = 10,
+        nonlinear_rtol = FT(1e-4),
+        nonlinear_ϵ = FT(1.e-10),
+        preconditioner_update_freq = 1,
     )
 
-    CFL = FT(0.1) # target acoustic CFL number
+    CFL = FT(0.01) # target acoustic CFL number
 
     # time step is computed such that the horizontal acoustic Courant number is CFL
     solver_config = ClimateMachine.SolverConfiguration(
