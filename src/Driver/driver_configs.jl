@@ -214,7 +214,7 @@ function AtmosLESConfiguration(
     numerical_flux_gradient = CentralNumericalFluxGradient(),
     fv_reconstruction = nothing,
     grid_stretching = (nothing, nothing, nothing),
-    Ncutoff = get_polyorder(N),
+    Ncutoff = get_polyorders(N),
 ) where {FT <: AbstractFloat}
 
     (polyorder_horz, polyorder_vert) = get_polyorders(N)
@@ -359,7 +359,7 @@ function AtmosGCMConfiguration(
     numerical_flux_gradient = CentralNumericalFluxGradient(),
     fv_reconstruction = nothing,
     grid_stretching = nothing,
-    Ncutoff = N,
+    Ncutoff = get_polyorders(N),
 ) where {FT <: AbstractFloat}
 
     (polyorder_horz, polyorder_vert) = get_polyorders(N)
