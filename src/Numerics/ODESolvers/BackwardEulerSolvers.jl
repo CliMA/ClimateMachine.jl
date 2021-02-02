@@ -68,19 +68,6 @@ solver.
 update_backward_Euler_solver!(::AbstractBackwardEulerSolver, Q, α) = nothing
 
 """
-    get_implicit_operator_coefficient(::AbstractBackwardEulerSolver)
-
-Returns the coefficient `α` of the implicit operator in
-an `AbstractBackwardEulerSolver` object:
-```
-    Q - α f(Q) = Qhat,
-```
-where `Q` is the state vector, `Qhat` is the right-hand side,
-and `f` is the discretized implicit operator.
-"""
-get_implicit_operator_coefficient(::AbstractBackwardEulerSolver) = nothing
-
-"""
     setup_backward_Euler_solver(solver, Q, α, tendency!)
 
 Returns a concrete implementation of an `AbstractBackwardEulerSolver` that will
@@ -135,8 +122,6 @@ end
 
 Δt_is_adjustable(lin::LinBESolver) = lin.isadjustable
 
-get_implcit_coefficient(lin::LinBESolver) = lin.α
-
 function setup_backward_Euler_solver(
     lin::LinearBackwardEulerSolver,
     Q,
@@ -187,12 +172,18 @@ function update_backward_Euler_solver!(lin::LinBESolver, Q, α)
 end
 
 function (lin::LinBESolver)(Q, Qhat, α, p, t)
-    rhs! = EulerOperator(lin.f_imp!, -α)
 
+    # If α is not the same as the already assembled operator
+    # with its previous value of α (lin.α), then we need to
+    # first check that the solver CAN be rebuilt (lin.isadjustable)
+    # followed by recalling the set up routine by updating the
+    # coefficient with the new version of α
     if lin.α != α
         @assert lin.isadjustable
         update_backward_Euler_solver!(lin, Q, α)
     end
+
+    rhs! = EulerOperator(lin.f_imp!, -α)
 
     if typeof(lin.solver) <: AbstractIterativeSystemSolver
         FT = eltype(α)
@@ -264,8 +255,6 @@ mutable struct NonLinBESolver{FT, F, NLS} <: AbstractBackwardEulerSolver
 end
 
 Δt_is_adjustable(nlsolver::NonLinBESolver) = nlsolver.isadjustable
-
-get_implcit_coefficient(nlsolver::NonLinBESolver) = nlsolver.α
 
 """
     setup_backward_Euler_solver(solver::NonLinearBackwardEulerSolver, Q, α, tendency!)

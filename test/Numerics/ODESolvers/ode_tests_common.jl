@@ -32,11 +32,7 @@ const imex_methods_lowstorage_compatible = (
     (ARK548L2SA2KennedyCarpenter, 5),
 )
 const imex_methods_naivestorage_compatible = (
-    (ARK1ForwardBackwardEuler, 1),
-    (ARK2ImplicitExplicitMidpoint, 2),
-    (ARK2GiraldoKellyConstantinescu, 2),
-    (ARK437L2SA1KennedyCarpenter, 4),
-    (ARK548L2SA2KennedyCarpenter, 5),
+    imex_methods_lowstorage_compatible...,
     # Some methods can only be used with the `NaiveVariant` storage
     # scheme since, in general, ARK methods can have different time-scaling/rhs-scaling
     # coefficients (C/B vectors in the Butcher tables). For future reference,

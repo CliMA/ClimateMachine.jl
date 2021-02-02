@@ -67,9 +67,9 @@ mutable struct AdditiveRungeKutta{
     T,
     RT,
     AT,
-    BE,
     V,
     VS,
+    IST,
     Nstages,
     Nstages_sq,
     Nstagesm1,
@@ -84,10 +84,8 @@ mutable struct AdditiveRungeKutta{
     rhs!::Any
     "rhs linear operator"
     rhs_implicit!::Any
-    "backward Euler solver"
-    besolver!::BE
-    "backward Euler solvers, pre-factorized, for MIS"
-    besolvers!::Any
+    "a dictionary of backward Euler solvers"
+    implicit_solvers::IST
     "Storage for solution during the AdditiveRungeKutta update"
     Qstages::NTuple{Nstagesm1, AT}
     "Storage for RHS during the AdditiveRungeKutta update"
@@ -145,47 +143,62 @@ mutable struct AdditiveRungeKutta{
         variant_storage = additional_storage(variant, Q, Nstages)
         VS = typeof(variant_storage)
 
-        # The code throughout assumes SDIRK implicit tableau so we assert that
-        # here.
-        # for is in 2:Nstages
-        #     @assert RKA_implicit[is, is] ≈ RKA_implicit[2, 2]
-        # end
+        implicit_solvers = Dict()
 
-        # NOTE: this is only for composing an ARK method with
-        # a MIS timestepper
-        # TODO: Clean this up
+        rk_diag = unique(diag(RKA_implicit))
+        # Remove all zero entries from `rk_diag`
+        # so we build all unique implicit solvers (parameterized by the
+        # corresponding RK coefficient)
+        filter!(c -> !iszero(c), rk_diag)
+
+        # LowStorageVariant ARK methods assume that both the explicit and
+        # implicit B and C vectors are the same. Additionally, the diagonal
+        # of the implicit Butcher table A is assumed to have the form:
+        # [0, c, ... c ], where c is some non-zero constant.
+        if variant isa LowStorageVariant
+            @assert RKB_explicit == RKB_implicit
+            @assert RKC_explicit == RKC_implicit
+            # rk_diag here has been filtered of all non-unique and zero values.
+            # So [0, c, ... c ] filters to [c]
+            if length(rk_diag) != 1
+                error("The implicit Butcher table must have SDIRK form when using LowStorageVariant.")
+            end
+        end
+
         if isempty(nsubsteps)
-            α = dt * RKA_implicit[2, 2]
-            besolver! = setup_backward_Euler_solver(
-                backward_euler_solver,
-                Q,
-                α,
-                rhs_implicit!,
-            )
-            besolvers! = ()
-        else
-            besolvers! = ntuple(
-                i -> setup_backward_Euler_solver(
+            for rk_coeff in rk_diag
+                α = dt * rk_coeff
+                besolver! = setup_backward_Euler_solver(
                     backward_euler_solver,
                     Q,
-                    dt * nsubsteps[i] * RKA_implicit[2, 2],
+                    α,
                     rhs_implicit!,
-                ),
-                length(nsubsteps),
-            )
-            besolver! = besolvers![1]
+                )
+                @assert besolver! isa AbstractBackwardEulerSolver
+                implicit_solvers[rk_coeff] = besolver!
+            end
+        else
+            for rk_coeff in rk_diag
+                α = dt * nsubsteps[i] * rk_coeff
+                besolver! = setup_backward_Euler_solver(
+                    backward_euler_solver,
+                    Q,
+                    α,
+                    rhs_implicit!,
+                )
+                @assert besolver! isa AbstractBackwardEulerSolver
+                implicit_solvers[rk_coeff] = besolver!
+            end
         end
-        @assert besolver! isa AbstractBackwardEulerSolver
-        BE = typeof(besolver!)
 
-        new{T, RT, AT, BE, V, VS, Nstages, Nstages^2, Nstages - 1}(
+        IST = typeof(implicit_solvers)
+        new{T, RT, AT, V, VS, IST, Nstages, Nstages^2, Nstages - 1}(
             RT(dt),
             RT(t0),
             0,
             rhs!,
             rhs_implicit!,
-            besolver!,
-            besolvers!,
+            implicit_solvers,
             Qstages,
             Rstages,
             Qhat,
@@ -229,10 +242,14 @@ end
 # this will only work for iterative solves
 # direct solvers use prefactorization
 function updatedt!(ark::AdditiveRungeKutta, dt)
-    @assert Δt_is_adjustable(ark.besolver!)
-    ark.dt = dt
-    α = dt * ark.RKA_implicit[2, 2]
-    update_backward_Euler_solver!(ark.besolver!, ark.Qstages[1], α)
+    for (rk_coeff, implicit_solver!) in ark.implicit_solvers
+        @assert Δt_is_adjustable(implicit_solver!)
+        # New coefficient
+        α = dt * rk_coeff
+        # Update with new dt and implicit coefficient
+        ark.dt = dt
+        update_backward_Euler_solver!(implicit_solver!, ark.Qstages[1], α)
+    end
 end
 
 function dostep!(
@@ -277,7 +294,6 @@ function dostep!(
 )
     dt = ark.dt
 
-    besolver! = ark.besolver!
     RKA_explicit, RKA_implicit = ark.RKA_explicit, ark.RKA_implicit
     RKB_explicit, RKC_explicit = ark.RKB_explicit, ark.RKC_explicit
     RKB_implicit, RKC_implicit = ark.RKB_implicit, ark.RKC_implicit
@@ -343,14 +359,12 @@ function dostep!(
 
         # solves
         # Qs = Qhat + dt * RKA_implicit[istage, istage] * rhs_implicit!(Qs)
-        α = dt * RKA_implicit[istage, istage]
-        # compare α at current stage with the coefficient in the already
-        # built implicit solver
-        α_impl = get_implicit_operator_coefficient(besolver!)
-        if α_impl !== nothing && α_impl !== α
-            update_backward_Euler_solver!(besolver!, Q, α)
+        rk_coeff = RKA_implicit[istage, istage]
+        if !iszero(rk_coeff)
+            α = rk_coeff * dt
+            besolver! = ark.implicit_solvers[rk_coeff]
+            besolver!(Qstages[istage], Qhat, α, p, stagetime_implicit)
         end
-        besolver!(Qstages[istage], Qhat, α, p, stagetime_implicit)
 
         rhs!(
             Rstages[istage],
@@ -401,8 +415,13 @@ function dostep!(
 )
     dt = ark.dt
 
-    besolver! = ark.besolver!
     RKA_explicit, RKA_implicit = ark.RKA_explicit, ark.RKA_implicit
+    # LowStorageVariant ARK methods assumes that the implicit
+    # Butcher table has an SDIRK form; meaning explicit first step (no
+    # implicit solve at the first stage) and all non-zero diaognal
+    # coefficients are the same.
+    rk_coeff = RKA_implicit[2, 2]
+    besolver! = ark.implicit_solvers[rk_coeff]
     # NOTE: Using low-storage variant assumes that the butcher tables
     # for both the explicit and implicit parts have the same B and C
     # vectors
@@ -869,12 +888,12 @@ function ARK2GiraldoKellyConstantinescu(
 end
 
 """
-Trap2LockWoodWeller(F, L, backward_euler_solver, Q; dt, t0, nsubsteps,
-                    split_explicit_implicit, variant)
+    Trap2LockWoodWeller(F, L, backward_euler_solver, Q; dt, t0, nsubsteps,
+                        split_explicit_implicit, variant)
 
 This function returns an [`AdditiveRungeKutta`](@ref) time stepping object,
-    see the documentation of [`AdditiveRungeKutta`](@ref) for arguments definitions.
-    This time stepping object is intended to be passed to the `solve!` command.
+see the documentation of [`AdditiveRungeKutta`](@ref) for arguments definitions.
+This time stepping object is intended to be passed to the `solve!` command.
 
 The time integrator scheme used is Trap2(2,3,2) with δ_s = 1, δ_f = 0, from
 the following reference
@@ -911,7 +930,7 @@ function Trap2LockWoodWeller(
     @assert dt !== nothing
     # In this scheme B and C vectors do not coincide,
     # hence we can't use the LowStorageVariant optimization
-    @assert variant !== LowStorageVariant()
+    @assert variant isa NaiveVariant
 
     T = eltype(Q)
     RT = real(T)
@@ -1135,7 +1154,7 @@ function ARK437L2SA1KennedyCarpenter(
     variant = LowStorageVariant(),
 ) where {AT <: AbstractArray}
 
-    @assert dt != nothing
+    @assert dt !== nothing
 
     T = eltype(Q)
     RT = real(T)

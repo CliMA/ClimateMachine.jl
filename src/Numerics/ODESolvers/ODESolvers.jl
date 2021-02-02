@@ -5,6 +5,7 @@ Ordinary differential equation solvers
 """
 module ODESolvers
 
+using LinearAlgebra
 using KernelAbstractions
 using KernelAbstractions.Extras: @unroll
 using StaticArrays
