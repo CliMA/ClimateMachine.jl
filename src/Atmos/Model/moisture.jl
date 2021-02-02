@@ -86,7 +86,7 @@ struct EquilMoist{FT} <: MoistureModel
     tolerance::FT
 end
 EquilMoist{FT}(;
-    maxiter::IT = 3,
+    maxiter::IT = 10,
     tolerance::FT = FT(1e-1),
 ) where {FT <: AbstractFloat, IT <: Int} = EquilMoist{FT}(maxiter, tolerance)
 

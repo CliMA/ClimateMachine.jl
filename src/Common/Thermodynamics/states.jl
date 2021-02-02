@@ -218,9 +218,9 @@ function PhaseEquil(
     e_int::FT,
     ρ::FT,
     q_tot::FT,
-    maxiter::Int = 8,
+    maxiter::Int = 10,
     temperature_tol::FT = FT(1e-1),
-    ::Type{sat_adjust_method} = NewtonsMethod,
+    ::Type{sat_adjust_method} = RegulaFalsiMethod,
 ) where {FT <: Real, sat_adjust_method}
     phase_type = PhaseEquil
     q_tot_safe = clamp(q_tot, FT(0), FT(1))
