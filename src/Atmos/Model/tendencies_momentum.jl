@@ -16,11 +16,11 @@ function flux(::PressureGradient{Momentum}, atmos, args)
     @unpack ts = args.precomputed
     s = state.ρu * state.ρu'
     pad = SArray{Tuple{size(s)...}}(ntuple(i -> 0, length(s)))
-    if atmos.ref_state isa HydrostaticState
-        return pad + (air_pressure(ts) - aux.ref_state.p) * I
-    else
+    #if atmos.ref_state isa HydrostaticState
+    #    return pad + (air_pressure(ts) - aux.ref_state.p) * I
+    #else
         return pad + air_pressure(ts) * I
-    end
+    #end
 end
 
 #####
@@ -57,11 +57,11 @@ struct Gravity{PV <: Momentum} <: TendencyDef{Source, PV} end
 Gravity() = Gravity{Momentum}()
 function source(s::Gravity{Momentum}, m, args)
     @unpack state, aux = args
-    if m.ref_state isa HydrostaticState
-        return -(state.ρ - aux.ref_state.ρ) * aux.orientation.∇Φ
-    else
+    #if m.ref_state isa HydrostaticState
+    #    return -(state.ρ - aux.ref_state.ρ) * aux.orientation.∇Φ
+    #else
         return -state.ρ * aux.orientation.∇Φ
-    end
+    #end
 end
 
 export Coriolis

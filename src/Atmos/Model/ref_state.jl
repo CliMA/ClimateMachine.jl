@@ -53,7 +53,7 @@ function HydrostaticState(
 end
 
 vars_state(m::HydrostaticState, ::Auxiliary, FT) =
-    @vars(ρ::FT, p::FT, T::FT, ρe::FT, ρq_tot::FT, ρq_liq::FT, ρq_ice::FT)
+  @vars(ρ::FT, p::FT, T::FT, ρe::FT, ρq_tot::FT, ρq_liq::FT, ρq_ice::FT, ρu::SVector{3, FT})
 
 atmos_init_ref_state_pressure!(m, _...) = nothing
 function atmos_init_ref_state_pressure!(
@@ -113,6 +113,7 @@ function atmos_init_aux!(
     e_kin = F(0)
     e_pot = gravitational_potential(atmos.orientation, aux)
     aux.ref_state.ρe = ρ * total_energy(e_kin, e_pot, ts)
+    aux.ref_state.ρu = SVector{3, F}(0, 0, 0)
 end
 
 using ..MPIStateArrays: vars

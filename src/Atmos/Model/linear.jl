@@ -45,9 +45,8 @@ function linearized_air_pressure(
            _R_d / _cv_d * (
            ρe_tot - ρe_pot - (ρq_tot - ρq_liq) * _e_int_v0 +
            ρq_ice * (_e_int_i0 + _e_int_v0) -
-           ref.ρu' * ρu / ref.ρ# +
-           # don't need this term
-           #ref.ρu' * ref.ρu / (2 * (ref.ρ ^ 2)) * ρ
+           ref.ρu' * ρu / ref.ρ +
+           ref.ρu' * ref.ρu / (2 * (ref.ρ ^ 2)) * ρ
       )
     elseif linearization_type == 3 # Tapio's suggestion 1, breaks
       pL = ρ * _R_d * _T_0 +
@@ -202,16 +201,16 @@ function store_linearized_pressures!(
   )
 end
 
-function update_auxiliary_state!(
-    dg::DGModel,
-    lm::AtmosLinearModel,
-    Q::MPIStateArray,
-    t::Real,
-    elems::UnitRange,
-)
-    update_auxiliary_state!(store_linearized_pressures!, dg, lm, Q, t, elems)
-    return true
-end
+#function update_auxiliary_state!(
+#    dg::DGModel,
+#    lm::AtmosLinearModel,
+#    Q::MPIStateArray,
+#    t::Real,
+#    elems::UnitRange,
+#)
+#    update_auxiliary_state!(store_linearized_pressures!, dg, lm, Q, t, elems)
+#    return true
+#end
 function flux_second_order!(
     lm::AtmosLinearModel,
     flux::Grad,
@@ -378,13 +377,13 @@ function flux_first_order!(
 
     flux.ρ = ρu
 
-    #flux.ρu = ref.ρu * ref.ρu' / ref.ρ ^ 2 * ρ
-    #flux.ρu += ref.ρu * ρu' / ref.ρ
-    #flux.ρu += ρu * ref.ρu' / ref.ρ
+    flux.ρu = ref.ρu * ref.ρu' / ref.ρ ^ 2 * ρ
+    flux.ρu += ref.ρu * ρu' / ref.ρ
+    flux.ρu += ρu * ref.ρu' / ref.ρ
     flux.ρu += pL * I
 
     flux.ρe = (ref.ρe + ref.p) / ref.ρ * state.ρu
-    #flux.ρe += (ρe + pL - ρ / ref.ρ * (ref.ρe + ref.p)) * ref.ρu / ref.ρ
+    flux.ρe += (ρe + pL - ρ / ref.ρ * (ref.ρe + ref.p)) * ref.ρu / ref.ρ
     nothing
 end
 function source!(

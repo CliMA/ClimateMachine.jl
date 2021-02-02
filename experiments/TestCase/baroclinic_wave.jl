@@ -243,7 +243,7 @@ function main()
         discrete_splitting = false,
     )
 
-    CFL = FT(0.3) # target acoustic CFL number
+    CFL = FT(0.6) # target acoustic CFL number
 
     # time step is computed such that the horizontal acoustic Courant number is CFL
     solver_config = ClimateMachine.SolverConfiguration(
@@ -259,8 +259,11 @@ function main()
     # Set up diagnostics
     dgn_config = config_diagnostics(FT, driver_config)
 
+    init_aux = similar(solver_config.dg.state_auxiliary)
+    init_aux .= solver_config.dg.state_auxiliary
+
     # Set up user-defined callbacks
-    filterorder = 20
+    filterorder = 18
     filter = ExponentialFilter(solver_config.dg.grid, 0, filterorder)
     cbfilter = GenericCallbacks.EveryXSimulationSteps(1) do
         Filters.apply!(
@@ -268,7 +271,7 @@ function main()
             AtmosFilterPerturbations(driver_config.bl),
             solver_config.dg.grid,
             filter,
-            state_auxiliary = solver_config.dg.state_auxiliary,
+            state_auxiliary = init_aux,
         )
         nothing
     end
@@ -283,7 +286,7 @@ function main()
         nothing
     end
     
-    cb_update_ref_state = GenericCallbacks.EveryXSimulationSteps(100) do
+    cb_update_ref_state = GenericCallbacks.EveryXSimulationSteps(20) do
         Q = solver_config.Q
         dg = solver_config.dg
         m = solver_config.dg.balance_law
@@ -302,7 +305,6 @@ function main()
         solver_config;
         diagnostics_config = dgn_config,
         user_callbacks = (cbfilter, cb_update_ref_state),
-        #user_callbacks = (cbtmarfilter, cbfilter),
         check_euclidean_distance = true,
     )
 end
