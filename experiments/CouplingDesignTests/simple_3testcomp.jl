@@ -31,7 +31,7 @@ include("CplTestingBL.jl")
 using .CplTestingBL
 
 
-couple_dt = 3000.0
+couple_dt = 300.0
 nstepsA = 5
 nstepsO = 5
 
@@ -126,7 +126,7 @@ end
 ## Set ocean diffusion coeffs
 function ocean_calc_kappa_diff(_...)
   # return κᵒʰ,κᵒʰ,κᵒᶻ*FT(100.)
-  return κᵒʰ,κᵒʰ,κᵒᶻ*FT(1000.)
+  return κᵒʰ,κᵒʰ,κᵒᶻ # m^2 s^-1
 end
 ## Set penalty term tau (for debugging)
 function ocean_get_penalty_tau(_...)

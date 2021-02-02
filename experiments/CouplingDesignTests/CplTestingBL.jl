@@ -352,7 +352,7 @@ function numerical_boundary_flux_second_order!(
   aux1⁻::Vars{A},
 ) where {S,D,A,HD}
 
-  fluxᵀn.θ = (state_prognostic⁻.θ - state_auxiliary⁺.θ_secondary) / τ
+  fluxᵀn.θ = (state_prognostic⁻.θ - state_auxiliary⁺.θ_secondary) / τ # W/m^2
 end
 
 
