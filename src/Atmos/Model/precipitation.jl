@@ -67,6 +67,7 @@ struct RainModel <: PrecipitationModel end
 vars_state(::RainModel, ::Prognostic, FT) = @vars(ρq_rai::FT)
 vars_state(::RainModel, ::Gradient, FT) = @vars(q_rai::FT)
 vars_state(::RainModel, ::GradientFlux, FT) = @vars(∇q_rai::SVector{3, FT})
+vars_state(::RainModel, ::GradientHyperFlux, FT) = @vars(∇q_rai::SVector{3, FT})
 
 precompute(::RainModel, atmos::AtmosModel, args, ts, ::Source) =
     (cache = warm_rain_sources(atmos, args, ts),)
@@ -139,6 +140,9 @@ struct RainSnowModel <: PrecipitationModel end
 vars_state(::RainSnowModel, ::Prognostic, FT) = @vars(ρq_rai::FT, ρq_sno::FT)
 vars_state(::RainSnowModel, ::Gradient, FT) = @vars(q_rai::FT, q_sno::FT)
 vars_state(::RainSnowModel, ::GradientFlux, FT) =
+    @vars(∇q_rai::SVector{3, FT}, ∇q_sno::SVector{3, FT})
+
+vars_state(::RainSnowModel, ::GradientHyperFlux, FT) =
     @vars(∇q_rai::SVector{3, FT}, ∇q_sno::SVector{3, FT})
 
 precompute(::RainSnowModel, atmos::AtmosModel, args, ts, ::Source) =

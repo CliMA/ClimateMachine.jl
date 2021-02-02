@@ -60,6 +60,7 @@ import ..BalanceLaws:
     boundary_state!,
     compute_gradient_argument!,
     compute_gradient_flux!,
+    compute_gradient_hyperflux!,
     transform_post_gradient_laplacian!,
     prognostic_to_primitive!,
     primitive_to_prognostic!,
@@ -393,6 +394,12 @@ function vars_state(m::AtmosModel, st::GradientFlux, FT)
     end
 end
 
+function vars_state(m::AtmosModel, st::GradientHyperFlux, FT)
+    @vars begin
+        hyperdiffusion::vars_state(m.hyperdiffusion, st, FT)
+    end
+end
+
 """
     vars_state(m::AtmosModel, ::GradientLaplacian, FT)
 
@@ -627,6 +634,27 @@ function compute_gradient_flux!(
         t,
     )
 end
+
+
+function compute_gradient_hyperflux!(
+    atmos::AtmosModel,
+    diffusive::Vars,
+    ∇transform::Grad,
+    state::Vars,
+    aux::Vars,
+    t::Real,
+)
+    compute_gradient_hyperflux!(
+        atmos.hyperdiffusion,
+        atmos.orientation,
+        diffusive,
+        ∇transform,
+        state,
+        aux,
+        t,
+    )
+end
+
 
 function transform_post_gradient_laplacian!(
     atmos::AtmosModel,
@@ -1164,7 +1192,7 @@ function numerical_flux_first_order!(
     # Compute p * D = p * (0, n₁, n₂, n₃, S⁰)
     pD = @MVector zeros(FT, num_state_prognostic)
     if balance_law.ref_state isa HydrostaticState &&
-       balance_law.ref_state.subtract_off
+        balance_law.ref_state.subtract_off
         # pressure should be continuous but it doesn't hurt to average
         ref_p⁻ = state_auxiliary⁻.ref_state.p
         ref_p⁺ = state_auxiliary⁺.ref_state.p

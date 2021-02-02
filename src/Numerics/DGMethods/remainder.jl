@@ -117,6 +117,7 @@ function remainder_DGModel(
 
         @assert number_states(subdg.balance_law, Gradient()) == 0
         @assert number_states(subdg.balance_law, GradientFlux()) == 0
+        @assert number_states(subdg.balance_law, GradientHyperFlux()) == 0
 
         @assert number_states(subdg.balance_law, GradientLaplacian()) == 0
         @assert number_states(subdg.balance_law, Hyperdiffusive()) == 0
@@ -195,6 +196,9 @@ compute_gradient_argument!(rem_balance_law::RemBL, args...) =
 
 compute_gradient_flux!(rem_balance_law::RemBL, args...) =
     compute_gradient_flux!(rem_balance_law.main, args...)
+
+compute_gradient_hyperflux!(rem_balance_law::RemBL, args...) =
+    compute_gradient_hyperflux!(rem_balance_law.main, args...)
 
 boundary_conditions(rem_balance_law::RemBL) =
     boundary_conditions(rem_balance_law.main)
