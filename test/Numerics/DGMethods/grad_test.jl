@@ -162,8 +162,8 @@ let
                             @test err[l] ≈ expected_result[FT, dim, l]
                         end
                     end
-                    if polynomialorder[end] != 0 ||
-                       direction isa HorizontalDirection
+                    if polynomialorder[end] == 0 &&
+                       !(direction isa HorizontalDirection)
                         @info begin
                             msg = "Polynomial order = $polynomialorder, direction = $direction\n"
                             for l in 1:(lvls - 1)
