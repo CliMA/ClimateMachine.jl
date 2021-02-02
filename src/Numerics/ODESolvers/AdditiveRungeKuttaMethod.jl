@@ -1107,12 +1107,6 @@ function ARK548L2SA2KennedyCarpenter(
     RKC_explicit[1] = 0
     RKC_explicit[Nstages] = 1
 
-    # conversion to static arrays
-    RKA_explicit = SMatrix{Nstages, Nstages}(RKA_explicit)
-    RKA_implicit = SMatrix{Nstages, Nstages}(RKA_implicit)
-    RKB_explicit = SVector{Nstages}(RKB_explicit)
-    RKC_explicit = SVector{Nstages}(RKC_explicit)
-
     # For this ARK method, both RK methods share the same
     # B and C vectors in the Butcher table
     RKB_implicit = RKB_explicit
@@ -1247,12 +1241,6 @@ function ARK437L2SA1KennedyCarpenter(
 
     RKC_explicit[1] = 0
     RKC_explicit[Nstages] = 1
-
-    # conversion to static arrays
-    RKA_explicit = SMatrix{Nstages, Nstages}(RKA_explicit)
-    RKA_implicit = SMatrix{Nstages, Nstages}(RKA_implicit)
-    RKB_explicit = SVector{Nstages}(RKB_explicit)
-    RKC_explicit = SVector{Nstages}(RKC_explicit)
 
     # For this ARK method, both RK methods share the same
     # B and C vectors in the Butcher table
