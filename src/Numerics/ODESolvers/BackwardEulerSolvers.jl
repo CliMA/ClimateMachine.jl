@@ -244,8 +244,10 @@ function setup_backward_Euler_solver(
     # Create an empty JacobianAction (without operator)
     if nlbesolver.nlsolver isa JacobianFreeNewtonKrylovSolver
         jvp! = JacobianAction(nothing, Q, nlbesolver.nlsolver.ϵ)
+        nlsolver = nlbesolver.nlsolver
     else
         jvp! = JacobianAction(nothing, Q, α)
+        nlsolver = setup_nlsolver(nlbesolver.nlsolver, Q, f_imp!, α)
     end
         # Create an empty preconditioner if preconditioner_update_freq > 0
     preconditioner_update_freq = nlbesolver.preconditioner_update_freq
@@ -259,7 +261,7 @@ function setup_backward_Euler_solver(
         α,
         f_imp!,
         jvp!,
-        nlbesolver.nlsolver,
+        nlsolver,
         nlbesolver.isadjustable,
         preconditioner,
     )
@@ -296,6 +298,10 @@ function solve!(solver::JacobianFreeNewtonKrylovSolver, Q, f!, Qhat, α, p, t, j
     )
 end
 
+function setup_nlsolver(alg::JacobianFreeNewtonKrylovAlgorithm, Q, f!, α, args...)
+    return IterativeSolver(alg, Q, NewtonOperator(f!, -α), Q)
+end
+
 function solve!(solver::JaCobIanfrEEneWtONKryLovSoLVeR, Q, f!, Qhat, α, p, t, args...)
     rhs! = NewtonOperator(f!, -α)
     solve!(solver, Q, rhs!, Qhat, p, t)
@@ -303,9 +309,17 @@ end
 
 # Q^{n+1} = F(Q^{n+1})
 # F = Q^n + α f(Q^{n+1,k}) = Q^{n+1,k+1}
+function setup_nlsolver(alg::StandardPicardAlgorithm, Q, f!, args...)
+    return IterativeSolver(alg, Q, PicardOperator(f!, α, Q))
+end
+
 function solve!(solver::StandardPicardSolver, Q, f!, Qhat, α, p, t, args...)
     rhs! = PicardOperator(f!, α, Qhat)
     solve!(solver, Q, rhs!, p, t)
+end
+
+function setup_nlsolver(alg::AndersonAccelerationAlgorithm, Q, args...)
+    return IterativeSolver(alg, Q, args...)
 end
 
 function solve!(solver::AccelerationSolver, Q, f!, Qhat, α, p, t, args...)
