@@ -1,6 +1,6 @@
 using Test
 using MPI
-
+using Statistics
 using ClimateMachine
 
 # To test coupling
@@ -14,6 +14,7 @@ using ClimateMachine.GenericCallbacks
 
 # To invoke timestepper
 using ClimateMachine.ODESolvers
+using ClimateMachine.MPIStateArrays
 
 import ClimateMachine.Mesh.Grids: _x3
 
@@ -162,9 +163,9 @@ function preatmos(csolver)
 
   @info("preatmos",
     time = csolver.t,
-    norm_atmos = norm(mA.state.θ),
-    norm_ocean = norm(mO.state.θ),
-    norm_total = norm(mA.state.θ) + norm(mO.state.θ),
+    total_θ_atmos = weightedsum(mA.state,1),
+    total_θ_ocean = weightedsum(mO.state,1),
+    total_θ = weightedsum(mA.state,1) + weightedsum(mO.state,1),
     atmos_θ_surface_max = maximum(mA.state.θ[boundaryA]),
     ocean_θ_surface_max = maximum(mO.state.θ[boundaryO]),
   )
@@ -181,7 +182,10 @@ function postatmos(csolver)
 
     @info("postatmos",
     time = time = csolver.t + csolver.dt,
-    norm_atmos = norm(mA.state.θ),
+    total_θ_atmos = weightedsum(mA.state,1),
+    total_θ_ocean = weightedsum(mO.state,1),
+    total_F_accum = mean(mA.state.F_accum[boundaryA]) * 1e6*1e6,
+    total_θ = weightedsum(mA.state,1) + weightedsum(mO.state,1) + mean(mA.state.F_accum[boundaryA]) * 1e6*1e6,
     F_accum_max = maximum(mA.state.F_accum[boundaryA]),
     F_avg_max = maximum(mA.state.F_accum[boundaryA] ./ csolver.dt),
     atmos_θ_surface_max = maximum(mA.state.θ[boundaryA]),
@@ -236,4 +240,4 @@ cState.CplStateBlob[:Ocean_SST]=deepcopy( mO.state.θ[boundaryO] )
 cState.CplStateBlob[:Atmos_MeanAirSeaθFlux]=deepcopy(mA.state.F_accum[boundaryA] )
 
 # Invoke solve! with coupled timestepper and callback list.
-solve!(nothing,cC;numberofsteps=5)
+solve!(nothing,cC;numberofsteps=4)
