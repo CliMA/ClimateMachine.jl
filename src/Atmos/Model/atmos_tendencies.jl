@@ -89,7 +89,7 @@ eq_tends(pv::PV, m::AtmosModel, tt::Flux{SecondOrder}) where {PV <: Momentum} =
         ViscousStress{PV}(),
         eq_tends(pv, m.moisture, tt)...,
         eq_tends(pv, m.turbconv, tt)...,
-        hyperdiff_momentum_flux(pv, m.hyperdiffusion, tt)...,
+        eq_tends(pv, m.hyperdiffusion, tt)...,
     )
 
 # Energy
@@ -106,7 +106,7 @@ eq_tends(
 ) where {PV <: AbstractEnergy} = (
     eq_tends(pv, m.energy, tt)...,
     eq_tends(pv, m.turbconv, tt)...,
-    hyperdiff_enthalpy_and_momentum_flux(pv, m.hyperdiffusion, tt)...,
+    eq_tends(pv, m.hyperdiffusion, tt)...,
 )
 
 # Moisture
@@ -114,7 +114,7 @@ eq_tends(pv::PV, m::AtmosModel, tt::Flux{SecondOrder}) where {PV <: Moisture} =
     (
         eq_tends(pv, m.moisture, tt)...,
         eq_tends(pv, m.turbconv, tt)...,
-        hyperdiff_momentum_flux(pv, m.hyperdiffusion, tt)...,
+        eq_tends(pv, m.hyperdiffusion, tt)...,
     )
 
 # Precipitation
