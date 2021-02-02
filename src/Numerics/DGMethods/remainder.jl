@@ -103,6 +103,8 @@ function remainder_DGModel(
     states_higher_order = maindg.states_higher_order,
     diffusion_direction = maindg.diffusion_direction,
     modeldata = maindg.modeldata,
+    gradient_filter = maindg.gradient_filter,
+    tendency_filter = maindg.tendency_filter,
 ) where {NumModels}
     FT = eltype(state_auxiliary)
 
@@ -157,6 +159,8 @@ function remainder_DGModel(
         maindg.direction,
         diffusion_direction,
         modeldata,
+        gradient_filter,
+        tendency_filter,
     )
 end
 
