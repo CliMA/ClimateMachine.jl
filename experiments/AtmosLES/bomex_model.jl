@@ -48,6 +48,8 @@ using ClimateMachine.TurbulenceClosures
 using ClimateMachine.TurbulenceConvection
 using ClimateMachine.VariableTemplates
 using ClimateMachine.BalanceLaws
+using ClimateMachine.SurfaceFluxes
+using ClimateMachine.SurfaceFluxes: DGScheme
 
 using CLIMAParameters
 using CLIMAParameters.Planet: e_int_v0, grav, day

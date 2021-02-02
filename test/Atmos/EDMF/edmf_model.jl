@@ -80,30 +80,16 @@ values and parameters needed by the model.
 $(DocStringExtensions.FIELDS)
 """
 Base.@kwdef struct SurfaceModel{FT <: AbstractFloat, SV}
-    "Temperature ‵[k]‵"
-    T::FT = 300.4
-    "Liquid water potential temperature ‵[k]‵"
-    θ_liq::FT = 299.1
-    "Specific humidity ‵[kg/kg]‵"
-    q_tot::FT = 22.45e-3
-    "Sensible heat flux ‵[w/m^2]‵"
-    shf::FT = 9.5
-    "Latent heat flux ‵[w/m^2]‵"
-    lhf::FT = 147.2
     "Area"
     a::FT
     "Scalar coefficient"
     scalar_coeff::SV = 0
-    "Friction velocity"
-    ustar::FT = 0.28
-    "Monin - Obukhov length"
-    obukhov_length::FT = 0
     "Surface covariance stability coefficient"
     ψϕ_stab::FT = 8.3
     "Square ratio of rms turbulent velocity to friction velocity"
     κ_star²::FT = 3.75
-    "Height of the lowest level"
-    zLL::FT = 60
+    "Roughness height"
+    z_0::FT = 0.1
 end
 
 """

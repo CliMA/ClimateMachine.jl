@@ -1185,8 +1185,17 @@ function turbconv_boundary_state!(
     θ_liq_cv,
     q_tot_cv,
     θ_liq_q_tot_cv,
-    tke =
-        subdomain_surface_values(turbconv.surface, turbconv, m, gm⁻, gm_a⁻, zLL)
+    tke,
+    surf_conds = subdomain_surface_values(
+        turbconv.surface,
+        turbconv,
+        m,
+        gm⁻,
+        gm_a⁻,
+        state_int,
+        aux_int,
+        zLL,
+    )
 
     @unroll_map(N_up) do i
         up⁺[i].ρaw = FT(0)
