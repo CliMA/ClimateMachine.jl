@@ -220,7 +220,7 @@ function config_densitycurrent(
         param_set;                                      # Parameter set corresponding to earth parameters
         init_state_prognostic = init_densitycurrent!,   # Apply the initial condition
         ref_state = ref_state,                          # Reference state
-        turbulence = Vreman(_C_smag),                   # Turbulence closure model
+        turbulence = DynamicSubgridStabilization(FT(0.1)),
         moisture = DryModel(),                          # Exclude moisture variables
         source = (Gravity(),),                          # Gravity is the only source term here
         tracers = NoTracers(),                          # Tracer model with diffusivity coefficients
@@ -271,7 +271,7 @@ function main()
     ymax = FT(1000)
     zmax = FT(6400)
     t0 = FT(0)
-    timeend = FT(100)
+    timeend = FT(900)
     CFL = FT(1.5)
 
     ## Assign configurations so they can be passed to the `invoke!` function

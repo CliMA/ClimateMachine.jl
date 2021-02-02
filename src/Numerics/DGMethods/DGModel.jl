@@ -2003,9 +2003,9 @@ function launch_volume_tendency!(
             dynsgs!(
                spacedisc, 
                spacedisc.balance_law, 
-               h_state_prognostic.data, 
+               state_prognostic.data, 
                tendency.data, 
-               h_state_auxiliary.data, 
+               spacedisc.state_auxiliary.data, 
                t, 
                spacedisc.grid.topology.realelems
             )
@@ -2247,49 +2247,50 @@ function dynsgs!(
 
     device = typeof(Q) <: Array ? CPU() : CUDADevice()
     
+    rhs = dQdt
+    
     vgeo = Array(grid.vgeo)
     μ_dynsgs = similar(Q, prod(Nq), number_states(dg.balance_law,Prognostic()), nrealelem)
-    l_rhs_m = Array(similar(Q, number_states(dg.balance_law,Prognostic()), nrealelem))
-    l_δ̅_m = Array(similar(Q, number_states(dg.balance_law,Prognostic())))
-    μ = Array(similar(Q, number_states(dg.balance_law,Prognostic()), nrealelem))
-    l_δ̅ = Array(similar(Q, prod(Nq), number_states(dg.balance_law,Prognostic()), nrealelem))
+    l_rhs_m = similar(Q, number_states(dg.balance_law,Prognostic()), nrealelem)
+    l_δ̅_m = similar(Q, number_states(dg.balance_law,Prognostic()))
+    μ = similar(Q, number_states(dg.balance_law,Prognostic()), nrealelem)
+    l_δ̅ = similar(Q, prod(Nq), number_states(dg.balance_law,Prognostic()), nrealelem)
+    
+    localQ = Array(Q)
+    Q_ave = Array(similar(Q, number_states(dg.balance_law,Prognostic()), nrealelem))
+    
+    fill!(Q_ave, zero(FT))
     fill!(l_δ̅, zero(FT))
     
-    rhs = dQdt
-    localQ = Array(Q)
-    Q_ave = Array(similar(Q, number_states(dg.balance_law,Prognostic())))
-    fill!(Q_ave, zero(FT))
-    S = zero(FT)
+    for e in 1:nrealelem
+      for s in 1:number_states(dg.balance_law,Prognostic())
+        Q_ave[s, e] = mean(localQ[:,s,e])
+      end
+    end
 
     for e in 1:nrealelem
       for ijk in 1:prod(Nq)
-        S = sum(vgeo[:,_M,e])
         for s in 1:number_states(dg.balance_law,Prognostic())
-            #Q_ave[s] += vgeo[ijk,_M,e] * localQ[ijk,s,e]
+          l_δ̅[ijk,s,e] = localQ[ijk,s,e] - Q_ave[s, e]
         end
       end
-    end
-    for e in 1:nrealelem
-      for ijk in 1:prod(Nq)
-        for s in 1:number_states(dg.balance_law,Prognostic())
-            Q_ave[s] = mean(localQ[:,s,e])
-            @show(Q_ave[s])
-          l_δ̅[ijk,s,e] = localQ[ijk,s,e] - Q_ave[s]
-        end
-      end
-    end
-   
-   for s in 1:number_states(dg.balance_law,Prognostic())
-       l_δ̅_m[s] = maximum(abs.(l_δ̅[:,s,:]))
    end
+
+   for e in 1:nrealelem
+     for s in 1:number_states(dg.balance_law,Prognostic())
+       l_δ̅_m[s] = maximum(abs.(l_δ̅[:,s,:]))
+     end
+   end
+
    for e in 1:nrealelem
      for s in 1:number_states(dg.balance_law,Prognostic())
        l_rhs_m[s,e] = maximum(abs.(rhs[:,s,e]))
      end
    end
+
    for e in 1:nrealelem
      for s in 1:number_states(dg.balance_law,Prognostic())
-         μ[s,e] = l_rhs_m[s,e] / (maximum(l_δ̅_m[s]) + eps(FT))
+         μ[s,e] = l_rhs_m[s,e] / ((l_δ̅_m[s]) + eps(FT))
      end
    end
    
