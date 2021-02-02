@@ -57,9 +57,9 @@ function (o::OffsetRHS{AT} where {AT})(dQ, Q, params, tau; increment)
 end
 
 """
-MultirateInfinitesimalStep(slowrhs!, fastrhs!, fastmethod,
-                           α, β, γ,
-                           Q::AT; dt=0, t0=0) where {AT<:AbstractArray}
+    MultirateInfinitesimalStep(slowrhs!, fastrhs!, fastmethod,
+                               α, β, γ,
+                               Q::AT; dt=0, t0=0) where {AT<:AbstractArray}
 
 This is a time stepping object for explicitly time stepping the partitioned differential
 equation given by right-hand-side functions `f_fast` and `f_slow` with the state `Q`, i.e.,
@@ -74,6 +74,20 @@ time stepping object is intended to be passed to the `solve!` command.
 The constructor builds a multirate infinitesimal step Runge-Kutta scheme
 based on the provided `α`, `β` and `γ` tableaux and `fastmethod` for solving
 the fast modes.
+
+The available concrete implementations are:
+
+  - [`MISRK1`](@ref)
+  - [`MIS2`](@ref)
+  - [`MISRK2a`](@ref)
+  - [`MISRK2b`](@ref)
+  - [`MIS3C`](@ref)
+  - [`MISRK3`](@ref)
+  - [`MIS4`](@ref)
+  - [`MIS4a`](@ref)
+  - [`MISKWRK43`](@ref)
+  - [`TVDMISA`](@ref)
+  - [`TVDMISB`](@ref)
 
 ### References
  - [KnothWensch2014](@cite)
@@ -332,6 +346,15 @@ end
     end
 end
 
+"""
+    MISRK1(slowrhs!, fastrhs!, fastmethod, nsubsteps, Q; dt = 0, t0 = 0)
+
+The `MISRK1` method is a 1st-order accurate MIS method based
+on the RK1 (explicit Euler) method.
+
+### References
+ - [KnothWensch2014](@cite)
+"""
 function MISRK1(
     slowrhs!,
     fastrhs!,
@@ -367,6 +390,15 @@ function beta(::typeof(MISRK1), RT::DataType)
     ]
 end
 
+"""
+    MIS2(slowrhs!, fastrhs!, fastmethod, nsubsteps, Q; dt = 0, t0 = 0)
+
+The `MIS2` method is a 2nd-order accurate, 3-stage MIS method whose
+construction is summarized in Table 1 of [KnothWensch2014](@cite).
+
+### References
+ - [KnothWensch2014](@cite)
+"""
 function MIS2(
     slowrhs!,
     fastrhs!,
@@ -418,6 +450,15 @@ function beta(::typeof(MIS2), RT::DataType)
     ]
 end
 
+"""
+    MISRK2a(slowrhs!, fastrhs!, fastmethod, nsubsteps, Q; dt = 0, t0 = 0)
+
+The `MISRK2a` method is a 2nd-order accurate, 2-stage method
+based on the approach detailed by Wicker and Skamarock.
+
+### References
+ - [WickerSkamarock2002](@cite)
+"""
 function MISRK2a(
     slowrhs!,
     fastrhs!,
@@ -462,6 +503,14 @@ function beta(::typeof(MISRK2a), RT::DataType)
     ]
 end
 
+"""
+    MISRK2b(slowrhs!, fastrhs!, fastmethod, nsubsteps, Q; dt = 0, t0 = 0)
+
+
+
+### References
+ -
+"""
 function MISRK2b(
     slowrhs!,
     fastrhs!,
@@ -506,6 +555,15 @@ function beta(::typeof(MISRK2b), RT::DataType)
     ]
 end
 
+"""
+    MIS3C(slowrhs!, fastrhs!, fastmethod, nsubsteps, Q; dt = 0, t0 = 0)
+
+The `MIS3C` method is a 3rd-order accurate, 3-stage MIS method whose
+construction is summarized in Table 2 of [KnothWensch2014](@cite).
+
+### References
+ - [KnothWensch2014](@cite)
+"""
 function MIS3C(
     slowrhs!,
     fastrhs!,
@@ -557,6 +615,15 @@ function beta(::typeof(MIS3C), RT::DataType)
     ]
 end
 
+"""
+    MISRK3(slowrhs!, fastrhs!, fastmethod, nsubsteps, Q; dt = 0, t0 = 0)
+
+The `MISRK3` method is a 3rd-order accurate, 3-stage method
+based on the approach detailed by Wicker and Skamarock.
+
+### References
+ - [WickerSkamarock](@cite)
+"""
 function MISRK3(
     slowrhs!,
     fastrhs!,
@@ -594,6 +661,15 @@ function beta(::typeof(MISRK3), RT::DataType)
     ]
 end
 
+"""
+    MIS4(slowrhs!, fastrhs!, fastmethod, nsubsteps, Q; dt = 0, t0 = 0)
+
+The `MIS4` method is a 3rd-order accurate, 4-stage MIS method whose
+construction is summarized in Table 3 of [KnothWensch2014](@cite).
+
+### References
+ - [KnothWensch2014](@cite)
+"""
 function MIS4(
     slowrhs!,
     fastrhs!,
@@ -648,6 +724,15 @@ function beta(::typeof(MIS4), RT::DataType)
     ]
 end
 
+"""
+    MIS4a(slowrhs!, fastrhs!, fastmethod, nsubsteps, Q; dt = 0, t0 = 0)
+
+The `MIS4a` method is a 3rd-order accurate, 4-stage MIS method whose
+construction is summarized in Table 4 of [KnothWensch2014](@cite).
+
+### References
+ - [KnothWensch2014](@cite)
+"""
 function MIS4a(
     slowrhs!,
     fastrhs!,
@@ -704,6 +789,14 @@ function beta(::typeof(MIS4a), RT::DataType)
     ]
 end
 
+"""
+    MISKWRK43(slowrhs!, fastrhs!, fastmethod, nsubsteps, Q; dt = 0, t0 = 0)
+
+
+
+### References
+ -
+"""
 function MISKWRK43(
     slowrhs!,
     fastrhs!,
@@ -752,6 +845,15 @@ function beta(::typeof(MISKWRK43), RT::DataType)
     ]
 end
 
+"""
+    TVDMISA(slowrhs!, fastrhs!, fastmethod, nsubsteps, Q; dt = 0, t0 = 0)
+
+The `TVDMISA` method is a 3rd-order accurate, 3-stage MIS method whose
+construction is summarized in Table 6 of [KnothWensch2014](@cite).
+
+### References
+ - [KnothWensch2014](@cite)
+"""
 function TVDMISA(
     slowrhs!,
     fastrhs!,
@@ -803,6 +905,15 @@ function beta(::typeof(TVDMISA), RT::DataType)
     ]
 end
 
+"""
+    TVDMISB(slowrhs!, fastrhs!, fastmethod, nsubsteps, Q; dt = 0, t0 = 0)
+
+The `TVDMISB` method is a 3rd-order accurate, 3-stage MIS method whose
+construction is summarized in Table 7 of [KnothWensch2014](@cite).
+
+### References
+ - [KnothWensch2014](@cite)
+"""
 function TVDMISB(
     slowrhs!,
     fastrhs!,

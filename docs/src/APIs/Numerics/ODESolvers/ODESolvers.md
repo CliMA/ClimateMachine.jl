@@ -55,8 +55,6 @@ ODESolvers.MultirateRungeKutta
 ## Multi-rate Infinitesimal Step Methods
 
 ```@docs
-ODESolvers.TimeScaledRHS
-ODESolvers.MultirateInfinitesimalStep
 ODESolvers.MISRK1
 ODESolvers.MIS2
 ODESolvers.MISRK2a
