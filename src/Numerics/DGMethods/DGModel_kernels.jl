@@ -1007,17 +1007,11 @@ gradient flux.
         # Compute G(q) and write the result into shared memory
         @unroll for k in 1:Nq3
             fill!(local_transform, -zero(eltype(local_transform)))
-            compute_gradient_argument!(
+            compute_gradient_argument_arr!(
                 balance_law,
-                Vars{vars_state(balance_law, Gradient(), FT)}(local_transform),
-                Vars{vars_state(balance_law, Prognostic(), FT)}(local_state_prognostic[
-                    :,
-                    k,
-                ]),
-                Vars{vars_state(balance_law, Auxiliary(), FT)}(local_state_auxiliary[
-                    :,
-                    k,
-                ]),
+                local_transform,
+                local_state_prognostic[:, k],
+                local_state_auxiliary[:, k],
                 t,
             )
 
@@ -1111,24 +1105,12 @@ gradient flux.
                 )
 
                 # Applies a linear transformation of gradients to the diffusive variables
-                compute_gradient_flux!(
+                compute_gradient_flux_arr!(
                     balance_law,
-                    Vars{vars_state(balance_law, GradientFlux(), FT)}(
-                        local_state_gradient_flux,
-                    ),
-                    Grad{vars_state(balance_law, Gradient(), FT)}(local_transform_gradient[
-                        :,
-                        :,
-                        k,
-                    ]),
-                    Vars{vars_state(balance_law, Prognostic(), FT)}(local_state_prognostic[
-                        :,
-                        k,
-                    ]),
-                    Vars{vars_state(balance_law, Auxiliary(), FT)}(local_state_auxiliary[
-                        :,
-                        k,
-                    ]),
+                    local_state_gradient_flux,
+                    local_transform_gradient[:, :, k],
+                    local_state_prognostic[:, k],
+                    local_state_auxiliary[:, k],
                     t,
                 )
 
@@ -1243,17 +1225,11 @@ end
         # Compute G(q) and write the result into shared memory
         @unroll for k in 1:Nq3
             fill!(local_transform, -zero(eltype(local_transform)))
-            compute_gradient_argument!(
+            compute_gradient_argument_arr!(
                 balance_law,
-                Vars{vars_state(balance_law, Gradient(), FT)}(local_transform),
-                Vars{vars_state(balance_law, Prognostic(), FT)}(local_state_prognostic[
-                    :,
-                    k,
-                ]),
-                Vars{vars_state(balance_law, Auxiliary(), FT)}(local_state_auxiliary[
-                    :,
-                    k,
-                ]),
+                local_transform,
+                local_state_prognostic[:, k],
+                local_state_auxiliary[:, k],
                 t,
             )
 
@@ -1327,24 +1303,12 @@ end
                 )
 
                 # Applies a linear transformation of gradients to the diffusive variables
-                compute_gradient_flux!(
+                compute_gradient_flux_arr!(
                     balance_law,
-                    Vars{vars_state(balance_law, GradientFlux(), FT)}(
-                        local_state_gradient_flux,
-                    ),
-                    Grad{vars_state(balance_law, Gradient(), FT)}(local_transform_gradient[
-                        :,
-                        :,
-                        k,
-                    ]),
-                    Vars{vars_state(balance_law, Prognostic(), FT)}(local_state_prognostic[
-                        :,
-                        k,
-                    ]),
-                    Vars{vars_state(balance_law, Auxiliary(), FT)}(local_state_auxiliary[
-                        :,
-                        k,
-                    ]),
+                    local_state_gradient_flux,
+                    local_transform_gradient[:, :, k],
+                    local_state_prognostic[:, k],
+                    local_state_auxiliary[:, k],
                     t,
                 )
 
@@ -1506,15 +1470,11 @@ auxiliary gradient flux, and G* is the associated numerical flux.
 
         # Compute G(q) on the minus side write the result into registers
         fill!(local_transform⁻, -zero(eltype(local_transform⁻)))
-        compute_gradient_argument!(
+        compute_gradient_argument_arr!(
             balance_law,
-            Vars{vars_state(balance_law, Gradient(), FT)}(local_transform⁻),
-            Vars{vars_state(balance_law, Prognostic(), FT)}(
-                local_state_prognostic⁻,
-            ),
-            Vars{vars_state(balance_law, Auxiliary(), FT)}(
-                local_state_auxiliary⁻,
-            ),
+            local_transform⁻,
+            local_state_prognostic⁻,
+            local_state_auxiliary⁻,
             t,
         )
 
@@ -1529,15 +1489,11 @@ auxiliary gradient flux, and G* is the associated numerical flux.
 
         # Compute G(q) on the plus side and write the result into registers
         fill!(local_transform⁺, -zero(eltype(local_transform⁺)))
-        compute_gradient_argument!(
+        compute_gradient_argument_arr!(
             balance_law,
-            Vars{vars_state(balance_law, Gradient(), FT)}(local_transform⁺),
-            Vars{vars_state(balance_law, Prognostic(), FT)}(
-                local_state_prognostic⁺,
-            ),
-            Vars{vars_state(balance_law, Auxiliary(), FT)}(
-                local_state_auxiliary⁺,
-            ),
+            local_transform⁺,
+            local_state_prognostic⁺,
+            local_state_auxiliary⁺,
             t,
         )
 
@@ -1573,20 +1529,12 @@ auxiliary gradient flux, and G* is the associated numerical flux.
             if num_state_gradient_flux > 0
                 # Applies linear transformation of gradients to the diffusive variables
                 # on the minus side
-                compute_gradient_flux!(
+                compute_gradient_flux_arr!(
                     balance_law,
-                    Vars{vars_state(balance_law, GradientFlux(), FT)}(
-                        local_state_gradient_flux,
-                    ),
-                    Grad{vars_state(balance_law, Gradient(), FT)}(
-                        local_transform_gradient,
-                    ),
-                    Vars{vars_state(balance_law, Prognostic(), FT)}(
-                        local_state_prognostic⁻,
-                    ),
-                    Vars{vars_state(balance_law, Auxiliary(), FT)}(
-                        local_state_auxiliary⁻,
-                    ),
+                    local_state_gradient_flux,
+                    local_transform_gradient,
+                    local_state_prognostic⁻,
+                    local_state_auxiliary⁻,
                     t,
                 )
             end
@@ -1656,20 +1604,12 @@ auxiliary gradient flux, and G* is the associated numerical flux.
                 if num_state_gradient_flux > 0
                     # Applies linear transformation of gradients to the diffusive variables
                     # on the minus side
-                    compute_gradient_flux!(
+                    compute_gradient_flux_arr!(
                         balance_law,
-                        Vars{vars_state(balance_law, GradientFlux(), FT)}(
-                            local_state_gradient_flux,
-                        ),
-                        Grad{vars_state(balance_law, Gradient(), FT)}(
-                            local_transform_gradient,
-                        ),
-                        Vars{vars_state(balance_law, Prognostic(), FT)}(
-                            local_state_prognostic⁻,
-                        ),
-                        Vars{vars_state(balance_law, Auxiliary(), FT)}(
-                            local_state_auxiliary⁻,
-                        ),
+                        local_state_gradient_flux,
+                        local_transform_gradient,
+                        local_state_prognostic⁻,
+                        local_state_auxiliary⁻,
                         t,
                     )
                 end
@@ -1696,18 +1636,12 @@ auxiliary gradient flux, and G* is the associated numerical flux.
 
         # Applies linear transformation of gradients to the diffusive variables
         # on the minus side
-        compute_gradient_flux!(
+        compute_gradient_flux_arr!(
             balance_law,
-            Vars{vars_state(balance_law, GradientFlux(), FT)}(
-                local_state_prognostic⁻visc,
-            ),
-            Grad{vars_state(balance_law, Gradient(), FT)}(l_nG⁻),
-            Vars{vars_state(balance_law, Prognostic(), FT)}(
-                local_state_prognostic⁻,
-            ),
-            Vars{vars_state(balance_law, Auxiliary(), FT)}(
-                local_state_auxiliary⁻,
-            ),
+            local_state_prognostic⁻visc,
+            l_nG⁻,
+            local_state_prognostic⁻,
+            local_state_auxiliary⁻,
             t,
         )
 
@@ -1757,12 +1691,10 @@ end
         @unroll for s in 1:num_state_prognostic
             l_state[s] = state[n, s, e]
         end
-        init_state_prognostic!(
+        init_state_prognostic_arr!(
             balance_law,
-            Vars{vars_state(balance_law, Prognostic(), FT)}(l_state),
-            Vars{vars_state(balance_law, Auxiliary(), FT)}(
-                local_state_auxiliary,
-            ),
+            l_state,
+            local_state_auxiliary,
             LocalGeometry{Np, N}(vgeo, n, e),
             args...,
         )
@@ -2044,19 +1976,11 @@ See [`BalanceLaw`](@ref) for usage.
                     local_state_auxiliary[s] = state_auxiliary[ijk, s, e]
                 end
 
-                integral_load_auxiliary_state!(
+                integral_load_auxiliary_state_arr!(
                     balance_law,
-                    Vars{vars_state(balance_law, UpwardIntegrals(), FT)}(view(
-                        local_kernel,
-                        :,
-                        k,
-                    )),
-                    Vars{vars_state(balance_law, Prognostic(), FT)}(
-                        local_state_prognostic,
-                    ),
-                    Vars{vars_state(balance_law, Auxiliary(), FT)}(
-                        local_state_auxiliary,
-                    ),
+                    view(local_kernel, :, k),
+                    local_state_prognostic,
+                    local_state_auxiliary,
                 )
 
                 # Multiply in the curve jacobian
@@ -2080,19 +2004,10 @@ See [`BalanceLaw`](@ref) for usage.
                     local_kernel[s, k] = local_integral[s, k]
                 end
                 ijk = i + Nq1 * ((j - 1) + Nq2 * (k - 1))
-                integral_set_auxiliary_state!(
+                integral_set_auxiliary_state_arr!(
                     balance_law,
-                    Vars{vars_state(balance_law, Auxiliary(), FT)}(view(
-                        state_auxiliary,
-                        ijk,
-                        :,
-                        e,
-                    )),
-                    Vars{vars_state(balance_law, UpwardIntegrals(), FT)}(view(
-                        local_kernel,
-                        :,
-                        k,
-                    )),
+                    view(state_auxiliary, ijk, :, e),
+                    view(local_kernel, :, k),
                 )
                 @unroll for ind_out in 1:nout
                     local_integral[ind_out, k] = local_integral[ind_out, Nq3]
@@ -2137,21 +2052,11 @@ end
         # (i, j, Nq3)
         ijk = i + Nq1 * ((j - 1) + Nq2 * (Nq3 - 1))
         et = nvertelem + (eh - 1) * nvertelem
-        reverse_integral_load_auxiliary_state!(
+        reverse_integral_load_auxiliary_state_arr!(
             balance_law,
-            Vars{vars_state(balance_law, DownwardIntegrals(), FT)}(l_T),
-            Vars{vars_state(balance_law, Prognostic(), FT)}(view(
-                state,
-                ijk,
-                :,
-                et,
-            )),
-            Vars{vars_state(balance_law, Auxiliary(), FT)}(view(
-                state_auxiliary,
-                ijk,
-                :,
-                et,
-            )),
+            l_T,
+            view(state, ijk, :, et),
+            view(state_auxiliary, ijk, :, et),
         )
 
         # Loop up the stack of elements
@@ -2170,33 +2075,23 @@ end
             e = ev + (eh - 1) * nvertelem
             @unroll for k in 1:Nq3
                 ijk = i + Nq1 * ((j - 1) + Nq2 * (k - 1))
-                reverse_integral_load_auxiliary_state!(
+                reverse_integral_load_auxiliary_state_arr!(
                     balance_law,
-                    Vars{vars_state(balance_law, DownwardIntegrals(), FT)}(l_V),
-                    Vars{vars_state(balance_law, Prognostic(), FT)}(view(
-                        state,
-                        ijk,
-                        :,
-                        e,
-                    )),
-                    Vars{vars_state(balance_law, Auxiliary(), FT)}(view(
-                        state_auxiliary,
-                        ijk,
-                        :,
-                        e,
-                    )),
+                    l_V,
+                    view(state, ijk, :, e),
+                    view(state_auxiliary, ijk, :, e),
                 )
                 l_V .= l_T .- l_V
-                reverse_integral_set_auxiliary_state!(
+                reverse_integral_set_auxiliary_state_arr!(
                     balance_law,
-                    Vars{vars_state(balance_law, Auxiliary(), FT)}(view(
+                    view(
                         state_auxiliary,
                         ijk,
                         :,
                         # In the N = 0 case we shift the data up
                         Nq3 == 1 ? e + 1 : e,
-                    )),
-                    Vars{vars_state(balance_law, DownwardIntegrals(), FT)}(l_V),
+                    ),
+                    l_V,
                 )
             end
         end
@@ -2207,15 +2102,10 @@ end
             k = 1
             ijk = i + Nq1 * ((j - 1) + Nq2 * (k - 1))
             e = ev + (eh - 1) * nvertelem
-            reverse_integral_set_auxiliary_state!(
+            reverse_integral_set_auxiliary_state_arr!(
                 balance_law,
-                Vars{vars_state(balance_law, Auxiliary(), FT)}(view(
-                    state_auxiliary,
-                    ijk,
-                    :,
-                    e,
-                )),
-                Vars{vars_state(balance_law, DownwardIntegrals(), FT)}(l_T),
+                view(state_auxiliary, ijk, :, e),
+                l_T,
             )
         end
     end
