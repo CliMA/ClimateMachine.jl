@@ -19,7 +19,7 @@ export PenaltyNumFluxDiffusive
 export ExteriorBoundary
 export CoupledPrimaryBoundary, CoupledSecondaryBoundary
 
-
+const τ = 60*86400
 using ClimateMachine.BalanceLaws:
       Auxiliary,
       BalanceLaw,
@@ -132,7 +132,7 @@ end
 function vars_state(bl::l_type, ::Prognostic, FT)
   @vars begin
      θ::FT
-     F_accum::FT # accumulated flux across boundary
+     F_accum::FT # accumulated flux across boundary (atmosphere export)
   end
 end
 
@@ -148,8 +148,8 @@ function vars_state(bl::l_type, ::Auxiliary, FT)
         yc::FT
         zc::FT
      θⁱⁿⁱᵗ::FT
-     θ_secondary::FT # stores opposite face for primary
-     F_prescribed::FT # stores prescribed flux for secondary
+     θ_secondary::FT # stores opposite face for primary (atmospheric import)
+     F_prescribed::FT # stores prescribed flux for secondary (ocean import)
   end
 end
 
@@ -222,10 +222,10 @@ Land
   for export to coupler.
 """
 function source!(bl::l_type,S::Vars,Q::Vars,G::Vars,A::Vars,_...)
-  S.θ=bl.bl_prop.source_theta(Q.θ,A.npt,A.elnum,A.xc,A.yc,A.zc,A.θ_secondary)
+  #S.θ=bl.bl_prop.source_theta(Q.θ,A.npt,A.elnum,A.xc,A.yc,A.zc,A.θ_secondary)
   # Record boundary condition fluxes as needed by adding to shadow
   # prognostic variable
-  S.F_accum = G.κ∇θ[3]
+  S.F_accum = (Q.θ - A.θ_secondary) / τ
   nothing
 end
 
@@ -298,15 +298,26 @@ function boundary_state!(nF::Union{CentralNumericalFluxGradient}, bc::ExteriorBo
    Q⁺.θ=Q⁻.θ
    nothing
 end
-
-# Zero gradient at exterior boundaries
-function boundary_state!(nF::Union{NumericalFluxSecondOrder}, bc::ExteriorBoundary, bl::l_type, Q⁺::Vars, GF⁺::Vars, A⁺::Vars,n⁻,Q⁻::Vars,GF⁻::Vars,A⁻::Vars,t,_...)
-  Q⁺.θ=Q⁻.θ
-  GF⁺.κ∇θ= n⁻ * -0
-  if A⁻.npt == 0
-   println("Exterior!!")
-  end
-  return nothing
+function numerical_boundary_flux_second_order!(
+  numerical_flux::NumericalFluxSecondOrder,
+  bctype::ExteriorBoundary,
+  balance_law::l_type,
+  fluxᵀn::Vars{S},
+  normal_vector::SVector,
+  state_prognostic⁻::Vars{S},
+  state_gradient_flux⁻::Vars{D},
+  state_hyperdiffusive⁻::Vars{HD},
+  state_auxiliary⁻::Vars{A},
+  state_prognostic⁺::Vars{S},
+  state_gradient_flux⁺::Vars{D},
+  state_hyperdiffusive⁺::Vars{HD},
+  state_auxiliary⁺::Vars{A},
+  t,
+  state1⁻::Vars{S},
+  diff1⁻::Vars{D},
+  aux1⁻::Vars{A},
+) where {S,D,A,HD}
+  fluxᵀn.θ = 0
 end
 
 
@@ -315,16 +326,50 @@ end
 # also need to accumulate net flux across boundary
 struct CoupledPrimaryBoundary
 end
+
+
 function boundary_state!(nF::Union{CentralNumericalFluxGradient}, bc::CoupledPrimaryBoundary, bl::l_type, Q⁺::Vars, A⁺::Vars,n,Q⁻::Vars,A⁻::Vars,t,_...)
-  Q⁺.θ=A⁺.θ_secondary
+  Q⁺.θ=Q⁻.θ # Q⁺.θ=A⁺.θ_secondary
   nothing
 end
-function boundary_state!(nF::Union{NumericalFluxSecondOrder}, bc::CoupledPrimaryBoundary, bl::l_type, Q⁺::Vars, GF⁺::Vars, A⁺::Vars,n⁻,Q⁻::Vars,GF⁻::Vars,A⁻::Vars,t,_...)
-  Q⁺.θ=Q⁻.θ
-  GF⁺.κ∇θ= GF⁻.κ∇θ
-  return nothing
+function numerical_boundary_flux_second_order!(
+  numerical_flux::NumericalFluxSecondOrder,
+  bctype::CoupledPrimaryBoundary,
+  balance_law::l_type,
+  fluxᵀn::Vars{S},
+  normal_vector::SVector,
+  state_prognostic⁻::Vars{S},
+  state_gradient_flux⁻::Vars{D},
+  state_hyperdiffusive⁻::Vars{HD},
+  state_auxiliary⁻::Vars{A},
+  state_prognostic⁺::Vars{S},
+  state_gradient_flux⁺::Vars{D},
+  state_hyperdiffusive⁺::Vars{HD},
+  state_auxiliary⁺::Vars{A},
+  t,
+  state1⁻::Vars{S},
+  diff1⁻::Vars{D},
+  aux1⁻::Vars{A},
+) where {S,D,A,HD}
+
+  fluxᵀn.θ = (state_prognostic⁻.θ - state_auxiliary⁺.θ_secondary) / τ
 end
 
+
+# θ: J / m^3
+# ∇θ: J / m^4
+# κ: (m^2/s)
+# κ∇θ: J/(m^2 s) = W/m^2 = J/m^3 * m/s
+#
+
+#  - clean up and write primer
+#  - imports and exports
+#  - add boundary auxiliary interface
+#  - add boundary flux accumulation interface
+#  - vector quantity
+#  - run on sphere to check normal terms are all correct
+#  - single stack integration
+#  - Held-Suarez with wind stress and heat
 
 ## CoupledSecondaryBoundary
 # use prescribed flux computed in primary
@@ -334,25 +379,26 @@ function boundary_state!(nF::Union{CentralNumericalFluxGradient}, bc::CoupledSec
   Q⁺.θ=Q⁻.θ
   nothing
 end
-function boundary_state!(nF::Union{NumericalFluxSecondOrder}, bc::CoupledPrimaryBoundary, bl::l_type, Q⁺::Vars, GF⁺::Vars, A⁺::Vars,n⁻,Q⁻::Vars,GF⁻::Vars,A⁻::Vars,t,_...)
-  Q⁺.θ=Q⁻.θ
-  GF⁺.κ∇θ= n⁻ .* A⁺.F_prescribed
-  return nothing
-end
-
-
-
-function update_auxiliary_state_gradient!(
-      dg,
-      balance_law::l_type,
-      state_prognostic,
-      t,
-      elems,
-    )
-
-    A = dg.state_auxiliary
-    D = dg.state_gradient_flux
-    A.boundary_out .= D.κ∇θ
+function numerical_boundary_flux_second_order!(
+  numerical_flux::NumericalFluxSecondOrder,
+  bctype::CoupledSecondaryBoundary,
+  balance_law::l_type,
+  fluxᵀn::Vars{S},
+  normal_vector::SVector,
+  state_prognostic⁻::Vars{S},
+  state_gradient_flux⁻::Vars{D},
+  state_hyperdiffusive⁻::Vars{HD},
+  state_auxiliary⁻::Vars{A},
+  state_prognostic⁺::Vars{S},
+  state_gradient_flux⁺::Vars{D},
+  state_hyperdiffusive⁺::Vars{HD},
+  state_auxiliary⁺::Vars{A},
+  t,
+  state1⁻::Vars{S},
+  diff1⁻::Vars{D},
+  aux1⁻::Vars{A},
+) where {S,D,A,HD}
+  fluxᵀn.θ = -state_auxiliary⁺.F_prescribed
 end
 
 function wavespeed(bl::l_type, _...)
@@ -405,8 +451,5 @@ function numerical_flux_second_order!(
     Fᵀn .-= tau * (parent(state⁻) - parent(state⁺))
 end
 
-# We are assuming zero gradient bc for now - so there is no numerical second order
-# flux from boundary
-numerical_boundary_flux_second_order!(nf::PenaltyNumFluxDiffusive, _...) = nothing
 
 end
