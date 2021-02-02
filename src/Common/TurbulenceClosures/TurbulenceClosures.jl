@@ -1107,7 +1107,6 @@ function compute_gradient_argument!(
     u = state.ρu * ρinv
     k̂ = vertical_unit_vector(bl, aux)
     u_h = (SDiagonal(1, 1, 1) - k̂ * k̂') * u
-    #@show size(u_h)
     transform.hyperdiffusion.u_h = u_h
     transform.hyperdiffusion.h_tot = transform.h_tot
 end
@@ -1127,17 +1126,12 @@ function compute_gradient_hyperflux!(
 
     P = aux.hyperdiffusion.P
     
-    #@show P
-    #∇transform.hyperdiffusion.h_tot = P * ∇h_tot
-    #∇transform.hyperdiffusion.u_h = P * ∇u_h
-    #∇transform.hyperdiffusion.u_h = hcat(ntuple(n -> P * [:, :, n] * ∇u_h[:, n], Val(N))...) 
-
     auxHDG.hyperdiffusion.∇h_tot = P * ∇h_tot
     auxHDG.hyperdiffusion.∇u_h = P * ∇u_h
 end
 
 function compute_gradient_hyperflux!(
-    ::HyperDiffusion,
+    h::EquilMoistBiharmonic,
     ::Orientation,
     auxHDG::Vars,
     gradvars::Grad,
@@ -1145,8 +1139,33 @@ function compute_gradient_hyperflux!(
     aux::Vars,
     t::Real,
 )
-  parent.(auxHDG) .= parent(∇transform)
+  #parent(auxHDG.hyperdiffusion) .= parent(gradvars.hyperdiffusion)
+  ∇u_h = gradvars.hyperdiffusion.u_h
+  ∇h_tot = gradvars.hyperdiffusion.h_tot
+
+  auxHDG.hyperdiffusion.∇h_tot = ∇h_tot
+  auxHDG.hyperdiffusion.∇u_h = ∇u_h
+  ∇q_tot = gradvars.hyperdiffusion.q_tot
+  auxHDG.hyperdiffusion.∇q_tot = ∇q_tot
 end
+
+function compute_gradient_hyperflux!(
+    h::DryBiharmonic,
+    ::Orientation,
+    auxHDG::Vars,
+    gradvars::Grad,
+    state::Vars,
+    aux::Vars,
+    t::Real,
+)
+  #parent(auxHDG.hyperdiffusion) .= parent(gradvars.hyperdiffusion)
+  ∇u_h = gradvars.hyperdiffusion.u_h
+  ∇h_tot = gradvars.hyperdiffusion.h_tot
+
+  auxHDG.hyperdiffusion.∇h_tot = ∇h_tot
+  auxHDG.hyperdiffusion.∇u_h = ∇u_h
+end
+
 compute_gradient_hyperflux!(
     ::NoHyperDiffusion,
     ::Orientation,

@@ -184,7 +184,7 @@ function config_baroclinic_wave(FT, poly_order, resolution, with_moisture)
         param_set;
         init_state_prognostic = init_baroclinic_wave!,
         ref_state = ref_state,
-        turbulence = ConstantKinematicViscosity(FT(10), WithoutDivergence() ),
+        turbulence = ConstantKinematicViscosity(FT(0), WithoutDivergence() ),
         hyperdiffusion = hyperdiffusion,
         moisture = moisture,
         source = source,
@@ -251,7 +251,7 @@ function main()
         Courant_number = CFL,
         ode_solver_type = ode_solver_type,
         CFL_direction = HorizontalDirection(),
-        diffdir = VerticalDirection(),
+        diffdir = EveryDirection(),
     )
 
     # Set up diagnostics
