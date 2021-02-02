@@ -33,7 +33,7 @@ import ..BalanceLaws:
     compute_gradient_flux_arr!,
     compute_gradient_argument_arr!,
     source_arr!,
-    transform_post_gradient_laplacian!,
+    transform_post_gradient_laplacian_arr!,
     wavespeed,
     boundary_conditions,
     boundary_state!,
