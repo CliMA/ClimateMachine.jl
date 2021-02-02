@@ -65,17 +65,24 @@
 # specific to atmospheric and ocean flow modeling.
 
 using ClimateMachine
-ClimateMachine.init()
+ClimateMachine.init(parse_clargs=true)
+
+using ClimateMachine
 using ClimateMachine.Atmos
 using ClimateMachine.Orientations
 using ClimateMachine.ConfigTypes
 using ClimateMachine.Diagnostics
 using ClimateMachine.GenericCallbacks
 using ClimateMachine.ODESolvers
+using ClimateMachine.TurbulenceClosures
+using ClimateMachine.SystemSolvers: ManyColumnLU
+using ClimateMachine.Mesh.Filters
+using ClimateMachine.Mesh.Grids
 using ClimateMachine.TemperatureProfiles
 using ClimateMachine.Thermodynamics
 using ClimateMachine.TurbulenceClosures
 using ClimateMachine.VariableTemplates
+using ClimateMachine.Spectra: compute_gaussian!
 
 # In ClimateMachine we use `StaticArrays` for our variable arrays.
 # We also use the `Test` package to help with unit tests and continuous
@@ -229,7 +236,7 @@ function config_risingbubble(
         param_set;                                     ## Parameter set corresponding to earth parameters
         init_state_prognostic = init_risingbubble!,    ## Apply the initial condition
         ref_state = ref_state,                         ## Reference state
-        turbulence = SmagorinskyLilly(_C_smag),        ## Turbulence closure model
+        turbulence = DynamicSubgridStabilization(FT(0.1)),        ## Turbulence closure model
         moisture = DryModel(),                         ## Exclude moisture variables
         source = (Gravity(),),                         ## Gravity is the only source term here
         tracers = NTracers{ntracers, FT}(δ_χ),         ## Tracer model with diffusivity coefficients
@@ -289,7 +296,7 @@ function main()
     ymax = FT(500)
     zmax = FT(10000)
     t0 = FT(0)
-    timeend = FT(100)
+    timeend = FT(1000)
     ## For full simulation set `timeend = 1000`
 
     ## Use up to 1.7 if ode_solver is the single rate LSRK144.
@@ -303,6 +310,7 @@ function main()
         driver_config,
         init_on_cpu = true,
         Courant_number = CFL,
+        diffdir = EveryDirection()
     )
     dgn_config = config_diagnostics(driver_config)
 

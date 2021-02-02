@@ -67,6 +67,7 @@ export TurbulenceClosureModel,
     SmagorinskyLilly,
     Vreman,
     AnisoMinDiss,
+    DynamicSubgridStabilization,
     HyperDiffusion,
     NoHyperDiffusion,
     DryBiharmonic,
@@ -77,7 +78,8 @@ export TurbulenceClosureModel,
     turbulence_tensors,
     init_aux_turbulence!,
     init_aux_hyperdiffusion!,
-    sponge_viscosity_modifier
+    sponge_viscosity_modifier,
+    turbulence_nodal_update_auxiliary_state!
 
 
 # ### Abstract Type
@@ -1244,6 +1246,78 @@ hyperdiff_momentum_flux(
 # Viscous for Biharmonic model
 hyperdiff_momentum_flux(pv::PV, ::Biharmonic, ::Flux{SecondOrder}) where {PV} =
     (HyperdiffViscousFlux{PV}(),)
+
+"""
+    DYNSGS
+"""
+struct DynamicSubgridStabilization{FT} <: TurbulenceClosureModel 
+    C::FT
+end
+
+vars_state(::DynamicSubgridStabilization, ::Auxiliary, FT) = @vars(Δ::FT, μ_sgs::FT, μ_acoustic::FT)
+vars_state(::DynamicSubgridStabilization, ::Gradient, FT) = @vars()
+vars_state(::DynamicSubgridStabilization, ::GradientFlux, FT) =
+    @vars(∇u::SMatrix{3, 3, FT, 9})
+
+function init_aux_turbulence!(
+    ::DynamicSubgridStabilization,
+    ::BalanceLaw,
+    aux::Vars,
+    geom::LocalGeometry,
+)
+    aux.turbulence.Δ = lengthscale(geom)
+    aux.turbulence.μ_sgs = eltype(aux)(0)
+end
+function compute_gradient_argument!(
+    m::DynamicSubgridStabilization,
+    transform::Vars,
+    state::Vars,
+    aux::Vars,
+    t::Real,
+)
+end
+function compute_gradient_flux!(
+    ::DynamicSubgridStabilization,
+    orientation::Orientation,
+    diffusive::Vars,
+    ∇transform::Grad,
+    state::Vars,
+    aux::Vars,
+    t::Real,
+)
+    diffusive.turbulence.∇u = ∇transform.u
+end
+function turbulence_tensors(
+    m::DynamicSubgridStabilization,
+    orientation::Orientation,
+    param_set::AbstractParameterSet,
+    state::Vars,
+    diffusive::Vars,
+    aux::Vars,
+    t::Real,
+)
+    FT = eltype(state)
+    _inv_Pr_turb::FT = inv_Pr_turb(param_set)
+    α = diffusive.turbulence.∇u
+    S = symmetrize(α)
+    Δ = aux.turbulence.Δ
+    ν = min(FT(m.C)^2 * abs(Δ^2 * aux.turbulence.μ_sgs), FT(m.C)^2 * FT(0.5) * Δ * aux.moisture.c)
+    ν = SDiagonal(ν,ν,ν)
+    D_t = diag(ν) * _inv_Pr_turb
+    τ = -2 *ν * S
+    return ν, D_t, τ
+end
+function turbulence_nodal_update_auxiliary_state!(
+    m::DynamicSubgridStabilization,
+    ::BalanceLaw,
+    state::Vars,
+    aux::Vars,
+    t::Real,
+) 
+    FT = eltype(state)
+    aux.turbulence.μ_sgs = aux.χ̅
+    aux.turbulence.μ_acoustic = FT(m.C)^2 * FT(0.5) * aux.turbulence.Δ * aux.moisture.c
+end
 
 end #module TurbulenceClosures.jl
 

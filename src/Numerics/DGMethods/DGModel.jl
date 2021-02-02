@@ -1,6 +1,8 @@
 using .NumericalFluxes:
     CentralNumericalFluxHigherOrder, CentralNumericalFluxDivergence
 
+using Statistics
+
 """
     SpaceDiscretization
 
@@ -1941,6 +1943,24 @@ function launch_volume_tendency!(
             dependencies = comp_stream,
         )
     end
+        
+    h_state_prognostic = similar(state_prognostic, Array)
+    h_state_auxiliary = similar(spacedisc.state_auxiliary, Array)
+       
+    if t >  0.0 
+        if rem(t,40) <= 0.1
+            @show("Operating with DYNSGS")
+            dynsgs!(
+               spacedisc, 
+               spacedisc.balance_law, 
+               h_state_prognostic.data, 
+               tendency.data, 
+               h_state_auxiliary.data, 
+               t, 
+               spacedisc.grid.topology.realelems
+            )
+        end
+    end
 
     return comp_stream
 end
@@ -2142,4 +2162,90 @@ function fvm_balance!(
         dependencies = (event,),
     )
     wait(device, event)
+end
+
+
+"""
+    dynsgs_kernel!(...)
+Returns the viscosity computed using the DynamicSubgridStabilization method.
+"""
+function dynsgs!(
+    dg::DGModel,
+    m::BalanceLaw,
+    Q,
+    dQdt,
+    state_auxiliary,
+    t::Real,
+    elems::UnitRange = dg.grid.topology.elems
+)
+    
+    FT = eltype(Q)
+    grid = dg.grid
+    topology = grid.topology
+    
+    N = polynomialorders(grid)
+    dim = dimensionality(grid)
+    
+    Nq = N .+ 1
+    Nqk = dim == 2 ? 1 : Nq
+    
+    nrealelem = length(topology.realelems)
+    nelem = length(elems)
+    nvertelem = topology.stacksize
+    horzelems = fld1(first(elems), nvertelem):fld1(last(elems), nvertelem)
+    nhorzelem = length(horzelems)
+
+    device = typeof(Q) <: Array ? CPU() : CUDADevice()
+    
+    vgeo = Array(grid.vgeo)
+    μ_dynsgs = similar(Q, prod(Nq), number_states(dg.balance_law,Prognostic()), nrealelem)
+    l_rhs_m = Array(similar(Q, number_states(dg.balance_law,Prognostic()), nrealelem))
+    l_δ̅_m = Array(similar(Q, number_states(dg.balance_law,Prognostic())))
+    μ = Array(similar(Q, number_states(dg.balance_law,Prognostic()), nrealelem))
+    l_δ̅ = Array(similar(Q, prod(Nq), number_states(dg.balance_law,Prognostic()), nrealelem))
+    fill!(l_δ̅, zero(FT))
+    
+    rhs = dQdt
+    localQ = Array(Q)
+    Q_ave = Array(similar(Q, number_states(dg.balance_law,Prognostic())))
+    fill!(Q_ave, zero(FT))
+    S = zero(FT)
+
+    for e in 1:nrealelem
+      for ijk in 1:prod(Nq)
+        S = sum(vgeo[:,_M,e])
+        for s in 1:number_states(dg.balance_law,Prognostic())
+            #Q_ave[s] += vgeo[ijk,_M,e] * localQ[ijk,s,e]
+        end
+      end
+    end
+    for e in 1:nrealelem
+      for ijk in 1:prod(Nq)
+        for s in 1:number_states(dg.balance_law,Prognostic())
+            Q_ave[s] = mean(localQ[:,s,e])
+            @show(Q_ave[s])
+          l_δ̅[ijk,s,e] = localQ[ijk,s,e] - Q_ave[s]
+        end
+      end
+    end
+   
+   for s in 1:number_states(dg.balance_law,Prognostic())
+       l_δ̅_m[s] = maximum(abs.(l_δ̅[:,s,:]))
+   end
+   for e in 1:nrealelem
+     for s in 1:number_states(dg.balance_law,Prognostic())
+       l_rhs_m[s,e] = maximum(abs.(rhs[:,s,e]))
+     end
+   end
+   for e in 1:nrealelem
+     for s in 1:number_states(dg.balance_law,Prognostic())
+         μ[s,e] = l_rhs_m[s,e] / (maximum(l_δ̅_m[s]) + eps(FT))
+     end
+   end
+   
+   ida = number_states(dg.balance_law,Auxiliary())
+   for e in 1:nrealelem
+       state_auxiliary[:,ida,e] .= (minimum(μ[:,e]))
+   end
+   nothing
 end

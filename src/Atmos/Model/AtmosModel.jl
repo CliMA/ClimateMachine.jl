@@ -444,6 +444,7 @@ function vars_state(m::AtmosModel, st::Auxiliary, FT)
         tracers::vars_state(m.tracers, st, FT)
         radiation::vars_state(m.radiation, st, FT)
         lsforcing::vars_state(m.lsforcing, st, FT)
+        χ̅::FT 
     end
 end
 
@@ -787,6 +788,7 @@ function nodal_update_auxiliary_state!(
     atmos_nodal_update_auxiliary_state!(m.radiation, m, state, aux, t)
     atmos_nodal_update_auxiliary_state!(m.tracers, m, state, aux, t)
     turbconv_nodal_update_auxiliary_state!(m.turbconv, m, state, aux, t)
+    turbulence_nodal_update_auxiliary_state!(m.turbulence, m, state, aux, t)
 end
 
 function integral_load_auxiliary_state!(

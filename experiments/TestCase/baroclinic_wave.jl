@@ -251,7 +251,7 @@ function main()
         Courant_number = CFL,
         ode_solver_type = ode_solver_type,
         CFL_direction = HorizontalDirection(),
-        diffdir = VerticalDirection(),
+        diffdir = EveryDirection(),
     )
 
     # Set up diagnostics
