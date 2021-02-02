@@ -187,12 +187,21 @@ function update_backward_Euler_solver!(lin::LinBESolver, Q, α)
 end
 
 function (lin::LinBESolver)(Q, Qhat, α, p, t)
-    rhs! = EulerOperator(lin.f_imp!, -α)
+
+    if α === nothing
+        # If nothing is passed, such as within an ARK step, use
+        # the coefficient already in the linear solver
+        # (created when the linear solvers are initialized in the
+        # ARK constructor)
+        α = lin.α
+    end
 
     if lin.α != α
         @assert lin.isadjustable
         update_backward_Euler_solver!(lin, Q, α)
     end
+
+    rhs! = EulerOperator(lin.f_imp!, -α)
 
     if typeof(lin.solver) <: AbstractIterativeSystemSolver
         FT = eltype(α)

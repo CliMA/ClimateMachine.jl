@@ -67,7 +67,6 @@ mutable struct AdditiveRungeKutta{
     T,
     RT,
     AT,
-    BE,
     V,
     VS,
     Nstages,
@@ -84,10 +83,8 @@ mutable struct AdditiveRungeKutta{
     rhs!::Any
     "rhs linear operator"
     rhs_implicit!::Any
-    "backward Euler solver"
-    besolver!::BE
-    "backward Euler solvers, pre-factorized, for MIS"
-    besolvers!::Any
+    "a dictionary of backward Euler solvers"
+    implicit_solvers::Any
     "Storage for solution during the AdditiveRungeKutta update"
     Qstages::NTuple{Nstagesm1, AT}
     "Storage for RHS during the AdditiveRungeKutta update"
@@ -154,38 +151,48 @@ mutable struct AdditiveRungeKutta{
         # NOTE: this is only for composing an ARK method with
         # a MIS timestepper
         # TODO: Clean this up
+
+        implicit_solvers = Dict()
+
+        rk_diag = unique(diag(RKA_implicit))
+        # Remove all zero entries from `rk_diag`
+        # so we build all unique implicit solvers (parameterized by the
+        # corresponding RK coefficient)
+        filter!(c -> c !== 0, rk_diag)
+
         if isempty(nsubsteps)
-            α = dt * RKA_implicit[2, 2]
-            besolver! = setup_backward_Euler_solver(
-                backward_euler_solver,
-                Q,
-                α,
-                rhs_implicit!,
-            )
-            besolvers! = ()
-        else
-            besolvers! = ntuple(
-                i -> setup_backward_Euler_solver(
+            for rk_coeff in rk_diag
+                α = dt * rk_coeff
+                besolver! = setup_backward_Euler_solver(
                     backward_euler_solver,
                     Q,
-                    dt * nsubsteps[i] * RKA_implicit[2, 2],
+                    α,
                     rhs_implicit!,
-                ),
-                length(nsubsteps),
-            )
-            besolver! = besolvers![1]
+                )
+                @assert besolver! isa AbstractBackwardEulerSolver
+                implicit_solvers[rk_coeff] = besolver!
+            end
+        else
+            for rk_coeff in rk_diag
+                α = dt * nsubsteps[i] * rk_coeff
+                besolver! = setup_backward_Euler_solver(
+                    backward_euler_solver,
+                    Q,
+                    α,
+                    rhs_implicit!,
+                )
+                @assert besolver! isa AbstractBackwardEulerSolver
+                implicit_solvers[rk_coeff] = besolver!
+            end
         end
-        @assert besolver! isa AbstractBackwardEulerSolver
-        BE = typeof(besolver!)
 
-        new{T, RT, AT, BE, V, VS, Nstages, Nstages^2, Nstages - 1}(
+        new{T, RT, AT, V, VS, Nstages, Nstages^2, Nstages - 1}(
             RT(dt),
             RT(t0),
             0,
             rhs!,
             rhs_implicit!,
-            besolver!,
-            besolvers!,
+            implicit_solvers,
             Qstages,
             Rstages,
             Qhat,
@@ -229,10 +236,14 @@ end
 # this will only work for iterative solves
 # direct solvers use prefactorization
 function updatedt!(ark::AdditiveRungeKutta, dt)
-    @assert Δt_is_adjustable(ark.besolver!)
-    ark.dt = dt
-    α = dt * ark.RKA_implicit[2, 2]
-    update_backward_Euler_solver!(ark.besolver!, ark.Qstages[1], α)
+    for (rk_coeff, implicit_solver!) in ark.implicit_solvers
+        @assert Δt_is_adjustable(implicit_solver!)
+        # New coefficient
+        α = dt * rk_coeff
+        # Update with new dt and implicit coefficient
+        ark.dt = dt
+        update_backward_Euler_solver!(implicit_solver!, ark.Qstages[1], α)
+    end
 end
 
 function dostep!(
@@ -277,7 +288,6 @@ function dostep!(
 )
     dt = ark.dt
 
-    besolver! = ark.besolver!
     RKA_explicit, RKA_implicit = ark.RKA_explicit, ark.RKA_implicit
     RKB_explicit, RKC_explicit = ark.RKB_explicit, ark.RKC_explicit
     RKB_implicit, RKC_implicit = ark.RKB_implicit, ark.RKC_implicit
@@ -343,14 +353,11 @@ function dostep!(
 
         # solves
         # Qs = Qhat + dt * RKA_implicit[istage, istage] * rhs_implicit!(Qs)
-        α = dt * RKA_implicit[istage, istage]
-        # compare α at current stage with the coefficient in the already
-        # built implicit solver
-        α_impl = get_implicit_operator_coefficient(besolver!)
-        if α_impl !== nothing && α_impl !== α
-            update_backward_Euler_solver!(besolver!, Q, α)
+        rk_coeff = RKA_implicit[istage, istage]
+        if rk_coeff !== 0
+            besolver! = ark.implicit_solvers[rk_coeff]
+            besolver!(Qstages[istage], Qhat, nothing, p, stagetime_implicit)
         end
-        besolver!(Qstages[istage], Qhat, α, p, stagetime_implicit)
 
         rhs!(
             Rstages[istage],
