@@ -448,7 +448,7 @@ function numerical_flux_second_order!(
     Fᵀn = parent(fluxᵀn)
     FT = eltype(Fᵀn)
     tau = bl.bl_prop.get_penalty_tau()
-    Fᵀn .-= tau * (parent(state⁻) - parent(state⁺))
+    Fᵀn .+= tau * (parent(state⁻) - parent(state⁺))
 end
 
 
