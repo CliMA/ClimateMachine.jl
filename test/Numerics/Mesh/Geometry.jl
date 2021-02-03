@@ -3,6 +3,7 @@ using ClimateMachine.Mesh.Topologies
 using ClimateMachine.Mesh.Grids
 using ClimateMachine.Mesh.Geometry
 using StaticArrays
+using LinearAlgebra
 
 MPI.Initialized() || MPI.Init()
 
@@ -20,6 +21,9 @@ MPI.Initialized() || MPI.Init()
     Ne = (20, 2, 20)
 
     polynomialorder = 4
+    Δx_r = xmax / Ne[1] / polynomialorder
+    Δy_r = ymax / Ne[2] / polynomialorder
+    Δz_r = zmax / Ne[3] / polynomialorder
 
     brickrange = (
         range(FT(xmin); length = Ne[1] + 1, stop = xmax),
@@ -46,6 +50,12 @@ MPI.Initialized() || MPI.Init()
     )
     Savg = cbrt(prod(S))
     M = SDiagonal(S .^ -2)
+    
+    # Define arbitrary unit vectors
+    x̂ = [1; 0; 0];
+    ŷ = [0; 1; 0];
+    ẑ = [0; 0; 1];
+    t̂ = cross(x̂,ẑ)
 
     N = polynomialorder
     Np = (N + 1)^3
@@ -56,4 +66,15 @@ MPI.Initialized() || MPI.Init()
             @test Geometry.resolutionmetric(g) ≈ M
         end
     end
+    
+    Δx = 1/sqrt(x̂' * M * x̂)
+    Δy = 1/sqrt(ŷ' * M * ŷ)
+    Δz = 1/sqrt(ẑ' * M * ẑ)
+    Δt = 1/sqrt(t̂' * M * t̂)
+ 
+    @test Δx ≈ Δx_r
+    @test Δy ≈ Δy_r
+    @test Δz ≈ Δz_r
+    @test Δt ≈ Δy_r
+    
 end

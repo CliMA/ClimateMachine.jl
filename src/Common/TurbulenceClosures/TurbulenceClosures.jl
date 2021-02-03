@@ -506,7 +506,7 @@ struct SmagorinskyLilly{FT} <: TurbulenceClosureModel
     C_smag::FT
 end
 
-vars_state(::SmagorinskyLilly, ::Auxiliary, FT) = @vars(Δ::FT)
+vars_state(::SmagorinskyLilly, ::Auxiliary, FT) = @vars(Δ::FT, Δz::FT, Δh::FT)
 vars_state(::SmagorinskyLilly, ::Gradient, FT) = @vars(θ_v::FT)
 vars_state(::SmagorinskyLilly, ::GradientFlux, FT) =
     @vars(S::SHermitianCompact{3, FT, 6}, N²::FT)
@@ -514,11 +514,17 @@ vars_state(::SmagorinskyLilly, ::GradientFlux, FT) =
 
 function init_aux_turbulence!(
     ::SmagorinskyLilly,
-    ::BalanceLaw,
+    bl::BalanceLaw,
     aux::Vars,
     geom::LocalGeometry,
 )
+    FT = eltype(aux)
+    res_metric = resolutionmetric(geom)
     aux.turbulence.Δ = lengthscale(geom)
+    #k̂ = vertical_unit_vector(bl.orientation, bl.param_set, aux)
+    #ĥ = SVector{3,FT}(1,1,1) - k̂
+    #aux.turbulence.Δz = sqrt(k̂' * M * k̂)
+    #aux.turbulence.Δh = sqrt(ĥ' * M * ĥ)
 end
 
 function compute_gradient_argument!(
@@ -895,7 +901,7 @@ $(DocStringExtensions.FIELDS)
 struct DryBiharmonic{FT} <: HyperDiffusion
     τ_timescale::FT
 end
-vars_state(::DryBiharmonic, ::Auxiliary, FT) = @vars(Δ::FT)
+vars_state(::DryBiharmonic, ::Auxiliary, FT) = @vars(Δh::FT)
 vars_state(::DryBiharmonic, ::Gradient, FT) =
     @vars(u_h::SVector{3, FT}, h_tot::FT)
 vars_state(::DryBiharmonic, ::GradientLaplacian, FT) =
@@ -905,11 +911,14 @@ vars_state(::DryBiharmonic, ::Hyperdiffusive, FT) =
 
 function init_aux_hyperdiffusion!(
     ::DryBiharmonic,
-    ::BalanceLaw,
+    bl::BalanceLaw,
     aux::Vars,
     geom::LocalGeometry,
 )
-    aux.hyperdiffusion.Δ = lengthscale(geom)
+   M = resolutionmetric(geom)
+   k̂ = vertical_unit_vector(bl, aux)
+   t̂ = cross(k̂, SVector{3,eltype(aux)}(0,0,1))
+   aux.hyperdiffusion.Δh = t̂' * M * t̂
 end
 
 function compute_gradient_argument!(
