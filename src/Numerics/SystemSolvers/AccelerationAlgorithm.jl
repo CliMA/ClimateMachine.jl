@@ -1,27 +1,22 @@
-export AndersonAccelerationAlgorithm, AccelerationSolver
+export AndersonAccelerationAlgorithm, AccelerationSolver, AndersonAccelerationSolver
 
 abstract type AccelerationSolver <: IterativeSolver end
 
 atol(solver::AccelerationSolver) = atol(solver.iterativesolver)
 rtol(solver::AccelerationSolver) = rtol(solver.iterativesolver)
 maxiters(solver::AccelerationSolver) = maxiters(solver.iterativesolver)
-
-function residual!(
-    solver::AccelerationSolver,
-    threshold,
-    iters,
-    args...;
-)
-    return residual!(solver.iterativesolver, threshold, iters, args...)
-end
+residual!(solver::AccelerationSolver, threshold, iters, args...) =
+    residual!(solver.iterativesolver, threshold, iters, args...)
 
 function initialize!(
     solver::AccelerationSolver,
     threshold,
     iters,
+    Q,
     args...;
 )
-    return initialize!(solver.iterativesolver, threshold, iters, args...)
+    solver.x .= vec(Q)
+    return initialize!(solver.iterativesolver, threshold, iters, Q, args...)
 end
 
 function doiteration!(
@@ -38,16 +33,15 @@ function doiteration!(
         Q,
         args...;
     )
-    @assert inneriters == 1 "Cannot accelerate when inneriters ≂̸ 1."
     if !has_converged
-        doacceleration!(solver, Q, iters)
+        doacceleration!(solver, Q, iters - 1)
         _, has_converged = residual!(solver.iterativesolver, threshold, iters, Q, args...)
     end
     return has_converged, inneriters
 end
 
-struct AndersonAccelerationAlgorithm <: IterativeAlgorithm
-    iterativealgorithm
+struct AndersonAccelerationAlgorithm{IAT} <: IterativeAlgorithm # TODO: Get rid of IAT after testing.
+    iterativealgorithm::IAT
     depth
     ω
 end
