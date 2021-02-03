@@ -158,6 +158,7 @@ function solve!(
 end
 # }}}
 
+include("Operator.jl")
 include("BackwardEulerSolvers.jl")
 include("MultirateInfinitesimalGARKExplicit.jl")
 include("MultirateInfinitesimalGARKDecoupledImplicit.jl")

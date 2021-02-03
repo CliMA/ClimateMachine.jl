@@ -126,9 +126,8 @@ function solve!(solver::IterativeSolver, args...)
     threshold = max(atol(solver), rtol(solver) * initial_residual_norm) # TODO: make this a min after comparison testing.
 
     while !has_converged && iters < maxiters(solver)
-        has_converged, inneriters =
-            doiteration!(solver, threshold, iters, args...)
         iters += 1
+        has_converged, inneriters = doiteration!(solver, threshold, iters, args...)
         totaliters += inneriters
     end
 
@@ -141,7 +140,7 @@ end
 # has converged.
 function check_convergence(residual_norm, threshold, iters)
     isfinite(residual_norm) ||
-        error("Norm of residual is not finite after $iters iterations")
+        error("Norm of residual is not finite on iteration $iters")
     return residual_norm < threshold
 end
 
@@ -186,7 +185,6 @@ include("BatchedGeneralizedMinimalResidualAlgorithm.jl")
 include("AccelerationAlgorithm.jl")
 include("GeneralizedConjugateResidualAlgorithm.jl")
 include("ConjugateGradientAlgorithm.jl")
-include("Operator.jl")
 
 # TODO:
 #   - Make GeneralizedMinimalResidualAlgorithm look more like BatchedGeneralizedMinimalResidualAlgorithm

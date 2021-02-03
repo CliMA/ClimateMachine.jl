@@ -1,9 +1,12 @@
-export AbstractOperator, EulerOperator, NewtonOperator, PicardOperator
+import ClimateMachine.SystemSolvers: enable_duals, preconditioner_update!,
+    defaultbatches
+
+export AbstractOperator, NewtonOperator, PicardOperator
 
 abstract type AbstractOperator end # All instances must have field `f!`.
 
 """
-    op! = EulerOperator(f!, ϵ)
+    op! = NewtonOperator(f!, ϵ)
 
 Construct a linear operator which performs an explicit Euler step ``Q + α
 f(Q)``, where `f!` and `op!` both operate inplace, with extra arguments passed
@@ -17,16 +20,6 @@ f!(dQ, Q, args...)
 LQ .= Q .+ ϵ .* dQ
 ```
 """
-mutable struct EulerOperator{F, FT} <: AbstractOperator
-    f!::F
-    ϵ::FT
-end
-# Q + α f(Q)
-function (op::EulerOperator)(LQ, Q, args...)
-    op.f!(LQ, Q, args..., increment = false)
-    @. LQ = Q + op.ϵ * LQ
-end
-
 mutable struct NewtonOperator{F, FT} <: AbstractOperator
     f!::F
     ϵ::FT
@@ -48,9 +41,6 @@ function (op::PicardOperator)(LQ, Q, args...)
     @. LQ = op.C + op.ϵ * LQ
 end
 
-enable_duals(op::EulerOperator, n::Int = 1, tag = nothing) =
-    EulerOperator(enable_duals(op.f!, n, tag), op.ϵ)
-
 enable_duals(op::NewtonOperator, n::Int = 1, tag = nothing) =
     NewtonOperator(enable_duals(op.f!, n, tag), op.ϵ)
 
@@ -59,23 +49,13 @@ enable_duals(op::PicardOperator, n::Int = 1, tag = nothing) =
 
 function preconditioner_update!(
     op,
-    eo::EulerOperator,
-    preconditioner::ColumnwiseLUPreconditioner,
-    args...,
-)
-    preconditioner_update!(op, eo.f!, preconditioner, args...)
-end
-function preconditioner_update!(
-    op,
     eo::NewtonOperator,
     preconditioner::ColumnwiseLUPreconditioner,
     args...,
 )
     preconditioner_update!(op, eo.f!, preconditioner, args...)
 end
-function defaultbatches(Q, op::EulerOperator, coupledstates)
-    return defaultbatches(Q, op.f!, coupledstates)
-end
+
 function defaultbatches(Q, op::NewtonOperator, coupledstates)
     return defaultbatches(Q, op.f!, coupledstates)
 end
