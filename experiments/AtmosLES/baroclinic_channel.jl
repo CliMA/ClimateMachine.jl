@@ -160,8 +160,7 @@ end
 function config_baroclinicwave(FT, N, resolution, xmax, ymax, zmax)
 
     ics = init_baroclinicwave!     # Initial conditions
-    C_smag = FT(0)     # Smagorinsky coefficient
-    
+        
     # Assemble source components
     source = (
         Gravity(),
@@ -177,7 +176,14 @@ function config_baroclinicwave(FT, N, resolution, xmax, ymax, zmax)
         split_explicit_implicit = true,
         discrete_splitting = false,
     )
-
+    
+    #ode_solver_type = ClimateMachine.HEVISolverType(FT);
+#                                                    linear_max_subspace_size = Int(10),
+#                                                    linear_rtol = FT(5e-3),
+#                                                    nonlinear_ϵ = FT(1.e-7),
+#                                                    );
+    #ode_solver_type = ClimateMachine.HEVISplitting();
+    
     problem = AtmosProblem(
         boundaryconditions = (
             AtmosBC(),
@@ -191,8 +197,9 @@ function config_baroclinicwave(FT, N, resolution, xmax, ymax, zmax)
         AtmosLESConfigType,
         param_set;
         problem=problem,
-        turbulence = SmagorinskyLilly(C_smag),
-        hyperdiffusion = DryBiharmonic{FT}(0.5*3600),
+        #ref_state=NoReferenceState(), #use this when you do not need a linear model to be used.
+        turbulence = SmagorinskyLilly(0.21),
+        #hyperdiffusion = DryBiharmonic{FT}(10),
         moisture = DryModel(),
         source = source,
     )
@@ -259,15 +266,15 @@ function main()
     # DG polynomial order
     N = 3
     # Domain resolution and size
-    Δx = FT(40e4) 
-    Δy = FT(15e4)
+    Δx = FT(100e3) 
+    Δy = FT(100e3)
     Δz = FT(1.25e3)
 
     resolution = (Δx, Δy, Δz)
 
     # Prescribe domain parameters
-    xmax = FT(2e7) 
-    ymax = FT(6e6)
+    xmax = FT(40000e3) 
+    ymax = FT(6000e3)
     zmax = FT(30e3)
 
     t0 = FT(0)
@@ -276,7 +283,7 @@ function main()
     # For the test we set this to == 30 minutes
     days = FT(86400)
     timeend = FT(15days)
-    CFLmax = FT(0.05)
+    CFLmax = FT(0.075)
 
     driver_config = config_baroclinicwave(FT, N, resolution, xmax, ymax, zmax)
     solver_config = ClimateMachine.SolverConfiguration(
@@ -291,7 +298,7 @@ function main()
     )
     dgn_config = config_diagnostics(driver_config, FT, xmax, ymax, zmax)
 
-    filterorder = 8
+    filterorder = 16
     filter = ExponentialFilter(solver_config.dg.grid, 0, filterorder)
     cbfilter = GenericCallbacks.EveryXSimulationSteps(1) do
         Filters.apply!(
