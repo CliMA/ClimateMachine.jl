@@ -174,3 +174,23 @@ function reverse_integral_set_auxiliary_state_arr!(
         Vars{vars_state(balance_law, DownwardIntegrals(), FT)}(l_V),
     )
 end
+
+function transform_post_gradient_laplacian_arr!(
+    balance_law,
+    hyperdiffusion::AbstractArray,
+    l_grad_lap::AbstractArray,
+    prognostic::AbstractArray,
+    auxiliary::AbstractArray,
+    t,
+)
+
+    FT = eltype(prognostic)
+    transform_post_gradient_laplacian!(
+        balance_law,
+        Vars{vars_state(balance_law, Hyperdiffusive(), FT)}(hyperdiffusion),
+        Grad{vars_state(balance_law, GradientLaplacian(), FT)}(l_grad_lap),
+        Vars{vars_state(balance_law, Prognostic(), FT)}(prognostic),
+        Vars{vars_state(balance_law, Auxiliary(), FT)}(auxiliary),
+        t,
+    )
+end

@@ -2637,24 +2637,12 @@ D is the differentiation matrix and ΔG is the laplacian
             )
 
             # Applies a linear transformation of gradients to the hyperdiffusive variables
-            transform_post_gradient_laplacian!(
+            transform_post_gradient_laplacian_arr!(
                 balance_law,
-                Vars{vars_state(balance_law, Hyperdiffusive(), FT)}(
-                    local_state_hyperdiffusion,
-                ),
-                Grad{vars_state(balance_law, GradientLaplacian(), FT)}(l_grad_lap[
-                    :,
-                    :,
-                    k,
-                ]),
-                Vars{vars_state(balance_law, Prognostic(), FT)}(local_state_prognostic[
-                    :,
-                    k,
-                ]),
-                Vars{vars_state(balance_law, Auxiliary(), FT)}(local_state_auxiliary[
-                    :,
-                    k,
-                ]),
+                local_state_hyperdiffusion,
+                l_grad_lap[:, :, k],
+                local_state_prognostic[:, k],
+                local_state_auxiliary[:, k],
                 t,
             )
 
@@ -2801,24 +2789,12 @@ end
             )
 
             # Applies a linear transformation of gradients to the hyperdiffusive variables
-            transform_post_gradient_laplacian!(
+            transform_post_gradient_laplacian_arr!(
                 balance_law,
-                Vars{vars_state(balance_law, Hyperdiffusive(), FT)}(
-                    local_state_hyperdiffusion,
-                ),
-                Grad{vars_state(balance_law, GradientLaplacian(), FT)}(l_grad_lap[
-                    :,
-                    :,
-                    k,
-                ]),
-                Vars{vars_state(balance_law, Prognostic(), FT)}(local_state_prognostic[
-                    :,
-                    k,
-                ]),
-                Vars{vars_state(balance_law, Auxiliary(), FT)}(local_state_auxiliary[
-                    :,
-                    k,
-                ]),
+                local_state_hyperdiffusion,
+                l_grad_lap[:, :, k],
+                local_state_prognostic[:, k],
+                local_state_auxiliary[:, k],
                 t,
             )
 
