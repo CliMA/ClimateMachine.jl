@@ -66,6 +66,10 @@ VT = VariableTemplates
     @test v.vector_model.x == SVector{Nv, FT}(collect(1:Nv) .+ offset)
     @test v.scalar_model.x == FT(1 + Nv) + offset
 
+    # Make sure we bounds error for NTupleModel's:
+    @test_throws BoundsError m.ntuple_model[0]
+    @test_throws BoundsError m.ntuple_model[N + 1]
+
     unval(::Val{i}) where {i} = i
     @unroll_map(N) do i
         @test m.ntuple_model[i] isa NTupleModel
