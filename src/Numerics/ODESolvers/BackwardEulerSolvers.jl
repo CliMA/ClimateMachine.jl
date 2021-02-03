@@ -102,7 +102,7 @@ function setup_backward_Euler_solver(
     f_imp!,
 )
     FT = eltype(α)
-    rhs! = EulerOperator(f_imp!, -α)
+    rhs! = NewtonOperator(f_imp!, -α)
 
     factors = prefactorize(rhs!, lin.solver, Q, nothing, FT(NaN))
 
@@ -136,7 +136,7 @@ function update_backward_Euler_solver!(lin::LinBESolver, Q, α)
     # for direct solver, update factors
     # for iterative solver, set factors to Nothing (TODO optimize)
     lin.factors = prefactorize(
-        EulerOperator(lin.f_imp!, -α),
+        NewtonOperator(lin.f_imp!, -α),
         lin.solver,
         Q,
         nothing,
@@ -145,7 +145,7 @@ function update_backward_Euler_solver!(lin::LinBESolver, Q, α)
 end
 
 function (lin::LinBESolver)(Q, Qhat, α, p, t)
-    rhs! = EulerOperator(lin.f_imp!, -α)
+    rhs! = NewtonOperator(lin.f_imp!, -α)
 
     if lin.α != α
         @assert lin.isadjustable
@@ -247,7 +247,7 @@ function setup_backward_Euler_solver(
         nlsolver = nlbesolver.nlsolver
     else
         jvp! = JacobianAction(nothing, Q, α)
-        nlsolver = setup_nlsolver(nlbesolver.nlsolver, Q, f_imp!, α)
+        nlsolver = setup_nlsolver(nlbesolver.nlsolver, Q, f_imp!, α) # nlbesolver.nlsolver will really be a nlalgorithm
     end
         # Create an empty preconditioner if preconditioner_update_freq > 0
     preconditioner_update_freq = nlbesolver.preconditioner_update_freq
@@ -272,25 +272,15 @@ end
 
 Set up and solve the nonlinear system as specified by the internal `nlsolver`.
 """
-function (nlbesolver::NonLinBESolver)(Q, Qhat, α, p, t)
-    solve!(nlbesolver.nlsolver, Q, nlbesolver.f_imp!, Qhat, α, p, t, nlbesolver.jvp!, nlbesolver.preconditioner)
-end
+function (nlbesolver::NonLinBESolver{FT, F, NLS})(Q, Qhat, α, p, t) where {FT, F, NLS <: JacobianFreeNewtonKrylovSolver}
+    rhs! = NewtonOperator(nlbesolver.f_imp!, -α)
 
-"""
-    solve!
-
-Sets up the backward Euler problem in the format needed by the nlsolver
-and calls solve!.
-"""
-function solve!(solver::JacobianFreeNewtonKrylovSolver, Q, f!, Qhat, α, p, t, jvp!, pc)
-    rhs! = EulerOperator(f!, -α)
-
-    jvp!.rhs! = rhs!
+    nlbesolver.jvp!.rhs! = rhs!
     nonlinearsolve!(
         rhs!,
-        jvp!,
-        pc,
-        solver,
+        nlbesolver.jvp!,
+        nlbesolver.preconditioner,
+        nlbesolver.nlsolver,
         Q,
         Qhat,
         p,
@@ -298,30 +288,55 @@ function solve!(solver::JacobianFreeNewtonKrylovSolver, Q, f!, Qhat, α, p, t, j
     )
 end
 
-function setup_nlsolver(alg::JacobianFreeNewtonKrylovAlgorithm, Q, f!, α, args...)
+function setup_nlsolver(alg::Union{JacobianFreeNewtonKrylovAlgorithm, AndersonAccelerationAlgorithm{<:JacobianFreeNewtonKrylovAlgorithm}}, Q, f!, α)
     return IterativeSolver(alg, Q, NewtonOperator(f!, -α), Q)
 end
 
-function solve!(solver::JaCobIanfrEEneWtONKryLovSoLVeR, Q, f!, Qhat, α, p, t, args...)
-    rhs! = NewtonOperator(f!, -α)
-    solve!(solver, Q, rhs!, Qhat, p, t)
+function (nlbesolver::NonLinBESolver{FT, F, NLS})(Q, Qhat, α, p, t) where {FT, F, NLS <: Union{JaCobIanfrEEneWtONKryLovSoLVeR, AndersonAccelerationSolver{<:JaCobIanfrEEneWtONKryLovSoLVeR}}}
+    solve!(nlbesolver.nlsolver, Q, NewtonOperator(nlbesolver.f_imp!, -α), Qhat, p, t)
 end
 
 # Q^{n+1} = F(Q^{n+1})
 # F = Q^n + α f(Q^{n+1,k}) = Q^{n+1,k+1}
-function setup_nlsolver(alg::StandardPicardAlgorithm, Q, f!, args...)
+function setup_nlsolver(alg::Union{StandardPicardAlgorithm, AndersonAccelerationAlgorithm{<:StandardPicardAlgorithm}}, Q, f!, α)
     return IterativeSolver(alg, Q, PicardOperator(f!, α, Q))
 end
 
-function solve!(solver::StandardPicardSolver, Q, f!, Qhat, α, p, t, args...)
-    rhs! = PicardOperator(f!, α, Qhat)
-    solve!(solver, Q, rhs!, p, t)
+function (nlbesolver::NonLinBESolver{FT, F, NLS})(Q, Qhat, α, p, t) where {FT, F, NLS <: Union{StandardPicardSolver, AndersonAccelerationSolver{<:StandardPicardSolver}}}
+    solve!(nlbesolver.nlsolver, Q, PicardOperator(nlbesolver.f_imp!, α, Qhat), p, t)
 end
 
-function setup_nlsolver(alg::AndersonAccelerationAlgorithm, Q, args...)
-    return IterativeSolver(alg, Q, args...)
+#=
+TODO: Rename to ImplicitSolver.jl
+abstract type ImplicitSolver <: IterativeSolver end
+struct BackwardEulerAlgorithm <: IterativeAlgorithm
+    iterativealgorithm
+    α
+end
+struct CrankNicolsonAlgorithm <: IterativeAlgorithm
+    iterativealgorithm
+    α2 # α / 2
 end
 
-function solve!(solver::AccelerationSolver, Q, f!, Qhat, α, p, t, args...)
-    solve!(solver.iterativesolver, Q, f!, Qhat, α, p, t, args...)
+atol(solver::ImplicitSolver) = atol(solver.iterativesolver)
+rtol(solver::ImplicitSolver) = rtol(solver.iterativesolver)
+maxiters(solver::ImplicitSolver) = maxiters(solver.iterativesolver)
+residual!(solver::IterativeSolver, threshold, iters, args...) =
+    residual!(solver.iterativesolver, threshold, iters, args...)
+initialize!(solver::IterativeSolver, threshold, iters, args...) =
+    initialize!(solver.iterativesolver, threshold, iters, args...)
+- perhaps create Operator form of f! in initialize, store in the Solver object
+    call inner doiteration! on stored f_op!
+
+function doiteration!(
+    solver::ImplicitSolver,
+    threshold,
+    iters,
+    Q,
+    f!,
+    args...;
+)
+    doiteration!(solver.iterativesolver, threshold, iters, Q, f!, args...)
 end
+
+=#
