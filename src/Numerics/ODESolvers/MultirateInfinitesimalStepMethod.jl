@@ -65,7 +65,7 @@ This is a time stepping object for explicitly time stepping the partitioned diff
 equation given by right-hand-side functions `f_fast` and `f_slow` with the state `Q`, i.e.,
 
 ```math
-  \\dot{Q} = f_fast(Q, t) + f_slow(Q, t)
+  \\dot{Q} = f_{fast}(Q, t) + f_{slow}(Q, t)
 ```
 
 with the required time step size `dt` and optional initial time `t0`.  This
@@ -91,6 +91,8 @@ The available concrete implementations are:
 
 ### References
  - [KnothWensch2014](@cite)
+ - [WickerSkamarock2002](@cite)
+ - [KnothWolke1998](@cite)
 """
 mutable struct MultirateInfinitesimalStep{
     T,
@@ -453,8 +455,9 @@ end
 """
     MISRK2a(slowrhs!, fastrhs!, fastmethod, nsubsteps, Q; dt = 0, t0 = 0)
 
-The `MISRK2a` method is a 2nd-order accurate, 2-stage method
-based on the approach detailed by Wicker and Skamarock.
+The `MISRK2a` method is a 2nd-order accurate, 2-stage MIS method
+based on the approach detailed by Wicker and Skamarock in
+[WickerSkamarock2002](@cite).
 
 ### References
  - [WickerSkamarock2002](@cite)
@@ -506,10 +509,12 @@ end
 """
     MISRK2b(slowrhs!, fastrhs!, fastmethod, nsubsteps, Q; dt = 0, t0 = 0)
 
-
+The `MISRK2b` method is a 2nd-order accurate, 2-stage MIS method and a
+variant of the `MISRK2a` method based on the approach detailed by Wicker
+and Skamarock in [WickerSkamarock2002](@cite).
 
 ### References
- -
+ - [WickerSkamarock2002](@cite)
 """
 function MISRK2b(
     slowrhs!,
@@ -618,11 +623,12 @@ end
 """
     MISRK3(slowrhs!, fastrhs!, fastmethod, nsubsteps, Q; dt = 0, t0 = 0)
 
-The `MISRK3` method is a 3rd-order accurate, 3-stage method
-based on the approach detailed by Wicker and Skamarock.
+The `MISRK3` method is a 3rd-order accurate, 3-stage MIS method
+based on the approach detailed by Wicker and Skamarock in
+[WickerSkamarock2002](@cite).
 
 ### References
- - [WickerSkamarock](@cite)
+ - [WickerSkamarock2002](@cite)
 """
 function MISRK3(
     slowrhs!,
@@ -792,10 +798,12 @@ end
 """
     MISKWRK43(slowrhs!, fastrhs!, fastmethod, nsubsteps, Q; dt = 0, t0 = 0)
 
-
+The `MISKWRK43` method is a 3rd-order accurate, 4-stage MIS method. It is the
+MIS analog of an RK43 method, based on the approach detailed in
+[KnothWolke1998](@cite).
 
 ### References
- -
+ - [KnothWolke1998](@cite)
 """
 function MISKWRK43(
     slowrhs!,
