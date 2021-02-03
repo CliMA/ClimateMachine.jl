@@ -175,7 +175,7 @@ function config_baroclinic_wave(FT, poly_order, resolution, with_moisture)
         moisture = EquilMoist{FT}()
         source = (Gravity(), Coriolis())
     else
-        hyperdiffusion = HorizDryBiharmonic(FT(0.08 * 3600))
+      hyperdiffusion = NoHyperDiffusion()
         moisture = DryModel()
         source = (Gravity(), Coriolis())
     end
@@ -184,7 +184,7 @@ function config_baroclinic_wave(FT, poly_order, resolution, with_moisture)
         param_set;
         init_state_prognostic = init_baroclinic_wave!,
         ref_state = ref_state,
-        turbulence = ConstantKinematicViscosity(FT(0), WithoutDivergence() ),
+        turbulence = ConstantKinematicViscosity(FT(10), WithDivergence() ),
         hyperdiffusion = hyperdiffusion,
         moisture = moisture,
         source = source,
@@ -221,9 +221,9 @@ function main()
 
     # Driver configuration parameters
     FT = Float64                             # floating type precision
-    poly_order = (5, 6)                      # discontinuous Galerkin polynomial order
+    poly_order = (5, 5)                      # discontinuous Galerkin polynomial order
     n_horz = 8                               # horizontal element number
-    n_vert = 3                               # vertical element number
+    n_vert = 4                               # vertical element number
     n_days::FT = 1
     timestart::FT = 0                        # start time (s)
     timeend::FT = n_days * day(param_set)    # end time (s)
@@ -258,7 +258,7 @@ function main()
     dgn_config = config_diagnostics(FT, driver_config)
 
     # Set up user-defined callbacks
-    filterorder = 20
+    filterorder = 32
     filter = ExponentialFilter(solver_config.dg.grid, 0, filterorder)
     cbfilter = GenericCallbacks.EveryXSimulationSteps(1) do
         Filters.apply!(
@@ -285,6 +285,7 @@ function main()
     result = ClimateMachine.invoke!(
         solver_config;
         diagnostics_config = dgn_config,
+        #user_callbacks = (),
         user_callbacks = (cbfilter,),
         #user_callbacks = (cbtmarfilter, cbfilter),
         check_euclidean_distance = true,

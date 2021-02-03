@@ -461,9 +461,11 @@ function turbulence_tensors(
     FT = eltype(state)
     _inv_Pr_turb::FT = inv_Pr_turb(param_set)
     S = diffusive.turbulence.S
-    ν = m.ν
+    #ν = m.ν
+    k = vertical_unit_vector(orientation, param_set, aux)
+    ν = m.ν 
     D_t = ν * _inv_Pr_turb
-    τ = compute_stress(m.divergence_type, ν, S)
+    τ = compute_stress(m.divergence_type, ν* k * k', S)
     return ν, D_t, τ
 end
 
