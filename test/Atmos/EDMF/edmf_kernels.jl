@@ -202,7 +202,7 @@ eq_tends(
     pv::PV,
     m::EDMF,
     ::Flux{SecondOrder},
-) where {PV <: Union{Momentum, Energy, TotalMoisture}} = () # do _not_ add SGSFlux back to grid-mean
+) where {PV <: Union{Momentum, Energy, TotalMoisture}} = ()  # do _not_ add SGSFlux back to grid-mean
 # (SGSFlux{PV}(),) # add SGSFlux back to grid-mean
 
 # Turbconv tendencies
@@ -315,7 +315,12 @@ function compute_gradient_argument!(
 
     ρ_inv = 1 / gm.ρ
     θ_liq_en = liquid_ice_pottemp(ts.en)
-    q_tot_en = total_specific_humidity(ts.en)
+
+    if m.moisture isa DryModel
+        q_tot_en = FT(0)
+    else
+        q_tot_en = total_specific_humidity(ts.en)
+    end
 
     # populate gradient arguments
     en_tf.θ_liq = θ_liq_en
@@ -324,8 +329,14 @@ function compute_gradient_argument!(
 
     en_tf.tke = enforce_positivity(en.ρatke) / (env.a * gm.ρ)
     en_tf.θ_liq_cv = enforce_positivity(en.ρaθ_liq_cv) / (env.a * gm.ρ)
-    en_tf.q_tot_cv = enforce_positivity(en.ρaq_tot_cv) / (env.a * gm.ρ)
-    en_tf.θ_liq_q_tot_cv = en.ρaθ_liq_q_tot_cv / (env.a * gm.ρ)
+
+    if m.moisture isa DryModel
+        en_tf.q_tot_cv = FT(0)
+        en_tf.θ_liq_q_tot_cv = FT(0)
+    else
+        en_tf.q_tot_cv = enforce_positivity(en.ρaq_tot_cv) / (env.a * gm.ρ)
+        en_tf.θ_liq_q_tot_cv = en.ρaθ_liq_q_tot_cv / (env.a * gm.ρ)
+    end
 
     en_tf.θv = virtual_pottemp(ts.en)
     e_kin = FT(1 // 2) * ((gm.ρu[1] * ρ_inv)^2 + (gm.ρu[2] * ρ_inv)^2 + env.w^2) # TBD: Check
@@ -666,16 +677,22 @@ function source!(m::EDMF, src::Vars, atmos, args)
             Σsources(eq_tends(up_ρaw{i}(), atmos, tend), atmos, args)
         up_src[i].ρaθ_liq =
             Σsources(eq_tends(up_ρaθ_liq{i}(), atmos, tend), atmos, args)
-        up_src[i].ρaq_tot =
-            Σsources(eq_tends(up_ρaq_tot{i}(), atmos, tend), atmos, args)
+
+        if !(atmos.moisture isa DryModel)
+            up_src[i].ρaq_tot =
+                Σsources(eq_tends(up_ρaq_tot{i}(), atmos, tend), atmos, args)
+        end
     end
     en_src.ρatke = Σsources(eq_tends(en_ρatke(), atmos, tend), atmos, args)
     en_src.ρaθ_liq_cv =
         Σsources(eq_tends(en_ρaθ_liq_cv(), atmos, tend), atmos, args)
-    en_src.ρaq_tot_cv =
-        Σsources(eq_tends(en_ρaq_tot_cv(), atmos, tend), atmos, args)
-    en_src.ρaθ_liq_q_tot_cv =
-        Σsources(eq_tends(en_ρaθ_liq_q_tot_cv(), atmos, tend), atmos, args)
+
+    if !(atmos.moisture isa DryModel)
+        en_src.ρaq_tot_cv =
+            Σsources(eq_tends(en_ρaq_tot_cv(), atmos, tend), atmos, args)
+        en_src.ρaθ_liq_q_tot_cv =
+            Σsources(eq_tends(en_ρaθ_liq_q_tot_cv(), atmos, tend), atmos, args)
+    end
 end;
 
 function compute_ρa_up(atmos, state, aux)
@@ -774,16 +791,20 @@ function flux_first_order!(
         up_flx[i].ρaw = Σfluxes(eq_tends(up_ρaw{i}(), atmos, tend), atmos, args)
         up_flx[i].ρaθ_liq =
             Σfluxes(eq_tends(up_ρaθ_liq{i}(), atmos, tend), atmos, args)
-        up_flx[i].ρaq_tot =
-            Σfluxes(eq_tends(up_ρaq_tot{i}(), atmos, tend), atmos, args)
+        if !(atmos.moisture isa DryModel)
+            up_flx[i].ρaq_tot =
+                Σfluxes(eq_tends(up_ρaq_tot{i}(), atmos, tend), atmos, args)
+        end
     end
     en_flx.ρatke = Σfluxes(eq_tends(en_ρatke(), atmos, tend), atmos, args)
     en_flx.ρaθ_liq_cv =
         Σfluxes(eq_tends(en_ρaθ_liq_cv(), atmos, tend), atmos, args)
-    en_flx.ρaq_tot_cv =
-        Σfluxes(eq_tends(en_ρaq_tot_cv(), atmos, tend), atmos, args)
-    en_flx.ρaθ_liq_q_tot_cv =
-        Σfluxes(eq_tends(en_ρaθ_liq_q_tot_cv(), atmos, tend), atmos, args)
+    if !(atmos.moisture isa DryModel)
+        en_flx.ρaq_tot_cv =
+            Σfluxes(eq_tends(en_ρaq_tot_cv(), atmos, tend), atmos, args)
+        en_flx.ρaθ_liq_q_tot_cv =
+            Σfluxes(eq_tends(en_ρaθ_liq_q_tot_cv(), atmos, tend), atmos, args)
+    end
 end;
 
 function precompute(::EDMF, bl, args, ts, ::Flux{FirstOrder})
@@ -1120,11 +1141,17 @@ function flux_second_order!(
     # exist only in the grid mean and the environment
     en_flx.ρaθ_liq_cv =
         Σfluxes(eq_tends(en_ρaθ_liq_cv(), atmos, tend), atmos, args) .* flux_pad
-    en_flx.ρaq_tot_cv =
-        Σfluxes(eq_tends(en_ρaq_tot_cv(), atmos, tend), atmos, args) .* flux_pad
-    en_flx.ρaθ_liq_q_tot_cv =
-        Σfluxes(eq_tends(en_ρaθ_liq_q_tot_cv(), atmos, tend), atmos, args) .*
-        flux_pad
+    if !(atmos.moisture isa DryModel)
+        en_flx.ρaq_tot_cv =
+            Σfluxes(eq_tends(en_ρaq_tot_cv(), atmos, tend), atmos, args) .*
+            flux_pad
+        en_flx.ρaθ_liq_q_tot_cv =
+            Σfluxes(
+                eq_tends(en_ρaθ_liq_q_tot_cv(), atmos, tend),
+                atmos,
+                args,
+            ) .* flux_pad
+    end
 end;
 
 # First order boundary conditions
@@ -1163,13 +1190,23 @@ function turbconv_boundary_state!(
         up⁺[i].ρaw = FT(0)
         up⁺[i].ρa = gm⁻.ρ * a_up_surf[i]
         up⁺[i].ρaθ_liq = gm⁻.ρ * a_up_surf[i] * θ_liq_up_surf[i]
-        up⁺[i].ρaq_tot = gm⁻.ρ * a_up_surf[i] * q_tot_up_surf[i]
+        if !(m.moisture isa DryModel)
+            up⁺[i].ρaq_tot = gm⁻.ρ * a_up_surf[i] * q_tot_up_surf[i]
+        else
+            up⁺[i].ρaq_tot = FT(0)
+        end
     end
+
     a_en = environment_area(gm⁻, N_up)
     en⁺.ρatke = gm⁻.ρ * a_en * tke
     en⁺.ρaθ_liq_cv = gm⁻.ρ * a_en * θ_liq_cv
-    en⁺.ρaq_tot_cv = gm⁻.ρ * a_en * q_tot_cv
-    en⁺.ρaθ_liq_q_tot_cv = gm⁻.ρ * a_en * θ_liq_q_tot_cv
+    if !(m.moisture isa DryModel)
+        en⁺.ρaq_tot_cv = gm⁻.ρ * a_en * q_tot_cv
+        en⁺.ρaθ_liq_q_tot_cv = gm⁻.ρ * a_en * θ_liq_q_tot_cv
+    else
+        en⁺.ρaq_tot_cv = FT(0)
+        en⁺.ρaθ_liq_q_tot_cv = FT(0)
+    end
 end;
 function turbconv_boundary_state!(
     nf,

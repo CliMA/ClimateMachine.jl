@@ -27,6 +27,7 @@ are:
 - `AtmosLESSpectra` and `AtmosGCMSpectra` -- [`setup_atmos_spectra_diagnostics`](@ref)
 - `DumpState` -- [`setup_dump_state_diagnostics`](@ref)
 - `DumpAux` -- [`setup_dump_aux_diagnostics`](@ref)
+- `DumpTendencies` -- [`setup_dump_tendencies_diagnostics`](@ref)
 
 Each of these diagnostics groups contains a set of diagnostic variables.
 Currently, while users can define their own diagnostics groups,

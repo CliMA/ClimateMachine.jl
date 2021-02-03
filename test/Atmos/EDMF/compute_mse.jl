@@ -4,6 +4,7 @@ if parse(Bool, get(ENV, "CLIMATEMACHINE_PLOT_EDMF_COMPARISON", "false"))
     using Plots
 end
 
+using OrderedCollections
 using Test
 using NCDatasets
 using Dierckx
@@ -55,7 +56,10 @@ function compute_mse(
     # Ensure domain matches:
     z_les = ds["z_half"][:]
     z_cm = get_z(grid; rm_dupes = true)
-    @test maximum(z_les) + last(diff(z_les)) / 2 ≈ z_cm[end]
+    @info "Z extent for LES vs CLIMA:"
+    @show extrema(z_cm)
+    @show extrema(z_les)
+
     time_les = ds["t"][:]
 
     # Find the nearest matching final time:
@@ -79,7 +83,7 @@ function compute_mse(
     pycles_variables = []
     data_scales = []
     pycles_weight = []
-    for (ftc) in keys(first(dons_arr))
+    for (ftc) in keys(best_mse)
         # Only compare fields defined for var_map
         tup = var_map(ftc)
         tup == nothing && continue
