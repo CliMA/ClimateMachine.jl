@@ -1994,11 +1994,8 @@ function launch_volume_tendency!(
         )
     end
         
-    h_state_prognostic = similar(state_prognostic, Array)
-    h_state_auxiliary = similar(spacedisc.state_auxiliary, Array)
-       
     if t >  0.0 
-        if rem(t,40) <= 0.1
+        if rem(t,30) <= 1
             @show("Operating with DYNSGS")
             dynsgs!(
                spacedisc, 
@@ -2250,11 +2247,11 @@ function dynsgs!(
     rhs = dQdt
     
     vgeo = Array(grid.vgeo)
-    μ_dynsgs = similar(Q, prod(Nq), number_states(dg.balance_law,Prognostic()), nrealelem)
-    l_rhs_m = similar(Q, number_states(dg.balance_law,Prognostic()), nrealelem)
-    l_δ̅_m = similar(Q, number_states(dg.balance_law,Prognostic()))
-    μ = similar(Q, number_states(dg.balance_law,Prognostic()), nrealelem)
-    l_δ̅ = similar(Q, prod(Nq), number_states(dg.balance_law,Prognostic()), nrealelem)
+    μ_dynsgs = Array(similar(Q, prod(Nq), number_states(dg.balance_law,Prognostic()), nrealelem))
+    l_rhs_m = Array(similar(Q, number_states(dg.balance_law,Prognostic()), nrealelem))
+    l_δ̅_m = Array(similar(Q, number_states(dg.balance_law,Prognostic())))
+    μ = Array(similar(Q, number_states(dg.balance_law,Prognostic()), nrealelem))
+    l_δ̅ = Array(similar(Q, prod(Nq), number_states(dg.balance_law,Prognostic()), nrealelem))
     
     localQ = Array(Q)
     Q_ave = Array(similar(Q, number_states(dg.balance_law,Prognostic()), nrealelem))

@@ -49,6 +49,7 @@ import ..Mesh.Geometry: LocalGeometry, resolutionmetric, lengthscale
 using ..Orientations
 using ..VariableTemplates
 using ..BalanceLaws
+using ..Thermodynamics
 
 using MPI
 
@@ -124,6 +125,14 @@ function init_aux_turbulence!(
     ::BalanceLaw,
     aux::Vars,
     geom::LocalGeometry,
+) end
+
+function turbulence_nodal_update_auxiliary_state!(
+    ::TurbulenceClosureModel,
+    ::BalanceLaw,
+    state::Vars,
+    aux::Vars,
+    t::Real,
 ) end
 
 """
@@ -1110,7 +1119,8 @@ function compute_gradient_argument!(
     k̂ = vertical_unit_vector(bl, aux)
     u_h = (SDiagonal(1, 1, 1) - k̂ * k̂') * u
     transform.hyperdiffusion.u_h = u_h
-    transform.hyperdiffusion.h_tot = transform.h_tot
+    e_tot = state.energy.ρe * (1 / state.ρ)
+    transform.hyperdiffusion.h_tot = transform.energy.h_tot
 end
 
 function compute_gradient_hyperflux!(
