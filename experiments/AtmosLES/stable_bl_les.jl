@@ -75,7 +75,8 @@ function main(cl_args)
         init_on_cpu = true,
         Courant_number = CFLmax,
     )
-    dgn_config = config_diagnostics(driver_config)
+    dgn_config =
+        config_diagnostics(driver_config, out_suffix = cl_args["cparam_file"])
 
     check_cons = (
         ClimateMachine.ConservationCheck("ρ", "1mins", FT(0.0001)),

@@ -11,6 +11,7 @@ using LinearAlgebra
         ::AtmosLESConfigType,
         interval::String,
         out_prefix::String;
+        out_suffix::Union{String, Nothing} = nothing,
         writer = NetCDFWriter(),
         interpol = nothing,
     )
@@ -74,6 +75,7 @@ function setup_atmos_default_diagnostics(
     ::AtmosLESConfigType,
     interval::String,
     out_prefix::String;
+    out_suffix::Union{String, Nothing} = nothing,
     writer = NetCDFWriter(),
     interpol = nothing,
 )
@@ -89,7 +91,12 @@ function setup_atmos_default_diagnostics(
         out_prefix,
         writer,
         interpol,
+        AtmosLESDefaultDiagnosticsParams(out_suffix),
     )
+end
+
+struct AtmosLESDefaultDiagnosticsParams <: DiagnosticsGroupParams
+    suffix::Union{String, Nothing}
 end
 
 # Simple horizontal averages
@@ -554,6 +561,7 @@ function atmos_les_default_init(dgngrp::DiagnosticsGroup, currtime)
             "%s_%s_%s",
             dgngrp.out_prefix,
             dgngrp.name,
+            !isnothing(dgngrp.params.suffix) ? dgngrp.params.suffix :
             Settings.starttime,
         )
         dfilename = joinpath(Settings.output_dir, dprefix)

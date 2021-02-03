@@ -318,11 +318,12 @@ function stable_bl_model(
     return model
 end
 
-function config_diagnostics(driver_config)
+function config_diagnostics(driver_config; out_suffix = nothing)
     default_dgngrp = setup_atmos_default_diagnostics(
         AtmosLESConfigType(),
         "2500steps",
-        driver_config.name,
+        driver_config.name;
+        out_suffix = out_suffix,
     )
     core_dgngrp = setup_atmos_core_diagnostics(
         AtmosLESConfigType(),
