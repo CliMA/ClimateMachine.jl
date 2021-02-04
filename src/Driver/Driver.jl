@@ -540,17 +540,6 @@ function init_runtime(settings::ClimateMachine_Settings)
         end
     end
 
-    # create the output directory if needed on delegated rank
-    if MPI.Comm_rank(MPI.COMM_WORLD) == 0
-        if settings.diagnostics != "never" || settings.vtk != "never"
-            mkpath(settings.output_dir)
-        end
-        if settings.checkpoint != "never" || settings.checkpoint_at_end
-            mkpath(settings.checkpoint_dir)
-        end
-    end
-    MPI.Barrier(MPI.COMM_WORLD)
-
     # TODO: write a better MPI logging back-end and also integrate Dlog
     # for large scale
 
@@ -652,6 +641,17 @@ function invoke!(
     init_on_cpu = solver_config.init_on_cpu
     init_args = solver_config.init_args
     solver = solver_config.solver
+
+    # create the output directories if needed on delegated rank
+    if MPI.Comm_rank(MPI.COMM_WORLD) == 0
+        if Settings.diagnostics != "never" || Settings.vtk != "never"
+            mkpath(Settings.output_dir)
+        end
+        if Settings.checkpoint != "never" || Settings.checkpoint_at_end
+            mkpath(Settings.checkpoint_dir)
+        end
+    end
+    MPI.Barrier(MPI.COMM_WORLD)
 
     # set up callbacks
     callbacks = ()
