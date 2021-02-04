@@ -1,12 +1,12 @@
 import ClimateMachine.SystemSolvers: enable_duals, preconditioner_update!,
     defaultbatches
 
-export AbstractOperator, NewtonOperator, PicardOperator
+export AbstractOperator, GenericImplicitOperator, FixedPointImplicitOperator
 
 abstract type AbstractOperator end # All instances must have field `f!`.
 
 """
-    op! = NewtonOperator(f!, ϵ)
+    op! = GenericImplicitOperator(f!, ϵ)
 
 Construct a linear operator which performs an explicit Euler step ``Q + α
 f(Q)``, where `f!` and `op!` both operate inplace, with extra arguments passed
@@ -20,44 +20,41 @@ f!(dQ, Q, args...)
 LQ .= Q .+ ϵ .* dQ
 ```
 """
-mutable struct NewtonOperator{F, FT} <: AbstractOperator
+mutable struct GenericImplicitOperator{F, FT} <: AbstractOperator
     f!::F
     ϵ::FT
 end
 
-function (op::NewtonOperator)(LQ, Q, args...)
+function (op::GenericImplicitOperator)(LQ, Q, args...)
     op.f!(LQ, Q, args..., increment = false)
-    @. LQ = Q + op.ϵ * LQ
+    @. LQ = Q - op.ϵ * LQ
 end
 
-mutable struct PicardOperator{F, FT, AT} <: AbstractOperator
-    f!::F
-    ϵ::FT
-    C::AT
-end
-
-function (op::PicardOperator)(LQ, Q, args...)
-    op.f!(LQ, Q, args..., increment = false)
-    @. LQ = op.C + op.ϵ * LQ
-end
-
-enable_duals(op::NewtonOperator, n::Int = 1, tag = nothing) =
-    NewtonOperator(enable_duals(op.f!, n, tag), op.ϵ)
-
-enable_duals(op::PicardOperator, n::Int = 1, tag = nothing) =
-    PicardOperator(enable_duals(op.f!, n, tag), op.ϵ, op.C)
+enable_duals(op::GenericImplicitOperator, n::Int = 1, tag = nothing) =
+    GenericImplicitOperator(enable_duals(op.f!, n, tag), op.ϵ)
 
 function preconditioner_update!(
     op,
-    eo::NewtonOperator,
+    eo::GenericImplicitOperator,
     preconditioner::ColumnwiseLUPreconditioner,
     args...,
 )
     preconditioner_update!(op, eo.f!, preconditioner, args...)
 end
 
-function defaultbatches(Q, op::NewtonOperator, coupledstates)
+function defaultbatches(Q, op::GenericImplicitOperator, coupledstates)
     return defaultbatches(Q, op.f!, coupledstates)
+end
+
+mutable struct FixedPointImplicitOperator{F, FT, AT} <: AbstractOperator
+    f!::F
+    ϵ::FT
+    C::AT
+end
+
+function (op::FixedPointImplicitOperator)(LQ, Q, args...)
+    op.f!(LQ, Q, args..., increment = false)
+    @. LQ = op.C + op.ϵ * LQ
 end
 
     #=

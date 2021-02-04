@@ -9,11 +9,10 @@ using KernelAbstractions
 using KernelAbstractions.Extras: @unroll
 using StaticArrays
 using ..SystemSolvers
-import ..SystemSolvers: solve!
 using ..MPIStateArrays: array_device, realview
 using ..GenericCallbacks
 
-export updatedt!, gettime, getsteps
+export solve!, updatedt!, gettime, getsteps
 
 abstract type AbstractODESolver end
 

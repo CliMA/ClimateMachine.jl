@@ -102,7 +102,7 @@ function setup_backward_Euler_solver(
     f_imp!,
 )
     FT = eltype(α)
-    rhs! = NewtonOperator(f_imp!, -α)
+    rhs! = GenericImplicitOperator(f_imp!, -α)
 
     factors = prefactorize(rhs!, lin.solver, Q, nothing, FT(NaN))
 
@@ -136,7 +136,7 @@ function update_backward_Euler_solver!(lin::LinBESolver, Q, α)
     # for direct solver, update factors
     # for iterative solver, set factors to Nothing (TODO optimize)
     lin.factors = prefactorize(
-        NewtonOperator(lin.f_imp!, -α),
+        GenericImplicitOperator(lin.f_imp!, -α),
         lin.solver,
         Q,
         nothing,
@@ -145,7 +145,7 @@ function update_backward_Euler_solver!(lin::LinBESolver, Q, α)
 end
 
 function (lin::LinBESolver)(Q, Qhat, α, p, t)
-    rhs! = NewtonOperator(lin.f_imp!, -α)
+    rhs! = GenericImplicitOperator(lin.f_imp!, -α)
 
     if lin.α != α
         @assert lin.isadjustable
@@ -273,7 +273,7 @@ end
 Set up and solve the nonlinear system as specified by the internal `nlsolver`.
 """
 function (nlbesolver::NonLinBESolver{FT, F, NLS})(Q, Qhat, α, p, t) where {FT, F, NLS <: JacobianFreeNewtonKrylovSolver}
-    rhs! = NewtonOperator(nlbesolver.f_imp!, -α)
+    rhs! = GenericImplicitOperator(nlbesolver.f_imp!, α)
 
     nlbesolver.jvp!.rhs! = rhs!
     nonlinearsolve!(
@@ -289,54 +289,83 @@ function (nlbesolver::NonLinBESolver{FT, F, NLS})(Q, Qhat, α, p, t) where {FT, 
 end
 
 function setup_nlsolver(alg::Union{JacobianFreeNewtonKrylovAlgorithm, AndersonAccelerationAlgorithm{<:JacobianFreeNewtonKrylovAlgorithm}}, Q, f!, α)
-    return IterativeSolver(alg, Q, NewtonOperator(f!, -α), Q)
+    return IterativeSolver(alg, Q, GenericImplicitOperator(f!, α), Q)
 end
 
 function (nlbesolver::NonLinBESolver{FT, F, NLS})(Q, Qhat, α, p, t) where {FT, F, NLS <: Union{JaCobIanfrEEneWtONKryLovSoLVeR, AndersonAccelerationSolver{<:JaCobIanfrEEneWtONKryLovSoLVeR}}}
-    solve!(nlbesolver.nlsolver, Q, NewtonOperator(nlbesolver.f_imp!, -α), Qhat, p, t)
+    nlbesolver.nlsolver(Q, GenericImplicitOperator(nlbesolver.f_imp!, α), Qhat, p, t)
 end
 
 # Q^{n+1} = F(Q^{n+1})
 # F = Q^n + α f(Q^{n+1,k}) = Q^{n+1,k+1}
 function setup_nlsolver(alg::Union{StandardPicardAlgorithm, AndersonAccelerationAlgorithm{<:StandardPicardAlgorithm}}, Q, f!, α)
-    return IterativeSolver(alg, Q, PicardOperator(f!, α, Q))
+    return IterativeSolver(alg, Q, FixedPointImplicitOperator(f!, α, Q))
 end
 
 function (nlbesolver::NonLinBESolver{FT, F, NLS})(Q, Qhat, α, p, t) where {FT, F, NLS <: Union{StandardPicardSolver, AndersonAccelerationSolver{<:StandardPicardSolver}}}
-    solve!(nlbesolver.nlsolver, Q, PicardOperator(nlbesolver.f_imp!, α, Qhat), p, t)
+    nlbesolver.nlsolver(Q, FixedPointImplicitOperator(nlbesolver.f_imp!, α, Qhat), p, t)
 end
 
 #=
-TODO: Rename to ImplicitSolver.jl
-abstract type ImplicitSolver <: IterativeSolver end
-struct BackwardEulerAlgorithm <: IterativeAlgorithm
+TODO: Git rename to ImplicitSolver.jl
+TODO: Define struct ComposedAlgorithm <: ImplicitAlgorithm end
+    - Note that composition of iterative algorithms must be done here, rather than in SystemSolvers, because different algorithms require different operators.
+    - This will involve removing the warning from (solver::IterativeSolver)() for when the solver does not converge, as the first composed algorithm is not intended to converge.
+
+export ImplicitSolver
+
+abstract type ImplicitAlgorithm end
+struct BackwardEulerAlgorithm <: ImplicitAlgorithm
     iterativealgorithm
-    α
+    function BackwardEulerAlgorithm(iterativealgorithm::IterativeAlgorithm)
+        return new(iterativealgorithm)
+    end
 end
-struct CrankNicolsonAlgorithm <: IterativeAlgorithm
+struct CrankNicolsonAlgorithm <: ImplicitAlgorithm
     iterativealgorithm
-    α2 # α / 2
+    function CrankNicolsonAlgorithm(iterativealgorithm::IterativeAlgorithm)
+        return new(iterativealgorithm)
+    end
 end
 
-atol(solver::ImplicitSolver) = atol(solver.iterativesolver)
-rtol(solver::ImplicitSolver) = rtol(solver.iterativesolver)
-maxiters(solver::ImplicitSolver) = maxiters(solver.iterativesolver)
-residual!(solver::IterativeSolver, threshold, iters, args...) =
-    residual!(solver.iterativesolver, threshold, iters, args...)
-initialize!(solver::IterativeSolver, threshold, iters, args...) =
-    initialize!(solver.iterativesolver, threshold, iters, args...)
-- perhaps create Operator form of f! in initialize, store in the Solver object
-    call inner doiteration! on stored f_op!
+abstract type ImplicitSolver end
+struct BackwardEulerSolver{IST} <: ImplicitSolver
+    iterativesolver::IST
+end
+struct CrankNicolsonSolver{IST} <: ImplicitSolver
+    iterativesolver::IST
+end
 
-function doiteration!(
-    solver::ImplicitSolver,
-    threshold,
-    iters,
-    Q,
-    f!,
-    args...;
-)
-    doiteration!(solver.iterativesolver, threshold, iters, Q, f!, args...)
+function ImplicitSolver(algorithm::BackwardEulerAlgorithm, Qⁿ, ∂Q∂t!, Qⁿ⁺¹, α)
+    BackwardEulerSolver(IterativeSolver(
+        algorithm.iterativealgorithm,
+        Qⁿ,
+        operator_tuple(algorithm, algorithm.iterativealgorithm, ∂Q∂t!, Qⁿ⁺¹, α)...,
+    ))
+end
+function ImplicitSolver(algorithm::CrankNicolsonAlgorithm, Qⁿ, ∂Q∂t!, Qⁿ⁺¹, α)
+    CrankNicolsonSolver(IterativeSolver(
+        algorithm.iterativealgorithm,
+        Qⁿ,
+        operator_tuple(algorithm, algorithm.iterativealgorithm, ∂Q∂t!, Qⁿ⁺¹, α)...,
+    ))
+end
+
+operator_tuple(::BackwardEulerAlgorithm, ::GenericIterativeAlgorithm, ∂Q∂t!, Qⁿ⁺¹, α) =
+    (GenericImplicitOperator(∂Q∂t!, α), Qⁿ⁺¹)
+operator_tuple(::CrankNicolsonAlgorithm, ::GenericIterativeAlgorithm, ∂Q∂t!, Qⁿ⁺¹, α) =
+    (GenericImplicitOperator(∂Q∂t!, α / 2), Qⁿ⁺¹)
+operator_tuple(::BackwardEulerAlgorithm, ::FixedPointIterativeAlgorithm, ∂Q∂t!, Qⁿ⁺¹, α) =
+    (FixedPointImplicitOperator(∂Q∂t!, α, Qⁿ⁺¹),)
+operator_tuple(::CrankNicolsonAlgorithm, ::FixedPointIterativeAlgorithm, ∂Q∂t!, Qⁿ⁺¹, α) =
+    (FixedPointImplicitOperator(∂Q∂t!, α / 2, Qⁿ⁺¹),)
+operator_tuple(::Any, algorithm::AccelerationAlgorithm, ∂Q∂t!, Qⁿ⁺¹, α) =
+    operator_tuple(::Any, algorithm.iterativealgorithm, ∂Q∂t!, Qⁿ⁺¹, α)
+
+function (solver::ImplicitSolver)(Qⁿ, ∂Q∂t!, Qⁿ⁺¹, α, args...)
+
+end
+
 end
 
 =#
