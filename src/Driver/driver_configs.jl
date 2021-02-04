@@ -273,7 +273,7 @@ function AtmosLESConfiguration(
         meshwarp = meshwarp,
     )
 
-    if cutofforder_horz < polyorder_horz || cutofforder_vert < polyorder_vert
+    if cutofforder_horz < polyorder_horz && cutofforder_vert < polyorder_vert
         filter = CutoffFilter(
             grid,
             (cutofforder_horz + 1, cutofforder_horz + 1, cutofforder_vert + 1),
@@ -402,7 +402,7 @@ function AtmosGCMConfiguration(
     )
 
 
-    if cutofforder_horz < polyorder_horz || cutofforder_vert < polyorder_vert
+    if cutofforder_horz < polyorder_horz && cutofforder_vert < polyorder_vert
         filter = CutoffFilter(
             grid,
             (cutofforder_horz + 1, cutofforder_horz + 1, cutofforder_vert + 1),
