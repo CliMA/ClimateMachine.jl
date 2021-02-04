@@ -1,10 +1,4 @@
-export StandardPicardAlgorithm, StandardPicardSolver
-
-struct StandardPicardAlgorithm <: IterativeAlgorithm
-    atol
-    rtol
-    maxiters
-end
+export StandardPicardAlgorithm, StandardPicardSolver # TODO: Remove solver export.
 
 """
     StandardPicardAlgorithm(
@@ -25,18 +19,20 @@ iterations of the algorithm.
 - `rtol`: relative tolerance; defaults to `1e-6`
 - `maxiters`: maximum number of iterations; defaults to 10
 """
-function StandardPicardAlgorithm(;
-    atol::Union{Real, Nothing} = nothing,
-    rtol::Union{Real, Nothing} = nothing,
-    maxiters::Union{Int, Nothing} = nothing,
-)
-    @checkargs("be positive", arg -> arg > 0, atol, rtol, maxiters)
-    return StandardPicardAlgorithm(
-        atol,
-        rtol,
-        maxiters,
+struct StandardPicardAlgorithm <: FixedPointIterativeAlgorithm
+    atol
+    rtol
+    maxiters
+    function StandardPicardAlgorithm(;
+        atol::Union{Real, Nothing} = nothing,
+        rtol::Union{Real, Nothing} = nothing,
+        maxiters::Union{Int, Nothing} = nothing,
     )
+        @checkargs("be positive", arg -> arg > 0, atol, rtol, maxiters)
+        return new(atol, rtol, maxiters)
+    end
 end
+
 
 struct StandardPicardSolver{AT, FT} <: IterativeSolver
     fQ::AT        # container for f(Q^k)
@@ -50,7 +46,6 @@ function IterativeSolver(
     algorithm::StandardPicardAlgorithm,
     Q,
     f!,
-    args...;
 )
     FT = eltype(Q)
 

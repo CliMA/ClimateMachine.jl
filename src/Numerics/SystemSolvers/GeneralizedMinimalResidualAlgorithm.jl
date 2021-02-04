@@ -1,15 +1,5 @@
 export GeneralizedMinimalResidualAlgorithm
 
-struct GeneralizedMinimalResidualAlgorithm <: KrylovAlgorithm
-    preconditioner
-    atol
-    rtol
-    maxrestarts
-    M
-    sarrays
-    groupsize
-end
-
 """
     GeneralizedMinimalResidualAlgorithm(;
         preconditioner::Union{AbstractPreconditioner, Nothing} = nothing,
@@ -21,8 +11,9 @@ end
         groupsize::Union{Int, Nothing} = nothing,
     )
 
-Constructor for a `GeneralizedMinimalResidualAlgorithm`, which solves a linear system
-`f(Q) = rhs`.
+Constructor for a `GeneralizedMinimalResidualAlgorithm`, which solves an
+equation of the form `f(Q) = rhs`, where `f` is assumed to be a linear function
+of `Q`.
 
 This algorithm uses the restarted Generalized Minimal Residual method of Saad
 and Schultz (1986).
@@ -41,28 +32,29 @@ and Schultz (1986).
 
  - [Saad1986](@cite)
 """
-function GeneralizedMinimalResidualAlgorithm(;
-    preconditioner::Union{AbstractPreconditioner, Nothing} = nothing,
-    atol::Union{Real, Nothing} = nothing,
-    rtol::Union{Real, Nothing} = nothing,
-    maxrestarts::Union{Int, Nothing} = nothing,
-    M::Union{Int, Nothing} = nothing,
-    sarrays::Union{Bool, Nothing} = nothing,
-    groupsize::Union{Int, Nothing} = nothing,
-)
-    @checkargs(
-        "be positive", arg -> arg > 0,
-        atol, rtol, maxrestarts, M, groupsize
+struct GeneralizedMinimalResidualAlgorithm <: KrylovAlgorithm
+    preconditioner
+    atol
+    rtol
+    maxrestarts
+    M
+    sarrays
+    groupsize
+    function GeneralizedMinimalResidualAlgorithm(;
+        preconditioner::Union{AbstractPreconditioner, Nothing} = nothing,
+        atol::Union{Real, Nothing} = nothing,
+        rtol::Union{Real, Nothing} = nothing,
+        maxrestarts::Union{Int, Nothing} = nothing,
+        M::Union{Int, Nothing} = nothing,
+        sarrays::Union{Bool, Nothing} = nothing,
+        groupsize::Union{Int, Nothing} = nothing,
     )
-    return GeneralizedMinimalResidualAlgorithm(
-        preconditioner,
-        atol,
-        rtol,
-        maxrestarts,
-        M,
-        sarrays,
-        groupsize,
-    )
+        @checkargs(
+            "be positive", arg -> arg > 0,
+            atol, rtol, maxrestarts, M, groupsize
+        )
+        return new(preconditioner, atol, rtol, maxrestarts, M, sarrays, groupsize)
+    end
 end
 
 struct GeneralizedMinimalResidualSolver{PT, KT, AT, GT, HT, FT} <: IterativeSolver
@@ -83,7 +75,6 @@ function IterativeSolver(
     Q,
     f!,
     rhs,
-    args...;
 )
     @assert(size(Q) == size(rhs), string(
             "Must solve a square system, Q must have the same dimensions as rhs,",

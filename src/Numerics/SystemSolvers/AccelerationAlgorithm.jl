@@ -1,5 +1,6 @@
-export AndersonAccelerationAlgorithm, AccelerationSolver, AndersonAccelerationSolver
+export AccelerationAlgorithm, AndersonAccelerationAlgorithm, AndersonAccelerationSolver # TODO: Remove solver export.
 
+abstract type AccelerationAlgorithm <: IterativeAlgorithm end
 abstract type AccelerationSolver <: IterativeSolver end
 
 atol(solver::AccelerationSolver) = atol(solver.iterativesolver)
@@ -40,12 +41,6 @@ function doiteration!(
     return has_converged, inneriters
 end
 
-struct AndersonAccelerationAlgorithm{IAT} <: IterativeAlgorithm # TODO: Get rid of IAT after testing.
-    iterativealgorithm::IAT
-    depth
-    ω
-end
-
 """
     AndersonAccelerationAlgorithm(
         iterativealgorithm::IterativeAlgorithm;
@@ -67,18 +62,19 @@ construct a new solution estimate from the previous estimates.
 - `depth`: accelerator window size; defaults to `1`
 - `ω`: relaxation parameter; defaults to `1.0`
 """
-function AndersonAccelerationAlgorithm(
-    iterativealgorithm::IterativeAlgorithm;
-    depth::Union{Int, Nothing} = nothing,
-    ω::Union{Real, Nothing} = nothing,
-)
-    @checkargs("be positive", arg -> arg > 0, depth, ω)
-    @checkargs("be at most 1", arg -> arg <= 1, ω)
-    return AndersonAccelerationAlgorithm(
-        iterativealgorithm,
-        depth,
-        ω,
+struct AndersonAccelerationAlgorithm{IAT} <: AccelerationAlgorithm # TODO: Get rid of IAT after testing.
+    iterativealgorithm::IAT
+    depth
+    ω
+    function AndersonAccelerationAlgorithm(
+        iterativealgorithm::IterativeAlgorithm;
+        depth::Union{Int, Nothing} = nothing,
+        ω::Union{Real, Nothing} = nothing,
     )
+        @checkargs("be positive", arg -> arg > 0, depth, ω)
+        @checkargs("be at most 1", arg -> arg <= 1, ω)
+        return new{typeof(iterativealgorithm)}(iterativealgorithm, depth, ω)
+    end
 end
 
 struct AndersonAccelerationSolver{IST, AT1, AT2, FT} <: AccelerationSolver
@@ -101,7 +97,7 @@ end
 function IterativeSolver(
     algorithm::AndersonAccelerationAlgorithm,
     Q,
-    args...;
+    args...,
 )
     FT = eltype(Q)
     

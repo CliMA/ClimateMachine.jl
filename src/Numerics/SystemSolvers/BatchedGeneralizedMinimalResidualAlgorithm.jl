@@ -61,18 +61,6 @@ function unbatch!(unbatched, batched, b::Batcher)
     return nothing
 end
 
-struct BatchedGeneralizedMinimalResidualAlgorithm <: KrylovAlgorithm
-    preconditioner
-    atol
-    rtol
-    maxrestarts
-    M
-    coupledstates
-    dims
-    batchdimindices
-    groupsize
-end
-
 """
     BatchedGeneralizedMinimalResidualAlgorithm(
         preconditioner::Union{AbstractPreconditioner, Nothing} = nothing,
@@ -127,55 +115,66 @@ systems, so `rhs` must have the same size as `Q`.
     default value will be used unless `dims` is also specified
 - `groupsize`: group size for kernel abstractions; defaults to `256`
 """
-function BatchedGeneralizedMinimalResidualAlgorithm(;
-    preconditioner::Union{AbstractPreconditioner, Nothing} = nothing,
-    atol::Union{AbstractFloat, Nothing} = nothing,
-    rtol::Union{AbstractFloat, Nothing} = nothing,
-    maxrestarts::Union{Int, Nothing} = nothing,
-    M::Union{Int, Nothing} = nothing,
-    coupledstates::Union{Bool, Nothing} = nothing,
-    dims::Union{Dims, Nothing} = nothing,
-    batchdimindices::Union{Dims, Nothing} = nothing,
-    groupsize::Union{Int, Nothing} = nothing,
-)
-    @checkargs(
-        "be positive", arg -> arg > 0,
-        atol, rtol, maxrestarts, M, groupsize
+struct BatchedGeneralizedMinimalResidualAlgorithm <: KrylovAlgorithm
+    preconditioner
+    atol
+    rtol
+    maxrestarts
+    M
+    coupledstates
+    dims
+    batchdimindices
+    groupsize
+    function BatchedGeneralizedMinimalResidualAlgorithm(;
+        preconditioner::Union{AbstractPreconditioner, Nothing} = nothing,
+        atol::Union{AbstractFloat, Nothing} = nothing,
+        rtol::Union{AbstractFloat, Nothing} = nothing,
+        maxrestarts::Union{Int, Nothing} = nothing,
+        M::Union{Int, Nothing} = nothing,
+        coupledstates::Union{Bool, Nothing} = nothing,
+        dims::Union{Dims, Nothing} = nothing,
+        batchdimindices::Union{Dims, Nothing} = nothing,
+        groupsize::Union{Int, Nothing} = nothing,
     )
-    @checkargs(
-        "contain positive values", arg -> length(arg) > 0 && minimum(arg) > 0,
-        dims, batchdimindices
-    )
-    @checkargs(
-        "be a tuple of unique indices", arg -> allunique(arg),
-        batchdimindices
-    )
-
-    if xor(isnothing(dims), isnothing(batchdimindices))
-        @warn string(
-            "Both dims and batchdimindices must be specified in order to ",
-            "override default values."
+        @checkargs(
+            "be positive", arg -> arg > 0,
+            atol, rtol, maxrestarts, M, groupsize
+        )
+        @checkargs(
+            "contain positive values", arg -> length(arg) > 0 && minimum(arg) > 0,
+            dims, batchdimindices
+        )
+        @checkargs(
+            "be a tuple of unique indices", arg -> allunique(arg),
+            batchdimindices
+        )
+    
+        if xor(isnothing(dims), isnothing(batchdimindices))
+            @warn string(
+                "Both dims and batchdimindices must be specified in order to ",
+                "override default values."
+            )
+        end
+        if !isnothing(dims) && !isnothing(batchdimindices)
+            @assert(maximum(batchdimindices) <= length(dims), string(
+                "batchdimindices must contain a subset of the indices of ",
+                "dimensions in dims, ", dims, ", but it was set to ",
+                batchdimindices
+            ))
+        end
+    
+        return new(
+            preconditioner,
+            atol,
+            rtol,
+            maxrestarts,
+            M,
+            coupledstates,
+            dims,
+            batchdimindices,
+            groupsize,
         )
     end
-    if !isnothing(dims) && !isnothing(batchdimindices)
-        @assert(maximum(batchdimindices) <= length(dims), string(
-            "batchdimindices must contain a subset of the indices of ",
-            "dimensions in dims, ", dims, ", but it was set to ",
-            batchdimindices
-        ))
-    end
-
-    return BatchedGeneralizedMinimalResidualAlgorithm(
-        preconditioner,
-        atol,
-        rtol,
-        maxrestarts,
-        M,
-        coupledstates,
-        dims,
-        batchdimindices,
-        groupsize,
-    )
 end
 
 function defaultbatches(Q, f!::Any, coupledstates)

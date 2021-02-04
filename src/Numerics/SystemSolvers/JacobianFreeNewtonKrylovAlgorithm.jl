@@ -1,4 +1,4 @@
-export JacobianFreeNewtonKrylovAlgorithm, JaCobIanfrEEneWtONKryLovSoLVeR
+export JacobianFreeNewtonKrylovAlgorithm, JaCobIanfrEEneWtONKryLovSoLVeR # TODO: Remove solver export.
 
 include("enable_duals.jl")
 
@@ -119,15 +119,6 @@ function updatejvp!(jvp!::JacobianVectorProductAD, args...)
     return nothing
 end
 
-struct JacobianFreeNewtonKrylovAlgorithm <: IterativeAlgorithm
-    krylovalgorithm
-    atol
-    rtol
-    maxiters
-    autodiff
-    β
-end
-
 """
     JacobianFreeNewtonKrylovAlgorithm(
         krylovalgorithm::KrylovAlgorithm;
@@ -180,24 +171,25 @@ have the same size as `Q`.
 - `β`: parameter for the finite difference method (for `autodiff == false`);
     defaults to `1e-4`
 """
-function JacobianFreeNewtonKrylovAlgorithm(
-    krylovalgorithm::KrylovAlgorithm;
-    atol::Union{Real, Nothing} = nothing,
-    rtol::Union{Real, Nothing} = nothing,
-    maxiters::Union{Int, Nothing} = nothing,
-    autodiff::Union{Bool, Nothing} = nothing,
-    β::Union{Real, Nothing} = nothing,
-)
-    @checkargs("be positive", arg -> arg > 0, atol, rtol, maxiters, β)
-    @checkargs("be finite", arg -> isfinite(arg), β)
-    return JacobianFreeNewtonKrylovAlgorithm(
-        krylovalgorithm,
-        atol,
-        rtol,
-        maxiters,
-        autodiff,
-        β,
+struct JacobianFreeNewtonKrylovAlgorithm <: GenericIterativeAlgorithm
+    krylovalgorithm
+    atol
+    rtol
+    maxiters
+    autodiff
+    β
+    function JacobianFreeNewtonKrylovAlgorithm(
+        krylovalgorithm::KrylovAlgorithm;
+        atol::Union{Real, Nothing} = nothing,
+        rtol::Union{Real, Nothing} = nothing,
+        maxiters::Union{Int, Nothing} = nothing,
+        autodiff::Union{Bool, Nothing} = nothing,
+        β::Union{Real, Nothing} = nothing,
     )
+        @checkargs("be positive", arg -> arg > 0, atol, rtol, maxiters, β)
+        @checkargs("be finite", arg -> isfinite(arg), β)
+        return new(krylovalgorithm, atol, rtol, maxiters, autodiff, β)
+    end
 end
 
 struct JaCobIanfrEEneWtONKryLovSoLVeR{ILST, JVPT, AT, FT} <:
@@ -293,7 +285,7 @@ function doiteration!(
     updatejvp!(jvp!, args...)
 
     preconditioner_update!(jvp!, f!, preconditioner, args...)
-    solve!(krylovsolver, ΔQ, jvp!, solver.Δf, args...)
+    krylovsolver(ΔQ, jvp!, solver.Δf, args...)
     preconditioner_counter_update!(preconditioner)
 
     Q .+= ΔQ

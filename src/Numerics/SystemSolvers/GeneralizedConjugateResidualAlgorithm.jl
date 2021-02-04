@@ -2,16 +2,6 @@
 
 export GeneralizedConjugateResidualAlgorithm
 
-struct GeneralizedConjugateResidualAlgorithm <: KrylovAlgorithm
-    preconditioner
-    atol
-    rtol
-    maxrestarts
-    M
-    sarrays
-    groupsize
-end
-
 """
     GeneralizedConjugateResidualAlgorithm(;
         preconditioner::Union{AbstractPreconditioner, Nothing} = nothing,
@@ -23,17 +13,13 @@ end
         groupsize::Union{Int, Nothing} = nothing,
     )
 
-Constructor for a `GeneralizedConjugateResidualAlgorithm`, which solves a linear system
-`f(Q) = rhs`.
+Constructor for a `GeneralizedConjugateResidualAlgorithm`, which solves an
+equation of the form `f(Q) = rhs`, where `f` is assumed to be a linear function
+of `Q`.
 
-This uses the restarted Generalized Conjugate Residual method of Eisenstat (1983),
-an iterative Krylov method. Linear operator `f` may be nonsymmetric but must have
-positive-definite symmetric part `f_s = 1/2 (f + f^T)`. 
-
-The constructor parameter `M` is the number of steps after which the algorithm
-is restarted (if it has not converged), `Q` is a reference state used only
-to allocate the solver internal state. The amount of memory required by the
-solver state is roughly `(2M + 2) * size(Q)`.
+This algorithm uses the restarted Generalized Conjugate Residual method of
+Eisenstat (1983). The linear operator `f` may be nonsymmetric, but it must have
+positive-definite symmetric part `f_s = 1/2 (f + f^T)`.
 
 # Keyword Arguments
 - `preconditioner`: unused; defaults to NoPreconditioner
@@ -49,28 +35,29 @@ solver state is roughly `(2M + 2) * size(Q)`.
 
  - [Eisenstat1983](@cite)
 """
-function GeneralizedConjugateResidualAlgorithm(;
-    preconditioner::Union{AbstractPreconditioner, Nothing} = nothing,
-    atol::Union{Real, Nothing} = nothing,
-    rtol::Union{Real, Nothing} = nothing,
-    maxrestarts::Union{Int, Nothing} = nothing,
-    M::Union{Int, Nothing} = nothing,
-    sarrays::Union{Bool, Nothing} = nothing,
-    groupsize::Union{Int, Nothing} = nothing,
-)
-    @checkargs(
-        "be positive", arg -> arg > 0,
-        atol, rtol, maxrestarts, M, groupsize
+struct GeneralizedConjugateResidualAlgorithm <: KrylovAlgorithm
+    preconditioner
+    atol
+    rtol
+    maxrestarts
+    M
+    sarrays
+    groupsize
+    function GeneralizedConjugateResidualAlgorithm(;
+        preconditioner::Union{AbstractPreconditioner, Nothing} = nothing,
+        atol::Union{Real, Nothing} = nothing,
+        rtol::Union{Real, Nothing} = nothing,
+        maxrestarts::Union{Int, Nothing} = nothing,
+        M::Union{Int, Nothing} = nothing,
+        sarrays::Union{Bool, Nothing} = nothing,
+        groupsize::Union{Int, Nothing} = nothing,
     )
-    return GeneralizedConjugateResidualAlgorithm(
-        preconditioner,
-        atol,
-        rtol,
-        maxrestarts,
-        M,
-        sarrays,
-        groupsize,
-    )
+        @checkargs(
+            "be positive", arg -> arg > 0,
+            atol, rtol, maxrestarts, M, groupsize
+        )
+        return new(preconditioner, atol, rtol, maxrestarts, M, sarrays, groupsize)
+    end
 end
 
 struct GeneralizedConjugateResidualSolver{PT, FT, AT1, AT2, AT3} <: IterativeSolver
@@ -93,7 +80,6 @@ function IterativeSolver(
     Q,
     f!,
     rhs,
-    args...;
 )
     @assert(size(Q) == size(rhs), string(
         "Must solve a square system, Q must have the same dimensions as rhs,",

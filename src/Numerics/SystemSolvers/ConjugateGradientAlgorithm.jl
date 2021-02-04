@@ -2,13 +2,6 @@
 
 export ConjugateGradientAlgorithm
 
-struct ConjugateGradientAlgorithm <: KrylovAlgorithm
-    preconditioner
-    atol
-    rtol
-    maxiters
-end
-
 """
     ConjugateGradientAlgorithm(;
         preconditioner::Union{AbstractPreconditioner, Nothing} = nothing,
@@ -17,8 +10,9 @@ end
         maxiters::Union{Int, Nothing} = nothing,
     )
 
-Constructor for a `ConjugateGradientAlgorithm`, which solvers a symmetric positive-definite
-linear system `f(Q) = rhs`.
+Constructor for a `ConjugateGradientAlgorithm`, which solves an equation of the
+form `f(Q) = rhs`, where `f` is assumed to be a symmetric positive-definite
+linear function of `Q`.
 
 # Keyword Arguments
 - `preconditioner`: unused; defaults to NoPreconditioner
@@ -26,22 +20,23 @@ linear system `f(Q) = rhs`.
 - `rtol`: relative tolerance; defaults to `√eps(eltype(Q))`
 - `maxiters`: maximum number of iterations; defaults to `20`
 """
-function ConjugateGradientAlgorithm(;
-    preconditioner::Union{AbstractPreconditioner, Nothing} = nothing,
-    atol::Union{Real, Nothing} = nothing,
-    rtol::Union{Real, Nothing} = nothing,
-    maxiters::Union{Int, Nothing} = nothing,
-)
-    @checkargs(
-        "be positive", arg -> arg > 0,
-        atol, rtol, maxiters
+struct ConjugateGradientAlgorithm <: KrylovAlgorithm
+    preconditioner
+    atol
+    rtol
+    maxiters
+    function ConjugateGradientAlgorithm(;
+        preconditioner::Union{AbstractPreconditioner, Nothing} = nothing,
+        atol::Union{Real, Nothing} = nothing,
+        rtol::Union{Real, Nothing} = nothing,
+        maxiters::Union{Int, Nothing} = nothing,
     )
-    return ConjugateGradientAlgorithm(
-        preconditioner,
-        atol,
-        rtol,
-        maxiters,
-    )
+        @checkargs(
+            "be positive", arg -> arg > 0,
+            atol, rtol, maxiters
+        )
+        return new(preconditioner, atol, rtol, maxiters)
+    end
 end
 
 struct ConjugateGradientSolver{PT, FT, AT} <: IterativeSolver
@@ -63,7 +58,6 @@ function IterativeSolver(
     Q,
     f!,
     rhs,
-    args...;
 )
     @assert(size(Q) == size(rhs), string(
         "Must solve a square system, Q must have the same dimensions as rhs,",

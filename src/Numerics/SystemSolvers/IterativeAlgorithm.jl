@@ -1,4 +1,5 @@
-export IterativeSolver, solve!
+export IterativeAlgorithm, GenericIterativeAlgorithm,
+    FixedPointIterativeAlgorithm, IterativeSolver
 
 """
     IterativeAlgorithm
@@ -8,11 +9,26 @@ Abstract type for an iterative algorithm.
 abstract type IterativeAlgorithm end
 
 """
+    GenericIterativeAlgorithm
+
+Abstract type for an algorithm that solves equations of the form `f(Q) = rhs`.
+"""
+abstract type GenericIterativeAlgorithm <: IterativeAlgorithm end
+
+"""
+    FixedPointIterativeAlgorithm
+
+Abstract type for an algorithm that solves equations of the form `f(Q) = Q`.
+"""
+abstract type FixedPointIterativeAlgorithm <: IterativeAlgorithm end
+
+"""
     KrylovAlgorithm
 
-Abstract type for a Krylov subspace method.
+Abstract type for an algorithm that uses a Krylov subspace method to solve
+equations of the form `f(Q) = rhs`, where `f` is a linear function of `Q`.
 """
-abstract type KrylovAlgorithm <: IterativeAlgorithm end
+abstract type KrylovAlgorithm <: GenericIterativeAlgorithm end
 
 """
     IterativeSolver
@@ -22,14 +38,13 @@ Abstract type for an iterative solver.
 abstract type IterativeSolver end
 
 """
-    IterativeSolver(algorithm::IterativeAlgorithm, args...)
+    IterativeSolver(algorithm::GenericIterativeAlgorithm, Q, f!, rhs)
+    IterativeSolver(algorithm::FixedPointIterativeAlgorithm, Q, f!)
 
 Constructs the solver associated with `algorithm`.
-
-`args...` specifies the format of the problem to be solved,
-dependent on `algorithm`.
 """
-function IterativeSolver(algorithm::IterativeAlgorithm, args...) end
+function IterativeSolver(algorithm::GenericIterativeAlgorithm, Q, f!, rhs) end
+function IterativeSolver(algorithm::FixedPointIterativeAlgorithm, Q, f!) end
 
 """
     atol(solver::IterativeSolver)
@@ -60,7 +75,7 @@ function maxiters(solver::IterativeSolver) end
         args...,
     )
 
-Returns the norm of the residual, whether the solver converged.
+Returns the norm of the residual and whether the solver has converged.
 
 Uses `threshold` and `iters` to check for convergence by calling
 `check_convergence`.
@@ -110,14 +125,13 @@ function doiteration!(
 ) end
 
 """
-    solve!(solver::IterativeSolver, args...)::Int
+    (solver::IterativeSolver)(args...)::Int
 
-Iteratively solves a (non)linear system equations with a (non)linear `solver`.
+Iteratively solves an equation with `solver`.
 
-`args...` contains the problem to be solved in the format specified by the
-solver algorithm being used. Returns the number of iterations taken by `solver`.
+Returns the number of iterations taken by `solver`.
 """
-function solve!(solver::IterativeSolver, args...)
+function (solver::IterativeSolver)(args...)
     iters = 0
     totaliters = 0
 
@@ -136,8 +150,7 @@ function solve!(solver::IterativeSolver, args...)
     return totaliters
 end
 
-# Function used by solve!() and doiteration!() that checks whether the solver
-# has converged.
+# Function used by solvers to check whether they have converged.
 function check_convergence(residual_norm, threshold, iters)
     isfinite(residual_norm) ||
         error("Norm of residual is not finite on iteration $iters")
@@ -178,13 +191,13 @@ macro checkargs(string, check, args...)
     return block
 end
 
-include("JacobianFreeNewtonKrylovAlgorithm.jl")
-include("StandardPicardAlgorithm.jl")
+include("ConjugateGradientAlgorithm.jl")
+include("GeneralizedConjugateResidualAlgorithm.jl")
 include("GeneralizedMinimalResidualAlgorithm.jl")
 include("BatchedGeneralizedMinimalResidualAlgorithm.jl")
+include("JacobianFreeNewtonKrylovAlgorithm.jl")
+include("StandardPicardAlgorithm.jl")
 include("AccelerationAlgorithm.jl")
-include("GeneralizedConjugateResidualAlgorithm.jl")
-include("ConjugateGradientAlgorithm.jl")
 
 # TODO:
 #   - Make GeneralizedMinimalResidualAlgorithm look more like BatchedGeneralizedMinimalResidualAlgorithm
@@ -212,7 +225,7 @@ include("ConjugateGradientAlgorithm.jl")
 #       - It should be explicitly dealt with in Preconditioners.jl and enable_duals.jl, but BackwardEulerSolvers.jl is included after those files.
 #   - Get a reference for stepsize() computation in JacobianFreeNewtonKrylovSolver
 #   - [DONE] Check whether weighted_norm needs to be passed around everywhere
-#   - Pass α for EulerOperator in args... to solve!()
+#   - Pass α for EulerOperator in args...
 #   - Rename JaCobIanfrEEneWtONKryLovSoLVeR with proper capitalization after removing jacobian_free_newton_krylov_solver.jl
 #   - If we want other linear solvers and preconditioners, we should check out https://arxiv.org/pdf/1607.00351.pdf (may help solve stiffer nonlinear problems)
 #       - "For symmetric systems, conjugate gradient (CG) and MINRES are widely recognized as the best [Krylov] methods. However, the situation is far less clear for nonsymmetric systems."
@@ -234,3 +247,4 @@ include("ConjugateGradientAlgorithm.jl")
 #       - Some solvers (GCR) break in tests when switching to min threshold;
 #           this seems to be when atol and rtol are related to eps(FT), as defaulted.
 #   - Remove comments in IterativeAlgorithm, BackwardEulerSolvers,...
+#   - In NonLinearBackwardEulerSolver change nlsolver to nlalgorithm
