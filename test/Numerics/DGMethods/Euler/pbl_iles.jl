@@ -28,7 +28,9 @@ const param_set = EarthParameterSet()
 using MPI, Logging, StaticArrays, LinearAlgebra, Printf, Dates, Test
 using Random, UnPack
 
-const output_vtk = true
+const output_vtk = false
+
+include("pbl_diagnostics.jl")
 
 function main()
     ClimateMachine.init()
@@ -40,7 +42,8 @@ function main()
     numelem_horz = 12
     numelem_vert = 12
 
-    timeend = 15000
+    #timeend = 15000
+    timeend = 100
     outputtime = 200
 
     FT = Float64
@@ -56,6 +59,7 @@ function main()
         FT,
     )
 end
+
 
 function test_run(
     mpicomm,
@@ -115,6 +119,10 @@ function test_run(
 
     Q = init_ode_state(dg, FT(0); init_on_cpu=true)
 
+    diagnostic_vars = pbl_diagnostic_vars(FT)
+    state_diagnostic = similar(Q;
+                               vars = pbl_diagnostic_vars(FT),
+                               nstate=varsize(diagnostic_vars))
 
     odesolver = LSRK144NiegemannDiehlBusch(dg, Q; dt = dt, t0 = 0)
 
@@ -213,6 +221,13 @@ function test_run(
         timeend = timeend,
         callbacks = callbacks,
     )
+    
+    nodal_diagnostics!(pbl_diagnostics!, diagnostic_vars, 
+                       dg, state_diagnostic, Q)
+    profs = profiles(diagnostic_vars, dg, state_diagnostic)
+    @show profs.θ[:]
+    @show profs.w[:]
+    @show profs.ρ[:]
 
     # final statistics
     engf = norm(Q)
