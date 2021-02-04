@@ -546,12 +546,12 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
         )
 
         if dg.gradient_filter !== nothing
-            wait(device, comp_stream)
-            Filters.apply!(
+            comp_stream = Filters.apply_async!(
                 dg.state_gradient_flux,
                 1:num_state_gradient_flux,
                 dg.grid,
-                dg.gradient_filter,
+                dg.gradient_filter;
+                dependencies = comp_stream
             )
         end
 
@@ -762,15 +762,16 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
     # The synchronization here through a device event prevents CuArray based and
     # other default stream kernels from launching before the work scheduled in
     # this function is finished.
-    wait(device, comp_stream)
     if dg.tendency_filter !== nothing
-        Filters.apply!(
+        comp_stream = Filters.apply!(
             tendency,
             1:num_state_tendency,
             dg.grid,
-            dg.tendency_filter,
+            dg.tendency_filter;
+            dependencies = comp_stream
         )
     end
+    wait(device, comp_stream)
 end
 
 function init_ode_state(
