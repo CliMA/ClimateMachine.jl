@@ -18,6 +18,19 @@ struct HorizontalDirection <: Direction end
 struct VerticalDirection <: Direction end
 Base.in(::T, ::S) where {T <: Direction, S <: Direction} = T == S
 
+"""
+    MinNodalDistance{FT}
+
+A struct containing the minimum nodal distance
+along horizontal and vertical directions.
+"""
+struct MinNodalDistance{FT}
+    "horizontal"
+    h::FT
+    "vertical"
+    v::FT
+end
+
 abstract type AbstractGrid{
     FloatType,
     dim,
@@ -167,6 +180,7 @@ struct DiscontinuousSpectralElementGrid{
     DAI3,
     TOP,
     TVTK,
+    MINΔ,
 } <: AbstractGrid{T, dim, N, Np, DA}
     "mesh topology"
     topology::TOP
@@ -221,6 +235,11 @@ struct DiscontinuousSpectralElementGrid{
     other cases these match `vgeo` values
     """
     x_vtk::TVTK
+
+    """
+    Minimum nodal distances for horizontal and vertical directions
+    """
+    minΔ::MINΔ
 
     # Constructor for a tuple of polynomial orders
     function DiscontinuousSpectralElementGrid(
@@ -312,6 +331,13 @@ struct DiscontinuousSpectralElementGrid{
         TOP = typeof(topology)
         TVTK = typeof(x_vtk)
 
+        FT = FloatType
+        minΔ = MinNodalDistance(
+            min_node_distance(vgeo, topology, N, FT, HorizontalDirection()),
+            min_node_distance(vgeo, topology, N, FT, VerticalDirection()),
+        )
+        MINΔ = typeof(minΔ)
+
         new{
             FloatType,
             dim,
@@ -327,6 +353,7 @@ struct DiscontinuousSpectralElementGrid{
             DAI3,
             TOP,
             TVTK,
+            MINΔ,
         }(
             topology,
             vgeo,
@@ -345,6 +372,7 @@ struct DiscontinuousSpectralElementGrid{
             D,
             Imat,
             x_vtk,
+            minΔ,
         )
     end
 end
@@ -368,32 +396,46 @@ function referencepoints(
 end
 
 """
-    min_node_distance(::DiscontinuousSpectralElementGrid,
-                      direction::Direction=EveryDirection()))
+    min_node_distance(
+        ::DiscontinuousSpectralElementGrid,
+        direction::Direction=EveryDirection())
+    )
 
 Returns an approximation of the minimum node distance in physical space along
 the reference coordinate directions.  The direction controls which reference
 directions are considered.
 """
-function min_node_distance(
-    grid::DiscontinuousSpectralElementGrid{T, dim, N},
+min_node_distance(
+    grid::DiscontinuousSpectralElementGrid,
     direction::Direction = EveryDirection(),
-) where {T, dim, N}
-    topology = grid.topology
-    nrealelem = length(topology.realelems)
+) = min_node_distance(grid.minΔ, direction)
 
+min_node_distance(minΔ::MinNodalDistance, ::VerticalDirection) = minΔ.v
+min_node_distance(minΔ::MinNodalDistance, ::HorizontalDirection) = minΔ.h
+min_node_distance(minΔ::MinNodalDistance, ::EveryDirection) =
+    min(minΔ.h, minΔ.v)
+
+function min_node_distance(
+    vgeo,
+    topology::AbstractTopology{dim},
+    N,
+    ::Type{T},
+    direction::Direction = EveryDirection(),
+) where {T, dim}
+    topology = topology
+    nrealelem = length(topology.realelems)
     if nrealelem > 0
         Nq = N .+ 1
         Np = prod(Nq)
-        device = grid.vgeo isa Array ? CPU() : CUDADevice()
-        min_neighbor_distance = similar(grid.vgeo, Np, nrealelem)
+        device = vgeo isa Array ? CPU() : CUDADevice()
+        min_neighbor_distance = similar(vgeo, Np, nrealelem)
         event = Event(device)
         event = kernel_min_neighbor_distance!(device, min(Np, 1024))(
             Val(N),
             Val(dim),
             direction,
             min_neighbor_distance,
-            grid.vgeo,
+            vgeo,
             topology.realelems;
             ndrange = (Np * nrealelem),
             dependencies = (event,),
