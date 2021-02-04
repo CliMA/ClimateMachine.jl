@@ -109,7 +109,7 @@ Cartesian coordinates and `M = resolutionmetric(g)`, `sqrt(u'*M*u)` is the
 degree-of-freedom density in the direction of `u`.
 """
 function resolutionmetric(g::LocalGeometry)
-    S = g.polyorder * g.invJ / 2
+    S = SDiagonal(g.polyorder) * g.invJ / 2
     S' * S # TODO: return an eigendecomposition / symmetric object?
 end
 
