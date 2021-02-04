@@ -422,7 +422,7 @@ function (dgfvm::DGFVModel)(tendency, state_prognostic, _, t, α, β)
     )
 
     if dgfvm.tendency_filter !== nothing
-        Filters.apply_async!(
+        comp_stream = Filters.apply_async!(
             tendency,
             1:num_state_tendency,
             dgfvm.grid,
