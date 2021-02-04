@@ -418,8 +418,8 @@ Establishing Atmos GCM configuration for %s
     precision               = %s
     horiz polynomial order  = %d
     vert polynomial order   = %d
-    cutofforder_horz        = %s
-    cutofforder_vert        = %s
+    horiz cutoff order      = %s
+    vert cutoff order       = %s
     # horiz elem            = %d
     # vert elems            = %d
     domain height           = %.2e m
