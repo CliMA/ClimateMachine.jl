@@ -763,7 +763,7 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
     # other default stream kernels from launching before the work scheduled in
     # this function is finished.
     if dg.tendency_filter !== nothing
-        comp_stream = Filters.apply!(
+        comp_stream = Filters.apply_async!(
             tendency,
             1:num_state_tendency,
             dg.grid,
