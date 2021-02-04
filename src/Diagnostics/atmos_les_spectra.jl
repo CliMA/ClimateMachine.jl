@@ -85,12 +85,7 @@ function atmos_les_spectra_init(dgngrp, currtime)
         dims = OrderedDict("k" => (wavenumber, Dict()))
         vars = OrderedDict("spectrum" => (("k",), FT, Dict()))
 
-        dprefix = @sprintf(
-            "%s_%s-%s",
-            dgngrp.out_prefix,
-            dgngrp.name,
-            Settings.starttime,
-        )
+        dprefix = @sprintf("%s_%s", dgngrp.out_prefix, dgngrp.name)
         dfilename = joinpath(Settings.output_dir, dprefix)
         init_data(dgngrp.writer, dfilename, dims, vars)
     end

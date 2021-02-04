@@ -82,12 +82,7 @@ function atmos_mass_energy_loss_init(dgngrp, currtime)
         )
 
         # create the output file
-        dprefix = @sprintf(
-            "%s_%s_%s",
-            dgngrp.out_prefix,
-            dgngrp.name,
-            Settings.starttime,
-        )
+        dprefix = @sprintf("%s_%s", dgngrp.out_prefix, dgngrp.name)
         dfilename = joinpath(Settings.output_dir, dprefix)
         init_data(dgngrp.writer, dfilename, dims, vars)
     end
