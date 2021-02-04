@@ -102,7 +102,7 @@ driver_config = ClimateMachine.SingleStackConfiguration(
 t0 = FT(0)
 timeend = FT(10)#FT(60 * 60)
 
-dt = FT(1)
+dt = FT(.001)
 
 solver_config = ClimateMachine.SolverConfiguration(
     t0,
@@ -119,15 +119,15 @@ vdg = DGModel(
     direction = VerticalDirection(),
 )
 
-linearsolver = BatchedGeneralizedMinimalResidual(
-    vdg,
-    Q;
-    max_subspace_size = 30,
-    atol = -1.0,
-    rtol = 1e-9,
-)
-nonlinearsolver =
-    JacobianFreeNewtonKrylovSolver(Q, linearsolver; tol = 1e-9)
+# linearsolver = BatchedGeneralizedMinimalResidual(
+#     vdg,
+#     Q;
+#     max_subspace_size = 30,
+#     atol = -1.0,
+#     rtol = 1e-9,
+# )
+# nonlinearsolver =
+#     JacobianFreeNewtonKrylovSolver(Q, linearsolver; tol = 1e-9)
 
 # nonlinearsolver = JacobianFreeNewtonKrylovAlgorithm(
 #             BatchedGeneralizedMinimalResidualAlgorithm(;
@@ -136,7 +136,7 @@ nonlinearsolver =
 #             );
 #             atol = 1e-9, rtol = 1e-9, autodiff=false)
 
-# nonlinearsolver = StandardPicardAlgorithm(; atol = 1e-9, rtol = 1e-9, maxiters = 1000)
+nonlinearsolver = StandardPicardAlgorithm(; atol = 1e-9, rtol = 1e-9, maxiters = 1000)
 # nonlinearsolver = AndersonAccelerationAlgorithm(
 #             StandardPicardAlgorithm(; atol = 1e-9, rtol = 1e-9, maxiters = 1000);
 #             depth = 1
@@ -198,6 +198,7 @@ push!(dons_arr, dict_of_nodal_states(solver_config; interp = true));
 
 current_profile = dons_arr[2]["soil.water.ϑ_l"][:]
 current_profile = dons_arr[1]["z"][:]
+@save "infiltration_truth.jld2" truedata = dons_arr[2]
 # the_truth_interp_function = #
 # the_truth = the_truth_interp_function(current_z)
 # rmse = sqrt.((the_truth .- current_profile).^2.0)
