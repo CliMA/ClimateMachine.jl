@@ -551,7 +551,7 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
                 1:num_state_gradient_flux,
                 dg.grid,
                 dg.gradient_filter;
-                dependencies = comp_stream
+                dependencies = comp_stream,
             )
         end
 
@@ -768,7 +768,7 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
             1:num_state_tendency,
             dg.grid,
             dg.tendency_filter;
-            dependencies = comp_stream
+            dependencies = comp_stream,
         )
     end
     wait(device, comp_stream)
