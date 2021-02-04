@@ -160,12 +160,23 @@ function main()
     )
 
     # Set up experiment
-    ode_solver_type = ClimateMachine.IMEXSolverType(
-        implicit_model = AtmosAcousticGravityLinearModel,
-        implicit_solver = ManyColumnLU,
+    # ode_solver_type = ClimateMachine.IMEXSolverType(
+    #     implicit_model = AtmosAcousticGravityLinearModel,
+    #     implicit_solver = ManyColumnLU,
+    #     solver_method = ARK2GiraldoKellyConstantinescu,
+    #     split_explicit_implicit = false,
+    #     discrete_splitting = true,
+    # )
+    ode_solver_type = ClimateMachine.HEVISolverType(
+        FT;
         solver_method = ARK2GiraldoKellyConstantinescu,
-        split_explicit_implicit = false,
-        discrete_splitting = true,
+        linear_max_subspace_size = 20,
+        linear_atol = FT(1e-4),
+        linear_rtol = FT(1e-2),
+        nonlinear_max_iterations = 10,
+        nonlinear_rtol = FT(1e-1),
+        nonlinear_ϵ = FT(1.e-4),
+        preconditioner_update_freq = -1,
     )
     CFL = FT(0.4)
     solver_config = ClimateMachine.SolverConfiguration(

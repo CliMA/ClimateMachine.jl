@@ -60,6 +60,7 @@ mutable struct ColumnwiseLUPreconditioner{AT} <: AbstractPreconditioner
     A::DGColumnBandedMatrix
     Q::AT
     PQ::AT
+    linear_dg::Any
     counter::Int
     update_freq::Int
 end
@@ -112,7 +113,7 @@ function preconditioner_update!(
     Q = preconditioner.Q
     PQ = preconditioner.PQ
 
-    update_banded_matrix!(A, op, dg, Q, PQ, args...)
+    update_banded_matrix!(A, preconditioner.linear_dg, dg, Q, PQ, args...)
     band_lu!(A)
 
     preconditioner.counter = 0

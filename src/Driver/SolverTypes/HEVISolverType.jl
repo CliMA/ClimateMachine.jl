@@ -63,6 +63,7 @@ struct HEVISolverType{FT} <: AbstractSolverType
     nonlinear_rtol::FT
     nonlinear_ϵ::FT
 
+    analytic_jacobian_model::Any
     preconditioner_update_freq::Int
 
     function HEVISolverType(
@@ -73,7 +74,8 @@ struct HEVISolverType{FT} <: AbstractSolverType
         linear_rtol = FT(5e-5),
         nonlinear_max_iterations = Int(10),
         nonlinear_rtol = FT(1e-4),
-        nonlinear_ϵ = FT(1.e-10),
+        nonlinear_ϵ = FT(1.e-2),
+        analytic_jacobian_model = AtmosAcousticGravityLinearModel,
         preconditioner_update_freq = Int(50),
     )
 
@@ -85,6 +87,7 @@ struct HEVISolverType{FT} <: AbstractSolverType
             nonlinear_max_iterations,
             nonlinear_rtol,
             nonlinear_ϵ,
+            analytic_jacobian_model,
             preconditioner_update_freq,
         )
     end
@@ -98,7 +101,7 @@ with the most restrictive time-stepping requirements.
 """
 function getdtmodel(ode_solver::HEVISolverType, bl)
     # Most restrictive dynamics are treated implicitly
-    return bl
+    return ode_solver.analytic_jacobian_model
 end
 
 """
@@ -133,11 +136,21 @@ function solversetup(
     diffusion_direction,
 )
 
-
     # All we need to do is create a DGModel for the
     # vertical acoustic waves (determined from the `implicit_model`)
     vdg = DGModel(
         dg.balance_law,
+        dg.grid,
+        dg.numerical_flux_first_order,
+        dg.numerical_flux_second_order,
+        dg.numerical_flux_gradient;
+        state_auxiliary = dg.state_auxiliary,
+        direction = VerticalDirection(),
+        diffusion_direction = VerticalDirection(),
+    )
+
+    analytic_jacobian_dg = DGModel(
+        ode_solver.analytic_jacobian_model,
         dg.grid,
         dg.numerical_flux_first_order,
         dg.numerical_flux_second_order,
@@ -155,6 +168,12 @@ function solversetup(
         atol = ode_solver.linear_atol,
         rtol = ode_solver.linear_rtol,
     )
+    # linearsolver = GeneralizedMinimalResidual(
+    #     Q;
+    #     M = ode_solver.linear_max_subspace_size,
+    #     atol = ode_solver.linear_atol,
+    #     rtol = ode_solver.linear_rtol,
+    # )
 
     # N(q)(Q) = Qhat  => F(Q) = N(q)(Q) - Qhat
     # 
@@ -182,6 +201,7 @@ function solversetup(
         NonLinearBackwardEulerSolver(
             nonlinearsolver;
             isadjustable = true,
+            preconditioner_dg_operator = analytic_jacobian_dg,
             preconditioner_update_freq = ode_solver.preconditioner_update_freq,
         ),
         Q;
@@ -190,7 +210,6 @@ function solversetup(
         split_explicit_implicit = false,
         variant = NaiveVariant(),
     )
-
 
     return solver
 end

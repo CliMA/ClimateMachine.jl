@@ -124,7 +124,7 @@ function nonlinearsolve!(
         # dF/dQ(Q^n) ΔQ ≈ jvp!(ΔQ;  Q^n, F(Q^n)), update Q^n in jvp!
         update_Q!(jvp!, Q, args...)
 
-        # update preconditioner based on finite difference, with jvp!
+        # update preconditioner
         preconditioner_update!(jvp!, rhs!.f!, preconditioner, args...)
 
         # do newton iteration with Q^{n+1} = Q^{n} - dF/dQ(Q^n)⁻¹ (rhs!(Q) - Qrhs)
@@ -244,7 +244,7 @@ function linearsolve!(
     Q,
     Qrhs,
     args...;
-    max_iters = length(Q),
+    max_iters = 50,
     cvg = Ref{Bool}(),
 )
     converged = false
