@@ -350,7 +350,7 @@ function scprintref(cb)
         s5 = sprintf1(fmt3, s5′)
         s6 = sprintf1(fmt3, s6′)
         srow = (s3, s4, s5, s6)
-        println(io, " [ ", s1, ", ", s2, join(srow, ","), " ],")
+        println(io, " [ ", s1, ", ", s2, ", ", join(srow, ","), " ],")
     end
     println(io, "]")
 
