@@ -81,7 +81,8 @@ you can query the list of arguments understood, for example:
 $ julia --project experiments/AtmosGCM/heldsuarez.jl --help
 usage: experiments/AtmosGCM/heldsuarez.jl [--disable-gpu]
                         [--show-updates <interval>]
-                        [--diagnostics <interval>] [--vtk <interval>]
+                        [--diagnostics <interval>] [--no-overwrite]
+                        [--vtk <interval>]
                         [--vtk-number-sample-points <number>]
                         [--monitor-timestep-duration <interval>]
                         [--monitor-courant-numbers <interval>]
@@ -95,6 +96,12 @@ usage: experiments/AtmosGCM/heldsuarez.jl [--disable-gpu]
                         [--debug-init] [--integration-testing]
                         [--sim-time <number>]
                         [--fixed-number-of-steps <number>]
+                        [--degree <horizontal>,<vertical>]
+                        [--nelems <nelem_1>[,<nelem_2>[,<nelem_3>]]]
+                        [--domain-height <number>]
+                        [--resolution <Δx>,<Δy>,<Δz>]
+                        [--domain-min <xmin>,<ymin>,<zmin>]
+                        [--domain-max <xmax>,<ymax>,<zmax>]
                         [--number-of-tracers <number>] [-h]
 
 Climate Machine: an Earth System Model that automatically learns from data
@@ -113,6 +120,8 @@ ClimateMachine:
   --diagnostics <interval>
                         interval at which to collect diagnostics
                         (default: "never")
+  --no-overwrite        throw an error if an output file would be
+                        overwritten
   --vtk <interval>      interval at which to output VTK (default:
                         "never")
   --vtk-number-sample-points <number>
@@ -127,8 +136,7 @@ ClimateMachine:
                         advective, and diffusive Courant numbers
                         (default: "never")
   --adapt-timestep <interval>
-                        interval at which to adjust timestep to correspond
-                        to desired courant number
+                        interval at which to update the timestep
                         (default: "never")
   --checkpoint <interval>
                         interval at which to create a checkpoint
@@ -160,6 +168,39 @@ ClimateMachine:
   --fixed-number-of-steps <number>
                         if `≥0` perform specified number of steps
                         (type: Int64, default: -1)
+  --degree <horizontal>,<vertical>
+                        tuple of horizontal and vertical polynomial
+                        degrees for spatial discretization order (no
+                        space before/after comma) (type:
+                        Tuple{Int64,Int64}, default: (-1, -1))
+  --nelems <nelem_1>[,<nelem_2>[,<nelem_3>]]
+                        number of elements in each direction: 3 for
+                        Ocean GCM, 2 for Atmos GCM or 1 for Atmos
+                        single-stack (no space before/after comma)
+                        (type: Tuple{Int64,Int64,Int64}, default: (-1,
+                        -1, -1))
+  --domain-height <number>
+                        domain height (in meters) for GCM or
+                        single-stack configurations (type: Float64,
+                        default: -1.0)
+  --resolution <Δx>,<Δy>,<Δz>
+                        tuple of three element resolutions (in meters)
+                        for LES and MultiColumnLandModel
+                        configurations (type:
+                        Tuple{Float64,Float64,Float64}, default:
+                        (-1.0, -1.0, -1.0))
+  --domain-min <xmin>,<ymin>,<zmin>
+                        tuple of three minima for the domain size (in
+                        meters) for LES and MultiColumnLandModel
+                        configurations (type:
+                        Tuple{Float64,Float64,Float64}, default:
+                        (-1.0, -1.0, -1.0))
+  --domain-max <xmax>,<ymax>,<zmax>
+                        tuple of three maxima for the domain size (in
+                        meters) for LES and MultiColumnLandModel
+                        configurations (type:
+                        Tuple{Float64,Float64,Float64}, default:
+                        (-1.0, -1.0, -1.0))
 
 Any <interval> unless otherwise stated may be specified as:
     - 2hours or 10mins or 30secs => wall-clock time

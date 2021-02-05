@@ -156,7 +156,7 @@ function main()
     outdir = mktempdir()
     currtime = ODESolvers.gettime(solver)
     starttime = replace(string(now()), ":" => ".")
-    Diagnostics.init(mpicomm, param_set, dg, Q, starttime, outdir)
+    Diagnostics.init(mpicomm, param_set, dg, Q, starttime, outdir, false)
     GenericCallbacks.init!(
         dgn_config.groups[1],
         nothing,

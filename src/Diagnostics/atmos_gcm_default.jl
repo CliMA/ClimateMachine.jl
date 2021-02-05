@@ -280,8 +280,8 @@ function atmos_gcm_default_init(dgngrp::DiagnosticsGroup, currtime)
         # create the output file
         dprefix = @sprintf("%s_%s", dgngrp.out_prefix, dgngrp.name)
         dfilename = joinpath(Settings.output_dir, dprefix)
-
-        init_data(dgngrp.writer, dfilename, dims, vars)
+        noov = Settings.no_overwrite
+        init_data(dgngrp.writer, dfilename, noov, dims, vars)
     end
 
     return nothing

@@ -57,6 +57,7 @@ Base.@kwdef mutable struct ClimateMachine_Settings
     disable_gpu::Bool = false
     show_updates::String = "60secs"
     diagnostics::String = "never"
+    no_overwrite::Bool = false
     vtk::String = "never"
     vtk_number_sample_points::Int = 0
     monitor_timestep_duration::String = "never"
@@ -204,6 +205,11 @@ function parse_commandline(
         metavar = "<interval>"
         arg_type = String
         default = get_setting(:diagnostics, defaults, global_defaults)
+        "--no-overwrite"
+        help = "throw an error if an output file would be overwritten"
+        action = :store_const
+        constant = true
+        default = get_setting(:no_overwrite, defaults, global_defaults)
         "--vtk"
         help = "interval at which to output VTK"
         metavar = "<interval>"
@@ -370,6 +376,8 @@ Recognized keyword arguments are:
         interval at which to show simulation updates
 - `diagnostics::String = "never"`:
         interval at which to collect diagnostics"
+- `no_overwrite::Bool = false`:
+        throw an error if an output file would be overwritten
 - `vtk::String = "never"`:
         interval at which to write simulation vtk output
 - `vtk-number-sample-points::Int` = 0:
@@ -676,6 +684,7 @@ function invoke!(
             Q,
             dgn_starttime,
             Settings.output_dir,
+            Settings.no_overwrite,
         )
 
         dgncbs = Callbacks.diagnostics(

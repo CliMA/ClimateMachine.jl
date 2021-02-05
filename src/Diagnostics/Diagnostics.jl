@@ -49,6 +49,7 @@ Base.@kwdef mutable struct Diagnostic_Settings
     Q::Union{Nothing, MPIStateArray} = nothing
     starttime::Union{Nothing, String} = nothing
     output_dir::Union{Nothing, String} = nothing
+    no_overwrite::Bool = false
 end
 const Settings = Diagnostic_Settings()
 
@@ -65,6 +66,7 @@ function init(
     Q::MPIStateArray,
     starttime::String,
     output_dir::String,
+    no_overwrite::Bool,
 )
     Settings.mpicomm = mpicomm
     Settings.param_set = param_set
@@ -72,6 +74,7 @@ function init(
     Settings.Q = Q
     Settings.starttime = starttime
     Settings.output_dir = output_dir
+    Settings.no_overwrite = no_overwrite
 end
 
 include("variables.jl")
