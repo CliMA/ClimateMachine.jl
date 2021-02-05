@@ -24,13 +24,23 @@ eq_tends(pv::PrognosticVariable, m::AtmosModel, tt::Source) =
 ##### First order fluxes
 #####
 
-# Mass
-eq_tends(pv::PV, ::AtmosModel, ::Flux{FirstOrder}) where {PV <: Mass} =
+eq_tends(pv::PV, ::Anelastic1D, ::Flux{FirstOrder}) where {PV <: Mass} = ()
+
+eq_tends(pv::PV, ::Compressible, ::Flux{FirstOrder}) where {PV <: Mass} =
     (Advect{PV}(),)
 
+# Mass
+eq_tends(pv::PV, atmos::AtmosModel, tt::Flux{FirstOrder}) where {PV <: Mass} =
+    (eq_tends(pv, atmos.compressibility, tt))
+
 # Momentum
-eq_tends(pv::PV, m::AtmosModel, ::Flux{FirstOrder}) where {PV <: Momentum} =
-    (Advect{PV}(), PressureGradient{PV}())
+eq_tends(pv::PV, ::Compressible, ::Flux{FirstOrder}) where {PV <: Momentum} =
+    (PressureGradient{PV}(),)
+
+eq_tends(pv::PV, ::Anelastic1D, ::Flux{FirstOrder}) where {PV <: Momentum} = ()
+
+eq_tends(pv::PV, m::AtmosModel, tt::Flux{FirstOrder}) where {PV <: Momentum} =
+    (Advect{PV}(), eq_tends(pv, m.compressibility, tt)...)
 
 # Energy
 eq_tends(pv::PV, m::EnergyModel, tt::Flux{FirstOrder}) where {PV <: Energy} =

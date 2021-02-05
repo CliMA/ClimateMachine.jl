@@ -26,6 +26,13 @@ ClimateMachine.BalanceLaws.source!(m::AtmosModel, source::Vars, state::Vars, dif
 ClimateMachine.BalanceLaws.init_state_prognostic!(m::AtmosModel, state::Vars, aux::Vars, localgeo, t, args...)
 ```
 
+## Compressibility
+
+```@docs
+ClimateMachine.Atmos.Compressible
+ClimateMachine.Atmos.Anelastic1D
+```
+
 ## Reference states
 
 ```@docs

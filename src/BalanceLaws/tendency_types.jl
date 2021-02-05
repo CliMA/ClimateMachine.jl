@@ -121,6 +121,14 @@ corresponding to the column-vector `Yᵢ` in:
 prognostic_vars(::BalanceLaw) = ()
 
 """
+    projection(bl::BalanceLaw, ::TendencyDef, x)
+
+Provide a hook to project individual tendencies.
+Return identity by defualt
+"""
+projection(bl::BalanceLaw, ::TendencyDef, x) = x
+
+"""
     sources(bl::BalanceLaw)
 
 A tuple of `TendencyDef{Source}`s

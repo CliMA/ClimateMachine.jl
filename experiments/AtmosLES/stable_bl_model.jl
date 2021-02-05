@@ -189,6 +189,7 @@ function stable_bl_model(
     surface_flux;
     turbulence = ConstantKinematicViscosity(FT(0)),
     turbconv = NoTurbConv(),
+    compressibility = Compressible(),
     moisture_model = "dry",
 ) where {FT}
 
@@ -208,9 +209,11 @@ function stable_bl_model(
 
     q_sfc = FT(0)
 
+    g = compressibility isa Compressible ? (Gravity(),) : ()
+
     # Assemble source components
     source_default = (
-        Gravity(),
+        g...,
         StableBLSponge(
             FT,
             zmax,
@@ -321,6 +324,7 @@ function stable_bl_model(
         moisture = moisture,
         source = source,
         turbconv = turbconv,
+        compressibility = compressibility,
     )
 
     return model

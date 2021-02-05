@@ -12,8 +12,41 @@ the `aux` state.
     This method calls the iterative saturation adjustment
     procedure for EquilMoist models.
 """
+function new_thermo_state end
+
+# First dispatch on compressibility
 new_thermo_state(atmos::AtmosModel, state::Vars, aux::Vars) =
-    new_thermo_state(atmos, atmos.energy, atmos.moisture, state, aux)
+    new_thermo_state(atmos.compressibility, atmos, state, aux)
+
+new_thermo_state(::Compressible, atmos::AtmosModel, state::Vars, aux::Vars) =
+    new_thermo_state(atmos, state, aux)
+new_thermo_state(::Anelastic1D, atmos::AtmosModel, state::Vars, aux::Vars) =
+    new_thermo_state_anelastic(atmos, state, aux)
+
+"""
+    recover_thermo_state(atmos::AtmosModel, state::Vars, aux::Vars)
+
+An atmospheric thermodynamic state.
+
+!!! warn
+    For now, we are directly calling new_thermo_state to avoid
+    inconsistent aux states in kernels where the aux states are
+    out of sync with the boundary state.
+
+# TODO: Define/call `recover_thermo_state` when it's safely implemented
+  (see https://github.com/CliMA/ClimateMachine.jl/issues/1648)
+"""
+function recover_thermo_state end
+
+# First dispatch on compressibility
+recover_thermo_state(atmos::AtmosModel, state::Vars, aux::Vars) =
+    new_thermo_state(atmos.compressibility, atmos, state, aux)
+
+recover_thermo_state(::Compressible, atmos::AtmosModel, state::Vars, aux::Vars) =
+    new_thermo_state(atmos, state, aux)
+
+recover_thermo_state(::Anelastic1D, atmos::AtmosModel, state::Vars, aux::Vars) =
+    new_thermo_state_anelastic(atmos, state, aux)
 
 function new_thermo_state(
     atmos::AtmosModel,
@@ -116,19 +149,3 @@ function new_thermo_state(
         q,
     )
 end
-
-"""
-    recover_thermo_state(atmos::AtmosModel, state::Vars, aux::Vars)
-
-An atmospheric thermodynamic state.
-
-!!! warn
-    For now, we are directly calling new_thermo_state to avoid
-    inconsistent aux states in kernels where the aux states are
-    out of sync with the boundary state.
-
-# TODO: Define/call `recover_thermo_state` when it's safely implemented
-  (see https://github.com/CliMA/ClimateMachine.jl/issues/1648)
-"""
-recover_thermo_state(atmos::AtmosModel, state::Vars, aux::Vars) =
-    new_thermo_state(atmos, atmos.energy, atmos.moisture, state, aux)

@@ -36,10 +36,11 @@ Sum of the fluxes where
 """
 function Σfluxes(
     fluxes::NTuple{N, TendencyDef{Flux{O}, PV}},
-    args...,
+    bl,
+    args,
 ) where {N, PV, O}
     return ntuple_sum(ntuple(Val(N)) do i
-        flux(fluxes[i], args...)
+        projection(bl, fluxes[i], flux(fluxes[i], bl, args))
     end)
 end
 Σfluxes(fluxes::Tuple{}, args...) = 0
@@ -52,10 +53,13 @@ Sum of the sources where
 """
 function Σsources(
     sources::NTuple{N, TendencyDef{Source, PV}},
-    args...,
+    bl,
+    args,
 ) where {N, PV}
-    return ntuple_sum(ntuple(Val(N)) do i
-        source(sources[i], args...)
-    end)
+    return ntuple_sum(
+        ntuple(Val(N)) do i
+            projection(bl, sources[i], source(sources[i], bl, args))
+        end,
+    )
 end
 Σsources(sources::Tuple{}, args...) = 0
