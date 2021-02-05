@@ -293,7 +293,7 @@ function main()
     ## For full simulation set `timeend = 1000`
 
     ## Use up to 1.7 if ode_solver is the single rate LSRK144.
-    CFL = FT(1.7)
+    CFL = FT(1.4)
 
     ## Assign configurations so they can be passed to the `invoke!` function
     driver_config = config_risingbubble(FT, N, resolution, xmax, ymax, zmax)

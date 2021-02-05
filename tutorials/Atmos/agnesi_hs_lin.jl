@@ -146,7 +146,7 @@ function init_agnesi_hs_lin!(problem, bl, state, aux, localgeo, t)
     ts = PhaseDry(bl.param_set, e_int, ρ)
 
     ## initial velocity
-    u = FT(20.0)
+    u = FT(0.0)
 
     ## State (prognostic) variable assignment
     e_kin = FT(0)                                       # kinetic energy
@@ -275,9 +275,9 @@ function main()
     N = 4
 
     ## Define the domain size and spatial resolution
-    Nx = 20
-    Ny = 20
-    Nz = 20
+    Nx = 50
+    Ny = 50
+    Nz = 50
     xmax = FT(244000)
     ymax = FT(4000)
     zmax = FT(50000)
@@ -287,11 +287,11 @@ function main()
     resolution = (Δx, Δy, Δz)
 
     t0 = FT(0)
-    timeend = FT(150) #FT(hrs * 60 * 60)
+    timeend = FT(86400*100) #FT(hrs * 60 * 60)
 
     ## Define the max Courant for the time time integrator (ode_solver).
     ## The default value is 1.7 for LSRK144:
-    CFL = FT(1.5)
+    CFL = FT(1.2)
 
     ## Assign configurations so they can be passed to the `invoke!` function
     driver_config = config_agnesi_hs_lin(FT, N, resolution, xmax, ymax, zmax)
