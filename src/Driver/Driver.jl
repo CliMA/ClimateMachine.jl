@@ -57,6 +57,7 @@ Base.@kwdef mutable struct ClimateMachine_Settings
     disable_gpu::Bool = false
     show_updates::String = "60secs"
     diagnostics::String = "never"
+    no_overwrite::Bool = false
     vtk::String = "never"
     vtk_number_sample_points::Int = 0
     monitor_timestep_duration::String = "never"
@@ -204,6 +205,11 @@ function parse_commandline(
         metavar = "<interval>"
         arg_type = String
         default = get_setting(:diagnostics, defaults, global_defaults)
+        "--no-overwrite"
+        help = "throw an error if an output file would be overwritten"
+        action = :store_const
+        constant = true
+        default = get_setting(:no_overwrite, defaults, global_defaults)
         "--vtk"
         help = "interval at which to output VTK"
         metavar = "<interval>"
@@ -370,6 +376,8 @@ Recognized keyword arguments are:
         interval at which to show simulation updates
 - `diagnostics::String = "never"`:
         interval at which to collect diagnostics"
+- `no_overwrite::Bool = false`:
+        throw an error if an output file would be overwritten
 - `vtk::String = "never"`:
         interval at which to write simulation vtk output
 - `vtk-number-sample-points::Int` = 0:
@@ -540,17 +548,6 @@ function init_runtime(settings::ClimateMachine_Settings)
         end
     end
 
-    # create the output directory if needed on delegated rank
-    if MPI.Comm_rank(MPI.COMM_WORLD) == 0
-        if settings.diagnostics != "never" || settings.vtk != "never"
-            mkpath(settings.output_dir)
-        end
-        if settings.checkpoint != "never" || settings.checkpoint_at_end
-            mkpath(settings.checkpoint_dir)
-        end
-    end
-    MPI.Barrier(MPI.COMM_WORLD)
-
     # TODO: write a better MPI logging back-end and also integrate Dlog
     # for large scale
 
@@ -653,6 +650,17 @@ function invoke!(
     init_args = solver_config.init_args
     solver = solver_config.solver
 
+    # create the output directories if needed on delegated rank
+    if MPI.Comm_rank(MPI.COMM_WORLD) == 0
+        if Settings.diagnostics != "never" || Settings.vtk != "never"
+            mkpath(Settings.output_dir)
+        end
+        if Settings.checkpoint != "never" || Settings.checkpoint_at_end
+            mkpath(Settings.checkpoint_dir)
+        end
+    end
+    MPI.Barrier(MPI.COMM_WORLD)
+
     # set up callbacks
     callbacks = ()
 
@@ -676,6 +684,7 @@ function invoke!(
             Q,
             dgn_starttime,
             Settings.output_dir,
+            Settings.no_overwrite,
         )
 
         dgncbs = Callbacks.diagnostics(
