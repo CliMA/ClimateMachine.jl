@@ -98,7 +98,8 @@ using ClimateMachine.VariableTemplates
 #   ([CLIMAParameters](https://github.com/CliMA/CLIMAParameters.jl)
 #   specific to this problem include the gas constant, specific heats,
 #   mean-sea-level pressure, gravity and the Smagorinsky coefficient)
-
+using ClimateMachine.Mesh.Grids
+using ClimateMachine.Mesh.Geometry
 # In ClimateMachine we use `StaticArrays` for our variable arrays.
 using StaticArrays
 # We also use the `Test` package to help with unit tests and continuous
@@ -176,7 +177,8 @@ function init_densitycurrent!(problem, bl, state, aux, localgeo, t)
     ## Assign State Variables
     state.ρ = ρ
     state.ρu = ρu
-    state.energy.ρe = ρe_tot
+    #state.energy.ρe = ρe_tot
+    state.energy.ρθ_liq_ice = ρ * θ
 end
 
 # ## [Model Configuration](@id config-helper)
@@ -220,8 +222,9 @@ function config_densitycurrent(
         param_set;                                      # Parameter set corresponding to earth parameters
         init_state_prognostic = init_densitycurrent!,   # Apply the initial condition
         ref_state = ref_state,                          # Reference state
-        turbulence = Vreman(_C_smag),                   # Turbulence closure model
+        turbulence = ConstantDynamicViscosity(FT(75)),#Vreman(_C_smag),                   # Turbulence closure model
         moisture = DryModel(),                          # Exclude moisture variables
+	energy = θModel(),
         source = (Gravity(),),                          # Gravity is the only source term here
         tracers = NoTracers(),                          # Tracer model with diffusivity coefficients
     )
@@ -239,7 +242,7 @@ function config_densitycurrent(
         init_densitycurrent!,     # Function specifying initial condition
         solver_type = ode_solver, # Time-integrator type
         model = model,            # Model type
-        periodicity = (false, false, false),
+        periodicity = (false, true, false),
         boundary = ((1, 1), (1, 1), (1, 1)),   # Set all boundaries to solid walls
     )
     return config
@@ -265,14 +268,14 @@ function main()
     N = 4
     Δx = FT(100)
     Δy = FT(250)
-    Δv = FT(100)
+    Δv = FT(10)
     resolution = (Δx, Δy, Δv)
     xmax = FT(25600)
     ymax = FT(1000)
     zmax = FT(6400)
     t0 = FT(0)
-    timeend = FT(100)
-    CFL = FT(1.5)
+    timeend = FT(3000)
+    CFL = FT(0.2)
 
     ## Assign configurations so they can be passed to the `invoke!` function
     driver_config = config_densitycurrent(FT, N, resolution, xmax, ymax, zmax)
@@ -282,6 +285,7 @@ function main()
         driver_config,
         init_on_cpu = true,
         Courant_number = CFL,
+	CFL_direction = HorizontalDirection(),
     )
 
     ## Invoke solver (calls `solve!` function for time-integrator), pass the driver, solver and diagnostic config

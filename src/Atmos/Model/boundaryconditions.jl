@@ -31,7 +31,7 @@ export average_density_sfc_int
 The standard boundary condition for [`AtmosModel`](@ref). The default options imply a "no flux" boundary condition.
 """
 Base.@kwdef struct AtmosBC{M, E, Q, P, TR, TC}
-    momentum::M = Impenetrable(FreeSlip())
+    momentum::M = Impenetrable(NoSlip())#FreeSlip())
     energy::E = Insulating()
     moisture::Q = Impermeable()
     precipitation::P = OutflowPrecipitation()

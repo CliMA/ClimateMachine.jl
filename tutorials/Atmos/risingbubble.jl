@@ -76,7 +76,8 @@ using ClimateMachine.TemperatureProfiles
 using ClimateMachine.Thermodynamics
 using ClimateMachine.TurbulenceClosures
 using ClimateMachine.VariableTemplates
-
+using ClimateMachine.Mesh.Grids
+using ClimateMachine.Mesh.Geometry
 # In ClimateMachine we use `StaticArrays` for our variable arrays.
 # We also use the `Test` package to help with unit tests and continuous
 # integration systems to design sensible tests for our experiment to ensure new
@@ -168,7 +169,8 @@ function init_risingbubble!(problem, bl, state, aux, localgeo, t)
     ## Assign State Variables
     state.ρ = ρ
     state.ρu = ρu
-    state.energy.ρe = ρe_tot
+    #state.energy.ρe = ρe_tot
+    state.energy.ρθ_liq_ice = ρ * θ
     state.tracers.ρχ = ρχ
 end
 
@@ -230,7 +232,8 @@ function config_risingbubble(
         init_state_prognostic = init_risingbubble!,    ## Apply the initial condition
         ref_state = ref_state,                         ## Reference state
         turbulence = SmagorinskyLilly(_C_smag),        ## Turbulence closure model
-        moisture = DryModel(),                         ## Exclude moisture variables
+		energy = θModel(),        
+	moisture = DryModel(),                         ## Exclude moisture variables
         source = (Gravity(),),                         ## Gravity is the only source term here
         tracers = NTracers{ntracers, FT}(δ_χ),         ## Tracer model with diffusivity coefficients
     )
@@ -246,7 +249,7 @@ function config_risingbubble(
         zmax,                    ## Domain maximum size [m]
         param_set,               ## Parameter set.
         init_risingbubble!,      ## Function specifying initial condition
-        solver_type = ode_solver,## Time-integrator type
+        #solver_type = ode_solver,## Time-integrator type
         model = model,           ## Model type
     )
     return config
@@ -283,7 +286,7 @@ function main()
     ## initialization step.)
     N = 4
     Δh = FT(125)
-    Δv = FT(125)
+    Δv = FT(1)
     resolution = (Δh, Δh, Δv)
     xmax = FT(10000)
     ymax = FT(500)
@@ -293,7 +296,7 @@ function main()
     ## For full simulation set `timeend = 1000`
 
     ## Use up to 1.7 if ode_solver is the single rate LSRK144.
-    CFL = FT(1.7)
+    CFL = FT(0.25)
 
     ## Assign configurations so they can be passed to the `invoke!` function
     driver_config = config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
@@ -303,6 +306,7 @@ function main()
         driver_config,
         init_on_cpu = true,
         Courant_number = CFL,
+	CFL_direction = HorizontalDirection(),
     )
     dgn_config = config_diagnostics(driver_config)
 
