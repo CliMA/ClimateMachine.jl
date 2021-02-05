@@ -32,9 +32,9 @@ version = "3.0.1"
 
 [[ArrayLayouts]]
 deps = ["Compat", "FillArrays", "LinearAlgebra", "SparseArrays"]
-git-tree-sha1 = "a577e27915fdcb3f6b96118b56655b38e3b466f2"
+git-tree-sha1 = "6cf53c7df97fa6271d526a229b36ac1ca9afaa6d"
 uuid = "4c555306-a7a7-4459-81d9-ec55ddd5c99a"
-version = "0.4.12"
+version = "0.5.3"
 
 [[Artifacts]]
 deps = ["Pkg"]
@@ -271,9 +271,9 @@ version = "1.4.5"
 
 [[FillArrays]]
 deps = ["LinearAlgebra", "Random", "SparseArrays"]
-git-tree-sha1 = "ff537e5a3cba92fb48f30fec46723510450f2c0e"
+git-tree-sha1 = "50eabdace27aa27b143f65b65e762bb0112a7708"
 uuid = "1a297f60-69ca-5386-bcde-b61e274b549b"
-version = "0.10.2"
+version = "0.11.1"
 
 [[FiniteDiff]]
 deps = ["ArrayInterface", "LinearAlgebra", "Requires", "SparseArrays", "StaticArrays"]
@@ -441,9 +441,9 @@ version = "0.4.5"
 
 [[LazyArrays]]
 deps = ["ArrayLayouts", "FillArrays", "LinearAlgebra", "MacroTools", "MatrixFactorizations", "SparseArrays", "StaticArrays"]
-git-tree-sha1 = "62b5b31a3c89d7c673b9f2eb1119084ad3420dc7"
+git-tree-sha1 = "0154cc94b9ef377febe09cfe0e472122b660bc23"
 uuid = "5078a376-72f3-5289-bfd5-ec5146d43c02"
-version = "0.19.4"
+version = "0.20.4"
 
 [[LibCURL_jll]]
 deps = ["LibSSH2_jll", "Libdl", "MbedTLS_jll", "Pkg", "Zlib_jll", "nghttp2_jll"]
@@ -537,9 +537,9 @@ uuid = "d6f4376e-aef5-505a-96c1-9c027394607a"
 
 [[MatrixFactorizations]]
 deps = ["ArrayLayouts", "LinearAlgebra", "Printf", "Random"]
-git-tree-sha1 = "16ee15b188575b666a9b3c91b26942e9227890b0"
+git-tree-sha1 = "9910fd416f497a3c50a44ae9eef9e0dd0d105b7a"
 uuid = "a3b82374-2e81-5b9e-98ce-41277c0e4c87"
-version = "0.7.1"
+version = "0.8.0"
 
 [[MbedTLS]]
 deps = ["Dates", "MbedTLS_jll", "Random", "Sockets"]
