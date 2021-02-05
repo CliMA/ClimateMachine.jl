@@ -73,7 +73,7 @@ import ..BalanceLaws:
     reverse_integral_set_auxiliary_state!
 
 import ClimateMachine.DGMethods:
-    LocalGeometry, lengthscale, resolutionmetric, DGModel
+    LocalGeometry, lengthscale, resolutionmetric, SpaceDiscretization, DGModel
 
 import ..DGMethods.NumericalFluxes:
     boundary_state!,
@@ -699,21 +699,21 @@ end
 
 
 function update_auxiliary_state!(
-    dg::DGModel,
+    spacedisc::SpaceDiscretization,
     m::AtmosModel,
     Q::MPIStateArray,
     t::Real,
     elems::UnitRange,
 )
     FT = eltype(Q)
-    state_auxiliary = dg.state_auxiliary
+    state_auxiliary = spacedisc.state_auxiliary
 
     if number_states(m, UpwardIntegrals()) > 0
-        indefinite_stack_integral!(dg, m, Q, state_auxiliary, t, elems)
-        reverse_indefinite_stack_integral!(dg, m, Q, state_auxiliary, t, elems)
+        indefinite_stack_integral!(spacedisc, m, Q, state_auxiliary, t, elems)
+        reverse_indefinite_stack_integral!(spacedisc, m, Q, state_auxiliary, t, elems)
     end
 
-    update_auxiliary_state!(nodal_update_auxiliary_state!, dg, m, Q, t, elems)
+    update_auxiliary_state!(nodal_update_auxiliary_state!, spacedisc, m, Q, t, elems)
 
     # TODO: Remove this hook. This hook was added for implementing
     # the first draft of EDMF, and should be removed so that we can
@@ -721,7 +721,7 @@ function update_auxiliary_state!(
     # us to compute globally vertical quantities specific to EDMF
     # until we're able to remove them or somehow incorporate them
     # into a higher level hierarchy.
-    update_auxiliary_state!(dg, m.turbconv, m, Q, t, elems)
+    update_auxiliary_state!(spacedisc, m.turbconv, m, Q, t, elems)
 
     return true
 end

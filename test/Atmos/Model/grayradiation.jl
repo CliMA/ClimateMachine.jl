@@ -32,13 +32,16 @@ include(joinpath(clima_dir, "docs", "plothelpers.jl"))
 
 using UnPack
 using ClimateMachine.BalanceLaws: Auxiliary, TendencyDef, Flux, FirstOrder,
-    BalanceLaw, UpwardIntegrals, Source
+    BalanceLaw, UpwardIntegrals, Source, SecondOrder, Gradient
 using ClimateMachine.DGMethods: SpaceDiscretization
 using ClimateMachine.Orientations: vertical_unit_vector, projection_tangential,
     projection_normal
 using ClimateMachine.Atmos: nodal_update_auxiliary_state!
-import ClimateMachine.BalanceLaws: vars_state, eq_tends, flux, source
-import ClimateMachine.Atmos: update_auxiliary_state!
+using ClimateMachine.TurbulenceConvection
+using LinearAlgebra: Diagonal, tr
+import ClimateMachine.BalanceLaws: vars_state, eq_tends, flux, source,
+    prognostic_vars, compute_gradient_argument!, compute_gradient_flux!
+import ClimateMachine.Atmos: update_auxiliary_state!, precompute
 
 # Define a new type of radiation model that utilizes RRTMGP.
 struct RRTMGPModel <: RadiationModel end
@@ -50,9 +53,9 @@ vars_state(::RRTMGPModel, ::Auxiliary, FT) = @vars(flux::FT)
 struct Radiation{PV <: Energy} <: TendencyDef{Flux{FirstOrder}, PV} end
 eq_tends(::PV, ::RRTMGPModel, ::Flux{FirstOrder}) where {PV <: Energy} =
     (Radiation{PV}(),)
-function flux(::Radiation{Energy}, atmos, args)
+function flux(::Radiation{Energy}, bl, args)
     @unpack aux = args
-    return aux.radiation.flux * vertical_unit_vector(atmos, aux)
+    return aux.radiation.flux * vertical_unit_vector(bl, aux)
 end
 
 # Make update_auxiliary_state! also update data for radiation.
@@ -63,6 +66,10 @@ function update_auxiliary_state!(
     t::Real,
     elems::UnitRange,
 )
+    if length(elems) > 0
+        println(t, ", ", spacedisc.direction)
+    end
+
     FT = eltype(Q)
     state_auxiliary = spacedisc.state_auxiliary
 
@@ -101,14 +108,74 @@ function update_auxiliary_state!(
 end
 
 # Introduce Rayleigh friction towards a stationary profile.
-struct RayleighFriction{PV <: Momentum} <: TendencyDef{Source, PV} end
-RayleighFriction() = RayleighFriction{Momentum}()
-function source(s::RayleighFriction{Momentum}, atmos, args)
-    @unpack state, aux = args
-    FT = eltype(state)
-    return FT(-2) * projection_tangential(atmos, aux, state.ρu) .+
-        FT(-7.6) * projection_normal(atmos, aux, state.ρu)
+struct RayleighFriction{PV <: Momentum, FT} <: TendencyDef{Source, PV}
+    γ_h::FT # ~1e-2
+    γ_v::FT # ~1e-1
 end
+RayleighFriction(γ_h::FT, γ_v::FT) where {FT} = RayleighFriction{Momentum, FT}(γ_h, γ_v)
+function source(s::RayleighFriction{Momentum}, bl, args)
+    @unpack state, aux = args
+    return -s.γ_h * projection_tangential(bl, aux, state.ρu) -
+        s.γ_v * projection_normal(bl, aux, state.ρu)
+end
+
+# Introduce divergence damping towards a stationary profile.
+struct DivergenceDampingModel{FT} <: TurbulenceConvectionModel
+    ν_h::FT # ~1e5
+    ν_v::FT
+end
+struct DivergenceDamping{PV <: Momentum} <: TendencyDef{Flux{SecondOrder}, PV} end
+prognostic_vars(::DivergenceDampingModel) = ()
+vars_state(::DivergenceDampingModel, ::Gradient, FT) =
+    @vars(ρu::SVector{3, FT})
+vars_state(::DivergenceDampingModel, ::GradientFlux, FT) =
+    @vars(ν∇D::SMatrix{3, 3, FT, 9})
+eq_tends(pv, ::DivergenceDampingModel, tt) = ()
+eq_tends(::PV, ::DivergenceDampingModel, ::Flux{SecondOrder}) where {PV <: Momentum} =
+    (DivergenceDamping{PV}(),)
+precompute(::DivergenceDampingModel, bl, args, ts, tend_type) = NamedTuple()
+function update_auxiliary_state!(
+    spacedisc::SpaceDiscretization,
+    m::TurbulenceConvectionModel,
+    bl::BalanceLaw,
+    Q::MPIStateArray,
+    t::Real,
+    elems::UnitRange,
+)
+    return nothing
+end
+function compute_gradient_argument!(
+    ::DivergenceDampingModel,
+    bl::BalanceLaw,
+    transform::Vars,
+    state::Vars,
+    aux::Vars,
+    t::Real,
+)
+    transform.turbconv.ρu = state.ρu
+end
+function compute_gradient_flux!(
+    m::DivergenceDampingModel,
+    bl::BalanceLaw,
+    diffusive::Vars,
+    ∇transform::Grad,
+    state::Vars,
+    aux::Vars,
+    t::Real,
+)
+    ∇ρu = ∇transform.turbconv.ρu
+    ẑ = vertical_unit_vector(bl, aux)
+    ∇D_v = ẑ' * ∇ρu * ẑ
+    ∇D_h = tr(∇ρu) - ∇D_v
+    diffusive.turbconv.ν∇D =
+        Diagonal(SVector(m.ν_h, m.ν_h, m.ν_v)) *
+        Diagonal(SVector(∇D_h, ∇D_h, ∇D_v))
+end
+function flux(::DivergenceDamping{Momentum}, bl, args)
+    @unpack diffusive = args
+    return -diffusive.turbconv.ν∇D
+end
+
 
 ############################# New Code for RRTMGP #############################
 
@@ -731,9 +798,10 @@ function config_balanced(
         # ),
         ref_state = HydrostaticState(temp_profile),
         turbulence = ConstantDynamicViscosity(FT(0)),
+        turbconv = DivergenceDampingModel(FT(0), FT(0)),
         moisture = DryModel(),
         # radiation = RRTMGPModel(),
-        source = (Gravity(),), # RayleighFriction()),
+        source = (Gravity(), RayleighFriction(FT(0), FT(0))),
     )
 
     config = config_fun(
@@ -796,8 +864,8 @@ function main()
     FT = Float64
 
     timestart = FT(0)
-    timeend = FT(60) * FT(12.5)
-    timestep = FT(60) * FT(0.5)
+    timeend = FT(60) * FT(10000)
+    timestep = FT(0.6)
     domain_height = FT(70e3)
     polyorder_horz = 4
     polyorder_vert = 2
@@ -823,22 +891,21 @@ function main()
     explicit_solver_type = ClimateMachine.ExplicitSolverType(
         solver_method = LSRK54CarpenterKennedy,
     )
-    imex_solver_type = ClimateMachine.IMEXSolverType(
-        splitting_type = HEVISplitting(),
-        implicit_model = AtmosAcousticGravityLinearModel,
-        implicit_solver = ManyColumnLU,
-        solver_method = ARK2GiraldoKellyConstantinescu,
+    hevi_solver_type = ClimateMachine.HEVISolverType(
+        FT;
+        #solver_method = ARK548L2SA2KennedyCarpenter,
+        preconditioner_update_freq = 0,
     )
 
     @testset for config in (LES,)# GCM)
         @testset for ode_solver_type in (
             explicit_solver_type,
-            #imex_solver_type,
+            #hevi_solver_type,
         )
             @testset for numflux in (
-                #CentralNumericalFluxFirstOrder(),
+                CentralNumericalFluxFirstOrder(),
                 #RusanovNumericalFlux(),
-                RoeNumericalFlux(),
+                #RoeNumericalFlux(),
                 #HLLCNumericalFlux(),
             )
                 @testset for temp_profile in (
@@ -860,37 +927,6 @@ function main()
                         ode_solver_type = ode_solver_type,
                         ode_dt = timestep,
                         modeldata = (RRTMGPstruct = create_rrtmgp(driver_config.grid),),
-                    )
-
-                    dg = solver_config.dg
-                    Q = solver_config.Q
-                    solver_config.solver = ARK548L2SA2KennedyCarpenter(
-                        dg,
-                        DGModel(
-                            driver_config;
-                            state_auxiliary = dg.state_auxiliary,
-                            direction = VerticalDirection(),
-                            modeldata = dg.modeldata,
-                        ),
-                        NonLinearBackwardEulerSolver(
-                            JacobianFreeNewtonKrylovSolver(
-                                Q,
-                                BatchedGeneralizedMinimalResidual(
-                                    dg,
-                                    Q;
-                                    max_subspace_size = 30,
-                                    atol = -1.0,
-                                    rtol = 1e-5,
-                                );
-                                tol = 1e-4,
-                            );
-                            #preconditioner_update_freq = 1000,
-                        ),
-                        Q;
-                        dt = solver_config.dt,
-                        t0 = solver_config.t0,
-                        split_explicit_implicit = false,
-                        variant = NaiveVariant(),
                     )
 
                     data_avg = Dict[]
@@ -928,7 +964,7 @@ function main()
                     )
 
                     print_debug(solver_config.Q, solver_config.dg, timestart)
-                    ClimateMachine.invoke!(solver_config; user_callbacks = (callback,))
+                    ClimateMachine.invoke!(solver_config)#; user_callbacks = (callback,))
                     print_debug(solver_config.Q, solver_config.dg, timeend)
 
                     save_plots(
