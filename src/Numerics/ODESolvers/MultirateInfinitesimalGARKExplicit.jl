@@ -44,21 +44,23 @@ Construct an explicit MultiRate Infinitesimal General-structure Additive
 Runge--Kutta (MRI-GARK) scheme to solve
 
 ```math
-    \\dot{y} = f(y, t) + g(y, t)
+    \\dot{y} = f_{slow}(y, t) + f_{fast}(y, t)
 ```
 
-where `f` is the slow tendency function and `g` is the fast tendency function;
+where `f_{slow}` is the slow tendency function and `f_{fast}` is the fast tendency function;
 see Sandu (2019).
 
 The fast tendency is integrated using the `fastsolver` and the slow tendency
 using the MRI-GARK scheme. Namely, at each stage the scheme solves
 
 ```math
+\\begin{aligned}
                v(T_i) &= Y_i \\\\
              \\dot{v} &= f(v, t) + \\sum_{j=1}^{i} \\bar{γ}_{ij}(t) R_j \\\\
     \\bar{γ}_{ijk}(t) &= \\sum_{k=0}^{NΓ-1} γ_{ijk} τ(t)^k / Δc_s \\\\
                  τ(t) &= (t - t_s) / Δt \\\\
               Y_{i+1} &= v(T_i + c_s * Δt)
+\\end{aligned}
 ```
 
 where ``Y_1 = y_n`` and ``y_{n+1} = Y_{Nstages+1}``.
