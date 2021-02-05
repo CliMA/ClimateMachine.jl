@@ -284,7 +284,7 @@ function main()
     resolution = (Δx, Δy, Δz)
 
     t0 = FT(0)
-    timeend = FT(100)
+    timeend = FT(86400 * 3000)
 
     ## Define the max Courant for the time time integrator (ode_solver).
     ## The default value is 1.7 for LSRK144:
