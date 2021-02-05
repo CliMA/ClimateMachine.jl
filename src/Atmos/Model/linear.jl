@@ -218,7 +218,8 @@ function flux_first_order!(
     t::Real,
     direction,
 )
-    flux_pad = SVector(1, 1, 1)
+    tens_pad = SArray{Tuple{3, 3}}(ntuple(i -> 1, 9))
+    vec_pad = SVector(1, 1, 1)
     tend = Flux{FirstOrder}()
     _args = (; state, aux, t, direction)
 
@@ -228,9 +229,9 @@ function flux_first_order!(
     # TODO: look into this
     args = _args
     # args = merge(_args, (precomputed = precompute(lm.atmos, _args, tend),))
-    flux.ρ = Σfluxes(eq_tends(Mass(), lm, tend), lm, args) .* flux_pad
-    flux.ρu = Σfluxes(eq_tends(Momentum(), lm, tend), lm, args) .* flux_pad
-    flux.energy.ρe = Σfluxes(eq_tends(Energy(), lm, tend), lm, args) .* flux_pad
+    flux.ρ = Σfluxes(eq_tends(Mass(), lm, tend), lm, args) .* vec_pad
+    flux.ρu = Σfluxes(eq_tends(Momentum(), lm, tend), lm, args) .* tens_pad
+    flux.energy.ρe = Σfluxes(eq_tends(Energy(), lm, tend), lm, args) .* vec_pad
     nothing
 end
 
@@ -254,7 +255,7 @@ function source!(
     ::NTuple{1, Dir},
 ) where {Dir <: Direction}
 
-    ρu_pad = SVector(1, 1, 1)
+    vec_pad = SVector(1, 1, 1)
     tend = Source()
     _args = (; state, aux, t, direction = Dir, diffusive)
 
@@ -266,7 +267,7 @@ function source!(
     # args = merge(_args, (precomputed = precompute(lm.atmos, _args, tend),))
 
     # Sources for the linear atmos model only appear in the momentum equation
-    source.ρu = Σsources(eq_tends(Momentum(), lm, tend), lm, args) .* ρu_pad
+    source.ρu = Σsources(eq_tends(Momentum(), lm, tend), lm, args) .* vec_pad
     nothing
 end
 

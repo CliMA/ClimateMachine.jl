@@ -785,25 +785,36 @@ function flux_first_order!(
     N_up = n_updrafts(turbconv)
     # in future GCM implementations we need to think about grid mean advection
     tend = Flux{FirstOrder}()
+    vec_pad = SVector(1, 1, 1)
 
     @unroll_map(N_up) do i
-        up_flx[i].ρa = Σfluxes(eq_tends(up_ρa{i}(), atmos, tend), atmos, args)
-        up_flx[i].ρaw = Σfluxes(eq_tends(up_ρaw{i}(), atmos, tend), atmos, args)
+        up_flx[i].ρa =
+            Σfluxes(eq_tends(up_ρa{i}(), atmos, tend), atmos, args) .* vec_pad
+        up_flx[i].ρaw =
+            Σfluxes(eq_tends(up_ρaw{i}(), atmos, tend), atmos, args) .* vec_pad
         up_flx[i].ρaθ_liq =
-            Σfluxes(eq_tends(up_ρaθ_liq{i}(), atmos, tend), atmos, args)
+            Σfluxes(eq_tends(up_ρaθ_liq{i}(), atmos, tend), atmos, args) .*
+            vec_pad
         if !(atmos.moisture isa DryModel)
             up_flx[i].ρaq_tot =
-                Σfluxes(eq_tends(up_ρaq_tot{i}(), atmos, tend), atmos, args)
+                Σfluxes(eq_tends(up_ρaq_tot{i}(), atmos, tend), atmos, args) .*
+                vec_pad
         end
     end
-    en_flx.ρatke = Σfluxes(eq_tends(en_ρatke(), atmos, tend), atmos, args)
+    en_flx.ρatke =
+        Σfluxes(eq_tends(en_ρatke(), atmos, tend), atmos, args) .* vec_pad
     en_flx.ρaθ_liq_cv =
-        Σfluxes(eq_tends(en_ρaθ_liq_cv(), atmos, tend), atmos, args)
+        Σfluxes(eq_tends(en_ρaθ_liq_cv(), atmos, tend), atmos, args) .* vec_pad
     if !(atmos.moisture isa DryModel)
         en_flx.ρaq_tot_cv =
-            Σfluxes(eq_tends(en_ρaq_tot_cv(), atmos, tend), atmos, args)
+            Σfluxes(eq_tends(en_ρaq_tot_cv(), atmos, tend), atmos, args) .*
+            vec_pad
         en_flx.ρaθ_liq_q_tot_cv =
-            Σfluxes(eq_tends(en_ρaθ_liq_q_tot_cv(), atmos, tend), atmos, args)
+            Σfluxes(
+                eq_tends(en_ρaθ_liq_q_tot_cv(), atmos, tend),
+                atmos,
+                args,
+            ) .* vec_pad
     end
 end;
 
@@ -1132,25 +1143,25 @@ function flux_second_order!(
 
     # Aliases:
     en_flx = flux.turbconv.environment
-    flux_pad = SVector(1, 1, 1)
+    vec_pad = SVector(1, 1, 1)
     # in future GCM implementations we need to think about grid mean advection
     tend = Flux{SecondOrder}()
     en_flx.ρatke =
-        Σfluxes(eq_tends(en_ρatke(), atmos, tend), atmos, args) .* flux_pad
+        Σfluxes(eq_tends(en_ρatke(), atmos, tend), atmos, args) .* vec_pad
     # in the EDMF second order (diffusive) fluxes
     # exist only in the grid mean and the environment
     en_flx.ρaθ_liq_cv =
-        Σfluxes(eq_tends(en_ρaθ_liq_cv(), atmos, tend), atmos, args) .* flux_pad
+        Σfluxes(eq_tends(en_ρaθ_liq_cv(), atmos, tend), atmos, args) .* vec_pad
     if !(atmos.moisture isa DryModel)
         en_flx.ρaq_tot_cv =
             Σfluxes(eq_tends(en_ρaq_tot_cv(), atmos, tend), atmos, args) .*
-            flux_pad
+            vec_pad
         en_flx.ρaθ_liq_q_tot_cv =
             Σfluxes(
                 eq_tends(en_ρaθ_liq_q_tot_cv(), atmos, tend),
                 atmos,
                 args,
-            ) .* flux_pad
+            ) .* vec_pad
     end
 end;
 
