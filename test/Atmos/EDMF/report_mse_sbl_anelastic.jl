@@ -13,14 +13,9 @@ data_file = Dataset(joinpath(PyCLES_output_dataset_path, "Gabls.nc"), "r")
 
 #! format: off
 best_mse = OrderedDict()
-best_mse["prog_ρ"] = 1.1114129013658791e-02
-best_mse["prog_ρu_1"] = 6.2901522038253152e+03
-best_mse["prog_ρu_2"] = 1.2983106287732383e-04
-best_mse["prog_turbconv_environment_ρatke"] = 2.3811480079389301e+02
-best_mse["prog_turbconv_environment_ρaθ_liq_cv"] = 8.7727376552999260e+01
-best_mse["prog_turbconv_updraft_1_ρa"] = 1.7950630856426049e+01
-best_mse["prog_turbconv_updraft_1_ρaw"] = 1.7799954766639789e-01
-best_mse["prog_turbconv_updraft_1_ρaθ_liq"] = 1.3315847832474324e+01
+best_mse["prog_ρ"] = 9.3809207150466600e-03
+best_mse["prog_ρu_1"] = 6.7269974359218368e+03
+best_mse["prog_ρu_2"] = 6.8630597189221576e-01
 #! format: on
 
 computed_mse = compute_mse(
@@ -31,7 +26,7 @@ computed_mse = compute_mse(
     data_file,
     "Gabls",
     best_mse,
-    60,
+    1800,
     plot_dir,
 )
 
@@ -40,10 +35,5 @@ computed_mse = compute_mse(
     test_mse(computed_mse, best_mse, "prog_ρ")
     test_mse(computed_mse, best_mse, "prog_ρu_1")
     test_mse(computed_mse, best_mse, "prog_ρu_2")
-    test_mse(computed_mse, best_mse, "prog_turbconv_environment_ρatke")
-    test_mse(computed_mse, best_mse, "prog_turbconv_environment_ρaθ_liq_cv")
-    test_mse(computed_mse, best_mse, "prog_turbconv_updraft_1_ρa")
-    test_mse(computed_mse, best_mse, "prog_turbconv_updraft_1_ρaw")
-    test_mse(computed_mse, best_mse, "prog_turbconv_updraft_1_ρaθ_liq")
     #! format: on
 end

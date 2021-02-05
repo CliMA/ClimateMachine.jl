@@ -77,10 +77,7 @@ function main(cl_args)
     )
     dgn_config = config_diagnostics(driver_config)
 
-    check_cons = (
-        ClimateMachine.ConservationCheck("ρ", "1mins", FT(0.0001)),
-        ClimateMachine.ConservationCheck("energy.ρe", "1mins", FT(0.0025)),
-    )
+    check_cons = (ClimateMachine.ConservationCheck("ρ", "1mins", FT(0.0001)),)
 
     result = ClimateMachine.invoke!(
         solver_config;

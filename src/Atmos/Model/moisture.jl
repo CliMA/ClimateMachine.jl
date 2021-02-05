@@ -30,16 +30,16 @@ function compute_gradient_argument!(
 ) end
 
 internal_energy(atmos::AtmosModel, state::Vars, aux::Vars) =
-    internal_energy(atmos.moisture, atmos.orientation, state, aux)
+    internal_energy(atmos, atmos.orientation, state, aux)
 
 @inline function internal_energy(
-    moist::MoistureModel,
+    atmos::AtmosModel,
     orientation::Orientation,
     state::Vars,
     aux::Vars,
 )
     Thermodynamics.internal_energy(
-        state.ρ,
+        density(atmos, state, aux),
         state.energy.ρe,
         state.ρu,
         gravitational_potential(orientation, aux),

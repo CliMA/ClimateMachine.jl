@@ -122,6 +122,14 @@ corresponding to the column-vector `Yᵢ` in:
 prognostic_vars(::BalanceLaw) = ()
 
 """
+    projection(bl, ::TendencyDef, args, x)
+
+Provide a hook to project individual tendencies.
+Return identity by defualt
+"""
+projection(bl, ::TendencyDef{TT, PV}, args, x) where {TT, PV} = x
+
+"""
     var, name = get_prog_state(state::Union{Vars, Grad}, pv::PrognosticVariable)
 
 Returns a tuple of two elements. `var` is a `Vars` or `Grad`

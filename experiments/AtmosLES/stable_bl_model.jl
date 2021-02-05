@@ -45,7 +45,7 @@ struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 import CLIMAParameters
 
-using ClimateMachine.Atmos: altitude, recover_thermo_state
+using ClimateMachine.Atmos: altitude, recover_thermo_state, density
 
 """
   StableBL Geostrophic Forcing (Source)
@@ -149,14 +149,15 @@ function init_problem!(problem, bl, state, aux, localgeo, t)
         θ_liq = FT(265) + FT(0.01) * (z - z1)
     end
     θ = θ_liq
-    π_exner = FT(1) - _grav / (c_p * θ) * z # exner pressure
-    ρ = p0 / (R_gas * θ) * (π_exner)^(c_v / R_gas) # density
+    p = aux.ref_state.p
     # Establish thermodynamic state and moist phase partitioning
     if bl.moisture isa DryModel
-        TS = PhaseDry_ρθ(bl.param_set, ρ, θ_liq)
+        TS = PhaseDry_pθ(bl.param_set, p, θ)
     else
-        TS = PhaseEquil_ρθq(bl.param_set, ρ, θ_liq, q_tot)
+        TS = PhaseEquil_pθq(bl.param_set, p, θ_liq, q_tot)
     end
+
+    ρ = bl.compressibility isa Compressible ? air_density(TS) : aux.ref_state.ρ
     # Compute momentum contributions
     ρu = ρ * u
     ρv = ρ * v
@@ -190,6 +191,7 @@ function stable_bl_model(
     surface_flux;
     turbulence = ConstantKinematicViscosity(FT(0)),
     turbconv = NoTurbConv(),
+    compressibility = Compressible(),
     moisture_model = "dry",
     ref_state = HydrostaticState(DecayingTemperatureProfile{FT}(param_set),),
 ) where {FT}
@@ -210,9 +212,11 @@ function stable_bl_model(
 
     q_sfc = FT(0)
 
+    g = compressibility isa Compressible ? (Gravity(),) : ()
+
     # Assemble source components
     source_default = (
-        Gravity(),
+        g...,
         StableBLSponge(
             FT,
             zmax,
@@ -324,6 +328,7 @@ function stable_bl_model(
         moisture = moisture,
         source = source,
         turbconv = turbconv,
+        compressibility = compressibility,
     )
 
     return model
