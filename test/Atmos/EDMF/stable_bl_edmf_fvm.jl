@@ -102,7 +102,7 @@ function main(::Type{FT}) where {FT}
 
     surface_flux = cl_args["surface_flux"]
 
-    # DG polynomial order
+    # polynomial order: use N(2)=0 for FV; use N(2)>0 for DG;
     N = (1, 0)
     nelem_vert = 80
 
@@ -126,16 +126,26 @@ function main(::Type{FT}) where {FT}
     N_quad = 3 # Using N_quad = 1 leads to norm(Q) = NaN at init.
     turbconv = EDMF(FT, N_updrafts, N_quad)
 
+    if !(N[2] == FT(0))
+        println("using DG discretization in the vertical axis")
+        ref_state = HydrostaticState(
+            DecayingTemperatureProfile{FT}(param_set);
+        )
+    else
+        println("using FV discretization in the vertical axis")
+        ref_state = HydrostaticState(
+            DecayingTemperatureProfile{FT}(param_set);
+            subtract_off = false,
+        )
+    end
+
     model = stable_bl_model(
         FT,
         config_type,
         zmax,
         surface_flux;
         turbconv = turbconv,
-        ref_state = HydrostaticState(
-            DecayingTemperatureProfile{FT}(param_set);
-            subtract_off = false,
-        ),
+        ref_state = ref_state,
     )
 
     # Assemble configuration

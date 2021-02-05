@@ -11,17 +11,32 @@ include(joinpath(@__DIR__, "compute_mse.jl"))
 
 data_file = Dataset(joinpath(PyCLES_output_dataset_path, "Gabls.nc"), "r")
 
-#! format: off
-best_mse = OrderedDict()
-best_mse["prog_ρ"] = 8.3680112312261336e-03
-best_mse["prog_ρu_1"] = 6.2785134765912162e+03
-best_mse["prog_ρu_2"] = 2.4045175004577872e-04
-best_mse["prog_turbconv_environment_ρatke"] = 2.4914851952135550e+02
-best_mse["prog_turbconv_environment_ρaθ_liq_cv"] = 8.7727430612979987e+01
-best_mse["prog_turbconv_updraft_1_ρa"] = 3.7450897497674823e+01
-best_mse["prog_turbconv_updraft_1_ρaw"] = 2.2105954381383359e+00
-best_mse["prog_turbconv_updraft_1_ρaθ_liq"] = 1.3315847548997692e+01
-#! format: on
+N = polynomialorders(solver_config.dg.grid)
+if !(N[2] == 0)
+    #! format: off
+    best_mse = OrderedDict()
+    best_mse["prog_ρ"] = 8.4569296166338691e-03
+    best_mse["prog_ρu_1"] = 6.3882515387705889e+03
+    best_mse["prog_ρu_2"] = 1.9273137570200704e-04
+    best_mse["prog_turbconv_environment_ρatke"] = 2.8547391074963491e+02
+    best_mse["prog_turbconv_environment_ρaθ_liq_cv"] = 8.8855089232461694e+01
+    best_mse["prog_turbconv_updraft_1_ρa"] = 2.4934236012539099e+01
+    best_mse["prog_turbconv_updraft_1_ρaw"] = 3.5164073148198044e-01
+    best_mse["prog_turbconv_updraft_1_ρaθ_liq"] = 2.0173652967933322e+01
+    #! format: on
+else
+    #! format: off
+    best_mse = OrderedDict()
+    best_mse["prog_ρ"] = 8.3506568674116093e-03
+    best_mse["prog_ρu_1"] = 6.2714070693454869e+03
+    best_mse["prog_ρu_2"] = 1.2793997157719303e-04
+    best_mse["prog_turbconv_environment_ρatke"] = 2.3701966316184607e+02
+    best_mse["prog_turbconv_environment_ρaθ_liq_cv"] = 8.7727376552999246e+01
+    best_mse["prog_turbconv_updraft_1_ρa"] = 1.7950627389897488e+01
+    best_mse["prog_turbconv_updraft_1_ρaw"] = 1.7799954766804618e-01
+    best_mse["prog_turbconv_updraft_1_ρaθ_liq"] = 1.3315847801000023e+01
+    #! format: on
+end
 
 computed_mse = compute_mse(
     solver_config.dg.grid,
