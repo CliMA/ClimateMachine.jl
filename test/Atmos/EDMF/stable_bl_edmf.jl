@@ -8,6 +8,7 @@ ClimateMachine.init(;
 using ClimateMachine.SingleStackUtils
 using ClimateMachine.Checkpoint
 using ClimateMachine.BalanceLaws: vars_state
+import ClimateMachine.DGMethods.FVReconstructions: FVLinear
 const clima_dir = dirname(dirname(pathof(ClimateMachine)));
 
 include(joinpath(clima_dir, "experiments", "AtmosLES", "stable_bl_model.jl"))
@@ -101,9 +102,9 @@ function main(::Type{FT}) where {FT}
 
     surface_flux = cl_args["surface_flux"]
 
-    # DG polynomial order
-    N = 1
-    nelem_vert = 50
+    # polynomial order: use N(2)=0 for FV; use N(2)>0 for DG;
+    N = (1, 0)
+    nelem_vert = 80
 
     # Prescribe domain parameters
     zmax = FT(400)
@@ -117,12 +118,26 @@ function main(::Type{FT}) where {FT}
     config_type = SingleStackConfigType
 
     ode_solver_type = ClimateMachine.ExplicitSolverType(
-        solver_method = LSRK144NiegemannDiehlBusch,
+        # solver_method = LSRK144NiegemannDiehlBusch,
+        solver_method = LSRK54CarpenterKennedy,
     )
 
     N_updrafts = 1
     N_quad = 3 # Using N_quad = 1 leads to norm(Q) = NaN at init.
     turbconv = EDMF(FT, N_updrafts, N_quad)
+
+    if !(N[2] == FT(0))
+        println("using DG discretization in the vertical axis")
+        ref_state = HydrostaticState(
+            DecayingTemperatureProfile{FT}(param_set);
+        )
+    else
+        println("using FV discretization in the vertical axis")
+        ref_state = HydrostaticState(
+            DecayingTemperatureProfile{FT}(param_set);
+            subtract_off = false,
+        )
+    end
 
     model = stable_bl_model(
         FT,
@@ -130,6 +145,7 @@ function main(::Type{FT}) where {FT}
         zmax,
         surface_flux;
         turbconv = turbconv,
+        ref_state = ref_state,
     )
 
     # Assemble configuration
@@ -142,6 +158,8 @@ function main(::Type{FT}) where {FT}
         model;
         hmax = FT(40),
         solver_type = ode_solver_type,
+        numerical_flux_first_order = RoeNumericalFlux(),
+        fv_reconstruction = HBFVReconstruction(model, FVLinear()),
     )
 
     solver_config = ClimateMachine.SolverConfiguration(
@@ -174,7 +192,9 @@ function main(::Type{FT}) where {FT}
 
     dgn_config = config_diagnostics(driver_config)
 
-    cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(1) do
+    cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(100) do
+        nstep = getsteps(solver_config.solver)
+        @show nstep
         Filters.apply!(
             solver_config.Q,
             (turbconv_filters(turbconv)...,),
@@ -232,20 +252,6 @@ end
 
 solver_config, diag_arr, time_data = main(Float64)
 
-## Uncomment lines to save output using JLD2
-#
-# output_dir = @__DIR__;
-# mkpath(output_dir);
-# println(dons_arr[1].keys)
-# z = get_z(solver_config.dg.grid; rm_dupes = true);
-# save(
-#     string(output_dir, "/sbl_edmf.jld2"),
-#     "dons_arr",
-#     dons_arr,
-#     "time_data",
-#     time_data,
-#     "z",
-#     z,
-# )
+include(joinpath(@__DIR__, "report_mse_sbl.jl"))
 
 nothing
