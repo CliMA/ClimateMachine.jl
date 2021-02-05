@@ -229,7 +229,7 @@ eq_tends(
     pv::PV,
     m::EDMF,
     ::Flux{SecondOrder},
-) where {PV <: Union{Momentum, Energy, TotalMoisture}} = ()  # do _not_ add SGSFlux back to grid-mean
+) where {PV <: Union{Momentum, Energy, TotalMoisture}} = () #(SGSFlux{PV}(),)   # do _not_ add SGSFlux back to grid-mean
 # (SGSFlux{PV}(),) # add SGSFlux back to grid-mean
 
 # Turbconv tendencies
@@ -246,7 +246,7 @@ eq_tends(
     pv::PV,
     m::EDMF,
     ::Flux{SecondOrder},
-) where {PV <: EnvironmentPrognosticVariable} = (Diffusion{PV}(),)
+) where {PV <: EnvironmentPrognosticVariable} = () #(Diffusion{PV}(),)
 
 eq_tends(
     pv::PV,
@@ -256,11 +256,11 @@ eq_tends(
 
 eq_tends(pv::PV, m::EDMF, ::Source) where {PV} = ()
 
-eq_tends(pv::PV, m::EDMF, ::Source) where {PV <: EDMFPrognosticVariable} =
-    (EntrDetr{PV}(),)
+eq_tends(pv::PV, m::EDMF, ::Source) where {PV <: EDMFPrognosticVariable} = ()
+    # (EntrDetr{PV}(),)
 
 eq_tends(pv::PV, m::EDMF, ::Source) where {PV <: en_ρatke} = (
-    EntrDetr{PV}(),
+    # EntrDetr{PV}(),
     PressSource{PV}(),
     ShearSource{PV}(),
     BuoySource{PV}(),
@@ -271,13 +271,16 @@ eq_tends(
     pv::PV,
     m::EDMF,
     ::Source,
-) where {PV <: Union{en_ρaθ_liq_cv, en_ρaq_tot_cv, en_ρaθ_liq_q_tot_cv}} =
-    (EntrDetr{PV}(), DissSource{PV}(), GradProdSource{PV}())
+) where {PV <: Union{en_ρaθ_liq_cv, en_ρaq_tot_cv, en_ρaθ_liq_q_tot_cv}} = (
+    # EntrDetr{PV}(),
+    DissSource{PV}(),
+    GradProdSource{PV}()
+    )
 
 eq_tends(pv::PV, m::EDMF, ::Source) where {PV <: up_ρaw} = (
-    EntrDetr{PV}(),
-    PressSource(n_updrafts(m))...,
-    BuoySource(n_updrafts(m))...,
+#     EntrDetr{PV}(),
+    # PressSource(n_updrafts(m))...,
+    # BuoySource(n_updrafts(m))...,
 )
 
 struct SGSFlux{PV <: Union{Momentum, Energy, TotalMoisture}} <:
@@ -476,20 +479,36 @@ function compute_gradient_flux!(
     en_dif.∇θ_liq = en_∇tf.θ_liq
     en_dif.∇q_tot = en_∇tf.q_tot
     en_dif.∇w = en_∇tf.w
-    # second moment env cov
+
     en_dif.∇tke = en_∇tf.tke
     en_dif.∇θ_liq_cv = en_∇tf.θ_liq_cv
     en_dif.∇q_tot_cv = en_∇tf.q_tot_cv
     en_dif.∇θ_liq_q_tot_cv = en_∇tf.θ_liq_q_tot_cv
 
+    # this fixes a BC problem with very large state⁻.ρatke (≈ 1e20)
+    # at the lower boundary:
+    # z = altitude(m, aux)
+    # if z ≈ FT(0)
+    #     @show(aux.coord, en_dif.∇tke[3])
+    #     # en_dif.∇tke = en_dif.∇tke*FT(0)
+    # end
+
+
+    # second moment env cov
     en_dif.∇θv = en_∇tf.θv
     en_dif.∇e = en_∇tf.e
 
     gm_dif.∇u = gm_∇tf.u
     gm_dif.∇v = gm_∇tf.v
 
+    z = altitude(m, aux)
+
     gm_dif.S² = ∇transform.u[3, 1]^2 + ∇transform.u[3, 2]^2 + en_dif.∇w[3]^2 # ∇transform.u is Jacobian.T
 
+    if z ≈ 0
+        # @show(aux.coord, state.ρu[1], ∇transform.u[3, 1]^2, gm_dif.S²)
+        # gm_dif.S² = FT(0)
+    end
     # Recompute l_mix, K_m and tke budget terms for output.
     ts = recover_thermo_state_all(m, state, aux)
 
@@ -519,6 +538,12 @@ function compute_gradient_flux!(
     en_dif.shear_prod = ρa₀ * en_dif.K_m * gm_dif.S² # tke Shear source
     en_dif.buoy_prod = -ρa₀ * K_h * ∂b∂z_env   # tke Buoyancy source
     en_dif.tke_diss = -ρa₀ * Diss₀ * tke_en  # tke Dissipation
+    
+    # z = altitude(m, aux)
+    # if z ≈ FT(0)
+    #     @show(aux.coord, gm_dif.S²,en_dif.K_m, en_dif.l_mix)
+    #     # en_dif.shear_prod = FT(0)
+    # end
 end;
 
 function source(::EntrDetr{up_ρa{i}}, atmos, args) where {i}
@@ -685,6 +710,7 @@ function source(::ShearSource{en_ρatke}, atmos, args)
     Shear² = args.diffusive.turbconv.S²
     ρa₀ = gm.ρ * env.a
     # production from mean gradient and Dissipation
+    tot = ρa₀ * K_m * Shear²
     return ρa₀ * K_m * Shear² # tke Shear source
 end
 
@@ -701,6 +727,7 @@ function source(::DissSource{en_ρatke}, atmos, args)
     en = args.state.turbconv.environment
     ρa₀ = gm.ρ * env.a
     tke_en = enforce_positivity(en.ρatke) / gm.ρ / env.a
+    tot = -ρa₀ * Diss₀ * tke_en
     return -ρa₀ * Diss₀ * tke_en  # tke Dissipation
 end
 
@@ -856,6 +883,7 @@ function precompute(::EDMF, bl, args, ts, ::Flux{FirstOrder})
     θ_liq_up = vuntuple(N_up) do i
         fix_void_up(up[i].ρa, up[i].ρaθ_liq / up[i].ρa, liquid_ice_pottemp(ts))
     end
+
     a_up = vuntuple(N_up) do i
         fix_void_up(up[i].ρa, up[i].ρa * ρ_inv)
     end
@@ -878,7 +906,6 @@ function precompute(::EDMF, bl, args, ts, ::Flux{SecondOrder})
     env = environment_vars(state, N_up)
     ts_en = new_thermo_state_en(bl, bl.moisture, state, aux, ts_gm)
     ts_up = new_thermo_state_up(bl, bl.moisture, state, aux, ts_gm)
-
     buoy = compute_buoyancy(bl, state, env, ts_en, ts_up, aux.ref_state)
 
     E_dyn, Δ_dyn, E_trb = entr_detr(bl, state, aux, ts_up, ts_en, env, buoy)
@@ -999,6 +1026,7 @@ function precompute(::EDMF, bl, args, ts, ::Source)
 
     en = state.turbconv.environment
     tke_en = enforce_positivity(en.ρatke) / env.a / state.ρ
+
     K_m = bl.turbconv.mix_len.c_m * l_mix * sqrt(tke_en)
     K_h = K_m / Pr_t
     Diss₀ = bl.turbconv.mix_len.c_d * sqrt(tke_en) / l_mix
@@ -1153,6 +1181,11 @@ function flux(::Diffusion{en_ρatke}, atmos, args)
     gm = state
     en_dif = diffusive.turbconv.environment
     ẑ = vertical_unit_vector(atmos, aux)
+    # tot = -gm.ρ * env.a * K_m * en_dif.∇tke[3]
+    # z = altitude(atmos, aux)
+    # if z ≈ 0
+    #     tot = 0
+    # end
     return -gm.ρ * env.a * K_m * en_dif.∇tke[3] * ẑ
 end
 
@@ -1209,6 +1242,7 @@ function turbconv_boundary_state!(
         en⁺.ρaq_tot_cv = FT(0)
         en⁺.ρaθ_liq_q_tot_cv = FT(0)
     end
+    # @show(en⁺.ρatke, state⁻.turbconv.environment.ρatke)
 end;
 function turbconv_boundary_state!(
     nf,
