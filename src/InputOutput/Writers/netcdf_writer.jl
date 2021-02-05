@@ -18,8 +18,16 @@ function full_name(writer::NetCDFWriter, filename = nothing)
     end
 end
 
-function init_data(nc::NetCDFWriter, filename, dims, vars)
-    Dataset(full_name(nc, filename), "c") do ds
+function init_data(nc::NetCDFWriter, filename, no_overwrite, dims, vars)
+    nm = full_name(nc, filename)
+    if ispath(nm)
+        if no_overwrite
+            error("$(nm) exists and overwriting is forbidden.")
+        else
+            @warn "$(nm) exists and will be overwritten."
+        end
+    end
+    Dataset(nm, "c") do ds
         # define spatial and time dimensions
         for (dn, (dv, da)) in dims
             defDim(ds, dn, length(dv))

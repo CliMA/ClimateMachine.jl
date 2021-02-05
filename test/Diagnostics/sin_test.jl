@@ -156,7 +156,7 @@ function main()
     outdir = mktempdir()
     currtime = ODESolvers.gettime(solver)
     starttime = replace(string(now()), ":" => ".")
-    Diagnostics.init(mpicomm, param_set, dg, Q, starttime, outdir)
+    Diagnostics.init(mpicomm, param_set, dg, Q, starttime, outdir, false)
     GenericCallbacks.init!(
         dgn_config.groups[1],
         nothing,
@@ -171,12 +171,7 @@ function main()
     mpirank = MPI.Comm_rank(mpicomm)
     if mpirank == 0
         dgngrp = dgn_config.groups[1]
-        nm = @sprintf(
-            "%s_%s_%s.nc",
-            replace(dgngrp.out_prefix, " " => "_"),
-            dgngrp.name,
-            starttime,
-        )
+        nm = @sprintf("%s_%s.nc", dgngrp.out_prefix, dgngrp.name)
         ds = NCDataset(joinpath(outdir, nm), "r")
         ds_u = ds["u"][:]
         ds_cov_w_u = ds["cov_w_u"][:]

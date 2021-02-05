@@ -550,14 +550,9 @@ function atmos_les_default_init(dgngrp::DiagnosticsGroup, currtime)
         vars["swp"] = ((), FT, Variables["swp"].attrib)
 
         # create the output file
-        dprefix = @sprintf(
-            "%s_%s_%s",
-            dgngrp.out_prefix,
-            dgngrp.name,
-            Settings.starttime,
-        )
+        dprefix = @sprintf("%s_%s", dgngrp.out_prefix, dgngrp.name)
         dfilename = joinpath(Settings.output_dir, dprefix)
-        init_data(dgngrp.writer, dfilename, dims, vars)
+        init_data(dgngrp.writer, dfilename, Settings.no_overwrite, dims, vars)
     end
 
     return nothing
