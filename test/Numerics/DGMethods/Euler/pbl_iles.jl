@@ -43,7 +43,7 @@ function main()
     numelem_vert = 12
 
     #timeend = 15000
-    timeend = 100
+    timeend = 1
     outputtime = 200
 
     FT = Float64
@@ -214,6 +214,36 @@ function test_run(
         end
         callbacks = (callbacks..., cbvtk)
     end
+    
+    nsteps = ceil(Int, timeend / dt)
+
+    prof_steps = 0
+    mkpath("profs_pbl")
+    cbdiagnostics = EveryXSimulationSteps(1) do
+      step = getsteps(odesolver)
+      if mod(step, 10000) == 0 || step > (nsteps - 50)
+        prof_steps += 1
+        nodal_diagnostics!(pbl_diagnostics!, diagnostic_vars, 
+                           dg, state_diagnostic, Q)
+        variance_pairs = ((:θ, :θ), (:w, :θ), (:w, :w))
+        z, profs, variances = profiles(diagnostic_vars, variance_pairs, dg, state_diagnostic)
+
+        s = @sprintf "z θ w θxθ wxθ, wxw\n"
+        for k in 1:length(profs.θ)
+          s *= @sprintf("%.16e %.16e %.16e %.16e %.16e %.16e\n",
+                        z[k],
+                        profs.θ[k],
+                        profs.w[k],
+                        variances.θxθ[k],
+                        variances.wxθ[k],
+                        variances.wxw[k])
+        end
+        open("profs_pbl/pbl_profiles_$step.txt", "w") do f
+          write(f, s)
+        end
+      end
+    end
+    callbacks = (callbacks..., cbdiagnostics)
 
     solve!(
         Q,
@@ -222,12 +252,6 @@ function test_run(
         callbacks = callbacks,
     )
     
-    nodal_diagnostics!(pbl_diagnostics!, diagnostic_vars, 
-                       dg, state_diagnostic, Q)
-    profs = profiles(diagnostic_vars, dg, state_diagnostic)
-    @show profs.θ[:]
-    @show profs.w[:]
-    @show profs.ρ[:]
 
     # final statistics
     engf = norm(Q)

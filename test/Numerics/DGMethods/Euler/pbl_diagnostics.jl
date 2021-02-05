@@ -111,7 +111,7 @@ end
     end
 end
 
-function profiles(diagnostic_vars, dg, state_diagnostic)
+function profiles(diagnostic_vars, variance_pairs, dg, state_diagnostic)
     # TODO: GPU, MPI
     state_diagnostic = Array(state_diagnostic.data)
 
@@ -131,6 +131,7 @@ function profiles(diagnostic_vars, dg, state_diagnostic)
     nhorzelem = div(nrealelem, nvertelem)
 
     scaling = zeros(FT, Nqk, nvertelem) 
+    z = zeros(FT, Nqk, nvertelem) 
     profs = zeros(FT, Nqk, nvertelem, num_state_diagnostic)
 
     for ev in 1:nvertelem
@@ -140,6 +141,7 @@ function profiles(diagnostic_vars, dg, state_diagnostic)
                 for j in 1:Nq
                     for k in 1:Nqk
                         ijk = i + Nq * ((j - 1) + Nqk * (k - 1))
+                        z[k, ev] = localvgeo[ijk, grid.x3id, e]
                         scaling[k, ev] += localvgeo[ijk, grid.MHid, e]
                         for var in fieldnames(diagnostic_vars)
                           s = varsindex(diagnostic_vars, var)
@@ -158,7 +160,41 @@ function profiles(diagnostic_vars, dg, state_diagnostic)
         end
       end
     end
+    
+    num_state_variance = length(variance_pairs)
+    variances = zeros(FT, Nqk, nvertelem, num_state_variance)
+    for ev in 1:nvertelem
+        for eh in 1:nhorzelem
+            e = ev + (eh - 1) * nvertelem
+            for i in 1:Nq
+                for j in 1:Nq
+                    for k in 1:Nqk
+                        ijk = i + Nq * ((j - 1) + Nqk * (k - 1))
+                        for (v, (var1, var2)) in enumerate(variance_pairs)
+                          s1 = varsindex(diagnostic_vars, var1)[1]
+                          s2 = varsindex(diagnostic_vars, var2)[1]
+                          dv1 = state_diagnostic[ijk, s1, e] - profs[k, ev, s1]
+                          dv2 = state_diagnostic[ijk, s2, e] - profs[k, ev, s2]
+                          variances[k, ev, v] += dv1 * dv2 * localvgeo[ijk, grid.MHid, e]
+                        end
+                    end
+                end
+            end
+        end
+    end
+    
+    for ev in 1:nvertelem
+      for k in 1:Nqk
+        for s in 1:num_state_variance
+          variances[k, ev, s] /= scaling[k, ev]
+        end
+      end
+    end
 
-    (; zip(fieldnames(diagnostic_vars),
-           (profs[:, :, s] for s in 1:num_state_diagnostic))...)
+    profs = (; zip(fieldnames(diagnostic_vars),
+             (profs[:, :, s] for s in 1:num_state_diagnostic))...)
+    variances = (; zip((Symbol(v1, :x, v2) for (v1, v2) in variance_pairs),
+                   (variances[:, :, s] for s in 1:num_state_variance))...)
+    z, profs, variances
 end
+
