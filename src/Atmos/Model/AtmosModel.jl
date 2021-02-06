@@ -535,13 +535,14 @@ equations.
     direction,
 )
 
-    flux_pad = SVector(1, 1, 1)
+    vec_pad = SVector(1, 1, 1)
+    tens_pad = SArray{Tuple{3, 3}}(ntuple(i -> 1, 9))
     tend = Flux{FirstOrder}()
     _args = (; state, aux, t, direction)
     args = merge(_args, (precomputed = precompute(atmos, _args, tend),))
-    flux.ρ = Σfluxes(eq_tends(Mass(), atmos, tend), atmos, args) .* flux_pad
+    flux.ρ = Σfluxes(eq_tends(Mass(), atmos, tend), atmos, args) .* vec_pad
     flux.ρu =
-        Σfluxes(eq_tends(Momentum(), atmos, tend), atmos, args) .* flux_pad
+        Σfluxes(eq_tends(Momentum(), atmos, tend), atmos, args) .* tens_pad
 
     flux_first_order!(atmos.energy, atmos, flux, args)
     flux_first_order!(atmos.moisture, atmos, flux, args)
@@ -679,16 +680,17 @@ function. Contributions from subcomponents are then assembled (pointwise).
     aux::Vars,
     t::Real,
 )
-    flux_pad = SVector(1, 1, 1)
+    vec_pad = SVector(1, 1, 1)
+    tens_pad = SArray{Tuple{3, 3}}(ntuple(i -> 1, 9))
     tend = Flux{SecondOrder}()
 
     _args = (; state, aux, t, diffusive, hyperdiffusive)
 
     args = merge(_args, (precomputed = precompute(atmos, _args, tend),))
 
-    flux.ρ = Σfluxes(eq_tends(Mass(), atmos, tend), atmos, args) .* flux_pad
+    flux.ρ = Σfluxes(eq_tends(Mass(), atmos, tend), atmos, args) .* vec_pad
     flux.ρu =
-        Σfluxes(eq_tends(Momentum(), atmos, tend), atmos, args) .* flux_pad
+        Σfluxes(eq_tends(Momentum(), atmos, tend), atmos, args) .* tens_pad
 
     flux_second_order!(atmos.energy, flux, atmos, args)
     flux_second_order!(atmos.moisture, flux, atmos, args)
@@ -871,7 +873,7 @@ function source!(
     t::Real,
     direction,
 )
-    ρu_pad = SVector(1, 1, 1)
+    vec_pad = SVector(1, 1, 1)
     tend = Source()
 
     _args = (; state, aux, t, direction, diffusive)
@@ -880,7 +882,7 @@ function source!(
 
     source.ρ = Σsources(eq_tends(Mass(), atmos, tend), atmos, args)
     source.ρu =
-        Σsources(eq_tends(Momentum(), atmos, tend), atmos, args) .* ρu_pad
+        Σsources(eq_tends(Momentum(), atmos, tend), atmos, args) .* vec_pad
     source!(atmos.energy, source, atmos, args)
     source!(atmos.moisture, source, atmos, args)
     source!(atmos.precipitation, source, atmos, args)
