@@ -1245,13 +1245,13 @@ end
                 # Compute the gradient of G using the chain-rule:
                 # ∂G/∂xi = ∂ζ/∂xi * ∂G/∂ζ to get a physical gradient
                 if dim == 2
-                    Gζ = zero(FT)
+                    Gζ1 = zero(FT)
                     @unroll for n in 1:Nqv
-                        Gζ += D[j, n] * shared_transform[i, n, s]
+                        Gζ1 += D[j, n] * shared_transform[i, n, s]
                     end
-                    local_transform_gradient[1, s, k] += local_ζ[1, k] * Gζ
-                    local_transform_gradient[2, s, k] += local_ζ[2, k] * Gζ
-                    local_transform_gradient[3, s, k] += local_ζ[3, k] * Gζ
+                    local_transform_gradient[1, s, k] += local_ζ[1, k] * Gζ1
+                    local_transform_gradient[2, s, k] += local_ζ[2, k] * Gζ1
+                    local_transform_gradient[3, s, k] += local_ζ[3, k] * Gζ1
                 else
                     @unroll for n in 1:Nq3
                         Gζ[s, n] += D[n, k] * shared_transform[i, j, s]
@@ -2135,7 +2135,7 @@ or equivalently in matrix form:
 
 This kernel computes the volume terms: M⁻¹(DᵀM ∇G),
 where M is the mass matrix and D is the differentiation matrix,
-and ∇G are the gradients. 
+and ∇G are the gradients.
 """
 @kernel function volume_divergence_of_gradients!(
     balance_law::BalanceLaw,
@@ -2750,16 +2750,16 @@ end
             # Compute gradient of each state
             @unroll for s in 1:ngradlapstate
                 if dim == 2
-                    lap_ζ = zero(FT)
+                    lap_ζ1 = zero(FT)
                     @unroll for n in 1:Nqv
-                        lap_ζ += D[j, n] * s_lap[i, n, s]
+                        lap_ζ1 += D[j, n] * s_lap[i, n, s]
                     end
                     # Application of chain-rule in ζ direction
                     # ∂G/∂xi = ∂ζ/∂xi * ∂G/∂ζ
                     # to get a physical gradient
-                    l_grad_lap[1, s, k] = local_ζ[1, k] * lap_ζ
-                    l_grad_lap[2, s, k] = local_ζ[2, k] * lap_ζ
-                    l_grad_lap[3, s, k] = local_ζ[3, k] * lap_ζ
+                    l_grad_lap[1, s, k] = local_ζ[1, k] * lap_ζ1
+                    l_grad_lap[2, s, k] = local_ζ[2, k] * lap_ζ1
+                    l_grad_lap[3, s, k] = local_ζ[3, k] * lap_ζ1
                 else
                     @unroll for n in 1:Nq3
                         lap_ζ[s, n] += D[n, k] * s_lap[i, j, s]
