@@ -74,8 +74,8 @@ function main()
     Lx = FT(4π)
     Ly = FT(4π)
 
-    for Ndof in (32, 64)
-      for N in (3, 4)
+    for Ndof in (32, 128, 512)
+      for N in (1, 2, 3, 4)
         Ne = round(Int, Ndof / (N+1))
         run(
             mpicomm,
@@ -111,8 +111,8 @@ function run(
         range(FT(-Lx / 2), stop = Ly / 2, length = Ne + 1),
         range(FT(-Lx / 2), stop = Ly / 2, length = Ne + 1),
     )
-    boundary = ((0, 0), (0, 0))
-    periodicity = (true, true)
+    boundary = ((0, 0), (1, 1))
+    periodicity = (true, false)
     topology = StackedBrickTopology(
         mpicomm,
         brickrange,
@@ -203,12 +203,12 @@ function run(
 
         vtkstep = 0
         # output initial step
-        do_output(mpicomm, vtkdir, vtkstep, esdg, Q, model)
+        do_output(mpicomm, vtkdir, vtkstep, esdg, Q, model, N)
 
         # setup the output callback
         cbvtk = EveryXSimulationSteps(floor(outputtime / dt)) do
             vtkstep += 1
-            do_output(mpicomm, vtkdir, vtkstep, esdg, Q, model)
+            do_output(mpicomm, vtkdir, vtkstep, esdg, Q, model, N)
         end
         callbacks = (callbacks..., cbvtk)
     end
@@ -229,7 +229,7 @@ function run(
     engf
 end
 
-function do_output(mpicomm, vtkdir, vtkstep, esdg, Q, model, testname = "bickley")
+function do_output(mpicomm, vtkdir, vtkstep, esdg, Q, model, N, testname = "bickley")
     ## name of the file that this MPI rank will write
     filename = @sprintf(
         "%s/%s_mpirank%04d_step%04d",
@@ -242,7 +242,8 @@ function do_output(mpicomm, vtkdir, vtkstep, esdg, Q, model, testname = "bickley
     statenames = flattenednames(vars_state(model, Prognostic(), eltype(Q)))
     auxnames = flattenednames(vars_state(model, Auxiliary(), eltype(Q)))
 
-    writevtk(filename, Q, esdg, statenames, esdg.state_auxiliary, auxnames; number_sample_points = 10)
+    writevtk(filename, Q, esdg, statenames, esdg.state_auxiliary, auxnames;
+             number_sample_points = 2 * (N + 1))
 
     ## Generate the pvtu file for these vtk files
     if MPI.Comm_rank(mpicomm) == 0

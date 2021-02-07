@@ -30,7 +30,7 @@ struct ShallowWaterModel{P, FT} <: BalanceLaw
     g::FT
 end
 
-boundary_conditions(::ShallowWaterModel) = (0,)
+boundary_conditions(::ShallowWaterModel) = (0, 1)
 
 function boundary_state!(
     ::NumericalFluxFirstOrder,
@@ -43,6 +43,8 @@ function boundary_state!(
     aux⁻,
     _...,
 )
+  nh = @SVector [n[1], n[2]]
+  state⁺.ρu -= 2 * dot(state⁻.ρu, nh) .* nh
 end
 
 function init_state_prognostic!(
