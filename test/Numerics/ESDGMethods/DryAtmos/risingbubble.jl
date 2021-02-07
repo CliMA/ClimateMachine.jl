@@ -37,7 +37,7 @@ end
 const output = parse(Bool, lowercase(get(ENV, "JULIA_CLIMA_OUTPUT", "false")))
 
 include("DryAtmos.jl")
-include("diagnostics.jl")
+include("../diagnostics.jl")
 
 struct RisingBubble <: AbstractDryAtmosProblem end
 
