@@ -5,17 +5,17 @@ include("enable_duals.jl")
 abstract type JacobianVectorProduct end
 
 mutable struct JacobianVectorProductFD{F!T, AT, FT} <: JacobianVectorProduct
-    Q::AT     # pointer to the solution vector Q
-    QdQ::AT   # container for Q + e ΔQ
     f!::F!T   # nonlinear operator f
-    fQ::AT    # cache for f(Q)
+    Q::AT     # solution vector Q
+    QdQ::AT   # container for Q + e ΔQ
+    fQ::AT    # container for f(Q)
     fQdQ::AT  # container for f(Q + e ΔQ)
     β::FT     # parameter used to compute e
 end
 
 mutable struct JacobianVectorProductAD{F!T, AT} <: JacobianVectorProduct
-    QdQ::AT   # container for Q + ε ΔQ that can store dual numbers
     f!::F!T   # nonlinear operator f that can operate on dual numbers
+    QdQ::AT   # container for Q + ε ΔQ that can store dual numbers
     fQdQ::AT  # container for f(Q + ε ΔQ) that can store dual numbers
 end
 
@@ -44,25 +44,27 @@ at `Q`, its Taylor series expansion around `Q` gives the equation
                            ∂Q
 
 # Arguments
-- `Q`: the point at which the Jacobian of `f` must be computed; this container
-    is only used for allocations, and may be changed with `initializejvp!`
-- `f!`: nonlinear operator `f`
+- `f!`: nonlinear operator `f`; used for type information only
+- `Q`: array that specifies the point at which the Jacobian of `f` needs to be
+    computed; used for type information only
 - `autodiff`: whether to use automatic differentiation for calculating the
-    Jacobian vector product (if `false`, use the finite difference method)
-- `β`: parameter for the finite difference method (used if `autodiff == false`)
+    Jacobian vector product; when `autodiff == false`, the finite difference
+    method is used
+- `β`: parameter for the finite difference method; ignored when
+    `autodiff == true`
 """
-function JacobianVectorProduct(Q, f!, autodiff, β)
+function JacobianVectorProduct(f!, Q, autodiff, β)
     if autodiff
         return JacobianVectorProductAD(
-            enable_duals(Q),
             enable_duals(f!),
+            enable_duals(Q),
             enable_duals(similar(Q)),
         )
     else
         return JacobianVectorProductFD(
+            f!,
             Q,
             similar(Q),
-            f!,
             similar(Q),
             similar(Q),
             β,
@@ -100,14 +102,14 @@ function (jvp!::JacobianVectorProductAD)(JΔQ, ΔQ, args...)
     return nothing
 end
 
-function initializejvp!(jvp!::JacobianVectorProductFD, Q, f!)
-    jvp!.Q = Q
+function initializejvp!(jvp!::JacobianVectorProductFD, f!, Q)
     jvp!.f! = f!
+    jvp!.Q = Q
     return nothing
 end
-function initializejvp!(jvp!::JacobianVectorProductAD, Q, f!)
-    jvp!.QdQ = setvalue!(jvp!.QdQ, Q)
-    jvp!.f! = enable_duals(f!) # TODO: don't allocate new dual DGModel each time
+function initializejvp!(jvp!::JacobianVectorProductAD, f!, Q)
+    jvp!.f! = update_duals!(jvp!.f!, f!)
+    jvp!.QdQ = update_duals!(jvp!.QdQ, Q)
     return nothing
 end
 
@@ -153,9 +155,8 @@ To get `Q^{k+1}`, the algorithm solves this linear equation for `ΔQ` and sets
 
 A standard Newton algorithm would solve the linear equation by explicitly
 constructing the Jacobian `J(Q^k)` and finding its inverse. The Newton-Krylov
-algorithm avoids this by using a Krylov subspace method to solve the equation.
-Since Krylov subspace methods can only solve square linear systems, `rhs` must
-have the same size as `Q`.
+algorithm avoids this by using a Krylov subspace method, iteratively evaluating
+the function `jvp(ΔQ) ≈ J(Q^k) ΔQ` to solve the equation.
 
 # Arguments
 - `krylovalgorithm`: algorithm used to solve the linear equation generated on
@@ -166,10 +167,10 @@ have the same size as `Q`.
 - `rtol`: relative tolerance; defaults to `1e-6`
 - `maxiters`: maximum number of iterations; defaults to `10`
 - `autodiff`: whether to use automatic differentiation for calculating the
-    Jacobian vector product (if `false`, use the finite difference method);
-    defaults to `false`
-- `β`: parameter for the finite difference method (for `autodiff == false`);
-    defaults to `1e-4`
+    Jacobian vector product; when `autodiff == false`, the finite difference
+    method is used; defaults to `false`
+- `β`: parameter for the finite difference method; ignored when
+    `autodiff == true`; defaults to `1e-4`
 """
 struct JacobianFreeNewtonKrylovAlgorithm <: GenericIterativeAlgorithm
     krylovalgorithm
@@ -217,7 +218,7 @@ function IterativeSolver(
     autodiff = isnothing(algorithm.autodiff) ? false : algorithm.autodiff
     β = isnothing(algorithm.β) ? FT(1e-4) : FT(algorithm.β)
 
-    jvp! = JacobianVectorProduct(Q, f!, autodiff, β)
+    jvp! = JacobianVectorProduct(f!, Q, autodiff, β)
     ΔQ = similar(Q)
     Δf = similar(Q)
     return JaCobIanfrEEneWtONKryLovSoLVeR(
@@ -263,7 +264,7 @@ function initialize!(
     rhs,
     args...;
 )
-    initializejvp!(solver.jvp!, Q, f!)
+    initializejvp!(solver.jvp!, f!, Q)
     return residual!(solver, threshold, iters, Q, f!, rhs, args...)
 end
 

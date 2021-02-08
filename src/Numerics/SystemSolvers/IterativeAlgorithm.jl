@@ -157,6 +157,20 @@ function check_convergence(residual_norm, threshold, iters)
     return residual_norm < threshold
 end
 
+# Function used by Krylov solver constructors to check their arguments.
+function check_krylov_args(Q, rhs)
+    @assert(size(Q) == size(rhs), string(
+        "Q and rhs must have the same size because a Krylov subspace method ",
+        "can only solve square linear systems,\nbut their sizes are ",
+        "$(size(Q)) and $(size(rhs)), respectively",
+    ))
+    @assert(eltype(Q) == eltype(rhs), string(
+        "Q and rhs must have the same element type because a Krylov subspace ",
+        "method involves iteratively applying the function f!,\nbut their ",
+        "element types are $(eltype(Q)) and $(eltype(rhs)), respectively",
+    ))
+end
+
 #= TODO: Uncomment when SystemSolvers.jl is removed.
 # Kernel abstraction used by some iterative linear solvers that sets
 # Q = Σ_i c_i X_i.
@@ -191,13 +205,13 @@ macro checkargs(string, check, args...)
     return block
 end
 
+include("AccelerationAlgorithm.jl")
+include("StandardPicardAlgorithm.jl")
+include("JacobianFreeNewtonKrylovAlgorithm.jl")
 include("ConjugateGradientAlgorithm.jl")
 include("GeneralizedConjugateResidualAlgorithm.jl")
 include("GeneralizedMinimalResidualAlgorithm.jl")
 include("BatchedGeneralizedMinimalResidualAlgorithm.jl")
-include("JacobianFreeNewtonKrylovAlgorithm.jl")
-include("StandardPicardAlgorithm.jl")
-include("AccelerationAlgorithm.jl")
 
 # TODO:
 #   - Make GeneralizedMinimalResidualAlgorithm look more like BatchedGeneralizedMinimalResidualAlgorithm

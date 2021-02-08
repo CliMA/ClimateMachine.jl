@@ -7,29 +7,32 @@ export GeneralizedConjugateResidualAlgorithm
         preconditioner::Union{AbstractPreconditioner, Nothing} = nothing,
         atol::Union{Real, Nothing} = nothing,
         rtol::Union{Real, Nothing} = nothing,
-        maxrestarts::Union{Int, Nothing} = nothing,
-        M::Union{Int, Nothing} = nothing,
-        sarrays::Union{Bool, Nothing} = nothing,
         groupsize::Union{Int, Nothing} = nothing,
+        M::Union{Int, Nothing} = nothing,
+        maxrestarts::Union{Int, Nothing} = nothing,
+        sarrays::Union{Bool, Nothing} = nothing,
     )
 
 Constructor for a `GeneralizedConjugateResidualAlgorithm`, which solves an
 equation of the form `f(Q) = rhs`, where `f` is assumed to be a linear function
-of `Q`.
+of `Q` that can be represented by an invertible Hermitian matrix, and where
+`rhs` is assumed to be nonzero.
 
 This algorithm uses the restarted Generalized Conjugate Residual method of
-Eisenstat (1983). The linear operator `f` may be nonsymmetric, but it must have
-positive-definite symmetric part `f_s = 1/2 (f + f^T)`.
+Eisenstat (1983).
 
 # Keyword Arguments
 - `preconditioner`: unused; defaults to NoPreconditioner
 - `atol`: absolute tolerance; defaults to `eps(eltype(Q))`
 - `rtol`: relative tolerance; defaults to `√eps(eltype(Q))`
-- `maxrestarts`: maximum number of restarts; defaults to `10`
+- `groupsize`: group size for kernel abstractions; defaults to `256`
 - `M`: number of steps after which the algorithm restarts, and number of basis
     vectors in the Kyrlov subspace; defaults to `min(20, length(Q))`
+- `maxrestarts`: maximum number of times the algorithm can restart; defaults to
+    `cld(length(Q), M) - 1`, so that the maximum number of steps the algorithm
+    can take is no less than `length(Q)`, while also being as close to
+    `length(Q)` as possible
 - `sarrays`: whether to use statically sized arrays; defaults to `true`
-- `groupsize`: group size for kernel abstractions; defaults to `256`
 
 ## References
 
@@ -39,24 +42,22 @@ struct GeneralizedConjugateResidualAlgorithm <: KrylovAlgorithm
     preconditioner
     atol
     rtol
-    maxrestarts
-    M
-    sarrays
     groupsize
+    M
+    maxrestarts
+    sarrays
     function GeneralizedConjugateResidualAlgorithm(;
         preconditioner::Union{AbstractPreconditioner, Nothing} = nothing,
         atol::Union{Real, Nothing} = nothing,
         rtol::Union{Real, Nothing} = nothing,
-        maxrestarts::Union{Int, Nothing} = nothing,
-        M::Union{Int, Nothing} = nothing,
-        sarrays::Union{Bool, Nothing} = nothing,
         groupsize::Union{Int, Nothing} = nothing,
+        M::Union{Int, Nothing} = nothing,
+        maxrestarts::Union{Int, Nothing} = nothing,
+        sarrays::Union{Bool, Nothing} = nothing,
     )
-        @checkargs(
-            "be positive", arg -> arg > 0,
-            atol, rtol, maxrestarts, M, groupsize
-        )
-        return new(preconditioner, atol, rtol, maxrestarts, M, sarrays, groupsize)
+        @checkargs("be positive", arg -> arg > 0, atol, rtol, groupsize, M)
+        @checkargs("be nonnegative", arg -> arg >= 0, maxrestarts)
+        return new(preconditioner, atol, rtol, groupsize, M, maxrestarts, sarrays)
     end
 end
 
@@ -70,9 +71,9 @@ struct GeneralizedConjugateResidualSolver{PT, FT, AT1, AT2, AT3} <: IterativeSol
     normsq::AT3             # stores ||L_p||^2
     atol::FT                # relative tolerance
     rtol::FT                # absolute tolerance
-    maxrestarts::Int        # maximum number of restarts
-    M::Int                  # number of steps before restart
     groupsize::Int          # group size for kernel abstractions
+    M::Int                  # number of steps after which the algorithm restarts
+    maxrestarts::Int        # maximum number of times the algorithm can restart
 end
 
 function IterativeSolver(
@@ -81,21 +82,18 @@ function IterativeSolver(
     f!,
     rhs,
 )
-    @assert(size(Q) == size(rhs), string(
-        "Must solve a square system, Q must have the same dimensions as rhs,",
-        "\nbut their dimensions are $(size(Q)) and $(size(rhs)), respectively."
-    ))
-
+    check_krylov_args(Q, rhs)
     FT = eltype(Q)
 
     preconditioner = isnothing(algorithm.preconditioner) ? NoPreconditioner() :
         algorithm.preconditioner
     atol = isnothing(algorithm.atol) ? eps(FT) : FT(algorithm.atol)
     rtol = isnothing(algorithm.rtol) ? √eps(FT) : FT(algorithm.rtol)
-    maxrestarts = isnothing(algorithm.maxrestarts) ? 10 : algorithm.maxrestarts
-    M = isnothing(algorithm.M) ? min(20, length(Q)) : algorithm.M
-    sarrays = isnothing(algorithm.sarrays) ? true : algorithm.sarrays
     groupsize = isnothing(algorithm.groupsize) ? 256 : algorithm.groupsize
+    M = isnothing(algorithm.M) ? min(20, length(Q)) : algorithm.M
+    maxrestarts = isnothing(algorithm.maxrestarts) ?
+        cld(length(Q), M) - 1 : algorithm.maxrestarts
+    sarrays = isnothing(algorithm.sarrays) ? true : algorithm.sarrays
 
     return GeneralizedConjugateResidualSolver(
         preconditioner,
@@ -107,9 +105,9 @@ function IterativeSolver(
         sarrays ? (@MArray zeros(FT, M)) : zeros(FT, M),
         atol,
         rtol,
-        maxrestarts,
-        M,
         groupsize,
+        M,
+        maxrestarts,
     )
 end
 

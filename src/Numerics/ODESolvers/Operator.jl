@@ -1,4 +1,4 @@
-import ClimateMachine.SystemSolvers: enable_duals, preconditioner_update!,
+import ClimateMachine.SystemSolvers: preconditioner_update!, enable_duals,
     defaultbatches
 
 export AbstractOperator, GenericImplicitOperator, FixedPointImplicitOperator
@@ -30,21 +30,20 @@ function (op::GenericImplicitOperator)(LQ, Q, args...)
     @. LQ = Q - op.ϵ * LQ
 end
 
-enable_duals(op::GenericImplicitOperator, n::Int = 1, tag = nothing) =
-    GenericImplicitOperator(enable_duals(op.f!, n, tag), op.ϵ)
-
 function preconditioner_update!(
     op,
-    eo::GenericImplicitOperator,
+    op2::GenericImplicitOperator,
     preconditioner::ColumnwiseLUPreconditioner,
     args...,
 )
-    preconditioner_update!(op, eo.f!, preconditioner, args...)
+    preconditioner_update!(op, op2.f!, preconditioner, args...)
 end
 
-function defaultbatches(Q, op::GenericImplicitOperator, coupledstates)
-    return defaultbatches(Q, op.f!, coupledstates)
-end
+enable_duals(op::GenericImplicitOperator, n, tag) =
+    GenericImplicitOperator(enable_duals(op.f!, n, tag), op.ϵ)
+
+defaultbatches(Q, op::GenericImplicitOperator, coupledstates) =
+    defaultbatches(Q, op.f!, coupledstates)
 
 mutable struct FixedPointImplicitOperator{F, FT, AT} <: AbstractOperator
     f!::F
