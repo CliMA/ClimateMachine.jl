@@ -128,11 +128,10 @@ update_duals!(dual::T, value::T) where {T} = value
 # method ensures that `dual` has the same type as `enable_duals(value, n, tag)`
 # for some `n` and `tag`. Other methods of `update_duals!` end up calling this
 # one, which lets them get away with not performing such checks.
-update_duals!(dual::StructArrayT, value::ArrayT) where {
-    ArrayT,
-    NTup <: NamedTuple{(:value, :partials), <:Tuple{ArrayT, StructArray}},
-    StructArrayT <: StructArray{<:Dual, <:Any, NTup},
-} = StructArrayT(NTup((value, dual.partials)))
+update_duals!(dual::StructArray{DT, NDims, NTupleT}, value::ArrayT) where {
+    DT <: Dual, NDims, ArrayT,
+    NTupleT <: NamedTuple{(:value, :partials), <:Tuple{ArrayT, StructArray}},
+} = StructArray{DT, NDims, NTupleT}(NTupleT((value, dual.partials)))
 
 # Since an MPIStateArray is mutable, update it directly.
 function update_duals!(dual::MPIStateArray, value)
