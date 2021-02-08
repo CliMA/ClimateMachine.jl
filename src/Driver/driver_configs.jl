@@ -161,7 +161,7 @@ function print_model_info(model, mpicomm)
                 )
         end
         @info msg
-        show_tendencies(model)
+        show_tendencies(model; table_complete = model isa AtmosModel)
     end
 end
 

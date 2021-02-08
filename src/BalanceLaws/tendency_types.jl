@@ -44,7 +44,19 @@ Subtypes are used for dispatching
 on the flux order.
 """
 abstract type AbstractOrder end
+
+"""
+    FirstOrder
+
+A type for dispatching on first order fluxes
+"""
 struct FirstOrder <: AbstractOrder end
+
+"""
+    SecondOrder
+
+A type for dispatching on second order fluxes
+"""
 struct SecondOrder <: AbstractOrder end
 
 """
@@ -54,7 +66,21 @@ Subtypes are used for specifying a
 tuple of tendencies to be accumulated.
 """
 abstract type AbstractTendencyType end
+
+"""
+    Flux{O <: AbstractOrder}
+
+A type for dispatching on flux tendency types
+where `O` is an abstract order ([`FirstOrder`](@ref)
+or [`SecondOrder`](@ref)).
+"""
 struct Flux{O <: AbstractOrder} <: AbstractTendencyType end
+
+"""
+    Source
+
+A type for dispatching on source tendency types
+"""
 struct Source <: AbstractTendencyType end
 
 """

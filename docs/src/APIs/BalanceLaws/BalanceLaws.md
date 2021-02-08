@@ -15,7 +15,11 @@ BalanceLaw
 ```@docs
 PrognosticVariable
 AbstractOrder
+FirstOrder
+SecondOrder
 AbstractTendencyType
+Flux
+Source
 TendencyDef
 eq_tends
 prognostic_vars
