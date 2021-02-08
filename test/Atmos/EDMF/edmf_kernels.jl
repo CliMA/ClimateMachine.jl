@@ -1232,7 +1232,12 @@ function turbconv_boundary_state!(
     state_int::Vars,
     aux_int::Vars,
 ) where {FT}
-    nothing
+    turbconv = m.turbconv
+    N_up = n_updrafts(turbconv)
+    up⁺ = state⁺.turbconv.updraft
+    @unroll_map(N_up) do i
+        up⁺[i].ρaw = FT(0)
+    end
 end;
 
 
@@ -1273,19 +1278,19 @@ function turbconv_normal_boundary_flux_second_order!(
     t,
     _...,
 ) where {FT}
+
     turbconv = m.turbconv
     N_up = n_updrafts(turbconv)
     up_flx = fluxᵀn.turbconv.updraft
     en_flx = fluxᵀn.turbconv.environment
-    # @unroll_map(N_up) do i
-    #     up_flx[i].ρaw = -n⁻ * FT(0)
-    #     up_flx[i].ρa = -n⁻ * FT(0)
-    #     up_flx[i].ρaθ_liq = -n⁻ * FT(0)
-    #     up_flx[i].ρaq_tot = -n⁻ * FT(0)
-    # end
-    # en_flx.∇tke = -n⁻ * FT(0)
-    # en_flx.∇e_int_cv = -n⁻ * FT(0)
-    # en_flx.∇q_tot_cv = -n⁻ * FT(0)
-    # en_flx.∇e_int_q_tot_cv = -n⁻ * FT(0)
+    @unroll_map(N_up) do i
+        up_flx[i].ρa = FT(0)
+        up_flx[i].ρaθ_liq = FT(0)
+        up_flx[i].ρaq_tot = FT(0)
+    end
+    en_flx.ρatke = FT(0)
+    en_flx.ρaθ_liq_cv = FT(0)
+    en_flx.ρaq_tot_cv = FT(0)
+    en_flx.ρaθ_liq_q_tot_cv = FT(0)
 
 end;

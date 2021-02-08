@@ -44,7 +44,7 @@ using CLIMAParameters.Atmos.SubgridScale: inv_Pr_turb
 
 using ClimateMachine
 
-import ..Mesh.Geometry: LocalGeometry, resolutionmetric, lengthscale
+import ..Mesh.Geometry: LocalGeometry, lengthscale, lengthscale_horizontal
 
 using ..Orientations
 using ..VariableTemplates
@@ -837,7 +837,7 @@ function init_aux_hyperdiffusion!(
     aux::Vars,
     geom::LocalGeometry,
 )
-    aux.hyperdiffusion.Δ = lengthscale(geom)
+    aux.hyperdiffusion.Δ = lengthscale_horizontal(geom)
 end
 
 function compute_gradient_argument!(
@@ -909,7 +909,7 @@ function init_aux_hyperdiffusion!(
     aux::Vars,
     geom::LocalGeometry,
 )
-    aux.hyperdiffusion.Δ = lengthscale(geom)
+    aux.hyperdiffusion.Δ = lengthscale_horizontal(geom)
 end
 
 function compute_gradient_argument!(
