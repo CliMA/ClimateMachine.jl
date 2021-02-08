@@ -338,10 +338,10 @@ function apply!(
 
     nrealelem = length(topology.realelems)
 
+    event = Event(device)
     if direction isa EveryDirection || direction isa HorizontalDirection
         @assert dim == 2 || Nq1 == Nq2
         filtermatrix = filter.filter_matrices[1]
-        event = Event(device)
         event = kernel_apply_filter!(device, (Nq1, Nq2, Nq3))(
             Val(dim),
             Val(N),
@@ -355,10 +355,10 @@ function apply!(
             ndrange = (nrealelem * Nq1, Nq2, Nq3),
             dependencies = (event,),
         )
+        event
     end
     if direction isa EveryDirection || direction isa VerticalDirection
         filtermatrix = filter.filter_matrices[end]
-        event = Event(device)
         event = kernel_apply_filter!(device, (Nq1, Nq2, Nq3))(
             Val(dim),
             Val(N),
