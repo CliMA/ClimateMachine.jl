@@ -282,7 +282,7 @@ function test_run(mpicomm, ArrayType, topl, N, FT, brickrange)
 
         # setup the output callback
         outputtime = timeend
-        cbvtk = EveryXSimulationSteps(50.0/ dt)) do
+        cbvtk = EveryXSimulationSteps(50.0/ dt) do
             vtkstep += 1
             Qe = init_ode_state(dg, gettime(lsrk), setup)
             do_output(mpicomm, vtkdir, vtkstep, dg, Q, Qe, model)
