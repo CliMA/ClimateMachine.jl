@@ -57,7 +57,9 @@ where stretching/compression happens only along the x1, x2 & x3 axis. Here x1
 # Arguments for the inner constructor
  - `grid`: DiscontinousSpectralElementGrid
  - `xbnd`: Domain boundaries in x1, x2 and x3 directions
- - `xres`: Resolution of the interpolation grid in x1, x2 and x3 directions
+ - `x1g`: Interpolation grid in x1 direction
+ - `x2g`: Interpolation grid in x2 direction
+ - `x3g`: Interpolation grid in x3 direction
 """
 struct InterpolationBrick{
     FT <: AbstractFloat,
@@ -470,8 +472,8 @@ end
     wb2_sh = @localmem FT (qm[2],)
     wb3_sh = @localmem FT (qm[3],)
 
-    np = @private T (1,)
-    off = @private T (1,)
+    np = @localmem T (1,)
+    off = @localmem T (1,)
 
     # load shared memory
     if tk == 1
@@ -487,11 +489,11 @@ end
             m_ξ1_sh[i] = m_ξ1[i]
             wb1_sh[i] = wb1[i]
         end
+        np[1] = offset[el + 1] - offset[el]
+        off[1] = offset[el]
     end
     @synchronize
 
-    np[1] = offset[el + 1] - offset[el]
-    off[1] = offset[el]
 
     for i in 1:np[1] # interpolate point-by-point
 
