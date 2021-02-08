@@ -27,6 +27,10 @@ struct SingleStackSpecificInfo{FT} <: ConfigSpecificInfo
 end
 struct MultiColumnLandSpecificInfo <: ConfigSpecificInfo end
 
+export EmptyParamSet
+export init_empty!, get_min_node_distance
+struct EmptyParamSet <: AbstractEarthParameterSet end
+
 include("SolverTypes/SolverTypes.jl")
 
 """
@@ -196,6 +200,7 @@ function AtmosLESConfiguration(
     numerical_flux_gradient = CentralNumericalFluxGradient(),
     fv_reconstruction = nothing,
     grid_stretching = (nothing, nothing, nothing),
+    suppress_model_info::Bool = false,
 ) where {FT <: AbstractFloat}
 
     (polyorder_horz, polyorder_vert) = get_polyorders(N)
@@ -215,7 +220,7 @@ function AtmosLESConfiguration(
         (xmax, ymax, zmax) = ClimateMachine.Settings.domain_max
     end
 
-    print_model_info(model, mpicomm)
+    suppress_model_info || print_model_info(model, mpicomm)
 
     brickrange = (
         grid1d(
@@ -322,6 +327,7 @@ function AtmosGCMConfiguration(
     numerical_flux_gradient = CentralNumericalFluxGradient(),
     fv_reconstruction = nothing,
     grid_stretching = nothing,
+    suppress_model_info::Bool = false,
 ) where {FT <: AbstractFloat}
 
     (polyorder_horz, polyorder_vert) = get_polyorders(N)
@@ -336,7 +342,7 @@ function AtmosGCMConfiguration(
         domain_height = ClimateMachine.Settings.domain_height
     end
 
-    print_model_info(model, mpicomm)
+    !suppress_model_info ? print_model_info(model, mpicomm) : nothing
 
     _planet_radius::FT = planet_radius(param_set)
     vert_range = grid1d(
@@ -403,6 +409,59 @@ Establishing Atmos GCM configuration for %s
         AtmosGCMSpecificInfo(domain_height, nelem_vert, nelem_horz),
     )
 end
+
+function init_empty!(problem, bl, state, aux, localgeo, t)
+    nothing
+end
+function get_min_node_distance(
+    ::AtmosLESConfigType,
+    N_poly::Union{Int, NTuple{2, Int}},
+    (Δx, Δy, Δz)::NTuple{3, FT},
+    xmax::FT,
+    ymax::FT,
+    zmax::FT;
+    init_empty::Function = init_empty!,
+) where {FT}
+    empty_config = ClimateMachine.AtmosLESConfiguration(
+        "EmptyModel",
+        N_poly,
+        (Δx, Δy, Δz),
+        xmax,
+        ymax,
+        zmax,
+        EmptyParamSet(),
+        init_empty;
+        suppress_model_info = true,
+    )
+    Δh = min_node_distance(empty_config.grid, HorizontalDirection())
+    Δv = min_node_distance(empty_config.grid, VerticalDirection())
+    return (Δh, Δv)
+end
+
+function get_min_node_distance(
+    ::AtmosGCMConfigType,
+    N_poly::Union{Int, NTuple{2, Int}},
+    (nelem_horz, nelem_vert)::NTuple{2, Int},
+    domain_height::FT,
+    init_empty::Function = init_empty!,
+) where {FT}
+    empty_config = ClimateMachine.AtmosGCMConfiguration(
+        "EmptyModel",
+        N_poly,
+        (nelem_horz, nelem_vert),
+        domain_height,
+        EmptyParamSet(),
+        init_empty;
+        suppress_model_info = true,
+    )
+    Δh = min_node_distance(empty_config.grid, HorizontalDirection())
+    Δv = min_node_distance(empty_config.grid, VerticalDirection())
+    return (Δh, Δv)
+end
+
+###
+### Ocean Configurations
+###
 
 function OceanBoxGCMConfiguration(
     name::String,

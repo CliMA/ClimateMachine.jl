@@ -78,6 +78,16 @@ function main()
     ymax = FT(320)
     zmax = FT(400)
 
+    Npoly = (5, 5)
+    (Δh, Δv) = get_grid_spacing_les(
+        Npoly,
+        (Δx, Δy, Δz),
+        xmax,
+        ymax,
+        zmax,
+        EmptyParamSet(),
+    )
+
     t0 = FT(0)
     timeend = FT(10)
     CFL = FT(0.4)
