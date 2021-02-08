@@ -77,6 +77,7 @@ Base.@kwdef mutable struct ClimateMachine_Settings
     sim_time::Float64 = NaN
     fixed_number_of_steps::Int = -1
     degree::NTuple{2, Int} = (-1, -1)
+    cutoff_degree::NTuple{2, Int} = (-1, -1)
     nelems::NTuple{3, Int} = (-1, -1, -1)
     domain_height::Float64 = -1
     resolution::NTuple{3, Float64} = (-1, -1, -1)
@@ -306,6 +307,11 @@ function parse_commandline(
         metavar = "<horizontal>,<vertical>"
         arg_type = NTuple{2, Int}
         default = get_setting(:degree, defaults, global_defaults)
+        "--cutoff-degree"
+        help = "tuple of horizontal and vertical polynomial degrees for cutoff filter (no space before/after comma)"
+        metavar = "<horizontal>,<vertical>"
+        arg_type = NTuple{2, Int}
+        default = get_setting(:cutoff_degree, defaults, global_defaults)
         "--nelems"
         help = "number of elements in each direction: 3 for Ocean GCM, 2 for Atmos GCM or 1 for Atmos single-stack (no space before/after comma)"
         metavar = "<nelem_1>[,<nelem_2>[,<nelem_3>]]"
@@ -408,6 +414,8 @@ Recognized keyword arguments are:
         if `≥0` perform specified number of steps
 - `degree::NTuple{2, Int} = (-1, -1)`:
         tuple of horizontal and vertical polynomial degrees for spatial discretization order
+- `cutoff_degree::NTuple{2, Int} = (-1, -1)`:
+        tuple of horizontal and vertical polynomial degrees for cutoff filter
 - `nelems::NTuple{3, Int} = (-1, -1, -1)`:
         tuple of number of elements in each direction: 3 for Ocean, 2 for GCM or 1 for single-stack
 - `domain_height::Float64 = -1`:

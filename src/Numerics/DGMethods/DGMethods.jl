@@ -8,6 +8,7 @@ using KernelAbstractions.Extras: @unroll
 using ..MPIStateArrays
 using ..Mesh.Grids
 using ..Mesh.Topologies
+using ..Mesh.Filters
 using ..VariableTemplates
 using ..Courant
 using ..BalanceLaws:
