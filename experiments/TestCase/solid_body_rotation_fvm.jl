@@ -80,7 +80,7 @@ function config_solid_body_rotation(
         model = model,
         numerical_flux_first_order = RoeNumericalFlux(),
         fv_reconstruction = HBFVReconstruction(model, fv_reconstruction),
-        #grid_stretching = SingleExponentialStretching(FT(2.0)),
+        #grid_stretching = (SingleExponentialStretching(FT(2.0)),),
     )
 
     return config
