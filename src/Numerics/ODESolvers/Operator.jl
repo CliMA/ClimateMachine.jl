@@ -1,5 +1,5 @@
 import ClimateMachine.SystemSolvers: preconditioner_update!, enable_duals,
-    defaultbatches
+    update_duals!, defaultbatches
 
 export AbstractOperator, GenericImplicitOperator, FixedPointImplicitOperator
 
@@ -39,8 +39,11 @@ function preconditioner_update!(
     preconditioner_update!(op, op2.f!, preconditioner, args...)
 end
 
-enable_duals(op::GenericImplicitOperator, n, tag) =
-    GenericImplicitOperator(enable_duals(op.f!, n, tag), op.ϵ)
+enable_duals(value::GenericImplicitOperator, n, tag) =
+    GenericImplicitOperator(enable_duals(value.f!, n, tag), value.ϵ)
+
+update_duals!(dual::GenericImplicitOperator, value) =
+    GenericImplicitOperator(update_duals!(dual.f!, value.f!), value.ϵ)
 
 defaultbatches(Q, op::GenericImplicitOperator, coupledstates) =
     defaultbatches(Q, op.f!, coupledstates)
