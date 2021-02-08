@@ -232,7 +232,7 @@ function config_agnesi_hs_lin(
     )
 
     ## Setup the source terms for this problem:
-    source = (Gravity(), rayleigh_sponge)
+    source = (Gravity()) #, rayleigh_sponge)
 
     ## Define the reference state:
     T_virt = FT(250)
