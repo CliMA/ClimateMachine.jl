@@ -19,6 +19,7 @@ struct AtmosGCMSpecificInfo{FT} <: ConfigSpecificInfo
     domain_height::FT
     nelem_vert::Int
     nelem_horz::Int
+    vert_range::Array{FT, 1}
 end
 struct OceanBoxGCMSpecificInfo <: ConfigSpecificInfo end
 struct SingleStackSpecificInfo{FT} <: ConfigSpecificInfo
@@ -191,11 +192,11 @@ function AtmosLESConfiguration(
     boundary = ((0, 0), (0, 0), (1, 2)),
     periodicity = (true, true, false),
     meshwarp = (x...) -> identity(x),
+    grid_stretching = (nothing, nothing, nothing),
     numerical_flux_first_order = RusanovNumericalFlux(),
     numerical_flux_second_order = CentralNumericalFluxSecondOrder(),
     numerical_flux_gradient = CentralNumericalFluxGradient(),
     fv_reconstruction = nothing,
-    grid_stretching = (nothing, nothing, nothing),
 ) where {FT <: AbstractFloat}
 
     (polyorder_horz, polyorder_vert) = get_polyorders(N)
@@ -316,12 +317,12 @@ function AtmosGCMConfiguration(
         init_state_prognostic = init_GCM!,
     ),
     mpicomm = MPI.COMM_WORLD,
+    grid_stretching = (nothing,),
     meshwarp::Function = cubedshellwarp,
     numerical_flux_first_order = RusanovNumericalFlux(),
     numerical_flux_second_order = CentralNumericalFluxSecondOrder(),
     numerical_flux_gradient = CentralNumericalFluxGradient(),
     fv_reconstruction = nothing,
-    grid_stretching = nothing,
 ) where {FT <: AbstractFloat}
 
     (polyorder_horz, polyorder_vert) = get_polyorders(N)
@@ -342,7 +343,7 @@ function AtmosGCMConfiguration(
     vert_range = grid1d(
         _planet_radius,
         FT(_planet_radius + domain_height),
-        grid_stretching,
+        grid_stretching[1],
         nelem = nelem_vert,
     )
 
@@ -400,7 +401,12 @@ Establishing Atmos GCM configuration for %s
         numerical_flux_second_order,
         numerical_flux_gradient,
         fv_reconstruction,
-        AtmosGCMSpecificInfo(domain_height, nelem_vert, nelem_horz),
+        AtmosGCMSpecificInfo(
+            domain_height,
+            nelem_vert,
+            nelem_horz,
+            collect(vert_range),
+        ),
     )
 end
 
@@ -729,12 +735,12 @@ DGModel(driver_config; kwargs...) = DGModel(
 )
 
 """
--SpaceDiscretization(driver_config; kwargs...)
--
--Initialize a [`SpaceDiscretization`](@ref) given a
--[`DriverConfiguration`](@ref) and keyword
--arguments supported by [`SpaceDiscretization`](@ref).
--"""
+    SpaceDiscretization(driver_config; kwargs...)
+
+Initialize a [`SpaceDiscretization`](@ref) given a
+[`DriverConfiguration`](@ref) and keyword
+arguments supported by [`SpaceDiscretization`](@ref).
+"""
 SpaceDiscretization(driver_config; kwargs...) =
     (driver_config.polyorders[2] == 0) ?
     DGFVModel(
