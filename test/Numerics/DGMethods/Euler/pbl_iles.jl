@@ -350,7 +350,7 @@ function (setup::PBLSetup)(problem, bl, state, aux, localgeo, t)
 
     state.ρ = ρ
     state.ρu = ρ * SVector(0, 0, δw)
-    state.ρe = ρ * (total_energy(param_set, e_kin, e_pot, T) + δe)
+    state.energy.ρe = ρ * (total_energy(param_set, e_kin, e_pot, T) + δe)
 end
 
 struct HeatFlux{PV <: Energy} <: TendencyDef{Source, PV} end
