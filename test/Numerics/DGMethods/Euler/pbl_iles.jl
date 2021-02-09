@@ -29,6 +29,7 @@ using MPI, Logging, StaticArrays, LinearAlgebra, Printf, Dates, Test
 using Random, UnPack
 
 const output_vtk = false
+const iles = false
 
 include("pbl_diagnostics.jl")
 
@@ -38,12 +39,11 @@ function main()
 
     mpicomm = MPI.COMM_WORLD
 
-    polynomialorder = 4
-    numelem_horz = 12
-    numelem_vert = 12
+    polynomialorder = 5
+    numelem_horz = 6
+    numelem_vert = 6
 
-    #timeend = 15000
-    timeend = 1
+    timeend = 15000
     outputtime = 200
 
     FT = Float64
@@ -91,15 +91,49 @@ function test_run(
         polynomialorder = polynomialorder,
     )
 
+    if iles
+      turbulence = ConstantDynamicViscosity(FT(0))
+      source = (Gravity(), HeatFlux())
+      boundary_conditions = (AtmosBC(), AtmosBC())
+    else
+      turbulence = SmagorinskyLilly{FT}(0.165)
+      source = (Gravity(),)
+
+      h0 = FT(1 / 100)
+      _cv_d::FT = cv_d(param_set)
+      _R_d::FT = R_d(param_set)
+      _MSLP::FT = MSLP(param_set)
+      ρ_sfc = _MSLP / (_R_d * setup.θ0)
+      SHF = _cv_d * h0 * ρ_sfc
+      energy_bc = PrescribedEnergyFlux((state, aux, t) -> SHF)
+
+      # TODO: What's wrong here ???
+      #momentum_bc = Impenetrable(DragLaw(
+      #    (state, aux, t, normPu_int) -> 1 / 10,
+      #))
+
+      boundary_conditions = (
+          AtmosBC(
+              #momentum = momentum_bc,
+              energy = energy_bc,
+          ),
+          AtmosBC(),
+      )
+    end
+
+    problem = AtmosProblem(
+        init_state_prognostic = setup,
+        boundaryconditions = boundary_conditions,
+    )
     model = AtmosModel{FT}(
         AtmosLESConfigType,
         param_set;
-        init_state_prognostic = setup,
+        problem = problem,
         orientation = FlatOrientation(),
         ref_state = NoReferenceState(),
-        turbulence = ConstantDynamicViscosity(FT(0)),
+        turbulence = turbulence,
         moisture = DryModel(),
-        source = (Gravity(), HeatFlux()),
+        source = source,
     )
 
     dg = DGModel(
@@ -114,7 +148,7 @@ function test_run(
     # determine the time step
     acoustic_speed = soundspeed_air(model.param_set, FT(setup.θ0))
     dx = min_node_distance(grid)
-    cfl = FT(1.0)
+    cfl = FT(1.5)
     dt = cfl * dx / acoustic_speed
 
     Q = init_ode_state(dg, FT(0); init_on_cpu=true)
@@ -193,12 +227,18 @@ function test_run(
                               """ gettime(odesolver) runtime energy
         end
     end
-    callbacks = (cbinfo, cbcheck, cbfilter)
 
+    if iles
+      callbacks = (cbinfo, cbcheck, cbfilter)
+    else
+      callbacks = (cbinfo, cbcheck)
+    end
+
+    mode = iles ? "iles" : "smg"
     if output_vtk
         # create vtk dir
         vtkdir =
-            "vtk_pbl" *
+            "vtk_pbl_$mode_" *
             "_poly$(polynomialorder)_horz$(numelem_horz)_vert$(numelem_vert)" *
             "_$(ArrayType)_$(FT)"
         mkpath(vtkdir)
@@ -218,7 +258,7 @@ function test_run(
     nsteps = ceil(Int, timeend / dt)
 
     prof_steps = 0
-    mkpath("profs_pbl")
+    mkpath("profs_pbl_$mode")
     cbdiagnostics = EveryXSimulationSteps(1) do
       step = getsteps(odesolver)
       if mod(step, 10000) == 0 || step > (nsteps - 50)
@@ -238,7 +278,7 @@ function test_run(
                         variances.wxθ[k],
                         variances.wxw[k])
         end
-        open("profs_pbl/pbl_profiles_$step.txt", "w") do f
+        open("profs_pbl_$mode/pbl_profiles_$step.txt", "w") do f
           write(f, s)
         end
       end
@@ -330,35 +370,21 @@ function source(s::HeatFlux{Energy}, m, args)
     return _cv_d * ρ * hflux * exner(ts) 
 end
 
-struct Drag{PV <: Momentum} <: TendencyDef{Source, PV} end
-Drag() = Drag{Momentum}()
-function source(s::Drag{Momentum}, m, args)
-    @unpack state, aux = args
-    @unpack ts = args.precomputed
-    FT = eltype(aux)
-    
-    z = altitude(m, aux)
-    _cv_d::FT = cv_d(m.param_set)
-
-    ρ = state.ρ
-    h0 = FT(1 / 100)
-    hscale = FT(25)
-    hflux = h0 * exp(-z / hscale) / hscale
-    return _cv_d * ρ * hflux * exner(ts) 
-end
-
 function two_point_source!(m::AtmosModel, source::Vars,
                            state::Vars, state_bot::Vars, aux::Vars)
-    FT = eltype(source)
-    z = altitude(m, aux)
+    #if iles
+      FT = eltype(source)
+      z = altitude(m, aux)
 
-    c0 = FT(1 / 10)
-    hscale = FT(25)
-    u0 = state_bot.ρu / state_bot.ρ
-    v0 = @inbounds sqrt(u0[1] ^ 2 + u0[2] ^ 2)
-    ρu = state.ρu
-    ρu_drag = @inbounds SVector(ρu[1], ρu[2], 0)
-    source.ρu =  -c0 * v0 / 2 * ρu_drag * exp(-z / hscale) / hscale
+      c0 = FT(1 / 10)
+      hscale = FT(25)
+      u0 = state_bot.ρu / state_bot.ρ
+      v0 = @inbounds sqrt(u0[1] ^ 2 + u0[2] ^ 2)
+      ρu = state.ρu
+      ρu_drag = @inbounds SVector(ρu[1], ρu[2], 0)
+      source.ρu =  -c0 * v0 * ρu_drag * exp(-z / hscale) / hscale
+      # energy source ?
+    #end
 end
 
 function do_output(
