@@ -277,7 +277,7 @@ function dostep!(Q, mis::MultirateInfinitesimalStep, p, time)
 
         # When d[i] = 0, we do not perform fast substepping;
         # instead we just update the slow tendency
-        if abs(d[i]) < 1.e-10
+        if iszero(d[i])
             Q .+= dt .* offset
         else
             fastrhs!.a = time + c̃[i] * dt

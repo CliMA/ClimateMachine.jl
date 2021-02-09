@@ -86,6 +86,9 @@ mutable struct AdditiveRungeKutta{
     rhs_implicit!::Any
     "a dictionary of backward Euler solvers"
     implicit_solvers::IST
+    "An integer which is updated to determine the appropriate cached implicit
+    solver (used in substepping)"
+    substep_stage::Int
     "Storage for solution during the AdditiveRungeKutta update"
     Qstages::NTuple{Nstagesm1, AT}
     "Storage for RHS during the AdditiveRungeKutta update"
@@ -159,10 +162,8 @@ mutable struct AdditiveRungeKutta{
             @assert RKB_explicit == RKB_implicit
             @assert RKC_explicit == RKC_implicit
             # rk_diag here has been filtered of all non-unique and zero values.
-            # So [0, c, ... c ] filters to [c]
-            if length(rk_diag) != 1
-                error("The implicit Butcher table must have SDIRK form when using LowStorageVariant.")
-            end
+            # So [0, c, ... c ] filters to [c]. We error if its length is not 1
+            @assert length(rk_diag) == 1
         end
 
         if isempty(nsubsteps)
@@ -175,19 +176,22 @@ mutable struct AdditiveRungeKutta{
                     rhs_implicit!,
                 )
                 @assert besolver! isa AbstractBackwardEulerSolver
-                implicit_solvers[rk_coeff] = besolver!
+                implicit_solvers[rk_coeff] = (besolver!,)
             end
         else
+            nsteps = length(nsubsteps)
             for rk_coeff in rk_diag
-                α = dt * nsubsteps[i] * rk_coeff
-                besolver! = setup_backward_Euler_solver(
-                    backward_euler_solver,
-                    Q,
-                    α,
-                    rhs_implicit!,
+                solvers = ntuple(
+                    i -> setup_backward_Euler_solver(
+                        backward_euler_solver,
+                        Q,
+                        dt * nsubsteps[i] * rk_coeff,
+                        rhs_implicit!,
+                    ),
+                    nsteps,
                 )
-                @assert besolver! isa AbstractBackwardEulerSolver
-                implicit_solvers[rk_coeff] = besolver!
+                @assert(all(isa.(solvers, AbstractBackwardEulerSolver)))
+                implicit_solvers[rk_coeff] = solvers
             end
         end
 
@@ -199,6 +203,8 @@ mutable struct AdditiveRungeKutta{
             rhs!,
             rhs_implicit!,
             implicit_solvers,
+            # By default (no substepping, this parameter is simply set to 1)
+            1,
             Qstages,
             Rstages,
             Qhat,
@@ -242,7 +248,8 @@ end
 # this will only work for iterative solves
 # direct solvers use prefactorization
 function updatedt!(ark::AdditiveRungeKutta, dt)
-    for (rk_coeff, implicit_solver!) in ark.implicit_solvers
+    for (rk_coeff, implicit_solvers) in ark.implicit_solvers
+        implicit_solver! = implicit_solvers[ark.substep_stage]
         @assert Δt_is_adjustable(implicit_solver!)
         # New coefficient
         α = dt * rk_coeff
@@ -275,7 +282,7 @@ function dostep!(
     slow_rv_dQ = nothing,
     slow_scaling = nothing,
 )
-    ark.besolver! = ark.besolvers![iStage]
+    ark.substep_stage = iStage
     for i in 1:nsubsteps
         dostep!(Q, ark, ark.variant, p, time, slow_δ, slow_rv_dQ, slow_scaling)
         time += ark.dt
@@ -362,7 +369,7 @@ function dostep!(
         rk_coeff = RKA_implicit[istage, istage]
         if !iszero(rk_coeff)
             α = rk_coeff * dt
-            besolver! = ark.implicit_solvers[rk_coeff]
+            besolver! = ark.implicit_solvers[rk_coeff][ark.substep_stage]
             besolver!(Qstages[istage], Qhat, α, p, stagetime_implicit)
         end
 
@@ -421,7 +428,7 @@ function dostep!(
     # implicit solve at the first stage) and all non-zero diaognal
     # coefficients are the same.
     rk_coeff = RKA_implicit[2, 2]
-    besolver! = ark.implicit_solvers[rk_coeff]
+    besolver! = ark.implicit_solvers[rk_coeff][ark.substep_stage]
     # NOTE: Using low-storage variant assumes that the butcher tables
     # for both the explicit and implicit parts have the same B and C
     # vectors
@@ -937,17 +944,17 @@ function Trap2LockWoodWeller(
 
     #! format: off
     RKA_explicit = [
-        RT(0)    RT(0)    RT(0)    RT(0)
-        RT(δ_s)  RT(0)    RT(0)    RT(0)
-        RT(1/2)  RT(1/2)  RT(0)    RT(0)
-        RT(1/2)  RT(0)    RT(1/2)  RT(0)
+        RT(0)      RT(0)      RT(0)      RT(0)
+        RT(δ_s)    RT(0)      RT(0)      RT(0)
+        RT(1 / 2)  RT(1 / 2)  RT(0)      RT(0)
+        RT(1 / 2)  RT(0)      RT(1 / 2)  RT(0)
     ]
 
     RKA_implicit = [
-        RT(0)                  RT(0)                  RT(0)    RT(0)
-        RT(δ_f * (1 - α) / 2)  RT(δ_f * (1 + α) / 2)  RT(0)    RT(0)
-        RT(1/2)                RT(0)                  RT(1/2)  RT(0)
-        RT(1/2)                RT(0)                  RT(0)    RT(1/2)
+        RT(0)                  RT(0)                  RT(0)      RT(0)
+        RT(δ_f * (1 - α) / 2)  RT(δ_f * (1 + α) / 2)  RT(0)      RT(0)
+        RT(1 / 2)              RT(0)                  RT(1 / 2)  RT(0)
+        RT(1 / 2)              RT(0)                  RT(0)      RT(1 / 2)
     ]
     #! format: on
 
