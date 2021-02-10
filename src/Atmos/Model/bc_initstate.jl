@@ -45,12 +45,15 @@ end
 
 function boundary_state!(
     ::CentralNumericalFluxDivergence,
+    bc::InitStateBC,
+    m::AtmosModel,
     args...
 )
 end
-
 function boundary_state!(
     ::CentralNumericalFluxHigherOrder,
+    bc::InitStateBC,
+    m::AtmosModel,
     args...
 )
 end
