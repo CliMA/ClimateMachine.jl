@@ -4,12 +4,14 @@ export ThermodynamicState,
     PhaseDry,
     PhaseDry_ρT,
     PhaseDry_pT,
+    PhaseDry_pe,
     PhaseDry_ρθ,
     PhaseDry_pθ,
     PhaseDry_ρp,
     PhaseEquil,
     PhaseEquil_ρTq,
     PhaseEquil_pTq,
+    PhaseEquil_peq,
     PhaseEquil_ρθq,
     PhaseEquil_pθq,
     PhaseEquil_ρpq,
@@ -17,6 +19,7 @@ export ThermodynamicState,
     PhaseNonEquil_ρTq,
     PhaseNonEquil_ρθq,
     PhaseNonEquil_pθq,
+    PhaseNonEquil_peq,
     PhaseNonEquil_ρpq
 
 """
@@ -104,6 +107,21 @@ Constructs a [`PhaseDry`](@ref) thermodynamic state from:
 """
 function PhaseDry_pT(param_set::APS, p::FT, T::FT) where {FT <: Real}
     e_int = internal_energy(param_set, T)
+    ρ = air_density(param_set, T, p)
+    return PhaseDry{FT, typeof(param_set)}(param_set, e_int, ρ)
+end
+
+"""
+    PhaseDry_pe(param_set, p, e_int)
+
+Constructs a [`PhaseDry`](@ref) thermodynamic state from:
+
+ - `param_set` an `AbstractParameterSet`, see the [`Thermodynamics`](@ref) for more details
+ - `p` pressure
+ - `e_int` internal energy
+"""
+function PhaseDry_pe(param_set::APS, p::FT, e_int::FT) where {FT <: Real}
+    T = air_temperature(param_set, e_int)
     ρ = air_density(param_set, T, p)
     return PhaseDry{FT, typeof(param_set)}(param_set, e_int, ρ)
 end
@@ -380,6 +398,41 @@ function PhaseEquil_pTq(
 end
 
 """
+    PhaseEquil_peq(param_set, p, e_int, q_tot)
+
+Constructs a [`PhaseEquil`](@ref) thermodynamic state from temperature.
+
+ - `param_set` an `AbstractParameterSet`, see the [`Thermodynamics`](@ref) for more details
+ - `p` pressure
+ - `e_int` temperature
+ - `q_tot` total specific humidity
+"""
+function PhaseEquil_peq(
+    param_set::APS,
+    p::FT,
+    e_int::FT,
+    q_tot::FT,
+    maxiter::Int = 40,
+    temperature_tol::FT = FT(1e-2),
+    ::Type{sat_adjust_method} = SecantMethod,
+) where {FT <: Real, sat_adjust_method}
+    phase_type = PhaseEquil
+    q_tot_safe = clamp(q_tot, FT(0), FT(1))
+    T = saturation_adjustment_given_peq(
+        sat_adjust_method,
+        param_set,
+        p,
+        e_int,
+        q_tot_safe,
+        phase_type,
+        maxiter,
+        temperature_tol,
+    )
+    ρ = air_density(param_set, T, p, PhasePartition(q_tot_safe))
+    return PhaseEquil{FT, typeof(param_set)}(param_set, e_int, ρ, q_tot_safe, T)
+end
+
+"""
     PhaseEquil_ρpq(param_set, ρ, p, q_tot, perform_sat_adjust=true)
 
 Constructs a [`PhaseEquil`](@ref) thermodynamic state from temperature.
@@ -536,6 +589,27 @@ function PhaseNonEquil_pθq(
     T = air_temperature_given_θpq(param_set, θ_liq_ice, p, q_pt)
     ρ = air_density(param_set, T, p, q_pt)
     e_int = internal_energy(param_set, T, q_pt)
+    return PhaseNonEquil{FT, typeof(param_set)}(param_set, e_int, ρ, q_pt)
+end
+
+"""
+    PhaseNonEquil_peq(param_set, p, e_int, q_pt)
+
+Constructs a [`PhaseNonEquil`](@ref) thermodynamic state from:
+
+ - `param_set` an `AbstractParameterSet`, see the [`Thermodynamics`](@ref) for more details
+ - `p` pressure
+ - `e_int` internal energy
+ - `q_pt` phase partition
+"""
+function PhaseNonEquil_peq(
+    param_set::APS,
+    p::FT,
+    e_int::FT,
+    q_pt::PhasePartition{FT},
+) where {FT <: Real}
+    T = air_temperature(param_set, e_int, q_pt)
+    ρ = air_density(param_set, T, p, q_pt)
     return PhaseNonEquil{FT, typeof(param_set)}(param_set, e_int, ρ, q_pt)
 end
 
