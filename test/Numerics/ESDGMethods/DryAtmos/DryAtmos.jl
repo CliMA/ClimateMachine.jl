@@ -12,7 +12,8 @@ import ClimateMachine.BalanceLaws:
     boundary_state!,
     wavespeed,
     flux_first_order!,
-    source!
+    source!,
+    drag_source!
 using StaticArrays
 using LinearAlgebra: dot, I
 using ClimateMachine.DGMethods.NumericalFluxes: NumericalFluxFirstOrder
@@ -38,21 +39,25 @@ const param_set = EarthParameterSet()
 
 abstract type AbstractDryAtmosProblem end
 
-struct DryAtmosModel{D, O, P, RS, S} <: BalanceLaw
+struct DryAtmosModel{D, O, P, RS, S, DS} <: BalanceLaw
     orientation::O
     problem::P
     ref_state::RS
     sources::S
+    drag_source::DS
 end
 function DryAtmosModel{D}(orientation,
                           problem::AbstractDryAtmosProblem;
                           ref_state=NoReferenceState(),
-                          sources=()) where {D}
+                          sources=(),
+                          drag_source=NoDrag()) where {D}
     O = typeof(orientation)
     P = typeof(problem)
     RS = typeof(ref_state)
     S = typeof(sources)
-    DryAtmosModel{D, O, P, RS, S}(orientation, problem, ref_state, sources)
+    DS = typeof(drag_source)
+    DryAtmosModel{D, O, P, RS, S, DS}(orientation, problem,
+                                      ref_state, sources, drag_source)
 end
 
 boundary_conditions(::DryAtmosModel) = (1, 2)
@@ -687,5 +692,12 @@ function nondiffusive_courant(
     ss = soundspeed(ρ, p)
     return Δt * (normu + ss) / Δx
 end
+
+function drag_source!(m::DryAtmosModel, args...)
+  drag_source!(m, m.drag_source, args...)
+end
+struct NoDrag end
+drag_source!(m::DryAtmosModel, ::NoDrag, args...) = nothing
+
 
 include("linear.jl")

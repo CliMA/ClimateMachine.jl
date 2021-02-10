@@ -344,3 +344,83 @@ approximation of all derivatives.
         end
     end
 end
+
+# For PBL experiment
+@kernel function kernel_drag_source!(
+    balance_law::BalanceLaw,
+    ::Val{dim},
+    ::Val{N},
+    ::Val{nvertelem},
+    tendency,
+    state_prognostic,
+    state_auxiliary,
+    elems,
+) where {dim, N, nvertelem}
+    @uniform begin
+        FT = eltype(state_prognostic)
+        num_state_prognostic = number_states(balance_law, Prognostic())
+        num_state_auxiliary = number_states(balance_law, Auxiliary())
+
+        # Number of Gauss-Lobatto quadrature points in each direction
+        Nq = N + 1
+        Nq1 = Nq
+        Nq2 = dim == 2 ? 1 : Nq
+        Nq3 = Nq
+
+        local_state_prognostic = MArray{Tuple{num_state_prognostic}, FT}(undef)
+        local_state_prognostic_bot = MArray{Tuple{num_state_prognostic}, FT}(undef)
+        local_state_auxiliary = MArray{Tuple{num_state_auxiliary}, FT}(undef)
+        local_source = MArray{Tuple{num_state_prognostic}, FT}(undef)
+    end
+
+    _eh = @index(Group, Linear)
+    i, j = @index(Local, NTuple)
+
+    @inbounds begin
+        eh = elems[_eh]
+
+        # Loop up the stack of elements
+        for ev in 1:nvertelem
+            e = ev + (eh - 1) * nvertelem
+
+            if ev == 1
+              ij = i + Nq1 * (j - 1)
+              @unroll for s in 1:num_state_prognostic
+                  local_state_prognostic_bot[s] = state_prognostic[ij, s, e]
+              end
+            end
+
+            @unroll for k in 1:Nq3
+                ijk = i + Nq1 * ((j - 1) + Nq2 * (k - 1))
+                @unroll for s in 1:num_state_prognostic
+                    local_state_prognostic[s] = state_prognostic[ijk, s, e]
+                end
+
+                @unroll for s in 1:num_state_auxiliary
+                    local_state_auxiliary[s] = state_auxiliary[ijk, s, e]
+                end
+
+                fill!(local_source, -zero(eltype(local_source)))
+                drag_source!(
+                    balance_law,
+                    Vars{vars_state(balance_law, Prognostic(), FT)}(
+                        local_source,
+                    ),
+                    Vars{vars_state(balance_law, Prognostic(), FT)}(
+                        local_state_prognostic,
+                    ),
+                    Vars{vars_state(balance_law, Prognostic(), FT)}(
+                        local_state_prognostic_bot,
+                    ),
+                    Vars{vars_state(balance_law, Auxiliary(), FT)}(
+                        local_state_auxiliary,
+                    ),
+                )
+                
+                @unroll for s in 1:num_state_prognostic
+                    tendency[ijk, s, e] += local_source[s]
+                end
+            end
+        end
+    end
+end

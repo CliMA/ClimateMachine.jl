@@ -58,45 +58,6 @@ end
 # Include the remainder model for composing DG models and balance laws
 include("remainder.jl")
 
-function basic_grid_info(dg::DGModel)
-    grid = dg.grid
-    dim = dimensionality(grid)
-    # XXX: Needs updating for multiple polynomial orders
-    N = polynomialorders(grid)
-    # Currently only support single polynomial order
-    @assert all(N[1] .== N)
-    N = N[1]
-
-    Nq = N + 1
-    Nqk = dim == 2 ? 1 : Nq
-    Nfp = Nq * Nqk
-    Np = dofs_per_element(grid)
-
-    topology_info = basic_topology_info(grid.topology)
-
-    ninteriorelem = length(dg.grid.interiorelems)
-    nexteriorelem = length(dg.grid.exteriorelems)
-
-    grid_info = (
-        dim = dim,
-        N = N,
-        Nq = Nq,
-        Nqk = Nqk,
-        Nfp = Nfp,
-        Np = Np,
-        ninteriorelem = ninteriorelem,
-        nexteriorelem = nexteriorelem,
-    )
-
-    return merge(grid_info, topology_info)
-end
-
-function basic_launch_info(dg::DGModel)
-    device = array_device(dg.state_auxiliary)
-    grid_info = basic_grid_info(dg)
-    return merge(grid_info, (device = device,))
-end
-
 function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
 
     device = array_device(state_prognostic)

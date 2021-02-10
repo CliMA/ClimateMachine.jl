@@ -229,9 +229,41 @@ function (esdg::ESDGModel)(
         dependencies = (comp_stream, exchange_state_prognostic),
     )
 
+    comp_stream = launch_drag_source!(esdg, tendency, state_prognostic, t,
+                                      dependencies=comp_stream)
 
     # The synchronization here through a device event prevents CuArray based and
     # other default stream kernels from launching before the work scheduled in
     # this function is finished.
     wait(device, comp_stream)
+end
+
+function launch_drag_source!(dg, tendency, state_prognostic, t; dependencies)
+    FT = eltype(state_prognostic)
+    info = basic_launch_info(dg)
+
+    Nq1 = info.Nq
+    Nqj = info.dim == 2 ? 1 : info.Nq
+    comp_stream = dependencies
+
+    topology = dg.grid.topology
+    
+    elems = topology.elems
+    nelem = length(elems)
+    nvertelem = topology.stacksize
+    horzelems = fld1(first(elems), nvertelem):fld1(last(elems), nvertelem)
+    
+    comp_stream = kernel_drag_source!(info.device, (Nq1, Nqj))(
+        dg.balance_law,
+        Val(info.dim),
+        Val(info.N),
+        Val(nvertelem),
+        tendency.data,
+        state_prognostic.data,
+        dg.state_auxiliary.data,
+        horzelems;
+        ndrange = (length(horzelems) * Nq1, Nqj),
+        dependencies = (comp_stream,),
+    )
+    return comp_stream
 end
