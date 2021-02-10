@@ -42,3 +42,15 @@ function boundary_state!(
     # Put cood in a NamedTuple to mimmic LocalGeometry
     init_state_prognostic!(m, state⁺, aux⁺, (coord = aux⁺.coord,), t)
 end
+
+function boundary_state!(
+    ::CentralNumericalFluxDivergence,
+    args...
+)
+end
+
+function boundary_state!(
+    ::CentralNumericalFluxHigherOrder,
+    args...
+)
+end

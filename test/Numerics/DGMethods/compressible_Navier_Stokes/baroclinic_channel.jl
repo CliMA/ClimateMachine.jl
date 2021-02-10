@@ -166,6 +166,9 @@ function test_run(mpicomm, ArrayType, topl, N, FT, brickrange)
         polynomialorder = N,
     )
 
+    # Hyperdiffusion timescale in seconds
+    hd_timescale = FT(8 * 3600)
+
         problem = AtmosProblem(
             boundaryconditions = (InitStateBC(),),
             init_state_prognostic = init_baroclinicwave!,
@@ -176,11 +179,12 @@ function test_run(mpicomm, ArrayType, topl, N, FT, brickrange)
             problem = problem,
             orientation = FlatOrientation(),
             ref_state = NoReferenceState(),
-            #turbulence = ConstantKinematicViscosity(FT(sqrt(1e14)), WithDivergence()),
-            turbulence = ConstantKinematicViscosity(FT(100), WithDivergence()),
+            turbulence = ConstantKinematicViscosity(FT(sqrt(0)), WithDivergence()),
+            hyperdiffusion = DryBiharmonic(FT(hd_timescale)),
             moisture = DryModel(),
             source = (Gravity(),),
         )
+    # Table of tendency terms in model
     show_tendencies(model)
 
     dg = DGModel(
@@ -189,6 +193,7 @@ function test_run(mpicomm, ArrayType, topl, N, FT, brickrange)
         RusanovNumericalFlux(),
         CentralNumericalFluxSecondOrder(),
         CentralNumericalFluxGradient(),
+        diffusion_direction = HorizontalDirection(),
     )
     
     timeend = FT(86400 * 15)
@@ -282,9 +287,9 @@ function test_run(mpicomm, ArrayType, topl, N, FT, brickrange)
 
         # setup the output callback
         outputtime = timeend
-        cbvtk = EveryXSimulationSteps(50.0/ dt) do
+        cbvtk = EveryXSimulationSteps(cld(100,dt)) do
             vtkstep += 1
-            Qe = init_ode_state(dg, gettime(lsrk), setup)
+            Qe = init_ode_state(dg, gettime(lsrk))
             do_output(mpicomm, vtkdir, vtkstep, dg, Q, Qe, model)
         end
 
@@ -340,7 +345,7 @@ let
                 topl = BrickTopology(
                     mpicomm,
                     brickrange,
-                    periodicity = (false, false, false),
+                    periodicity = (true, false, false),
                 )
 
             result = test_run(
