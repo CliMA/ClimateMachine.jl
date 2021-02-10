@@ -51,6 +51,7 @@ struct SurfaceFluxConditions{FT, VFT}
     flux::VFT
     x_star::VFT
     K_exchange::VFT
+    C_exchange::VFT
 end
 
 function Base.show(io::IO, sfc::SurfaceFluxConditions)
@@ -60,6 +61,7 @@ function Base.show(io::IO, sfc::SurfaceFluxConditions)
     println(io, "flux           = ", sfc.flux)
     println(io, "x_star         = ", sfc.x_star)
     println(io, "K_exchange     = ", sfc.K_exchange)
+    println(io, "C_exchange     = ", sfc.C_exchange)
     println(io, "-----------------------")
 end
 
@@ -199,6 +201,7 @@ function surface_conditions(
         VDSE_flux_star,
         flux,
         x_star,
+        K_exchange,
         C_exchange,
     )
 end
