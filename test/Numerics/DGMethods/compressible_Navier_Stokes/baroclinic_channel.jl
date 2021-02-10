@@ -264,9 +264,10 @@ function test_run(mpicomm, ArrayType, topl, N, FT, brickrange)
         )
 
         statenames = flattenednames(vars_state(model, Prognostic(), eltype(Q)))
+        auxnames = flattenednames(vars_state(model, Auxiliary(), eltype(Q)))
         exactnames = statenames .* "_exact"
 
-        writevtk(filename, Q, dg, statenames, Qe, exactnames)
+        writevtk(filename, Q, dg, statenames, dg.state_auxiliary, auxnames)
 
         ## Generate the pvtu file for these vtk files
         if MPI.Comm_rank(mpicomm) == 0
@@ -316,7 +317,8 @@ function test_run(mpicomm, ArrayType, topl, N, FT, brickrange)
         nothing
     end
 
-    solve!(Q, ode_solver; timeend = timeend, callbacks = (cbinfo, cbvtk, cbfilter))
+    solve!(Q, ode_solver; timeend = timeend, callbacks = (cbinfo, 
+                                                          cbfilter))
 
     # Print some end of the simulation information
     engf = norm(Q)
