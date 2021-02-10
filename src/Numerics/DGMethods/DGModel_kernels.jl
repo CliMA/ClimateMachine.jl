@@ -1509,21 +1509,13 @@ auxiliary gradient flux, and G* is the associated numerical flux.
                 numerical_flux_gradient,
                 balance_law,
                 local_transform_gradient,
-                SVector(normal_vector),
-                Vars{vars_state(balance_law, Gradient(), FT)}(local_transform⁻),
-                Vars{vars_state(balance_law, Prognostic(), FT)}(
-                    local_state_prognostic⁻,
-                ),
-                Vars{vars_state(balance_law, Auxiliary(), FT)}(
-                    local_state_auxiliary⁻,
-                ),
-                Vars{vars_state(balance_law, Gradient(), FT)}(local_transform⁺),
-                Vars{vars_state(balance_law, Prognostic(), FT)}(
-                    local_state_prognostic⁺,
-                ),
-                Vars{vars_state(balance_law, Auxiliary(), FT)}(
-                    local_state_auxiliary⁺,
-                ),
+                normal_vector,
+                local_transform⁻,
+                local_state_prognostic⁻,
+                local_state_auxiliary⁻,
+                local_transform⁺,
+                local_state_prognostic⁺,
+                local_state_auxiliary⁺,
                 t,
             )
             if num_state_gradient_flux > 0
