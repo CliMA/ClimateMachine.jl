@@ -10,6 +10,7 @@ using ClimateMachine
 using ClimateMachine.ConfigTypes
 using ClimateMachine.Mesh.Topologies
 using ClimateMachine.Mesh.Grids
+using ClimateMachine.Mesh.Filters
 using ClimateMachine.DGMethods
 using ClimateMachine.DGMethods.NumericalFluxes
 using ClimateMachine.MPIStateArrays
@@ -19,6 +20,7 @@ using ClimateMachine.Atmos
 using ClimateMachine.BalanceLaws
 using ClimateMachine.Orientations
 using ClimateMachine.VariableTemplates
+using ClimateMachine.SystemSolvers
 using ClimateMachine.Thermodynamics
 using ClimateMachine.TurbulenceClosures
 using ClimateMachine.VTK
@@ -178,7 +180,6 @@ function test_run(mpicomm, ArrayType, topl, N, FT, brickrange)
             param_set;
             problem = problem,
             orientation = FlatOrientation(),
-            ref_state = NoReferenceState(),
             turbulence = ConstantKinematicViscosity(FT(sqrt(0)), WithDivergence()),
             hyperdiffusion = DryBiharmonic(FT(hd_timescale)),
             moisture = DryModel(),
@@ -205,8 +206,18 @@ function test_run(mpicomm, ArrayType, topl, N, FT, brickrange)
 
     Q = init_ode_state(dg, FT(0); init_on_cpu = true)
 
-    lsrk = LSRK54CarpenterKennedy(dg, Q; dt = dt, t0 = 0)
-
+    # Define type of Exp Solver
+    lsrk_CK = LSRK54CarpenterKennedy(dg, Q; dt = dt, t0 = 0)
+    lsrk_NDB = ClimateMachine.ExplicitSolverType(solver_method = LSRK144NiegemannDiehlBusch,)
+    
+    # Tolerance parameters ?? 
+    linearsolver = GeneralizedMinimalResidual(Q; M = 10, rtol = 1e-10)
+    imex = ClimateMachine.DefaultSolverType()
+    
+    # User chooses from `lsrk` , `imex`
+    ### Choose timestepper
+    ode_solver = lsrk_CK
+    
     eng0 = norm(Q)
     @info @sprintf """Starting
     norm(Q₀) = %.16e""" eng0
@@ -223,7 +234,7 @@ function test_run(mpicomm, ArrayType, topl, N, FT, brickrange)
                 simtime = %.16e
                 runtime = %s
                 norm(Q) = %.16e""",
-                ODESolvers.gettime(lsrk),
+                ODESolvers.gettime(ode_solver),
                 Dates.format(
                     convert(Dates.DateTime, Dates.now() - starttime[]),
                     Dates.dateformat"HH:MM:SS",
@@ -289,11 +300,23 @@ function test_run(mpicomm, ArrayType, topl, N, FT, brickrange)
         outputtime = timeend
         cbvtk = EveryXSimulationSteps(cld(100,dt)) do
             vtkstep += 1
-            Qe = init_ode_state(dg, gettime(lsrk))
+            Qe = init_ode_state(dg, gettime(ode_solver))
             do_output(mpicomm, vtkdir, vtkstep, dg, Q, Qe, model)
         end
+    
+    filterorder = 20
+    filter = ExponentialFilter(grid, 0, filterorder)
+    cbfilter = EveryXSimulationSteps(1) do
+        Filters.apply!(Q, 
+                       AtmosFilterPerturbations(model), 
+                       grid, 
+                       filter,
+                       direction = EveryDirection(),
+                       state_auxiliary = dg.state_auxiliary)
+        nothing
+    end
 
-    solve!(Q, lsrk; timeend = timeend, callbacks = (cbinfo, cbvtk))
+    solve!(Q, ode_solver; timeend = timeend, callbacks = (cbinfo, cbvtk, cbfilter))
 
     # Print some end of the simulation information
     engf = norm(Q)
