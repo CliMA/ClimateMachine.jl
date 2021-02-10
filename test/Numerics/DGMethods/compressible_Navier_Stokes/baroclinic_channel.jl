@@ -341,29 +341,29 @@ let
     mpicomm = MPI.COMM_WORLD
 
     # DG polynomial order
-    N = 5
+    N = (7,8)
     FT = Float64
     # Domain resolution and size
     Δx = FT(200e3) 
     Δy = FT(120e3)
     Δz = FT(1e3)
+    
     # Prescribe domain parameters
     xmax = FT(27000e3) 
     ymax = FT(6000e3)
     zmax = FT(30e3)
 
-    Nex = cld(xmax , (Δx * (N+1)))
-    Ney = cld(ymax , (Δy * (N+1)))
-    Nez = cld(zmax , (Δz * (N+1)))
-
+    Nex = cld(xmax , (Δx * (N[1]+1)))
+    Ney = cld(ymax , (Δy * (N[1]+1)))
+    Nez = cld(zmax , (Δz * (N[2]+1)))
 
     resolution = (Δx, Δy, Δz)
+    
     @testset "mms_bc_atmos" begin
-                Ne = [23,9,5]
                 brickrange = (
-                    range(FT(0); length = Ne[1] + 1, stop = xmax),
-                    range(FT(0); length = Ne[2] + 1, stop = ymax),
-                    range(FT(0); length = Ne[3] + 1, stop = zmax),
+                    range(FT(0); length = Nex, stop = xmax),
+                    range(FT(0); length = Ney, stop = ymax),
+                    range(FT(0); length = Nez, stop = zmax),
                 )
                 topl = BrickTopology(
                     mpicomm,
