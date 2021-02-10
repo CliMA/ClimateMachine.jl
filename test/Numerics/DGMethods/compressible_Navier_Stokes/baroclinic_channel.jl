@@ -353,9 +353,9 @@ let
     ymax = FT(6000e3)
     zmax = FT(30e3)
 
-    Nex = cld(xmax , (Δx * (N[1]+1)))
-    Ney = cld(ymax , (Δy * (N[1]+1)))
-    Nez = cld(zmax , (Δz * (N[2]+1)))
+    Nex = Int(cld(xmax , (Δx * (N[1]+1))))
+    Ney = Int(cld(ymax , (Δy * (N[1]+1))))
+    Nez = Int(cld(zmax , (Δz * (N[2]+1))))
 
     resolution = (Δx, Δy, Δz)
     
