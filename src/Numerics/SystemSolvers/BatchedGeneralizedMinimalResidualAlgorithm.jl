@@ -3,15 +3,15 @@ export BatchedGeneralizedMinimalResidualAlgorithm
 # TODO: Determine whether we should use PermutedDimsArray. Since permutedims!()
 #       internally creates a PermutedDimsArray and calls _copy!() on it,
 #       directly using a PermutedDimsArray might be much more efficient.
-#       This might make it possible to eliminate newbasisvec and
-#       lastbasisvec; another way to get rid of them would be to let a
+#       This might make it possible to eliminate Ψinit and
+#       Ψ; another way to get rid of them would be to let a
 #       DGModel execute batched operations. Here is how the PermutedDimsArray
 #       version could work:
 #     perm = invperm((batchdimindices..., remainingdimindices...))
 #     batchsize = prod(dims[[batchdimindices...]])
 #     nbatches = prod(dims[[remainingdimindices...]])
 #     ΔQ = similar(Q)
-#     ΔQs = reshape(
+#     PΔQs = reshape(
 #         PermutedDimsArray(reshape(realview(ΔQ), dims), perm),
 #         (batchsize, nbatches)
 #     )
@@ -24,21 +24,21 @@ export BatchedGeneralizedMinimalResidualAlgorithm
 #         M + 1
 #     )
 
-# A useful struct that can transform an array into a batched format and back.
-# If forward_reshape is the same as the array's original size, the reshape()
+# A struct that is used to transform an array into a batched format and back.
+# If forward_reshape is the same size as the original array, the reshape()
 # calls do nothing, and only the permutedims!() calls have any effect.
 # Otherwise, the reshape() calls make new arrays with the same underlying data.
 # If the dimensions are not permuted (forward_permute == backward_permute), the
-# permutedims!() calls just call copyto!(). If unbatched is already in batched
-# form, reshape() does nothing and permutedims!() calls copyto!(), which is
-# quite inefficient; it would be better to make batched and unbatched the same
-# array in this situation.
+# permutedims!() calls just call copyto!(). So, if unbatched is already in a
+# batched format, reshape() does nothing and permutedims!() calls copyto!(),
+# which is a tad inefficient; in this situation, it would be better to make
+# batched and unbatched the same array.
 # TODO: Maybe write an edge case to handle the last situation more efficiently.
 #       Note that it only occurs when the solution vector Q is a 2D array, each
-#       of whose columns is the solution vector to an independent linear system
-#       of equations (i.e., everything along dimension 1 is already batched).
-#       Of course, MPIStateArrays have 3 dimensions, so this problem does not
-#       apply to them.
+#       of whose columns is the solution vector for an independent linear
+#       system of equations (i.e., everything along dimension 1 is already
+#       batched). Of course, MPIStateArrays have 3 dimensions, so this problem
+#       does not apply to them.
 struct Batcher{T}
     forward_reshape::T
     forward_permute::T
@@ -236,40 +236,51 @@ function defaultbatches(Q, dg::DGModel, coupledstates)
 end
 
 struct BatchedGeneralizedMinimalResidualSolver{
-    BT,
+    KT1,
+    KT2,
+    KT3,
     PT,
+    BT,
     AT,
     BVT,
     BMT,
     FT,
-    KT1,
-    KT2,
-    KT3,
 } <: IterativeSolver
-    batcher::BT            # object that can transform unbatched vectors into
-                           # batched vectors, and vice versa
+    batched_residual!::KT1 # kernel that is cached for efficiency
+    batched_arnoldi!::KT2  # kernel that is cached for efficiency
+    batched_update!::KT3   # kernel that is cached for efficiency
     preconditioner::PT     # right preconditioner
-    lastbasisvec::AT       # container for last (most recently computed) Krylov
-                           # basis vectors in unbatched form
-    newbasisvec::AT        # container for new Krylov basis vectors in
+    batcher::BT            # object that is used to transform unbatched vectors
+                           # into batched vectors and vice versa
+    Ψinit::AT              # container for the initial values of the current
+                           # Krylov basis vectors in unbatched form
+    Ψ::AT                  # container for the current Krylov basis vectors in
                            # unbatched form
-    newbasisvecs::BVT      # container for new Krylov basis vector of each
-                           # batch
-    g0s::BVT               # container for right-hand side of least squares
-                           # problem of each batch
-    krylovbases::BMT       # container for Krylov basis of each batch, which
-                           # is stored as a matrix
-    Hs::BMT                # container for Hessenberg matrix of each batch
-    Ωs::BMT                # container for Givens rotation matrix of each batch
+    Ψinits::BVT            # container for the initial value of the current
+                           # Krylov basis vector of each batch; note that this
+                           # should under no circumstances be replaced with
+                           # view(krylovbases, :, m + 1, :), as that would make
+                           # batch! more than two orders of magnitude slower
+    Ψs::BVT                # container for the current Krylov basis vector of
+                           # each batch; note that this could be replaced with
+                           # view(krylovbases, :, m, :), which would use less
+                           # memory and shave a tiny bit of time off of
+                           # batched_residual! and batched_arnoldi!; however,
+                           # that appears to slow down unbatch! by a slightly
+                           # longer amount of time, so it is not done here
+    g0s::BVT               # container for the right-hand side of the least
+                           # squares problem of each batch
+    Hs::BMT                # container for the Hessenberg matrix of each batch
+    krylovbases::BMT       # container for the Krylov basis of each batch,
+                           # which is stored as a matrix
+    Ωs::BMT                # container for the Givens rotations of each batch,
+                           # which are stored as a matrix
     atol::FT               # absolute tolerance
     rtol::FT               # relative tolerance
     batchsize::Int         # number of elements in each batch
     M::Int                 # number of steps after which the algorithm
                            # restarts
     maxrestarts::Int       # maximum number of times the algorithm can restart
-    batched_residual!::KT1 # kernel that is cached for efficiency
-    batched_arnoldi!::KT2  # kernel that is cached for efficiency
-    batched_update!::KT3   # kernel that is cached for efficiency
 end
 
 function IterativeSolver(
@@ -291,7 +302,7 @@ function IterativeSolver(
         NoPreconditioner() : algorithm.preconditioner
     atol = isnothing(algorithm.atol) ? eps(FT) : FT(algorithm.atol)
     rtol = isnothing(algorithm.rtol) ? √eps(FT) : FT(algorithm.rtol)
-    groupsize = isnothing(algorithm.groupsize) ? 256 : algorithm.groupsize
+    groupsize = isnothing(algorithm.groupsize) ? 256 : algorithm.groupsize # TODO: Optimize on GPU; maybe make it depend on remainingdimindices?
     coupledstates = isnothing(algorithm.coupledstates) ?
         true : algorithm.coupledstates
     
@@ -305,28 +316,29 @@ function IterativeSolver(
 
     M = isnothing(algorithm.M) ? min(20, batchsize) : algorithm.M
     maxrestarts = isnothing(algorithm.maxrestarts) ?
-        cld(length(Q), M) - 1 : algorithm.maxrestarts # Change length(Q) to batchsize after comparison testing.
+        cld(length(Q), M) - 1 : algorithm.maxrestarts # TODO: Change length(Q) to batchsize after comparison testing.
 
     device = array_device(Q)
     rvQ = realview(Q)
     return BatchedGeneralizedMinimalResidualSolver(
-        Batcher(dims, (batchdimindices..., remainingdimindices...)),
+        batched_residual!(device, groupsize, nbatches),
+        batched_arnoldi!(device, groupsize, nbatches),
+        batched_update!(device, groupsize, nbatches),
         preconditioner,
+        Batcher(dims, (batchdimindices..., remainingdimindices...)),
         similar(Q),
         similar(Q),
         similar(rvQ, batchsize, nbatches),
+        similar(rvQ, batchsize, nbatches),
         similar(rvQ, M + 1, nbatches),
-        similar(rvQ, batchsize, M + 1, nbatches),
         similar(rvQ, M + 1, M, nbatches),
+        similar(rvQ, batchsize, M + 1, nbatches),
         similar(rvQ, 2, M, nbatches),
         atol,
         rtol,
         batchsize,
         M,
         maxrestarts,
-        batched_residual!(device, groupsize, nbatches),
-        batched_arnoldi!(device, groupsize, nbatches),
-        batched_update!(device, groupsize, nbatches),
     )
 end
 
@@ -343,21 +355,24 @@ function residual!(
     rhs,
     args...;
 )
-    newbasisvec = solver.newbasisvec
-    newbasisvecs = solver.newbasisvecs
+    Ψinit = solver.Ψinit
+    Ψinits = solver.Ψinits
+    Ψs = solver.Ψs
     g0s = solver.g0s
     krylovbases = solver.krylovbases
     
-    # Compute the residual and store its batches in newbasisvecs[:, :].
-    f!(newbasisvec, Q, args...)
-    newbasisvec .= rhs .- newbasisvec
-    batch!(newbasisvecs, realview(newbasisvec), solver.batcher)
+    # Compute the residual, and store its batches in Ψinits[:, :].
+    f!(Ψinit, Q, args...)
+    Ψinit .= rhs .- Ψinit
+    batch!(Ψinits, realview(Ψinit), solver.batcher)
 
-    # Calculate krylovbases[:, 1, :] and g0s[:, :] in batches.
+    # Calculate Ψs[:, :] and g0s[:, :] in batches, and store Ψs[:, :] in
+    # krylovbases[:, 1, :].
     event = solver.batched_residual!(
+        Ψs,
         g0s,
         krylovbases,
-        newbasisvecs,
+        Ψinits,
         solver.M,
         solver.batchsize,
     )
@@ -388,14 +403,15 @@ function doiteration!(
     rhs,
     args...;
 )
-    batcher = solver.batcher
     preconditioner = solver.preconditioner
-    lastbasisvec = solver.lastbasisvec
-    newbasisvec = solver.newbasisvec
-    newbasisvecs = solver.newbasisvecs
+    batcher = solver.batcher
+    Ψinit = solver.Ψinit
+    Ψ = solver.Ψ
+    Ψinits = solver.Ψinits
+    Ψs = solver.Ψs
     g0s = solver.g0s
-    krylovbases = solver.krylovbases
     Hs = solver.Hs
+    krylovbases = solver.krylovbases
     Ωs = solver.Ωs
     batchsize = solver.batchsize
 
@@ -404,27 +420,26 @@ function doiteration!(
     while !has_converged && m < solver.M
         m += 1
 
-        # Unbatch the final value of the last Krylov basis vector.
-        unbatch!(realview(lastbasisvec), view(krylovbases, :, m, :), batcher)
+        # Unbatch the final value of the last Krylov basis vector, and apply the
+        # right preconditioner to it.
+        unbatch!(realview(Ψ), Ψs, batcher)
+        preconditioner_solve!(preconditioner, Ψ)
 
-        # Apply the right preconditioner to the last Krylov basis vector.
-        preconditioner_solve!(preconditioner, lastbasisvec)
+        # Apply the linear operator to get the initial value of the new Krylov
+        # Krylov basis vector, and store its batches in Ψinits[:, :].
+        f!(Ψinit, Ψ, args...)
+        batch!(Ψinits, realview(Ψinit), solver.batcher)
 
-        # Apply the linear operator to get the initial value of the current
-        # Krylov basis vector.
-        f!(newbasisvec, lastbasisvec, args...)
-
-        # Batch the initial value of the current Krylov basis vector.
-        batch!(newbasisvecs, realview(newbasisvec), solver.batcher)
-
-        # Calculate krylovbases[:, m + 1, :], Hs[1:m + 1, m, :],
-        # g0s[m:m + 1, :], and Ωs[:, m, :] in batches.
+        # Calculate Ψs[:, :], g0s[m:m + 1, :], Hs[1:m + 1, m, :], and
+        # Ωs[:, m, :] in batches, and store Ψs[:, :] in
+        # krylovbases[:, m + 1, :].
         event = solver.batched_arnoldi!(
+            Ψs,
+            g0s,
             Hs,
             krylovbases,
-            g0s,
             Ωs,
-            newbasisvecs,
+            Ψinits,
             m,
             batchsize,
         )
@@ -438,19 +453,16 @@ function doiteration!(
         )
     end
 
-    # Temporarily use newbasisvec and newbasisvecs as containers for
-    # the update vectors.
-    ΔQ = newbasisvec
-    ΔQs = newbasisvecs
+    # Temporarily use Ψinit and Ψinits as containers for the update vectors.
+    ΔQ = Ψinit
+    PΔQs = Ψinits
 
-    # Calculate ΔQs[:, :] in batches, overriding g0s[:, :] in the process.
-    event = solver.batched_update!(g0s, ΔQs, Hs, krylovbases, m, batchsize)
+    # Calculate PΔQs[:, :] in batches, overriding g0s[:, :] in the process.
+    event = solver.batched_update!(g0s, PΔQs, Hs, krylovbases, m, batchsize)
     wait(event)
 
-    # Unbatch the update vector.
-    unbatch!(realview(ΔQ), ΔQs, batcher)
-
-    # Unapply the right preconditioner.
+    # Unbatch the update vector, and unapply the right preconditioner from it.
+    unbatch!(realview(ΔQ), PΔQs, batcher)
     preconditioner_solve!(preconditioner, ΔQ)
 
     # Update the solution vector.
@@ -464,9 +476,10 @@ function doiteration!(
 end
 
 @kernel function batched_residual!(
+    Ψs,
     g0s,
     krylovbases,
-    @Const(newbasisvecs),
+    @Const(Ψinits),
     M,
     batchsize,
 )
@@ -476,29 +489,31 @@ end
     @inbounds begin
         # Set the right-hand side vector g0s[:, b] to ∥r₀∥₂ e₁, where e₁ is the
         # unit vector along the first axis and r₀ is the initial residual of
-        # batch b, which is already stored in newbasisvecs[:, b].
+        # batch b, which is already stored in Ψinits[:, b].
         for m in 1:M + 1
             g0s[m, b] = zero(FT)
         end
         for i in 1:batchsize
-            g0s[1, b] += newbasisvecs[i, b]^2
+            g0s[1, b] += Ψinits[i, b]^2
         end
         g0s[1, b] = sqrt(g0s[1, b])
 
-        # Set the first Krylov basis vector krylovbases[:, 1, b] to the unit
-        # vector parallel to newbasisvecs[:, b].
+        # Set the Krylov basis vector Ψs[:, b] to r₀/∥r₀∥₂, and store the
+        # result in krylovbases[:, 1, b].
         for i in 1:batchsize
-            krylovbases[i, 1, b] = newbasisvecs[i, b] / g0s[1, b]
+            Ψs[i, b] = Ψinits[i, b] / g0s[1, b]
+            krylovbases[i, 1, b] = Ψs[i, b]
         end
     end
 end
 
 @kernel function batched_arnoldi!(
+    Ψs,
+    g0s,
     Hs,
     krylovbases,
-    g0s,
     Ωs,
-    @Const(newbasisvecs),
+    @Const(Ψinits),
     m,
     batchsize,
 )
@@ -506,35 +521,35 @@ end
     FT = eltype(g0s)
 
     @inbounds begin
-        # Initialize the new Krylov basis vector krylovbases[:, m + 1, b] to
-        # newbasisvecs[:, b].
+        # Initialize the Krylov basis vector Ψs[:, b] to Ψinits[:, b].
         for i in 1:batchsize
-            krylovbases[i, m + 1, b] = newbasisvecs[i, b]
+            Ψs[i, b] = Ψinits[i, b]
         end
 
         # Use a modified Gram-Schmidt procedure to generate a new column of the
-        # Hessenberg matrix, Hs[1:m, m, b], and make krylovbases[:, m + 1, b]
-        # orthogonal to the previous Krylov basis vectors.
+        # Hessenberg matrix, Hs[1:m, m, b], and make Ψs[:, b] orthogonal to the
+        # previous Krylov basis vectors.
         for n in 1:m
             Hs[n, m, b] = zero(FT)
             for i in 1:batchsize
-                Hs[n, m, b] += krylovbases[i, m + 1, b] * krylovbases[i, n, b]
+                Hs[n, m, b] += Ψs[i, b] * krylovbases[i, n, b]
             end
             for i in 1:batchsize
-                krylovbases[i, m + 1, b] -= Hs[n, m, b] * krylovbases[i, n, b]
+                Ψs[i, b] -= Hs[n, m, b] * krylovbases[i, n, b]
             end
         end
 
-        # Set Hs[m + 1, m, b] to the norm of krylovbases[:, m + 1, b].
+        # Set Hs[m + 1, m, b] to the norm of Ψs[:, b].
         Hs[m + 1, m, b] = zero(FT)
         for i in 1:batchsize
-            Hs[m + 1, m, b] += krylovbases[i, m + 1, b]^2
+            Hs[m + 1, m, b] += Ψs[i, b]^2
         end
         Hs[m + 1, m, b] = sqrt(Hs[m + 1, m, b])
 
-        # Normalize krylovbases[:, m + 1, b].
+        # Normalize Ψs[:, b], and store the result in krylovbases[:, m + 1, b].
         for i in 1:batchsize
-            krylovbases[i, m + 1, b] /= Hs[m + 1, m, b]
+            Ψs[i, b] /= Hs[m + 1, m, b]
+            krylovbases[i, m + 1, b] = Ψs[i, b]
         end
 
         # TODO: Switch the negative signs on the sines after testing.
@@ -575,7 +590,7 @@ end
 
 @kernel function batched_update!(
     g0s,
-    ΔQs,
+    PΔQs,
     @Const(Hs),
     @Const(krylovbases),
     m,
@@ -587,8 +602,8 @@ end
     @inbounds begin
         # Set g0s[1:m, b] to UpperTriangular(H[1:m, 1:m, b]) \ g0[1:m, b]. This
         # corresponds to the vector of coefficients y that minimizes the
-        # residual norm ∥rhs - f(∑ₙ yₙ Ψₙ)∥₂, where Ψₙ is the n-th of the m
-        # Krylov basis vectors.
+        # residual norm ∥rhs - f(P⁻¹ ∑ₙ yₙ P Ψₙ)∥₂, where P is the
+        # preconditioner and Ψₙ is the n-th of the m Krylov basis vectors.
         for n in m:-1:1
             g0s[n, b] /= Hs[n, n, b]
             for l in 1:(n - 1)
@@ -596,13 +611,13 @@ end
             end
         end
 
-        # Set ΔQs[:, b] to the GMRES solution vector ∑ₙ yₙ Ψₙ.
+        # Set PΔQs[:, b] to ∑ₙ yₙ P Ψₙ.
         for i in 1:batchsize
-            ΔQs[i, b] = zero(FT)
+            PΔQs[i, b] = zero(FT)
         end
         for n in 1:m
             for i in 1:batchsize
-                ΔQs[i, b] += g0s[n, b] * krylovbases[i, n, b]
+                PΔQs[i, b] += g0s[n, b] * krylovbases[i, n, b]
             end
         end
     end
