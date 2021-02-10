@@ -200,7 +200,7 @@ function test_run(mpicomm, ArrayType, topl, N, FT, brickrange)
     timeend = FT(86400 * 15)
     elementsize = minimum(step.(brickrange))
     dt =
-        elementsize / FT(330) / N^2
+        elementsize / FT(330) / maximum(N)^2
     nsteps = ceil(Int, timeend / dt)
     dt = timeend / nsteps
 
