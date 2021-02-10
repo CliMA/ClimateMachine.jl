@@ -177,7 +177,7 @@ function test_run(mpicomm, ArrayType, topl, N, FT, brickrange)
             orientation = FlatOrientation(),
             ref_state = NoReferenceState(),
             #turbulence = ConstantKinematicViscosity(FT(sqrt(1e14)), WithDivergence()),
-            turbulence = ConstantKinematicViscosity(FT(100), WithDivergence()),
+            hyperdiffusion = DryBiharmonic(FT(4*3600)),
             moisture = DryModel(),
             source = (Gravity(),),
         )
@@ -189,6 +189,7 @@ function test_run(mpicomm, ArrayType, topl, N, FT, brickrange)
         RusanovNumericalFlux(),
         CentralNumericalFluxSecondOrder(),
         CentralNumericalFluxGradient(),
+        diffusion_direction = HorizontalDirection(),
     )
     
     timeend = FT(86400 * 15)
@@ -282,9 +283,9 @@ function test_run(mpicomm, ArrayType, topl, N, FT, brickrange)
 
         # setup the output callback
         outputtime = timeend
-        cbvtk = EveryXSimulationSteps(50.0/ dt) do
+        cbvtk = EveryXSimulationSteps(cld(50,dt)) do
             vtkstep += 1
-            Qe = init_ode_state(dg, gettime(lsrk), setup)
+            Qe = init_ode_state(dg, gettime(lsrk))
             do_output(mpicomm, vtkdir, vtkstep, dg, Q, Qe, model)
         end
 
