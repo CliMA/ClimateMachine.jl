@@ -44,19 +44,13 @@ function boundary_state!(
 end
 
 function boundary_state!(
-    ::CentralNumericalFluxHigherOrder,
-    bc::InitStateBC,
-    m::AtmosModel,
-    state⁺::Vars,
-    diff⁺::Vars,
-    aux⁺::Vars,
-    n⁻,
-    state⁻::Vars,
-    diff⁻::Vars,
-    aux⁻::Vars,
-    t,
-    args...,
+    ::CentralNumericalFluxDivergence,
+    args...
 )
-    # Put cood in a NamedTuple to mimmic LocalGeometry
-    init_state_prognostic!(m, state⁺, aux⁺, (coord = aux⁺.coord,), t)
+end
+
+function boundary_state!(
+    ::CentralNumericalFluxHigherOrder,
+    args...
+)
 end
