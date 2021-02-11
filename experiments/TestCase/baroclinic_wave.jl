@@ -1,27 +1,23 @@
 #!/usr/bin/env julia --project
-
-using ArgParse
-using LinearAlgebra
-using StaticArrays
-using Test
-
 using ClimateMachine
+using ArgParse
+
 using ClimateMachine.Atmos
-using ClimateMachine.Orientations
 using ClimateMachine.ConfigTypes
+using ClimateMachine.NumericalFluxes
 using ClimateMachine.Diagnostics
+using ClimateMachine.Orientations
 using ClimateMachine.GenericCallbacks
 using ClimateMachine.ODESolvers
-using ClimateMachine.TurbulenceClosures
 using ClimateMachine.SystemSolvers: ManyColumnLU
 using ClimateMachine.Mesh.Filters
 using ClimateMachine.Mesh.Grids
+using ClimateMachine.Mesh.Interpolation
 using ClimateMachine.TemperatureProfiles
 using ClimateMachine.Thermodynamics:
     air_density, air_temperature, total_energy, internal_energy, PhasePartition
 using ClimateMachine.TurbulenceClosures
 using ClimateMachine.VariableTemplates
-using ClimateMachine.Spectra: compute_gaussian!
 
 using CLIMAParameters
 using CLIMAParameters.Planet: MSLP, R_d, day, grav, Omega, planet_radius
@@ -161,7 +157,7 @@ function init_baroclinic_wave!(problem, bl, state, aux, localgeo, t)
     nothing
 end
 
-function config_baroclinic_wave(FT, poly_order, resolution, with_moisture)
+function config_baroclinic_wave(FT, poly_order, cutoff_order, resolution, with_moisture)
     # Set up a reference state for linearization of equations
     temp_profile_ref =
         DecayingTemperatureProfile{FT}(param_set, FT(290), FT(220), FT(8e3))
@@ -185,7 +181,7 @@ function config_baroclinic_wave(FT, poly_order, resolution, with_moisture)
         init_state_prognostic = init_baroclinic_wave!,
         ref_state = ref_state,
         turbulence = ConstantKinematicViscosity(FT(0)),
-        hyperdiffusion = hyperdiffusion,
+        # hyperdiffusion = hyperdiffusion,
         moisture = moisture,
         source = source,
     )
@@ -198,6 +194,8 @@ function config_baroclinic_wave(FT, poly_order, resolution, with_moisture)
         param_set,
         init_baroclinic_wave!;
         model = model,
+        numerical_flux_first_order = RoeNumericalFlux(),
+        Ncutoff = cutoff_order,
     )
 
     return config
@@ -221,16 +219,17 @@ function main()
 
     # Driver configuration parameters
     FT = Float64                             # floating type precision
-    poly_order = (5, 6)                      # discontinuous Galerkin polynomial order
-    n_horz = 8                               # horizontal element number
-    n_vert = 3                               # vertical element number
+    poly_order = 4                           # discontinuous Galerkin polynomial order
+    cutoff_order = 4
+    n_horz = 12                              # horizontal element number
+    n_vert = 6                               # vertical element number
     n_days::FT = 1
     timestart::FT = 0                        # start time (s)
     timeend::FT = n_days * day(param_set)    # end time (s)
 
     # Set up driver configuration
     driver_config =
-        config_baroclinic_wave(FT, poly_order, (n_horz, n_vert), with_moisture)
+        config_baroclinic_wave(FT, poly_order, cutoff_order, (n_horz, n_vert), with_moisture)
 
     # Set up experiment
     ode_solver_type = ClimateMachine.IMEXSolverType(
@@ -258,7 +257,7 @@ function main()
     dgn_config = config_diagnostics(FT, driver_config)
 
     # Set up user-defined callbacks
-    filterorder = 20
+    filterorder = 32
     filter = ExponentialFilter(solver_config.dg.grid, 0, filterorder)
     cbfilter = GenericCallbacks.EveryXSimulationSteps(1) do
         Filters.apply!(
@@ -287,7 +286,7 @@ function main()
         diagnostics_config = dgn_config,
         user_callbacks = (cbfilter,),
         #user_callbacks = (cbtmarfilter, cbfilter),
-        check_euclidean_distance = true,
+        check_euclidean_distance = false,
     )
 end
 
