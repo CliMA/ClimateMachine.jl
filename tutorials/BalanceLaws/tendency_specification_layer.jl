@@ -21,6 +21,7 @@
 # Make running locally easier from ClimateMachine.jl/:
 if !("." in LOAD_PATH)
     push!(LOAD_PATH, ".")
+    nothing
 end
 
 # First, using necessary modules:
@@ -40,7 +41,8 @@ struct MyBalanceLaw <: BalanceLaw end
 # ## Define prognostic variable types
 
 # Here, we'll define some prognostic variable types,
-# by sub-typing `PrognosticVariable`, for mass and energy:
+# by sub-typing [`PrognosticVariable`](@ref ClimateMachine.BalanceLaws.PrognosticVariable),
+# for mass and energy:
 struct Mass <: PrognosticVariable end
 struct Energy <: PrognosticVariable end
 
@@ -48,10 +50,16 @@ struct Energy <: PrognosticVariable end
 # which returns _all_ prognostic variables
 prognostic_vars(::MyBalanceLaw) = (Mass(), Energy());
 
-# ## Define some tendencies
+# ## Define some tendency definition types
 
-# Tendency definitions can be shared across all
-# prognostic variables:
+# Tendency definitions types are made by subtyping
+# [`TendencyDef`](@ref ClimateMachine.BalanceLaws.TendencyDef).
+# There are two type parameters for `TendencyDef`. The first
+# of which, `AbstractTendencyType`, can be either
+# `Flux{FirstOrder}`, `Flux{SecondOrder}`, or `Source`.
+# The second type parameter must be a subtype of `PrognosticVariable`.
+# Tendency definitions they can be written generically
+# and shared across all prognostic variables:
 struct Advection{PV} <: TendencyDef{Flux{FirstOrder}, PV} end
 struct Source1{PV} <: TendencyDef{Source, PV} end
 struct Source2{PV} <: TendencyDef{Source, PV} end
@@ -116,16 +124,18 @@ function flux_first_order!(
 )
 
     vec_pad = SVector(1, 1, 1)
-    tend = Flux{FirstOrder}()
+    tend_type = Flux{FirstOrder}()
     args = (; state, aux, t, direction)
 
-    ## `Σfluxes(eq_tends(Mass(), bl, tend), bl, args)` calls
+    ## `Σfluxes(eq_tends(Mass(), bl, tend_type), bl, args)` calls
     ## `flux(::Advection{Mass}, ...)` defined above:
-    flx.ρ = Σfluxes(eq_tends(Mass(), bl, tend), bl, args) .* vec_pad
+    eqt_ρ = eq_tends(Mass(), bl, tend_type)
+    flx.ρ = Σfluxes(eqt_ρ, bl, args) .* vec_pad
 
-    ## `Σfluxes(eq_tends(Energy(), bl, tend), bl, args)` calls
+    ## `Σfluxes(eq_tends(Energy(), bl, tend_type), bl, args)` calls
     ## `flux(::Advection{Energy}, ...)` defined above:
-    flx.ρe = Σfluxes(eq_tends(Energy(), bl, tend), bl, args) .* vec_pad
+    eqt_ρe = eq_tends(Energy(), bl, tend_type)
+    flx.ρe = Σfluxes(eqt_ρe, bl, args) .* vec_pad
     return nothing
 end;
 
@@ -154,8 +164,6 @@ end
 # !!! tip
 #     A useful pattern for finding tendency definitions
 #     is to globally search for, for example,
-#     `::Gravity{Momentum` or `::Gravity{`, which
-#     (at the time of this writing) yields the results:
-#     `function source(s::Gravity{Momentum}, m, args)`
+#     `::Gravity{Momentum` or `::Gravity{`.
 
 nothing
