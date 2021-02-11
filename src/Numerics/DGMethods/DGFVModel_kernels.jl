@@ -1000,15 +1000,10 @@ end
 
 """
     kernel_fvm_balance!(f!, balance_law::BalanceLaw, ::Val{nvertelem}, state_auxiliary, vgeo, elems)
-    
-    To avoid the oscillation in the reference temperature
-    ρ[nvertelem] = ρ[nvertelem] * (1 - ϵ)
-    to ensure 
-    T[nvertelem - 1] ≥ T[nvertelem]
 
-    pᵢ₋₁ - pᵢ =  g ρᵢ Δzᵢ/2 + g ρᵢ₋₁ Δzᵢ₋₁/2
-    for i = nvertelem-1:-1:1 
-        ρᵢ₋₁  = (pᵢ₋₁ - pᵢ - g ρᵢ Δzᵢ/2) / (g  Δzᵢ₋₁/2)
+    pᵢ(ρᵢ, Tᵢ) =  pᵢ₋₁ - g ρᵢ Δzᵢ/2 - g ρᵢ₋₁ Δzᵢ₋₁/2
+    for i = 2:nvertelem
+        pᵢ(ρᵢ, Tᵢ) =  pᵢ₋₁ - g ρᵢ Δzᵢ/2 - g ρᵢ₋₁ Δzᵢ₋₁/2
     end
 
  - `f!`: update function
@@ -1043,48 +1038,48 @@ end
     @inbounds begin
         eH = elems[_eH]
 
-        # handle top element
-        eV = nvertelem
+        # handle bottom element
+        eV = 1
         e = eV + (eH - 1) * nvertelem
         @unroll for s in 1:num_state_auxiliary
-            local_state_auxiliary_top[s] = state_auxiliary[n, s, e]
+            local_state_auxiliary[s] = state_auxiliary[n, s, e]
         end
-        # Δzᵢ
-        Δz[2] = 2 * vgeo[n, _JcV, e]
+        # Δzᵢ₋₁
+        Δz[1] = 2 * vgeo[n, _JcV, e]
 
         # Loop up the stack of elements
-        for eV in (nvertelem - 1):-1:1
+        for eV in 2:nvertelem
             e = eV + (eH - 1) * nvertelem
 
             @unroll for s in 1:num_state_auxiliary
-                local_state_auxiliary[s] = state_auxiliary[n, s, e]
+                local_state_auxiliary_top[s] = state_auxiliary[n, s, e]
             end
-            # Δzᵢ₋₁
-            Δz[1] = 2 * vgeo[n, _JcV, e]
+            # Δzᵢ
+            Δz[2] = 2 * vgeo[n, _JcV, e]
 
             f!(
                 balance_law,
-                # ρᵢ₋₁ pᵢ₋₁
-                Vars{vars_state(balance_law, Auxiliary(), FT)}(
-                    local_state_auxiliary,
-                ),
                 # ρᵢ pᵢ
                 Vars{vars_state(balance_law, Auxiliary(), FT)}(
                     local_state_auxiliary_top,
+                ),
+                # ρᵢ₋₁ pᵢ₋₁
+                Vars{vars_state(balance_law, Auxiliary(), FT)}(
+                    local_state_auxiliary,
                 ),
                 Δz,
             )
 
             # update to the global array
             @unroll for s in 1:num_state_auxiliary
-                state_auxiliary[n, s, e] = local_state_auxiliary[s]
+                state_auxiliary[n, s, e] = local_state_auxiliary_top[s]
             end
 
-            # (ρᵢ₋₁ pᵢ₋₁ Δzᵢ₋₁) -> (ρᵢ pᵢ Δzᵢ) 
+            # (ρᵢ pᵢ Δzᵢ) -> (ρᵢ₋₁ pᵢ₋₁ Δzᵢ₋₁)
             @unroll for s in 1:num_state_auxiliary
-                local_state_auxiliary_top[s] = local_state_auxiliary[s]
+                local_state_auxiliary[s] = local_state_auxiliary_top[s]
             end
-            Δz[2] = Δz[1]
+            Δz[1] = Δz[2]
         end
     end
 end
