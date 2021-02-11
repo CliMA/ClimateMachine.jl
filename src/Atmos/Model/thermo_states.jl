@@ -42,8 +42,12 @@ function recover_thermo_state end
 recover_thermo_state(atmos::AtmosModel, state::Vars, aux::Vars) =
     new_thermo_state(atmos.compressibility, atmos, state, aux)
 
-recover_thermo_state(::Compressible, atmos::AtmosModel, state::Vars, aux::Vars) =
-    new_thermo_state(atmos, state, aux)
+recover_thermo_state(
+    ::Compressible,
+    atmos::AtmosModel,
+    state::Vars,
+    aux::Vars,
+) = new_thermo_state(atmos, state, aux)
 
 recover_thermo_state(::Anelastic1D, atmos::AtmosModel, state::Vars, aux::Vars) =
     new_thermo_state_anelastic(atmos, state, aux)

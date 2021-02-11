@@ -108,9 +108,9 @@ function main(::Type{FT}) where {FT}
     @add_arg_table! sbl_args begin
         "--surface-flux"
         help = "specify surface flux for energy and moisture"
-        metavar = "prescribed|bulk"
+        metavar = "prescribed|bulk|custom_sbl"
         arg_type = String
-        default = "bulk"
+        default = "custom_sbl"
     end
 
     cl_args = ClimateMachine.init(parse_clargs = true, custom_clargs = sbl_args)
@@ -127,7 +127,7 @@ function main(::Type{FT}) where {FT}
     t0 = FT(0)
 
     # Simulation time
-    timeend = FT(1800*2)
+    timeend = FT(1800 * 2)
     CFLmax = FT(100)
 
     config_type = SingleStackConfigType
