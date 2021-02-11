@@ -284,7 +284,8 @@ function (nlbesolver::NonLinBESolver{FT, F, NLS})(Q, Qhat, α, p, t) where {FT, 
         Q,
         Qhat,
         p,
-        t,
+        t;
+        max_newton_iters = nlbesolver.nlsolver.M
     )
 end
 
