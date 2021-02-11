@@ -121,6 +121,10 @@ function updatejvp!(jvp!::JacobianVectorProductAD, args...)
     return nothing
 end
 
+function Preconditioner(algorithm::ColumnwiseLUPreconditioningAlgorithm, Q0::MPIStateArray, op::JacobianVectorProduct)
+    return Preconditioner(algorithm, Q0, op.f!)
+end
+
 """
     JacobianFreeNewtonKrylovAlgorithm(
         krylovalgorithm::KrylovAlgorithm;
@@ -284,10 +288,8 @@ function doiteration!(
 
     ΔQ .= zero(eltype(ΔQ))
     updatejvp!(jvp!, args...)
-
-    preconditioner_update!(jvp!, f!, preconditioner, args...)
+    preconditioner_update!(preconditioner, jvp!, f!, args...)
     krylovsolver(ΔQ, jvp!, solver.Δf, args...)
-    preconditioner_counter_update!(preconditioner)
 
     Q .+= ΔQ
 

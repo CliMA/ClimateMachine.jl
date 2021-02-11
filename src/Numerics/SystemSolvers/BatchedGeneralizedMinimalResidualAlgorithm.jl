@@ -68,7 +68,7 @@ end
 
 """
     BatchedGeneralizedMinimalResidualAlgorithm(
-        preconditioner::Union{AbstractPreconditioner, Nothing} = nothing,
+        preconditioner::Union{PreconditioningAlgorithm, Nothing} = nothing,
         atol::Union{AbstractFloat, Nothing} = nothing,
         rtol::Union{AbstractFloat, Nothing} = nothing,
         groupsize::Union{Int, Nothing} = nothing,
@@ -93,7 +93,7 @@ solve each system.
  - [Saad1986](@cite)
 
 # Keyword Arguments
-- `preconditioner`: right preconditioner; defaults to `NoPreconditioner`
+- `preconditioner`: right preconditioner; defaults to `NoPreconditioningAlgorithm`
 - `atol`: absolute tolerance; defaults to `eps(eltype(Q))`
 - `rtol`: relative tolerance; defaults to `√eps(eltype(Q))`
 - `groupsize`: group size for kernel abstractions; defaults to `256`
@@ -134,7 +134,7 @@ struct BatchedGeneralizedMinimalResidualAlgorithm <: KrylovAlgorithm
     M
     maxrestarts
     function BatchedGeneralizedMinimalResidualAlgorithm(;
-        preconditioner::Union{AbstractPreconditioner, Nothing} = nothing,
+        preconditioner::Union{PreconditioningAlgorithm, Nothing} = nothing,
         atol::Union{AbstractFloat, Nothing} = nothing,
         rtol::Union{AbstractFloat, Nothing} = nothing,
         groupsize::Union{Int, Nothing} = nothing,
@@ -299,7 +299,7 @@ function IterativeSolver(
     FT = eltype(Q)
 
     preconditioner = isnothing(algorithm.preconditioner) ?
-        NoPreconditioner() : algorithm.preconditioner
+        NoPreconditioningAlgorithm() : algorithm.preconditioner
     atol = isnothing(algorithm.atol) ? eps(FT) : FT(algorithm.atol)
     rtol = isnothing(algorithm.rtol) ? √eps(FT) : FT(algorithm.rtol)
     groupsize = isnothing(algorithm.groupsize) ? 256 : algorithm.groupsize # TODO: Optimize on GPU; maybe make it depend on remainingdimindices?
@@ -324,7 +324,7 @@ function IterativeSolver(
         batched_residual!(device, groupsize, nbatches),
         batched_arnoldi!(device, groupsize, nbatches),
         batched_update!(device, groupsize, nbatches),
-        preconditioner,
+        Preconditioner(preconditioner, Q, f!),
         Batcher(dims, (batchdimindices..., remainingdimindices...)),
         similar(Q),
         similar(Q),
@@ -423,7 +423,7 @@ function doiteration!(
         # Unbatch the final value of the last Krylov basis vector, and apply the
         # right preconditioner to it.
         unbatch!(realview(Ψ), Ψs, batcher)
-        preconditioner_solve!(preconditioner, Ψ)
+        preconditioner(Ψ)
 
         # Apply the linear operator to get the initial value of the new Krylov
         # Krylov basis vector, and store its batches in Ψinits[:, :].
@@ -463,7 +463,7 @@ function doiteration!(
 
     # Unbatch the update vector, and unapply the right preconditioner from it.
     unbatch!(realview(ΔQ), PΔQs, batcher)
-    preconditioner_solve!(preconditioner, ΔQ)
+    preconditioner(ΔQ)
 
     # Update the solution vector.
     Q .+= ΔQ

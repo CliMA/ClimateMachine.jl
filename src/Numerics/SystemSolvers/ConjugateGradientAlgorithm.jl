@@ -4,7 +4,7 @@ export ConjugateGradientAlgorithm
 
 """
     ConjugateGradientAlgorithm(;
-        preconditioner::Union{AbstractPreconditioner, Nothing} = nothing,
+        preconditioner::Union{PreconditioningAlgorithm, Nothing} = nothing,
         atol::Union{Real, Nothing} = nothing,
         rtol::Union{Real, Nothing} = nothing,
         maxiters::Union{Int, Nothing} = nothing,
@@ -15,7 +15,7 @@ form `f(Q) = rhs`, where `f` is assumed to be a linear function of `Q` that can
 be represented by a symmetric positive definite matrix with real coefficients.
 
 # Keyword Arguments
-- `preconditioner`: unused; defaults to NoPreconditioner
+- `preconditioner`: unused; defaults to NoPreconditioningAlgorithm
 - `atol`: absolute tolerance; defaults to `eps(eltype(Q))`
 - `rtol`: relative tolerance; defaults to `√eps(eltype(Q))`
 - `maxiters`: maximum number of iterations; defaults to `length(Q)`
@@ -26,7 +26,7 @@ struct ConjugateGradientAlgorithm <: KrylovAlgorithm
     rtol
     maxiters
     function ConjugateGradientAlgorithm(;
-        preconditioner::Union{AbstractPreconditioner, Nothing} = nothing,
+        preconditioner::Union{PreconditioningAlgorithm, Nothing} = nothing,
         atol::Union{Real, Nothing} = nothing,
         rtol::Union{Real, Nothing} = nothing,
         maxiters::Union{Int, Nothing} = nothing,
@@ -59,14 +59,14 @@ function IterativeSolver(
     check_krylov_args(Q, rhs)
     FT = eltype(Q)
 
-    preconditioner = isnothing(algorithm.preconditioner) ? NoPreconditioner() :
+    preconditioner = isnothing(algorithm.preconditioner) ? NoPreconditioningAlgorithm() :
         algorithm.preconditioner
     atol = isnothing(algorithm.atol) ? eps(FT) : FT(algorithm.atol)
     rtol = isnothing(algorithm.rtol) ? √eps(FT) : FT(algorithm.rtol)
     maxiters = isnothing(algorithm.maxiters) ? length(Q) : algorithm.maxiters
 
     return ConjugateGradientSolver(
-        preconditioner,
+        Preconditioner(preconditioner, Q, f!),
         similar(Q),
         similar(Q),
         similar(Q),

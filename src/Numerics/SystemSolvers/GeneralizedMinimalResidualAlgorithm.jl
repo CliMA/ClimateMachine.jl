@@ -2,7 +2,7 @@ export GeneralizedMinimalResidualAlgorithm
 
 """
     GeneralizedMinimalResidualAlgorithm(;
-        preconditioner::Union{AbstractPreconditioner, Nothing} = nothing,
+        preconditioner::Union{PreconditioningAlgorithm, Nothing} = nothing,
         atol::Union{Real, Nothing} = nothing,
         rtol::Union{Real, Nothing} = nothing,
         groupsize::Union{Int, Nothing} = nothing,
@@ -44,7 +44,7 @@ struct GeneralizedMinimalResidualAlgorithm <: KrylovAlgorithm
     maxrestarts
     sarrays
     function GeneralizedMinimalResidualAlgorithm(;
-        preconditioner::Union{AbstractPreconditioner, Nothing} = nothing,
+        preconditioner::Union{PreconditioningAlgorithm, Nothing} = nothing,
         atol::Union{Real, Nothing} = nothing,
         rtol::Union{Real, Nothing} = nothing,
         groupsize::Union{Int, Nothing} = nothing,
@@ -80,7 +80,7 @@ function IterativeSolver(
     check_krylov_args(Q, rhs)
     FT = eltype(Q)
 
-    preconditioner = isnothing(algorithm.preconditioner) ? NoPreconditioner() :
+    preconditioner = isnothing(algorithm.preconditioner) ? NoPreconditioningAlgorithm() :
         algorithm.preconditioner
     atol = isnothing(algorithm.atol) ? eps(FT) : FT(algorithm.atol)
     rtol = isnothing(algorithm.rtol) ? √eps(FT) : FT(algorithm.rtol)
@@ -91,7 +91,7 @@ function IterativeSolver(
     sarrays = isnothing(algorithm.sarrays) ? true : algorithm.sarrays
 
     return GeneralizedMinimalResidualSolver(
-        preconditioner,
+        Preconditioner(preconditioner, Q, f!),
         ntuple(i -> similar(Q), M + 1),
         similar(Q),
         sarrays ? (@MArray zeros(FT, M + 1, 1)) : zeros(FT, M + 1, 1),
@@ -170,7 +170,7 @@ function doiteration!(
         j += 1
 
         # Apply the right preconditioner.
-        preconditioner_solve!(preconditioner, w)
+        preconditioner(w)
 
         # Apply the linear operator.
         f!(krylovbasis[j + 1], w, args...)
@@ -224,7 +224,7 @@ function doiteration!(
     # wait(array_device(Q), event)
 
     # Un-apply the right preconditioner.
-    preconditioner_solve!(preconditioner, ΔQ)
+    preconditioner(ΔQ)
     Q .+= ΔQ
 
     has_converged && return has_converged, j

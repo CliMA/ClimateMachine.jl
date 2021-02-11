@@ -4,7 +4,7 @@ export GeneralizedConjugateResidualAlgorithm
 
 """
     GeneralizedConjugateResidualAlgorithm(;
-        preconditioner::Union{AbstractPreconditioner, Nothing} = nothing,
+        preconditioner::Union{PreconditioningAlgorithm, Nothing} = nothing,
         atol::Union{Real, Nothing} = nothing,
         rtol::Union{Real, Nothing} = nothing,
         groupsize::Union{Int, Nothing} = nothing,
@@ -22,7 +22,7 @@ This algorithm uses the restarted Generalized Conjugate Residual method of
 Eisenstat (1983).
 
 # Keyword Arguments
-- `preconditioner`: unused; defaults to NoPreconditioner
+- `preconditioner`: unused; defaults to NoPreconditioningAlgorithm
 - `atol`: absolute tolerance; defaults to `eps(eltype(Q))`
 - `rtol`: relative tolerance; defaults to `√eps(eltype(Q))`
 - `groupsize`: group size for kernel abstractions; defaults to `256`
@@ -47,7 +47,7 @@ struct GeneralizedConjugateResidualAlgorithm <: KrylovAlgorithm
     maxrestarts
     sarrays
     function GeneralizedConjugateResidualAlgorithm(;
-        preconditioner::Union{AbstractPreconditioner, Nothing} = nothing,
+        preconditioner::Union{PreconditioningAlgorithm, Nothing} = nothing,
         atol::Union{Real, Nothing} = nothing,
         rtol::Union{Real, Nothing} = nothing,
         groupsize::Union{Int, Nothing} = nothing,
@@ -85,7 +85,7 @@ function IterativeSolver(
     check_krylov_args(Q, rhs)
     FT = eltype(Q)
 
-    preconditioner = isnothing(algorithm.preconditioner) ? NoPreconditioner() :
+    preconditioner = isnothing(algorithm.preconditioner) ? NoPreconditioningAlgorithm() :
         algorithm.preconditioner
     atol = isnothing(algorithm.atol) ? eps(FT) : FT(algorithm.atol)
     rtol = isnothing(algorithm.rtol) ? √eps(FT) : FT(algorithm.rtol)
@@ -96,7 +96,7 @@ function IterativeSolver(
     sarrays = isnothing(algorithm.sarrays) ? true : algorithm.sarrays
 
     return GeneralizedConjugateResidualSolver(
-        preconditioner,
+        Preconditioner(preconditioner, Q, f!),
         similar(Q),
         similar(Q),
         ntuple(i -> similar(Q), M),

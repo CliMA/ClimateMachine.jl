@@ -1,5 +1,7 @@
 import ClimateMachine.SystemSolvers: preconditioner_update!, enable_duals,
-    update_duals!, defaultbatches
+    update_duals!, defaultbatches, Preconditioner
+
+using ..MPIStateArrays
 
 export AbstractOperator, GenericImplicitOperator, FixedPointImplicitOperator
 
@@ -30,13 +32,17 @@ function (op::GenericImplicitOperator)(LQ, Q, args...)
     @. LQ = Q - op.ϵ * LQ
 end
 
+function Preconditioner(algorithm::ColumnwiseLUPreconditioningAlgorithm, Q0::MPIStateArray, op::GenericImplicitOperator)
+    return Preconditioner(algorithm, Q0, op.f!)
+end
+
 function preconditioner_update!(
+    preconditioner::ColumnwiseLUPReconNdiTIoneR,
     op,
     op2::GenericImplicitOperator,
-    preconditioner::ColumnwiseLUPreconditioner,
     args...,
 )
-    preconditioner_update!(op, op2.f!, preconditioner, args...)
+    preconditioner_update!(preconditioner, op, op2.f!, args...)
 end
 
 enable_duals(value::GenericImplicitOperator, n, tag) =
