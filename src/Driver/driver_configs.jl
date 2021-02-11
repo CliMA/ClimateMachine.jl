@@ -201,7 +201,6 @@ function AtmosLESConfiguration(
     numerical_flux_second_order = CentralNumericalFluxSecondOrder(),
     numerical_flux_gradient = CentralNumericalFluxGradient(),
     fv_reconstruction = nothing,
-    grid_stretching = (nothing, nothing, nothing),
     Ncutoff = N,
 ) where {FT <: AbstractFloat}
 
@@ -342,7 +341,6 @@ function AtmosGCMConfiguration(
     numerical_flux_second_order = CentralNumericalFluxSecondOrder(),
     numerical_flux_gradient = CentralNumericalFluxGradient(),
     fv_reconstruction = nothing,
-    grid_stretching = nothing,
     Ncutoff = N,
 ) where {FT <: AbstractFloat}
 
@@ -434,6 +432,7 @@ Establishing Atmos GCM configuration for %s
         numerical_flux_second_order,
         numerical_flux_gradient,
         fv_reconstruction,
+        filter,
         AtmosGCMSpecificInfo(
             domain_height,
             nelem_vert,
