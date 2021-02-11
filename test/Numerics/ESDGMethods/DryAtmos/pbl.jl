@@ -22,11 +22,6 @@ GaussQuadrature.maxiterations[Double64] = 40
 
 using ClimateMachine.TemperatureProfiles: DryAdiabaticProfile
 
-using CLIMAParameters
-using CLIMAParameters.Planet: R_d, cp_d, cv_d, MSLP, grav
-struct EarthParameterSet <: AbstractEarthParameterSet end
-const param_set = EarthParameterSet();
-
 if !@isdefined integration_testing
     const integration_testing = parse(
         Bool,
@@ -39,6 +34,9 @@ const output = parse(Bool, lowercase(get(ENV, "JULIA_CLIMA_OUTPUT", "false")))
 include("DryAtmos.jl")
 include("../diagnostics.jl")
 include("pbl_diagnostics.jl")
+
+import CLIMAParameters
+CLIMAParameters.Planet.grav(::EarthParameterSet) = 10
 
 struct HeatFlux end
 function source!(
@@ -69,8 +67,40 @@ function source!(
     hscale = FT(25)
     hflux = h0 * exp(-z / hscale) / hscale
     exner = (p / _MSLP) ^ (_R_d / _cp_d)
-    source.ρe = _cv_d * ρ * hflux * exner
+    source.ρe += _cv_d * ρ * hflux * exner
     
+    return nothing
+end
+
+struct Absorber{FT}
+  tau::FT
+  zabs::FT
+  ztop::FT
+end
+function source!(
+    m::DryAtmosModel,
+    absorber::Absorber,
+    source,
+    state,
+    aux,
+)
+    FT = eltype(aux)
+    _grav::FT = grav(param_set)
+    
+    z = aux.Φ / _grav
+
+    tau = absorber.tau
+    zabs = absorber.zabs
+    ztop = absorber.ztop
+
+    zeps = FT(1e-4)
+    if z >= (zabs + zeps)
+      α = (z - zabs) / (ztop - zabs) / tau
+    else
+      α = FT(0)
+    end
+    source.ρu += -α * state.ρu
+    source.ρe += -α * (state.ρe - aux.ref_state.ρe)
     return nothing
 end
 
@@ -91,8 +121,8 @@ function drag_source!(m::DryAtmosModel, ::Drag,
     u = ρu / state.ρ
 
     S_ρu = -c0 * v0 * ρu_drag * exp(-z / hscale) / hscale
-    source.ρu =  S_ρu
-    source.ρe = u' * S_ρu
+    source.ρu +=  S_ρu
+    source.ρe += u' * S_ρu
 end
 
 
@@ -115,6 +145,41 @@ function init_state_prognostic!(bl::DryAtmosModel,
     _R_d::FT = R_d(param_set)
     _cv_d::FT = cv_d(param_set)
     _cp_d::FT = cp_d(param_set)
+
+    θ0 = setup.θ0
+    zm = setup.zm
+    st = setup.st
+    
+    ρ = aux.ref_state.ρ
+    p = aux.ref_state.p
+
+    rnd = rand() - FT(0.5)
+    zeps = FT(1e-4)
+    if z <= zm - zeps
+      fac = rnd * (1 - z / zm)
+    else
+      fac = FT(0)
+    end
+    δθ = FT(0.001) * fac
+    δT = δθ * (p / _MSLP) ^ (_R_d / _cp_d)
+    δw = FT(0.2) * fac
+    δe = δw ^ 2 / 2 + _cv_d * δT
+
+    state.ρ = ρ
+    state.ρu = ρ * SVector(0, 0, δw)
+    state.ρe = aux.ref_state.ρe + ρ * δe
+end
+
+struct PBLProfile{S}
+  setup::S
+end
+function (prof::PBLProfile)(param_set, z)
+     FT = typeof(z)
+     setup = prof.setup
+    _MSLP::FT = MSLP(param_set)
+    _R_d::FT = R_d(param_set)
+    _cv_d::FT = cv_d(param_set)
+    _cp_d::FT = cp_d(param_set)
     _grav::FT = grav(param_set)
 
     θ0 = setup.θ0
@@ -124,29 +189,17 @@ function init_state_prognostic!(bl::DryAtmosModel,
     α = _grav / (_cp_d * θ0)
     β = _cp_d / _R_d
     θ = θ0 * (z <= zm ? 1 : 1 + (z - zm) * st)
-    if z <= zm
+    zeps = FT(1e-4)
+    if z <= zm - zeps
       p = _MSLP * (1 - α * z) ^ β
     else
       p = _MSLP * (1 - α * (zm + log(1 + st * (z - zm)) / st)) ^ β
     end
     T = θ * (p / _MSLP) ^ (_R_d / _cp_d)
-
-    ρ = p / (_R_d * T)
-
-    e_kin = FT(0)
-    e_pot = aux.Φ
-
-    rnd = rand() - FT(0.5)
-    fac = rnd * max(FT(0), 1 - z / zm)
-    δθ = FT(0.001) * fac
-    δT = δθ * (p / _MSLP) ^ (_R_d / _cp_d)
-    δw = FT(0.2) * fac
-    δe = δw ^ 2 / 2 + _cv_d * δT
-
-    state.ρ = ρ
-    state.ρu = ρ * SVector(0, 0, δw)
-    state.ρe = ρ * (e_kin + e_pot + _cv_d * T + δe)
+    
+    T, p
 end
+
 
 function main()
     ClimateMachine.init()
@@ -203,13 +256,15 @@ function run(
         polynomialorder = polynomialorder,
     )
 
-
     dim = 3
+
+    absorber = Absorber(FT(1020), FT(1000), FT(setup.domain_height))
     model = DryAtmosModel{dim}(
         FlatOrientation(),
         setup,
-        sources = (HeatFlux(),),
+        sources = (HeatFlux(), absorber),
         drag_source=Drag(),
+        ref_state=DryReferenceState(PBLProfile(setup))
     )
 
     esdg = ESDGModel(
@@ -257,7 +312,7 @@ function run(
 
     # Set up the information callback
     starttime = Ref(now())
-    cbinfo = EveryXSimulationSteps(100) do (s = false)
+    cbinfo = EveryXSimulationSteps(1000) do (s = false)
         if s
             starttime[] = now()
         else

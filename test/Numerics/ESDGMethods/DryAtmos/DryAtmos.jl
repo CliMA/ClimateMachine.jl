@@ -30,7 +30,7 @@ using ClimateMachine.Atmos: NoReferenceState
 using ClimateMachine.Grids
 
 using CLIMAParameters: AbstractEarthParameterSet
-using CLIMAParameters.Planet: grav, cp_d, cv_d, planet_radius, Omega
+using CLIMAParameters.Planet: grav, R_d, cp_d, cv_d, planet_radius, MSLP, Omega
 
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
