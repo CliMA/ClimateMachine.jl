@@ -790,7 +790,7 @@ function numerical_flux_first_order!(
     )
 end
 
-function numerical_boundary_flux_first_order!(
+function numerical_boundary_flux_first_order_loop!(
     numerical_flux_first_order,
     bctag::Int,
     balance_law,
@@ -869,7 +869,7 @@ function numerical_flux_second_order!(
     )
 end
 
-function numerical_boundary_flux_second_order!(
+function numerical_boundary_flux_second_order_loop!(
     numerical_flux_second_order,
     bctag::Int,
     balance_law,
@@ -929,7 +929,7 @@ function numerical_boundary_flux_second_order!(
     end d -> throw(BoundsError(bcs, bctag))
 end
 
-function numerical_boundary_flux_gradient!(
+function numerical_boundary_flux_gradient_loop!(
     numerical_flux_gradient,
     bctag::Int,
     balance_law,
