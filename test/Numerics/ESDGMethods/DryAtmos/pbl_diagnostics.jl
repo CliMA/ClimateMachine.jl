@@ -1,6 +1,7 @@
 using KernelAbstractions
 using KernelAbstractions.Extras: @unroll
 using ClimateMachine.MPIStateArrays: array_device
+using ClimateMachine.Mesh.Elements: interpolationmatrix
 
 pbl_diagnostic_vars(FT) = @vars(θ::FT, u::FT, w::FT, ρ::FT)
 function pbl_diagnostics!(atmos, diag::Vars, state::Vars, aux::Vars)
@@ -193,11 +194,20 @@ function profiles(diagnostic_vars, variance_pairs, dg, state_diagnostic)
         end
       end
     end
+  
+    # interpolate profiles and variances to a fine uniform vertical grid
+    ξsrc = referencepoints(grid)[3]
+    num_sample_points = 20
+    ξdst = range(FT(-1); stop = FT(1), length = num_sample_points)
+    I = interpolationmatrix(ξsrc, ξdst)
 
-    profs = (; zip(fieldnames(diagnostic_vars),
-             (profs[:, :, s] for s in 1:num_state_diagnostic))...)
+    z = I * z
+    profs = ntuple(s -> I * (@view profs[:, :, s]), size(profs, 3))
+    variances = ntuple(s -> I * (@view variances[:, :, s]), size(variances, 3))
+
+    profs = (; zip(fieldnames(diagnostic_vars), profs)...)
     variances = (; zip((Symbol(v1, :x, v2) for (v1, v2) in variance_pairs),
-                   (variances[:, :, s] for s in 1:num_state_variance))...)
+                   variances)...)
     z, profs, variances
 end
 
