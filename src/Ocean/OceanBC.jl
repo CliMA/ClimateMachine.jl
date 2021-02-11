@@ -98,7 +98,13 @@ struct Insulating <: TemperatureBC end
 Prescribe the net inward temperature flux across the boundary by `flux`,
 a function with signature `flux(problem, state, aux, t)`, returning the flux (in m⋅K/s).
 """
-struct TemperatureFlux <: TemperatureBC end
+struct TemperatureFlux{T} <: TemperatureBC
+    flux::T
+
+    function TemperatureFlux(flux::T = nothing) where {T}
+        new{T}(flux)
+    end
+end
 
 # these functions just trim off the extra arguments
 function _ocean_boundary_state!(

@@ -267,13 +267,19 @@ function config_diagnostics(driver_config, timeend)
         boundaries;
         axes = axes,
     )
-    dgngrp = setup_dump_state_diagnostics(
+    ds_dgngrp = setup_dump_state_diagnostics(
         SingleStackConfigType(),
         interval,
         driver_config.name,
         interpol = interpol,
     )
-    return ClimateMachine.DiagnosticsConfiguration([dgngrp])
+    dt_dgngrp = setup_dump_tendencies_diagnostics(
+        SingleStackConfigType(),
+        interval,
+        driver_config.name,
+        interpol = interpol,
+    )
+    return ClimateMachine.DiagnosticsConfiguration([ds_dgngrp, dt_dgngrp])
 end
 
 

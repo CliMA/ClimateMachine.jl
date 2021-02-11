@@ -15,21 +15,35 @@ format_tends(tend_types, include_params) =
     "(" * join(format_tend.(tend_types, include_params), ", ") * ")"
 
 """
-    show_tendencies(bl; include_params = false)
+    show_tendencies(
+        bl;
+        include_params = false,
+        include_module = false,
+        table_complete = false,
+    )
 
 Show a table of the tendencies for each
 prognostic variable for the given balance law.
 
-Using `include_params = true` will include the type
-parameters for each of the tendency fluxes
-and sources.
+## Arguments
+ - `include_params[ = true]` will include the type parameters for each of
+   the tendency fluxes and sources.
+ - `include_module[ = false]` will print not remove the module where each
+   prognostic variable is defined (e.g., `Atmos.Mass`).
+ - `table_complete[ = false]` will print a warning (if false) that the
+   tendency table is incomplete.
 
 Requires definitions for
  - [`prognostic_vars`](@ref)
  - [`eq_tends`](@ref)
 for the balance law.
 """
-function show_tendencies(bl; include_params = false)
+function show_tendencies(
+    bl;
+    include_params = false,
+    include_module = false,
+    table_complete = false,
+)
     ip = include_params
     prog_vars = prognostic_vars(bl)
     if !isempty(prog_vars)
@@ -37,7 +51,11 @@ function show_tendencies(bl; include_params = false)
             "Equation" "Flux{FirstOrder}" "Flux{SecondOrder}" "Source"
             "(Y_i)" "(F_1)" "(F_2)" "(S)"
         ]
-        eqs = collect(string.(typeof.(prog_vars)))
+        if include_module
+            eqs = collect(string.(typeof.(prog_vars)))
+        else
+            eqs = collect(last.(split.(string.(typeof.(prog_vars)), ".")))
+        end
         fmt_tends(tt) = map(prog_vars) do pv
             format_tends(eq_tends(pv, bl, tt), ip)
         end |> collect
@@ -45,7 +63,7 @@ function show_tendencies(bl; include_params = false)
         F2 = fmt_tends(Flux{SecondOrder}())
         S = fmt_tends(Source())
         data = hcat(eqs, F1, F2, S)
-        @warn "This table is temporarily incomplete"
+        table_complete || @warn "This table is temporarily incomplete"
         println("\nPDE: ∂_t Y_i + (∇•F_1(Y))_i + (∇•F_2(Y,G)))_i = (S(Y,G))_i")
         pretty_table(
             data,

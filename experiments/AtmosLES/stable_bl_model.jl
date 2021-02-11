@@ -39,8 +39,10 @@ import ClimateMachine.BalanceLaws: source
 
 using CLIMAParameters
 using CLIMAParameters.Planet: R_d, cp_d, cv_d, MSLP, grav, day
+using CLIMAParameters.Atmos.SubgridScale: C_smag, C_drag
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
+import CLIMAParameters
 
 using ClimateMachine.Atmos: altitude, recover_thermo_state
 
@@ -175,7 +177,7 @@ function init_problem!(problem, bl, state, aux, localgeo, t)
     init_state_prognostic!(bl.turbconv, bl, state, aux, localgeo, t)
 end
 
-function surface_temperature_variation(bl, state, t)
+function surface_temperature_variation(state, t)
     FT = eltype(state)
     return FT(265) - FT(1 / 4) * (t / 3600)
 end
@@ -192,7 +194,7 @@ function stable_bl_model(
 
     ics = init_problem!     # Initial conditions
 
-    C_drag = FT(0.001)    # Momentum exchange coefficient
+    C_drag_::FT = C_drag(param_set) # FT(0.001)    # Momentum exchange coefficient
     u_star = FT(0.30)
 
     z_sponge = FT(300)     # Start of sponge layer
@@ -251,12 +253,20 @@ function stable_bl_model(
         moisture_bc = PrescribedMoistureFlux((state, aux, t) -> moisture_flux)
     elseif surface_flux == "bulk"
         energy_bc = BulkFormulaEnergy(
-            (bl, state, aux, t, normPu_int) -> C_drag,
+            (bl, state, aux, t, normPu_int) -> C_drag_,
             (bl, state, aux, t) ->
-                (surface_temperature_variation(bl, state, t), q_sfc),
+                (surface_temperature_variation(state, t), q_sfc),
         )
         moisture_bc = BulkFormulaMoisture(
-            (state, aux, t, normPu_int) -> C_drag,
+            (state, aux, t, normPu_int) -> C_drag_,
+            (state, aux, t) -> q_sfc,
+        )
+    elseif surface_flux == "custom_sbl"
+        energy_bc = PrescribedTemperature(
+            (state, aux, t) -> surface_temperature_variation(state, t),
+        )
+        moisture_bc = BulkFormulaMoisture(
+            (state, aux, t, normPu_int) -> C_drag_,
             (state, aux, t) -> q_sfc,
         )
     else

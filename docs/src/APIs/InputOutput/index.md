@@ -17,6 +17,7 @@ ArtifactWrappers.ArtifactWrapper
 ```@docs
 VTK.writevtk
 VTK.writepvtu
+VTK.VTKFieldWriter
 ```
 
 ## Writers

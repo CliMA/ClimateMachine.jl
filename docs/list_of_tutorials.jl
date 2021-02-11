@@ -20,7 +20,10 @@ if generate_tutorials
 
     tutorials = [
         "Home" => "TutorialList.jl",
-        "Balance Law" => "how_to_make_a_balance_law.jl",
+        "BalanceLaws" => [
+            "Tendency specification" =>
+                "BalanceLaws/tendency_specification_layer.jl",
+        ],
         "Atmos" => [
             "Dry Idealized GCM (Held-Suarez)" => "Atmos/heldsuarez.jl",
             "Single Element Stack Experiment (Burgers Equation)" =>

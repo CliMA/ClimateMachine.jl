@@ -93,6 +93,15 @@ steps:
       queue: central
       slurm_ntasks: 3
 
+  - label: "cpu_bickley_jet_2D"
+    key: "cpu_bickley_jet_2D"
+    command:
+      - "mpiexec julia --color=yes --project test/Numerics/DGMethods/compressible_navier_stokes_equations/two_dimensional/test_bickley_jet.jl "
+    agents:
+      config: cpu
+      queue: central
+      slurm_ntasks: 3
+
   - label: "cpu_periodic_3D_hyperdiffusion"
     key: "cpu_periodic_3D_hyperdiffusion"
     command:
@@ -1360,6 +1369,16 @@ steps:
       slurm_ntasks: 3
       slurm_gres: "gpu:1"
 
+  - label: "gpu_bickley_jet_2D"
+    key: "gpu_bickley_jet_2D"
+    command:
+      - "mpiexec julia --color=yes --project test/Numerics/DGMethods/compressible_navier_stokes_equations/two_dimensional/test_bickley_jet.jl "
+    agents:
+      config: gpu
+      queue: central
+      slurm_ntasks: 3
+      slurm_gres: "gpu:1"
+
   - label: "gpu_periodic_3D_hyperdiffusion"
     key: "gpu_periodic_3D_hyperdiffusion"
     command:
@@ -1583,7 +1602,7 @@ steps:
   - label: "gpu_sbl_les"
     key: "gpu_sbl_les"
     command:
-      - "mpiexec julia --color=yes --project experiments/AtmosLES/stable_bl_les.jl --diagnostics=default --fix-rng-seed"
+      - "mpiexec julia --color=yes --project experiments/AtmosLES/stable_bl_les.jl --fix-rng-seed"
     agents:
       config: gpu
       queue: central
@@ -1593,7 +1612,7 @@ steps:
   - label: "gpu_cbl_les"
     key: "gpu_cbl_les"
     command:
-      - "mpiexec julia --color=yes --project experiments/AtmosLES/convective_bl_les.jl --diagnostics=default --fix-rng-seed"
+      - "mpiexec julia --color=yes --project experiments/AtmosLES/convective_bl_les.jl --fix-rng-seed"
     agents:
       config: gpu
       queue: central
@@ -1603,7 +1622,7 @@ steps:
   - label: "gpu_cfsite"
     key: "gpu_cfsite"
     command:
-      - "mpiexec julia --color=yes --project experiments/AtmosLES/cfsite_hadgem2-a_07_amip.jl --diagnostics=default --fix-rng-seed"
+      - "mpiexec julia --color=yes --project experiments/AtmosLES/cfsite_hadgem2-a_07_amip.jl --fix-rng-seed"
     agents:
       config: gpu
       queue: central
@@ -1643,7 +1662,7 @@ steps:
   - label: "gpu_sbl_edmf"
     key: "gpu_sbl_edmf"
     command:
-      - "mpiexec julia --color=yes --project test/Atmos/EDMF/stable_bl_edmf.jl --diagnostics=default --fix-rng-seed"
+      - "mpiexec julia --color=yes --project test/Atmos/EDMF/stable_bl_edmf.jl --fix-rng-seed"
     agents:
       config: gpu
       queue: central

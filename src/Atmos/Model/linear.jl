@@ -155,14 +155,6 @@ reverse_integral_set_auxiliary_state!(
     aux::Vars,
     integ::Vars,
 ) = nothing
-flux_second_order!(
-    lm::AtmosLinearModel,
-    flux::Grad,
-    state::Vars,
-    diffusive::Vars,
-    aux::Vars,
-    t::Real,
-) = nothing
 function wavespeed(
     lm::AtmosLinearModel,
     nM,
@@ -219,24 +211,29 @@ struct AtmosAcousticLinearModel{M} <: AtmosLinearModel
 end
 
 function flux_first_order!(
-    lm::AtmosAcousticLinearModel,
+    lm::AtmosLinearModel,
     flux::Grad,
     state::Vars,
     aux::Vars,
     t::Real,
     direction,
 )
-    FT = eltype(state)
-    ref = aux.ref_state
-    e_pot = gravitational_potential(lm.atmos.orientation, aux)
+    tens_pad = SArray{Tuple{3, 3}}(ntuple(i -> 1, 9))
+    vec_pad = SVector(1, 1, 1)
+    tend = Flux{FirstOrder}()
+    _args = (; state, aux, t, direction)
 
-    flux.ρ = state.ρu
-    pL = linearized_pressure(lm.atmos, state, aux)
-    flux.ρu += pL * I
-    flux.energy.ρe = ((ref.ρe + ref.p) / ref.ρ - e_pot) * state.ρu
+    # For some reason, we cannot call precompute, because
+    # sometimes `state.ρ` is somehow `0`, which results in
+    # `e_int = Inf` -> failed saturation adjustment.
+    # TODO: look into this
+    args = _args
+    # args = merge(_args, (precomputed = precompute(lm.atmos, _args, tend),))
+    flux.ρ = Σfluxes(eq_tends(Mass(), lm, tend), lm, args) .* vec_pad
+    flux.ρu = Σfluxes(eq_tends(Momentum(), lm, tend), lm, args) .* tens_pad
+    flux.energy.ρe = Σfluxes(eq_tends(Energy(), lm, tend), lm, args) .* vec_pad
     nothing
 end
-source!(::AtmosAcousticLinearModel, _...) = nothing
 
 struct AtmosAcousticGravityLinearModel{M} <: AtmosLinearModel
     atmos::M
@@ -247,26 +244,9 @@ struct AtmosAcousticGravityLinearModel{M} <: AtmosLinearModel
         new{M}(atmos)
     end
 end
-function flux_first_order!(
-    lm::AtmosAcousticGravityLinearModel,
-    flux::Grad,
-    state::Vars,
-    aux::Vars,
-    t::Real,
-    direction,
-)
-    FT = eltype(state)
-    ref = aux.ref_state
-    e_pot = gravitational_potential(lm.atmos.orientation, aux)
 
-    flux.ρ = state.ρu
-    pL = linearized_pressure(lm.atmos, state, aux)
-    flux.ρu += pL * I
-    flux.energy.ρe = ((ref.ρe + ref.p) / ref.ρ) * state.ρu
-    nothing
-end
 function source!(
-    lm::AtmosAcousticGravityLinearModel,
+    lm::AtmosLinearModel,
     source::Vars,
     state::Vars,
     diffusive::Vars,
@@ -274,10 +254,20 @@ function source!(
     t::Real,
     ::NTuple{1, Dir},
 ) where {Dir <: Direction}
-    if Dir === VerticalDirection || Dir === EveryDirection
-        ∇Φ = ∇gravitational_potential(lm.atmos.orientation, aux)
-        source.ρu -= state.ρ * ∇Φ
-    end
+
+    vec_pad = SVector(1, 1, 1)
+    tend = Source()
+    _args = (; state, aux, t, direction = Dir, diffusive)
+
+    # For some reason, we cannot call precompute, because
+    # sometimes `state.ρ` is somehow `0`, which results in
+    # `e_int = Inf` -> failed saturation adjustment.
+    # TODO: look into this
+    args = _args
+    # args = merge(_args, (precomputed = precompute(lm.atmos, _args, tend),))
+
+    # Sources for the linear atmos model only appear in the momentum equation
+    source.ρu = Σsources(eq_tends(Momentum(), lm, tend), lm, args) .* vec_pad
     nothing
 end
 

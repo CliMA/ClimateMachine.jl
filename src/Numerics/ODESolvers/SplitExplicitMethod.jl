@@ -15,8 +15,8 @@ This is a time stepping object for explicitly time stepping the differential
 equation given by the right-hand-side function `f` with the state `Q`, i.e.,
 
 ```math
-  \\dot{Q_fast} = f_fast(Q_fast, Q_slow, t)
-  \\dot{Q_slow} = f_slow(Q_slow, Q_fast, t)
+  \\dot{Q_{fast}} = f_{fast}(Q_{fast}, Q_{slow}, t)
+  \\dot{Q_{slow}} = f_{slow}(Q_{slow}, Q_{fast}, t)
 ```
 
 with the required time step size `dt` and optional initial time `t0`.  This

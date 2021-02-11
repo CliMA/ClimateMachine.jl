@@ -33,21 +33,11 @@ function InterpolationConfiguration(
     axes;
     nr_toler = nothing,
 )
-    FT = eltype(driver_config.grid)
-    param_set = driver_config.bl.param_set
     grid = driver_config.grid
     info = driver_config.config_info
-
-    _planet_radius::FT = planet_radius(param_set)
-    vert_range = grid1d(
-        _planet_radius,
-        FT(_planet_radius + info.domain_height),
-        nelem = info.nelem_vert,
-    )
-
     return InterpolationCubedSphere(
         grid,
-        collect(vert_range),
+        info.vert_range,
         info.nelem_horz,
         axes[1],
         axes[2],

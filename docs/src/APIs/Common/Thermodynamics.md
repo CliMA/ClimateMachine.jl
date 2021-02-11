@@ -16,6 +16,7 @@ ThermodynamicState
 PhaseDry
 PhaseDry_pT
 PhaseDry_pθ
+PhaseDry_pe
 PhaseDry_ρθ
 PhaseDry_ρT
 PhaseDry_ρp
@@ -23,12 +24,14 @@ PhaseEquil
 PhaseEquil_ρTq
 PhaseEquil_pTq
 PhaseEquil_pθq
+PhaseEquil_peq
 PhaseEquil_ρθq
 PhaseEquil_ρpq
 PhaseNonEquil
 PhaseNonEquil_ρTq
 PhaseNonEquil_ρθq
 PhaseNonEquil_pθq
+PhaseNonEquil_peq
 PhaseNonEquil_ρpq
 ```
 

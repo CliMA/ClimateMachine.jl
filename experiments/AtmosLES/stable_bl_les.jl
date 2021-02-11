@@ -1,4 +1,5 @@
 using Random
+
 include("stable_bl_model.jl")
 
 function add_perturbations!(state, localgeo)
@@ -9,26 +10,16 @@ function add_perturbations!(state, localgeo)
     end
 end
 
-function main()
+function set_clima_parameters(filename)
+    eval(:(include($filename)))
+end
 
-    # TODO: this will move to the future namelist functionality
-    sbl_args = ArgParseSettings(autofix_names = true)
-    add_arg_group!(sbl_args, "StableBoundaryLayer")
-    @add_arg_table! sbl_args begin
-        "--surface-flux"
-        help = "specify surface flux for energy and moisture"
-        metavar = "prescribed|bulk"
-        arg_type = String
-        default = "bulk"
-    end
-
-    cl_args = ClimateMachine.init(parse_clargs = true, custom_clargs = sbl_args)
+function main(cl_args)
 
     surface_flux = cl_args["surface_flux"]
 
     FT = Float64
     config_type = AtmosLESConfigType
-
     # DG polynomial order
     N = 4
     # Domain resolution and size
@@ -51,14 +42,14 @@ function main()
     # Choose default IMEX solver
     ode_solver_type = ClimateMachine.ExplicitSolverType()
 
-    C_smag = FT(0.23)
+    C_smag_ = C_smag(param_set) #FT(0.23)
 
     model = stable_bl_model(
         FT,
         config_type,
         zmax,
         surface_flux;
-        turbulence = SmagorinskyLilly{FT}(C_smag),
+        turbulence = SmagorinskyLilly{FT}(C_smag_),
     )
 
     ics = model.problem.init_state_prognostic
@@ -99,4 +90,26 @@ function main()
     )
 end
 
-main()
+# ArgParse in global scope to modify Clima Parameters
+sbl_args = ArgParseSettings(autofix_names = true)
+add_arg_group!(sbl_args, "StableBoundaryLayer")
+@add_arg_table! sbl_args begin
+    "--cparam-file"
+    help = "specify CLIMAParameters file"
+    arg_type = Union{String, Nothing}
+    default = nothing
+
+    "--surface-flux"
+    help = "specify surface flux for energy and moisture"
+    metavar = "prescribed|bulk|custom_sbl"
+    arg_type = String
+    default = "custom_sbl"
+end
+
+cl_args = ClimateMachine.init(parse_clargs = true, custom_clargs = sbl_args)
+if !isnothing(cl_args["cparam_file"])
+    filename = cl_args["cparam_file"]
+    set_clima_parameters(filename)
+end
+
+main(cl_args)

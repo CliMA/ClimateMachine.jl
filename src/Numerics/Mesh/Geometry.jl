@@ -19,7 +19,7 @@ using ..Grids:
     _x3,
     _JcV
 
-export LocalGeometry, lengthscale, resolutionmetric
+export LocalGeometry, lengthscale, resolutionmetric, lengthscale_horizontal
 
 """
     LocalGeometry
@@ -116,9 +116,38 @@ end
 """
     lengthscale(g::LocalGeometry)
 
-The effective grid resolution at the point.
+The effective geometric mean grid resolution at the point.
 """
 lengthscale(g::LocalGeometry) =
     2 / (cbrt(det(g.invJ)) * maximum(max.(1, g.polyorder)))
+
+"""
+    lengthscale_horizontal(g::LocalGeometry)
+
+The effective horizontal grid resolution at the point.
+"""
+function lengthscale_horizontal(g::LocalGeometry)
+    # inverse Jacobian matrix:
+    #
+    #    invJ[i,j] =  ∂ξ_i / ∂x_j
+    invJ = g.invJ
+
+    # The local horizontal grid stretchings are:
+    #
+    #    horizontal direction 1: √( ∑_j ∂x_1 / ∂ξ_j) * 2
+    #    horizontal direction 2: √( ∑_j ∂x_2 / ∂ξ_j) * 2
+    #
+    # To get these we need to have the Jacobian matrix:
+    #
+    #    J[i,j] =  ∂x_i / ∂ξ_j
+    #
+    # To get this we can solve the system with the unit basis vectors
+    # (division by `N` gives the local average node distance)
+    Δ1 = norm(invJ \ SVector(1, 0, 0)) * 2 / g.polyorder[1]
+    Δ2 = norm(invJ \ SVector(0, 1, 0)) * 2 / g.polyorder[2]
+
+    # Set the horizontal length scale to the average of the two calculated values
+    return (Δ1 + Δ2) / 2
+end
 
 end # module
