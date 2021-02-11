@@ -9,9 +9,24 @@ using ClimateMachine.SingleStackUtils
 using ClimateMachine.Checkpoint
 using ClimateMachine.BalanceLaws: vars_state
 import ClimateMachine.BalanceLaws: projection
+import ClimateMachine.DGMethods
 using ClimateMachine.Atmos
 const clima_dir = dirname(dirname(pathof(ClimateMachine)));
 import CLIMAParameters
+
+function DGMethods.calculate_dt(dg, model, Q, Courant_number, t, direction)
+    Δt = one(eltype(Q))
+    CFL = DGMethods.courant(
+        Atmos.diffusive_courant,
+        dg,
+        model,
+        Q,
+        Δt,
+        t,
+        direction,
+    )
+    return Courant_number / CFL
+end
 
 include(joinpath(clima_dir, "experiments", "AtmosLES", "stable_bl_model.jl"))
 include("edmf_model.jl")
@@ -128,7 +143,7 @@ function main(::Type{FT}) where {FT}
 
     # Simulation time
     timeend = FT(1800 * 2)
-    CFLmax = FT(100)
+    CFLmax = FT(0.1)
 
     config_type = SingleStackConfigType
 
@@ -148,7 +163,7 @@ function main(::Type{FT}) where {FT}
         config_type,
         zmax,
         surface_flux;
-        turbulence = SmagorinskyLilly{FT}(0.21),
+        turbulence = ConstantKinematicViscosity(FT(0.1)),
         turbconv = turbconv,
         compressibility = compressibility,
     )
