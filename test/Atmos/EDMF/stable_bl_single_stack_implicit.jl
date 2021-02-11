@@ -26,9 +26,9 @@ function main(::Type{FT}) where {FT}
     @add_arg_table! sbl_args begin
         "--surface-flux"
         help = "specify surface flux for energy and moisture"
-        metavar = "prescribed|bulk"
+        metavar = "prescribed|bulk|custom_sbl"
         arg_type = String
-        default = "bulk"
+        default = "custom_sbl"
     end
 
     cl_args = ClimateMachine.init(parse_clargs = true, custom_clargs = sbl_args)
@@ -201,10 +201,8 @@ function main(::Type{FT}) where {FT}
             nothing
         end
 
-    check_cons = (
-        ClimateMachine.ConservationCheck("ρ", "3000steps", FT(0.001)),
-        ClimateMachine.ConservationCheck("energy.ρe", "3000steps", FT(0.1)),
-    )
+    check_cons =
+        (ClimateMachine.ConservationCheck("ρ", "3000steps", FT(0.001)),)
 
     cb_print_step = GenericCallbacks.EveryXSimulationSteps(100) do
         @show getsteps(solver_config.solver)

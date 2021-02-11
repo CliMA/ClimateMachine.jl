@@ -68,19 +68,18 @@ function numerical_flux_gradient!(
     ::CentralNumericalFluxGradient,
     balance_law::BalanceLaw,
     transform_gradient::MMatrix,
-    normal_vector::SVector,
-    state_gradient⁻::Vars{T},
-    state_prognostic⁻::Vars{S},
-    state_auxiliary⁻::Vars{A},
-    state_gradient⁺::Vars{T},
-    state_prognostic⁺::Vars{S},
-    state_auxiliary⁺::Vars{A},
+    normal_vector::AbstractArray,
+    state_gradient⁻::AbstractArray,
+    state_prognostic⁻::AbstractArray,
+    state_auxiliary⁻::AbstractArray,
+    state_gradient⁺::AbstractArray,
+    state_prognostic⁺::AbstractArray,
+    state_auxiliary⁺::AbstractArray,
     t,
-) where {T, S, A}
+)
 
     transform_gradient .=
-        normal_vector .*
-        (parent(state_gradient⁺) .+ parent(state_gradient⁻))' ./ 2
+        SVector(normal_vector) .* (state_gradient⁺ .+ state_gradient⁻)' ./ 2
 end
 
 function numerical_boundary_flux_gradient!(

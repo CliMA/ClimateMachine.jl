@@ -26,6 +26,33 @@ const param_set = EarthParameterSet()
                 end
             end
         end
+
+        # More type stability (phi/psi):
+        FT = Float32
+        ζ = (-FT(1), FT(0.5) * eps(FT), 2 * eps(FT))
+        for L in (-FT(10), FT(10))
+            args = (param_set, L)
+            for uf in (Gryanik(args...), Grachev(args...), Businger(args...))
+                for transport in (MomentumTransport(), HeatTransport())
+                    ϕ = phi.(uf, ζ, transport)
+                    @test eltype(ϕ) == FT
+                    ψ = psi.(uf, ζ, transport)
+                    @test eltype(ψ) == FT
+                end
+            end
+        end
+
+        # More type stability (Psi):
+        FT = Float32
+        ζ = (-FT(1), FT(0.5) * eps(FT), 2 * eps(FT))
+        for L in (-FT(10), FT(10))
+            args = (param_set, L)
+            uf = Businger(args...)
+            for transport in (MomentumTransport(), HeatTransport())
+                Ψ = Psi.(uf, ζ, transport)
+                @test eltype(Ψ) == FT
+            end
+        end
     end
     @testset "Conversions" begin
         FT = Float32

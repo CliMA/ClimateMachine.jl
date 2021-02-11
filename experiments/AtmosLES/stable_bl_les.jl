@@ -101,9 +101,9 @@ add_arg_group!(sbl_args, "StableBoundaryLayer")
 
     "--surface-flux"
     help = "specify surface flux for energy and moisture"
-    metavar = "prescribed|bulk"
+    metavar = "prescribed|bulk|custom_sbl"
     arg_type = String
-    default = "bulk"
+    default = "custom_sbl"
 end
 
 cl_args = ClimateMachine.init(parse_clargs = true, custom_clargs = sbl_args)

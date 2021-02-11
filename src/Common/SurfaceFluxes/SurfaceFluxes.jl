@@ -51,6 +51,7 @@ struct SurfaceFluxConditions{FT, VFT}
     flux::VFT
     x_star::VFT
     K_exchange::VFT
+    C_exchange::VFT
 end
 
 function Base.show(io::IO, sfc::SurfaceFluxConditions)
@@ -60,6 +61,7 @@ function Base.show(io::IO, sfc::SurfaceFluxConditions)
     println(io, "flux           = ", sfc.flux)
     println(io, "x_star         = ", sfc.x_star)
     println(io, "K_exchange     = ", sfc.K_exchange)
+    println(io, "C_exchange     = ", sfc.C_exchange)
     println(io, "-----------------------")
 end
 
@@ -72,6 +74,7 @@ function surface_fluxes_f!(F, x, nt)
     x_s = Tuple(nt.x_s)
     n_vars = nt.n_vars
     scheme = nt.scheme
+    universal_func = nt.universal_func
     VDSE_scale = nt.VDSE_scale
 
     x_tup = Tuple(x)
@@ -83,7 +86,7 @@ function surface_fluxes_f!(F, x, nt)
         flux = VDSE_flux_star
     end
     L_MO = monin_obukhov_length(param_set, u, VDSE_scale, flux)
-    uf = Businger(param_set, L_MO)
+    uf = universal_func(param_set, L_MO)
     F_nt = ntuple(Val(n_vars + 1)) do i
         if i == 1
             F_i =
@@ -136,7 +139,8 @@ function surface_conditions(
     z::FT,
     scheme,
     VDSE_flux_star::Union{Nothing, FT} = nothing,
-) where {FT <: AbstractFloat, AbstractEarthParameterSet}
+    universal_func::Union{Nothing, F} = Businger,
+) where {FT <: AbstractFloat, AbstractEarthParameterSet, F}
 
     n_vars = length(x_initial) - 1
     @assert length(x_initial) == n_vars + 1
@@ -157,6 +161,7 @@ function surface_conditions(
         scheme,
         VDSE_scale,
         x_initial,
+        universal_func,
     )
 
     # Define closure over args
@@ -188,10 +193,18 @@ function surface_conditions(
         x_star,
         VDSE_scale,
         L_MO,
+        universal_func,
     )
 
-    C_exchange =
-        get_flux_coefficients(param_set, z, x_star, VDSE_scale, L_MO, z_0)
+    C_exchange = get_flux_coefficients(
+        param_set,
+        z,
+        x_star,
+        VDSE_scale,
+        L_MO,
+        z_0,
+        universal_func,
+    )
 
     VFT = typeof(flux)
     return SurfaceFluxConditions{FT, VFT}(
@@ -199,6 +212,7 @@ function surface_conditions(
         VDSE_flux_star,
         flux,
         x_star,
+        K_exchange,
         C_exchange,
     )
 end
@@ -267,7 +281,15 @@ function monin_obukhov_length(
 end
 
 """
-    exchange_coefficients(z, F_exchange, x_star, VDSE_scale, L_MO)
+    exchange_coefficients(
+        param_set,
+        z,
+        F_exchange,
+        x_star::VFT,
+        VDSE_scale,
+        L_MO,
+        universal_func,
+    )
 
 Computes exchange transfer coefficients
   - `K_exchange` exchange coefficients
@@ -279,13 +301,14 @@ function exchange_coefficients(
     x_star::VFT,
     VDSE_scale,
     L_MO,
+    universal_func,
 ) where {VFT}
     N = length(F_exchange)
     FT = typeof(z)
     _von_karman_const::FT = von_karman_const(param_set)
-    uf = Businger(param_set, L_MO)
+    uf = universal_func(param_set, L_MO)
     x_star_tup = Tuple(x_star)
-    K_exchange = similar(F_exchange)
+    K_exchange = similar(x_star)
     F_exchange_tup = Tuple(F_exchange)
     K_exchange .= ntuple(Val(length(x_star))) do i
         transport = i == 1 ? MomentumTransport() : HeatTransport()
@@ -298,6 +321,19 @@ function exchange_coefficients(
     return K_exchange
 end
 
+"""
+    get_flux_coefficients(
+        param_set,
+        z,
+        x_star::VFT,
+        VDSE_scale,
+        L_MO,
+        z0,
+        universal_func,
+    )
+
+
+"""
 function get_flux_coefficients(
     param_set,
     z,
@@ -305,11 +341,12 @@ function get_flux_coefficients(
     VDSE_scale,
     L_MO,
     z0,
+    universal_func,
 ) where {VFT}
     N = length(x_star)
     FT = typeof(z)
     _von_karman_const::FT = von_karman_const(param_set)
-    uf = Businger(param_set, L_MO)
+    uf = universal_func(param_set, L_MO)
     psi_m = psi(uf, z / L_MO, MomentumTransport())
     psi_h = psi(uf, z / L_MO, HeatTransport())
     z0_tup = Tuple(z0)
