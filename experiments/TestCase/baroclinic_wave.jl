@@ -170,12 +170,13 @@ function config_baroclinic_wave(FT, poly_order, resolution, with_moisture)
     # Set up the atmosphere model
     exp_name = "BaroclinicWave"
     domain_height::FT = 30e3 # distance between surface and top of atmosphere (m)
+    τ = FT(0.5 * 3600)
     if with_moisture
-        hyperdiffusion = EquilMoistBiharmonic(FT(8 * 3600))
+        hyperdiffusion = EquilMoistBiharmonic(τ)
         moisture = EquilMoist{FT}()
         source = (Gravity(), Coriolis())
     else
-        hyperdiffusion = DryBiharmonic(FT(8 * 3600))
+        hyperdiffusion = DryBiharmonic(τ)
         moisture = DryModel()
         source = (Gravity(), Coriolis())
     end
@@ -198,6 +199,7 @@ function config_baroclinic_wave(FT, poly_order, resolution, with_moisture)
         param_set,
         init_baroclinic_wave!;
         model = model,
+        numerical_flux_first_order = RoeNumericalFlux(),
     )
 
     return config
@@ -221,10 +223,10 @@ function main()
 
     # Driver configuration parameters
     FT = Float64                             # floating type precision
-    poly_order = (5, 6)                      # discontinuous Galerkin polynomial order
-    n_horz = 8                               # horizontal element number
-    n_vert = 3                               # vertical element number
-    n_days::FT = 1
+    poly_order = 3                           # discontinuous Galerkin polynomial order
+    n_horz = 12                              # horizontal element number
+    n_vert = 6                               # vertical element number
+    n_days::FT = 20
     timestart::FT = 0                        # start time (s)
     timeend::FT = n_days * day(param_set)    # end time (s)
 
@@ -237,8 +239,6 @@ function main()
         implicit_model = AtmosAcousticGravityLinearModel,
         implicit_solver = ManyColumnLU,
         solver_method = ARK2GiraldoKellyConstantinescu,
-        split_explicit_implicit = true,
-        discrete_splitting = false,
     )
 
     CFL = FT(0.1) # target acoustic CFL number
@@ -258,8 +258,8 @@ function main()
     dgn_config = config_diagnostics(FT, driver_config)
 
     # Set up user-defined callbacks
-    filterorder = 20
-    filter = ExponentialFilter(solver_config.dg.grid, 0, filterorder)
+    filterorder = 24
+    filter = BoydVandevenFilter(solver_config.dg.grid, 0, filterorder)
     cbfilter = GenericCallbacks.EveryXSimulationSteps(1) do
         Filters.apply!(
             solver_config.Q,
@@ -267,6 +267,7 @@ function main()
             solver_config.dg.grid,
             filter,
             state_auxiliary = solver_config.dg.state_auxiliary,
+            direction = VerticalDirection(),
         )
         nothing
     end
@@ -287,7 +288,7 @@ function main()
         diagnostics_config = dgn_config,
         user_callbacks = (cbfilter,),
         #user_callbacks = (cbtmarfilter, cbfilter),
-        check_euclidean_distance = true,
+        check_euclidean_distance = false,
     )
 end
 
