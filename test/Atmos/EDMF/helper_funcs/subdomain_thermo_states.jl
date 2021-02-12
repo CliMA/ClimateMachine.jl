@@ -198,6 +198,12 @@ function new_thermo_state_en(
         @print("ρaθ_liq_up = ", up[Val(1)].ρaθ_liq, "\n")
         @print("θ_liq = ", θ_liq, "\n")
         @print("θ_liq_en = ", θ_liq_en, "\n")
+        @print("ρ = ", ρ, "\n")
+        @print("p = ", p, "\n")
+        @print("ρa_up = ", up[Val(1)].ρa, "\n")
+        @print("a_en = ", a_en, "\n")
+        @print("a_min = ", a_min, "\n")
+        @print("a_max = ", a_max, "\n")
         error("Environment θ_liq_en out-of-bounds in new_thermo_state_en")
     end
     ts_en = PhaseDry_pθ(m.param_set, p, θ_liq_en)
