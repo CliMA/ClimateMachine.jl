@@ -1,7 +1,7 @@
 #### Surface model kernels
 
 using Statistics
-
+# include(joinpath(clima_dir, "test", "Atmos", "EDMF", "helper_funcs", "utility_funcs.jl"));
 """
     subdomain_surface_values(
         surf::SurfaceModel,
@@ -43,7 +43,11 @@ function subdomain_surface_values(
     lv = latent_heat_vapor(ts)
     Π = exner(ts)
     ρ_inv = 1 / gm.ρ
-    surface_scalar_coeff = turbconv.surface.scalar_coeff
+    if surf.a>FT(0)
+        surface_scalar_coeff = turbconv.surface.scalar_coeff
+    else
+        surface_scalar_coeff =FT(0)
+    end
 
     θ_liq_surface_flux = surf.shf / Π / _cp_m
     q_tot_surface_flux = surf.lhf / lv
@@ -74,7 +78,6 @@ function subdomain_surface_values(
     q_tot_up_surf = ntuple(N_up) do i
         ρq_tot * ρ_inv + surface_scalar_coeff[i] * sqrt(max(q_tot_cv, 0))
     end
-
     return (
         a_up_surf = a_up_surf,
         upd_θ_liq_surf = upd_θ_liq_surf,

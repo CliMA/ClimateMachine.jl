@@ -143,8 +143,8 @@ function main(::Type{FT}) where {FT}
     t0 = FT(0)
 
     # Simulation time
-    timeend = FT(30)
-    CFLmax = FT(1)
+    timeend = FT(3600)
+    CFLmax = FT(100)
 
     config_type = SingleStackConfigType
 
@@ -187,7 +187,7 @@ function main(::Type{FT}) where {FT}
         driver_config,
         init_on_cpu = true,
         Courant_number = CFLmax,
-        fixed_number_of_steps = 100
+        # fixed_number_of_steps = 10
     )
 
     # --- Zero-out horizontal variations:
@@ -251,7 +251,7 @@ function main(::Type{FT}) where {FT}
     check_cons =
         (ClimateMachine.ConservationCheck("ρ", "3000steps", FT(0.00000001)),)
 
-    cb_print_step = GenericCallbacks.EveryXSimulationSteps(1) do
+    cb_print_step = GenericCallbacks.EveryXSimulationSteps(100) do
         @show getsteps(solver_config.solver)
         nothing
     end
