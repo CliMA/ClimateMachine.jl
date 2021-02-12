@@ -153,8 +153,8 @@ function main(::Type{FT}) where {FT}
 
     N_updrafts = 1
     N_quad = 3
-    turbconv = NoTurbConv()
-    # turbconv = EDMF(FT, N_updrafts, N_quad)
+    # turbconv = NoTurbConv()
+    turbconv = EDMF(FT, N_updrafts, N_quad)
     # compressibility = Compressible()
     compressibility = Anelastic1D()
 
@@ -210,7 +210,7 @@ function main(::Type{FT}) where {FT}
 
     dgn_config = config_diagnostics(driver_config)
 
-    cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(1) do
+    cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(100) do
         Filters.apply!(
             solver_config.Q,
             (turbconv_filters(turbconv)...,),
