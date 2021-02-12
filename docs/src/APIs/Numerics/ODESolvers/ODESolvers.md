@@ -42,6 +42,7 @@ ODESolvers.ARK2GiraldoKellyConstantinescu
 ODESolvers.ARK548L2SA2KennedyCarpenter
 ODESolvers.ARK437L2SA1KennedyCarpenter
 ODESolvers.Trap2LockWoodWeller
+ODESolvers.DBM453VoglEtAl
 ODESolvers.SSPRK22Ralstons
 ODESolvers.SSPRK22Heuns
 ODESolvers.LSRKEulerMethod
