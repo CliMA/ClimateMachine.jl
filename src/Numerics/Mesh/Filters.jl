@@ -179,7 +179,7 @@ end
 """
     BoydVandevenFilter(grid, Nc=0, s=32)
 
-Returns the spectral filter using the logorithmic error function of
+Returns the spectral filter using the logarithmic error function of
 the form:
 ```math
 σ(η) = 1/2 erfc(2*sqrt(s)*χ(η)*(abs(η)-0.5))

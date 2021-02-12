@@ -239,7 +239,7 @@ function run_box1D(
             )
             nothing
         end
-    # exponential filter
+    # Boyd Vandeven filter
     cb_boyd =
         GenericCallbacks.EveryXSimulationSteps(filter_freq) do (init = false)
             Filters.apply!(
