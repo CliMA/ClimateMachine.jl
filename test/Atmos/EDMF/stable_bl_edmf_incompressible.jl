@@ -14,19 +14,20 @@ using ClimateMachine.Atmos
 const clima_dir = dirname(dirname(pathof(ClimateMachine)));
 import CLIMAParameters
 
-function DGMethods.calculate_dt(dg, model, Q, Courant_number, t, direction)
-    Δt = one(eltype(Q))
-    CFL = DGMethods.courant(
-        Atmos.diffusive_courant,
-        dg,
-        model,
-        Q,
-        Δt,
-        t,
-        direction,
-    )
-    return Courant_number / CFL
-end
+# Does not scale correctly at initialization
+# function DGMethods.calculate_dt(dg, model, Q, Courant_number, t, direction)
+#     Δt = one(eltype(Q))
+#     CFL = DGMethods.courant(
+#         Atmos.diffusive_courant,
+#         dg,
+#         model,
+#         Q,
+#         Δt,
+#         t,
+#         direction,
+#     )
+#     return Courant_number / CFL
+# end
 
 include(joinpath(clima_dir, "experiments", "AtmosLES", "stable_bl_model.jl"))
 include("edmf_model.jl")
@@ -143,7 +144,7 @@ function main(::Type{FT}) where {FT}
 
     # Simulation time
     timeend = FT(1800 * 2)
-    CFLmax = FT(0.1)
+    CFLmax = FT(100)
 
     config_type = SingleStackConfigType
 
@@ -163,7 +164,7 @@ function main(::Type{FT}) where {FT}
         config_type,
         zmax,
         surface_flux;
-        turbulence = ConstantKinematicViscosity(FT(0.1)),
+        turbulence = SmagorinskyLilly{FT}(0.21),
         turbconv = turbconv,
         compressibility = compressibility,
     )
@@ -210,12 +211,17 @@ function main(::Type{FT}) where {FT}
 
     dgn_config = config_diagnostics(driver_config)
 
-    cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(1) do
+    # boyd vandeven filter
+    cb_boyd = GenericCallbacks.EveryXSimulationSteps(1) do
         Filters.apply!(
             solver_config.Q,
-            (turbconv_filters(turbconv)...,),
+            ("energy.ρe",),
             solver_config.dg.grid,
-            TMARFilter(),
+            BoydVandevenFilter(
+                solver_config.dg.grid,
+                1, #default=0
+                4, #default=32
+            ),
         )
         nothing
     end
@@ -243,7 +249,6 @@ function main(::Type{FT}) where {FT}
     # so mass should be completely conserved:
     check_cons = (
         ClimateMachine.ConservationCheck("ρ", "3000steps", FT(0.00000001)),
-        ClimateMachine.ConservationCheck("energy.ρe", "3000steps", FT(0.1)),
     )
 
     cb_print_step = GenericCallbacks.EveryXSimulationSteps(100) do
@@ -255,7 +260,7 @@ function main(::Type{FT}) where {FT}
         solver_config;
         diagnostics_config = dgn_config,
         check_cons = check_cons,
-        user_callbacks = (cbtmarfilter, cb_data_vs_time, cb_print_step),
+        user_callbacks = (cb_boyd, cb_data_vs_time, cb_print_step),
         check_euclidean_distance = true,
     )
 
