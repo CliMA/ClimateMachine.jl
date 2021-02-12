@@ -166,12 +166,13 @@ function config_baroclinic_wave(FT, poly_order, cutoff_order, resolution, with_m
     # Set up the atmosphere model
     exp_name = "BaroclinicWave"
     domain_height::FT = 30e3 # distance between surface and top of atmosphere (m)
+    τ = FT(0.5 * 3600)
     if with_moisture
-        hyperdiffusion = EquilMoistBiharmonic(FT(8 * 3600))
+        hyperdiffusion = EquilMoistBiharmonic(τ)
         moisture = EquilMoist{FT}()
         source = (Gravity(), Coriolis())
     else
-        hyperdiffusion = DryBiharmonic(FT(8 * 3600))
+        hyperdiffusion = DryBiharmonic(τ)
         moisture = DryModel()
         source = (Gravity(), Coriolis())
     end
@@ -181,7 +182,7 @@ function config_baroclinic_wave(FT, poly_order, cutoff_order, resolution, with_m
         init_state_prognostic = init_baroclinic_wave!,
         ref_state = ref_state,
         turbulence = ConstantKinematicViscosity(FT(0)),
-        # hyperdiffusion = hyperdiffusion,
+        hyperdiffusion = hyperdiffusion,
         moisture = moisture,
         source = source,
     )
@@ -236,8 +237,6 @@ function main()
         implicit_model = AtmosAcousticGravityLinearModel,
         implicit_solver = ManyColumnLU,
         solver_method = ARK2GiraldoKellyConstantinescu,
-        split_explicit_implicit = true,
-        discrete_splitting = false,
     )
 
     CFL = FT(0.1) # target acoustic CFL number
