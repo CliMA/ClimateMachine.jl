@@ -64,7 +64,7 @@ end
 function SubdomainModel(
     ::Type{FT},
     N_up;
-    a_min::FT = 0.001,
+    a_min::FT = 0.0,
     a_max::FT = 1 - N_up * a_min,
 ) where {FT}
     return SubdomainModel(; a_min = a_min, a_max = a_max)
@@ -113,7 +113,7 @@ Constructor for `SurfaceModel` for EDMF, given:
  - `N_up`, the number of updrafts
 """
 function SurfaceModel{FT}(N_up;) where {FT}
-    a_surf::FT = 0.1
+    a_surf::FT = 0.0
 
     surface_scalar_coeff = SVector(
         ntuple(N_up) do i

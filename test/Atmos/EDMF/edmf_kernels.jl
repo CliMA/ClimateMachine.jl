@@ -210,7 +210,7 @@ eq_tends(
     pv::PV,
     m::AtmosModel,
     tt::Flux{O},
-) where {O, PV <: EDMFPrognosticVariable} = eq_tends(pv, m.turbconv, tt)
+) where {O, PV <: EDMFPrognosticVariable} = ()# eq_tends(pv, m.turbconv, tt)
 
 eq_tends(pv::PV, m::EDMF, ::Flux{O}) where {O, PV <: EDMFPrognosticVariable} =
     ()
@@ -219,39 +219,40 @@ eq_tends(
     pv::PV,
     m::EDMF,
     ::Flux{SecondOrder},
-) where {PV <: EnvironmentPrognosticVariable} = (Diffusion{PV}(),)
+) where {PV <: EnvironmentPrognosticVariable} = () #(Diffusion{PV}(),)
 
 eq_tends(
     pv::PV,
     m::EDMF,
     ::Flux{FirstOrder},
-) where {PV <: EDMFPrognosticVariable} = (Advect{PV}(),)
+) where {PV <: EDMFPrognosticVariable} = ()#(Advect{PV}(),)
 
 eq_tends(pv::PV, m::EDMF, ::Source) where {PV} = ()
 
-eq_tends(pv::PV, m::EDMF, ::Source) where {PV <: EDMFPrognosticVariable} =
-    (EntrDetr{PV}(),)
+eq_tends(pv::PV, m::EDMF, ::Source) where {PV <: EDMFPrognosticVariable} = ()
+    # (EntrDetr{PV}(),)
 
-eq_tends(pv::PV, m::EDMF, ::Source) where {PV <: en_ρatke} = (
-    EntrDetr{PV}(),
-    PressSource{PV}(),
-    ShearSource{PV}(),
-    BuoySource{PV}(),
-    DissSource{PV}(),
-)
+eq_tends(pv::PV, m::EDMF, ::Source) where {PV <: en_ρatke} = ()
+    # EntrDetr{PV}(),
+    # PressSource{PV}(),
+    # ShearSource{PV}(),
+    # BuoySource{PV}(),
+    # DissSource{PV}(),
+# )
 
 eq_tends(
     pv::PV,
     m::EDMF,
     ::Source,
-) where {PV <: Union{en_ρaθ_liq_cv, en_ρaq_tot_cv, en_ρaθ_liq_q_tot_cv}} =
-    (EntrDetr{PV}(), DissSource{PV}(), GradProdSource{PV}())
+) where {PV <: Union{en_ρaθ_liq_cv, en_ρaq_tot_cv, en_ρaθ_liq_q_tot_cv}} = ()
+    # (DissSource{PV}(), GradProdSource{PV}())
+    # (EntrDetr{PV}(), DissSource{PV}(), GradProdSource{PV}())
 
-eq_tends(pv::PV, m::EDMF, ::Source) where {PV <: up_ρaw} = (
-    EntrDetr{PV}(),
-    PressSource(n_updrafts(m))...,
-    BuoySource(n_updrafts(m))...,
-)
+# eq_tends(pv::PV, m::EDMF, ::Source) where {PV <: up_ρaw} = (
+#     EntrDetr{PV}(),
+#     PressSource(n_updrafts(m))...,
+#     BuoySource(n_updrafts(m))...,
+# )
 
 struct SGSFlux{PV <: Union{Momentum, Energy, TotalMoisture}} <:
        TendencyDef{Flux{SecondOrder}, PV} end
@@ -834,6 +835,7 @@ function precompute(::EDMF, bl, args, ts, ::Flux{FirstOrder})
     θ_liq_up = vuntuple(N_up) do i
         fix_void_up(up[i].ρa, up[i].ρaθ_liq / up[i].ρa, liquid_ice_pottemp(ts))
     end
+
     a_up = vuntuple(N_up) do i
         fix_void_up(up[i].ρa, up[i].ρa * ρ_inv)
     end
@@ -938,7 +940,8 @@ function compute_buoyancy(
         abs_buoyancy_up[i] - b_gm
     end
 
-    buoyancy_en -= b_gm
+    # buoyancy_en -= b_gm
+    buoyancy_en = FT(0) # zero
     return (; up = buoyancy_up, en = buoyancy_en)
 end
 
@@ -971,6 +974,7 @@ function precompute(::EDMF, bl, args, ts, ::Source)
         env,
     )
 
+    FT = eltype(state)    
     w_up = vuntuple(N_up) do i
         fix_void_up(ρa_up[i], up[i].ρaw / ρa_up[i])
     end

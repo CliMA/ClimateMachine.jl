@@ -187,6 +187,7 @@ function main(::Type{FT}) where {FT}
         driver_config,
         init_on_cpu = true,
         Courant_number = CFLmax,
+        fixed_number_of_steps = 100
     )
 
     # --- Zero-out horizontal variations:
