@@ -64,6 +64,7 @@ import ..BalanceLaws:
     prognostic_to_primitive!,
     primitive_to_prognostic!,
     init_state_auxiliary!,
+    construct_face_auxiliary_state!,
     init_state_prognostic!,
     update_auxiliary_state!,
     indefinite_stack_integral!,
@@ -353,6 +354,7 @@ function vars_state(m::AtmosModel, st::Primitive, FT)
         u::SVector{3, FT}
         p::FT
         moisture::vars_state(m.moisture, st, FT)
+        turbconv::vars_state(m.turbconv, st, FT)
     end
 end
 
