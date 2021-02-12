@@ -191,11 +191,12 @@ function new_thermo_state_en(
     ρ_inv = 1 / ρ
     θ_liq = liquid_ice_pottemp(ts)
     a_en = environment_area(state, N_up)
-    θ_liq_en = (θ_liq - sum(vuntuple(j -> up[j].ρaθ_liq * ρ_inv, N_up))) / a_en
+    # θ_liq_en = (θ_liq - sum(vuntuple(j -> up[j].ρaθ_liq * ρ_inv, N_up))) / a_en
+    θ_liq_en = θ_liq
     a_min = m.turbconv.subdomains.a_min
     a_max = m.turbconv.subdomains.a_max
     if !(0 <= θ_liq_en)
-        @print("ρaθ_liq_up = ", up[Val(1)].ρaθ_liq, "\n")
+        # @print("ρaθ_liq_up = ", ρaθ_liq_up, "\n")
         @print("θ_liq = ", θ_liq, "\n")
         @print("θ_liq_en = ", θ_liq_en, "\n")
         @print("ρ = ", ρ, "\n")
