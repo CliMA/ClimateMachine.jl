@@ -1,23 +1,27 @@
 #!/usr/bin/env julia --project
-using ClimateMachine
 using ArgParse
+using LinearAlgebra
+using StaticArrays
+using Test
 
+using ClimateMachine
 using ClimateMachine.Atmos
-using ClimateMachine.ConfigTypes
-using ClimateMachine.NumericalFluxes
-using ClimateMachine.Diagnostics
 using ClimateMachine.Orientations
+using ClimateMachine.ConfigTypes
+using ClimateMachine.Diagnostics
+using ClimateMachine.NumericalFluxes
 using ClimateMachine.GenericCallbacks
 using ClimateMachine.ODESolvers
+using ClimateMachine.TurbulenceClosures
 using ClimateMachine.SystemSolvers: ManyColumnLU
 using ClimateMachine.Mesh.Filters
 using ClimateMachine.Mesh.Grids
-using ClimateMachine.Mesh.Interpolation
 using ClimateMachine.TemperatureProfiles
 using ClimateMachine.Thermodynamics:
     air_density, air_temperature, total_energy, internal_energy, PhasePartition
 using ClimateMachine.TurbulenceClosures
 using ClimateMachine.VariableTemplates
+using ClimateMachine.Spectra: compute_gaussian!
 
 using CLIMAParameters
 using CLIMAParameters.Planet: MSLP, R_d, day, grav, Omega, planet_radius
@@ -182,7 +186,7 @@ function config_baroclinic_wave(FT, poly_order, cutoff_order, resolution, with_m
         init_state_prognostic = init_baroclinic_wave!,
         ref_state = ref_state,
         turbulence = ConstantKinematicViscosity(FT(0)),
-        hyperdiffusion = hyperdiffusion,
+        # hyperdiffusion = hyperdiffusion,
         moisture = moisture,
         source = source,
     )
@@ -221,10 +225,10 @@ function main()
     # Driver configuration parameters
     FT = Float64                             # floating type precision
     poly_order = 4                           # discontinuous Galerkin polynomial order
-    cutoff_order = 4
+    cutoff_order = 3
     n_horz = 12                              # horizontal element number
     n_vert = 6                               # vertical element number
-    n_days::FT = 1
+    n_days::FT = 20
     timestart::FT = 0                        # start time (s)
     timeend::FT = n_days * day(param_set)    # end time (s)
 
