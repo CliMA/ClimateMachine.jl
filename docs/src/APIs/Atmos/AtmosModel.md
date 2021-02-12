@@ -47,6 +47,8 @@ ClimateMachine.Atmos.NoReferenceState
 ```@docs
 ClimateMachine.Atmos.recover_thermo_state
 ClimateMachine.Atmos.new_thermo_state
+ClimateMachine.Atmos.recover_thermo_state_anelastic
+ClimateMachine.Atmos.new_thermo_state_anelastic
 ```
 
 ## Moisture and Precipitation
