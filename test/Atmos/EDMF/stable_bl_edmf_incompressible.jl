@@ -247,9 +247,8 @@ function main(::Type{FT}) where {FT}
 
     # Mass tendencies = 0 for Anelastic1D model,
     # so mass should be completely conserved:
-    check_cons = (
-        ClimateMachine.ConservationCheck("ρ", "3000steps", FT(0.00000001)),
-    )
+    check_cons =
+        (ClimateMachine.ConservationCheck("ρ", "3000steps", FT(0.00000001)),)
 
     cb_print_step = GenericCallbacks.EveryXSimulationSteps(100) do
         @show getsteps(solver_config.solver)
