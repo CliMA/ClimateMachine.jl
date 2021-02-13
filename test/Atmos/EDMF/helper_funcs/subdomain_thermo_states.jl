@@ -192,7 +192,7 @@ function new_thermo_state_en(
     θ_liq = liquid_ice_pottemp(ts)
     a_en = environment_area(state, N_up)
     ρaθ_liq_up = vuntuple(N_up) do i
-        fix_void_up(up[i].ρa, up[i].ρaθ_liq, up[i].ρa*liquid_ice_pottemp(ts))
+        fix_void_up(up[i].ρa, up[i].ρaθ_liq, up[i].ρa*θ_liq)
     end
     θ_liq_en = (θ_liq - sum(vuntuple(j -> ρaθ_liq_up[j] * ρ_inv, N_up))) / a_en
     a_min = m.turbconv.subdomains.a_min
