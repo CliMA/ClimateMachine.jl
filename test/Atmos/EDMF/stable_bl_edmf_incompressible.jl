@@ -164,7 +164,7 @@ function main(::Type{FT}) where {FT}
         config_type,
         zmax,
         surface_flux;
-        turbulence = SmagorinskyLilly{FT}(0.21),
+        turbulence = ConstantKinematicViscosity(FT(0)),
         turbconv = turbconv,
         compressibility = compressibility,
     )

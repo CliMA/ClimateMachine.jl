@@ -126,7 +126,7 @@ function SurfaceModel{FT}(N_up;) where {FT}
             end,
         )
     else
-        surface_scalar_coeff =FT(0)
+        surface_scalar_coeff = FT(0)
     end
 
     SV = typeof(surface_scalar_coeff)

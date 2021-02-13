@@ -43,11 +43,7 @@ function subdomain_surface_values(
     lv = latent_heat_vapor(ts)
     Π = exner(ts)
     ρ_inv = 1 / gm.ρ
-    if surf.a>FT(0)
-        surface_scalar_coeff = turbconv.surface.scalar_coeff
-    else
-        surface_scalar_coeff =FT(0)
-    end
+    surface_scalar_coeff = turbconv.surface.scalar_coeff
 
     θ_liq_surface_flux = surf.shf / Π / _cp_m
     q_tot_surface_flux = surf.lhf / lv

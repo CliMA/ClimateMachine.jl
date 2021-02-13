@@ -202,7 +202,7 @@ eq_tends(
     pv::PV,
     m::EDMF,
     ::Flux{SecondOrder},
-) where {PV <: Union{Momentum, Energy, TotalMoisture}} = ()  # do _not_ add SGSFlux back to grid-mean
+) where {PV <: Union{Momentum, Energy, TotalMoisture}} = (SGSFlux{PV}(),)   # do _not_ add SGSFlux back to grid-mean
 # (SGSFlux{PV}(),) # add SGSFlux back to grid-mean
 
 # Turbconv tendencies
@@ -225,7 +225,7 @@ eq_tends(
     pv::PV,
     m::EDMF,
     ::Flux{FirstOrder},
-) where {PV <: EDMFPrognosticVariable} = ()#(Advect{PV}(),)
+) where {PV <: EDMFPrognosticVariable} = (Advect{PV}(),)
 
 eq_tends(pv::PV, m::EDMF, ::Source) where {PV} = ()
 
@@ -234,9 +234,9 @@ eq_tends(pv::PV, m::EDMF, ::Source) where {PV <: EDMFPrognosticVariable} = ()
 
 eq_tends(pv::PV, m::EDMF, ::Source) where {PV <: en_ρatke} = (
     # EntrDetr{PV}(),
-    # PressSource{PV}(),
+    PressSource{PV}(),
     ShearSource{PV}(),
-    # BuoySource{PV}(),
+    BuoySource{PV}(),
     DissSource{PV}(),
 )
 
@@ -244,15 +244,14 @@ eq_tends(
     pv::PV,
     m::EDMF,
     ::Source,
-) where {PV <: Union{en_ρaθ_liq_cv, en_ρaq_tot_cv, en_ρaθ_liq_q_tot_cv}} = ()
-    # (DissSource{PV}(), GradProdSource{PV}())
-    # (EntrDetr{PV}(), DissSource{PV}(), GradProdSource{PV}())
+) where {PV <: Union{en_ρaθ_liq_cv, en_ρaq_tot_cv, en_ρaθ_liq_q_tot_cv}} =
+    (EntrDetr{PV}(), DissSource{PV}(), GradProdSource{PV}())
 
-# eq_tends(pv::PV, m::EDMF, ::Source) where {PV <: up_ρaw} = (
+eq_tends(pv::PV, m::EDMF, ::Source) where {PV <: up_ρaw} = (
 #     EntrDetr{PV}(),
-#     PressSource(n_updrafts(m))...,
-#     BuoySource(n_updrafts(m))...,
-# )
+    PressSource(n_updrafts(m))...,
+    BuoySource(n_updrafts(m))...,
+)
 
 struct SGSFlux{PV <: Union{Momentum, Energy, TotalMoisture}} <:
        TendencyDef{Flux{SecondOrder}, PV} end
@@ -328,11 +327,6 @@ function compute_gradient_argument!(
     en_tf.q_tot = q_tot_en
     en_tf.w = env.w
 
-    z = altitude(m, aux)
-    @show(en_tf.tke, z)
-    if isnan(en_tf.tke)
-        error("not finite in compute_gradient_argument")
-    end
     en_tf.tke = enforce_positivity(en.ρatke) / (env.a * gm.ρ)
     en_tf.θ_liq_cv = enforce_positivity(en.ρaθ_liq_cv) / (env.a * gm.ρ)
 
@@ -383,17 +377,21 @@ function compute_gradient_flux!(
     en_dif.∇θ_liq = en_∇tf.θ_liq
     en_dif.∇q_tot = en_∇tf.q_tot
     en_dif.∇w = en_∇tf.w
-    # second moment env cov
-    if isnan(en_∇tf.tke[3])
-        z = altitude(m, aux)
-        @show(en_∇tf.tke,z)
-        error("not finite in compute_gradient_flux")
-    end
+    z = altitude(m, aux)
     en_dif.∇tke = en_∇tf.tke
     en_dif.∇θ_liq_cv = en_∇tf.θ_liq_cv
     en_dif.∇q_tot_cv = en_∇tf.q_tot_cv
     en_dif.∇θ_liq_q_tot_cv = en_∇tf.θ_liq_q_tot_cv
 
+    # this fixes a problem with very high (state⁻.ρatke ≈ e20)
+    if z==FT(0)
+        en_dif.∇tke = en_dif.∇tke*FT(0)
+        en_dif.∇θ_liq_cv = en_dif.∇θ_liq_cv*FT(0)
+        en_dif.∇q_tot_cv = en_dif.∇q_tot_cv*FT(0)
+        en_dif.∇θ_liq_q_tot_cv = en_dif.∇θ_liq_q_tot_cv*FT(0)
+    end
+
+    # second moment env cov
     en_dif.∇θv = en_∇tf.θv
     en_dif.∇e = en_∇tf.e
 
@@ -598,10 +596,6 @@ function source(::ShearSource{en_ρatke}, atmos, args)
     ρa₀ = gm.ρ * env.a
     # production from mean gradient and Dissipation
     tot = ρa₀ * K_m * Shear²
-    if isnan(tot)
-        @show(ρa₀, K_m, Shear²)
-        error("not finite in ShearSource{en_ρatke}")
-    end
     return ρa₀ * K_m * Shear² # tke Shear source
 end
 
@@ -618,11 +612,7 @@ function source(::DissSource{en_ρatke}, atmos, args)
     en = args.state.turbconv.environment
     ρa₀ = gm.ρ * env.a
     tke_en = enforce_positivity(en.ρatke) / gm.ρ / env.a
-    tot = -ρa₀ * Diss₀ * tke_en  
-    if isnan(tot)
-        @show(-ρa₀ , Diss₀, tke_en  )
-        error("not finite in DissSource{en_ρatke}")
-    end
+    tot = -ρa₀ * Diss₀ * tke_en
     return -ρa₀ * Diss₀ * tke_en  # tke Dissipation
 end
 
@@ -961,7 +951,6 @@ function compute_buoyancy(
     end
 
     # buoyancy_en -= b_gm
-    buoyancy_en = FT(0) # zero
     return (; up = buoyancy_up, en = buoyancy_en)
 end
 
@@ -1156,10 +1145,6 @@ function flux(::Diffusion{en_ρatke}, atmos, args)
     en_dif = diffusive.turbconv.environment
     ẑ = vertical_unit_vector(atmos, aux)
     tot = -gm.ρ * env.a * K_m * en_dif.∇tke[3]
-    if isnan(tot)
-        @show(gm.ρ, env.a, K_m, en_dif.∇tke[3], ẑ)
-        error("not finite in flux(::Diffusion{en_ρatke})")
-    end
     return -gm.ρ * env.a * K_m * en_dif.∇tke[3] * ẑ
 end
 
@@ -1246,11 +1231,6 @@ function turbconv_boundary_state!(
     else
         en⁺.ρaq_tot_cv = FT(0)
         en⁺.ρaθ_liq_q_tot_cv = FT(0)
-    end
-    @show(en⁺.ρatke)
-    @show(state⁻.turbconv.environment.ρatke)
-    if isnan(en⁺.ρatke)
-        error("not finite in turbconv_boundary_state")
     end
 end;
 function turbconv_boundary_state!(
