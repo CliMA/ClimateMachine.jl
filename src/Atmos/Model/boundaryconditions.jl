@@ -17,7 +17,8 @@ export AtmosBC,
     ImpermeableTracer,
     PrescribedMoistureFlux,
     BulkFormulaMoisture,
-    PrescribedTracerFlux
+    PrescribedTracerFlux,
+    NishizawaEnergyFlux
 
 export average_density_sfc_int
 

@@ -1,10 +1,11 @@
 abstract type EnergyBC end
 
 using ..TurbulenceClosures
-
+using ClimateMachine.SurfaceFluxes:
+    get_energy_flux, surface_conditions, DGScheme
+using ClimateMachine.Atmos: altitude
 """
     Insulating() :: EnergyBC
-
 No energy flux across the boundary.
 """
 struct Insulating <: EnergyBC end
@@ -19,7 +20,6 @@ function atmos_energy_normal_boundary_flux_second_order!(
 
 """
     PrescribedTemperature(fn) :: EnergyBC
-
 Prescribe the temperature at the boundary by `fn`, a function with signature
 `fn(state, aux, t)` returning the temperature (in K).
 """
@@ -76,7 +76,6 @@ end
 
 """
     PrescribedEnergyFlux(fn) :: EnergyBC
-
 Prescribe the net inward energy flux across the boundary by `fn`, a function
 with signature `fn(state, aux, t)`, returning the flux (in W/m^2).
 """
@@ -114,7 +113,6 @@ end
 
 """
     Adiabaticθ(fn) :: EnergyBC
-
 Prescribe the net inward potential temperature flux
 across the boundary by `fn`, a function with signature
 `fn(state, aux, t)`, returning the flux (in kgK/m^2).
@@ -147,11 +145,9 @@ end
 
 """
     BulkFormulaEnergy(fn) :: EnergyBC
-
 Calculate the net inward energy flux across the boundary. The drag
 coefficient is `C_h = fn_C_h(atmos, state, aux, t, normu_int_tan)`. The surface
 temperature and q_tot are `T, q_tot = fn_T_and_q_tot(atmos, state, aux, t)`.
-
 Return the flux (in W m^-2).
 """
 struct BulkFormulaEnergy{FNX, FNTM} <: EnergyBC
@@ -202,4 +198,91 @@ function atmos_energy_normal_boundary_flux_second_order!(
     ρ_avg = average_density(state⁻.ρ, state_int⁻.ρ)
     # NOTE: difference from design docs since normal points outwards
     fluxᵀn.energy.ρe -= C_h * ρ_avg * normu_int⁻_tan * (MSE - MSE_int)
+end
+
+"""
+    NishizawaEnergyFlux(fn) :: EnergyBC
+Calculate the net inward energy flux across the boundary following Nishizawa and Kitamura (2018).
+Return the flux (in W m^-2).
+"""
+struct NishizawaEnergyFlux{FNTM, FNX} <: EnergyBC
+    fn_z0::FNX
+    fn_T_and_q_tot::FNTM
+end
+function atmos_energy_boundary_state!(
+    nf,
+    bc_energy::NishizawaEnergyFlux,
+    atmos,
+    args...,
+) end
+function atmos_energy_normal_boundary_flux_second_order!(
+    nf,
+    bc_energy::NishizawaEnergyFlux,
+    atmos,
+    fluxᵀn,
+    n⁻,
+    state⁻,
+    diffusive⁻,
+    hyperdiffusive⁻,
+    aux⁻,
+    state⁺,
+    diffusive⁺,
+    hyperdiffusive⁺,
+    aux⁺,
+    t,
+    state_int⁻,
+    diffusive_int⁻,
+    aux_int⁻,
+)
+    FT = eltype(state⁻)
+    # Interior state
+    u_int⁻ = state_int⁻.ρu / state_int⁻.ρ
+    u_int⁻_tan = projection_tangential(atmos, aux_int⁻, u_int⁻)
+    normu_int⁻_tan = norm(u_int⁻_tan)
+    q_tot_int =
+        atmos.moisture isa DryModel ? FT(0) :
+        state_int⁻.moisture.ρq_tot / state_int⁻.ρ
+    # recover thermo state
+    ts_int = recover_thermo_state(atmos, state_int⁻, aux_int⁻)
+    x_in =
+        MArray{Tuple{3}, FT}(FT[normu_int⁻_tan, dry_pottemp(ts_int), q_tot_int])
+
+    # Boundary state
+    T, q_tot = bc_energy.fn_T_and_q_tot(atmos, state⁻, aux⁻, t)
+    x_s = MArray{Tuple{3}, FT}(FT[FT(0), T, q_tot])
+
+    ## Initial guesses for MO parameters, these should be a function of state.
+    LMO_init = FT(100) # Initial value so that ξ_init<<1
+    u_star_init = FT(0.1) * normu_int⁻_tan
+    th_star_init = T
+    qt_star_init = q_tot
+    MO_param_guess = MArray{Tuple{4}, FT}(FT[
+        LMO_init,
+        u_star_init,
+        th_star_init,
+        qt_star_init,
+    ])
+
+    # Roughness and interior heights
+    z_0 = bc_energy.fn_z0(atmos, state⁻, aux⁻, t, normu_int⁻_tan)
+    z_in = altitude(atmos, aux_int⁻)
+
+    θ_flux, q_tot_flux = get_energy_flux(surface_conditions(
+        atmos.param_set,
+        MO_param_guess,
+        x_in,
+        x_s,
+        z_0,
+        T,
+        z_in,
+        DGScheme(),
+    ))
+
+    # recover thermo state
+    ts_surf = PhaseEquil_ρTq(atmos.param_set, state⁻.ρ, T, q_tot)
+    # Add sensible heat flux
+    fluxᵀn.energy.ρe -= state⁻.ρ * θ_flux * cp_m(ts_surf)
+    # Add latent heat flux
+    fluxᵀn.energy.ρe -=
+        state⁻.ρ * q_tot_flux * latent_heat_vapor(atmos.param_set, T)
 end

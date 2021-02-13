@@ -198,6 +198,7 @@ function stable_bl_model(
 
     C_drag_::FT = C_drag(param_set) # FT(0.001)    # Momentum exchange coefficient
     u_star = FT(0.30)
+    z_0 = FT(0.1)          # Roughness height
 
     z_sponge = FT(300)     # Start of sponge layer
     α_max = FT(0.75)       # Strength of sponge layer (timescale)
@@ -271,6 +272,13 @@ function stable_bl_model(
             (state, aux, t, normPu_int) -> C_drag_,
             (state, aux, t) -> q_sfc,
         )
+    elseif surface_flux == "Nishizawa2018"
+        energy_bc = NishizawaEnergyFlux(
+            (bl, state, aux, t, normPu_int) -> z_0,
+            (bl, state, aux, t) ->
+                (surface_temperature_variation(state, t), q_sfc),
+        )
+        moisture_bc = PrescribedMoistureFlux((state, aux, t) -> moisture_flux)
     else
         @warn @sprintf(
             """
