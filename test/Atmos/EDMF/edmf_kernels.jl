@@ -377,13 +377,15 @@ function compute_gradient_flux!(
     en_dif.∇θ_liq = en_∇tf.θ_liq
     en_dif.∇q_tot = en_∇tf.q_tot
     en_dif.∇w = en_∇tf.w
-    z = altitude(m, aux)
+
     en_dif.∇tke = en_∇tf.tke
     en_dif.∇θ_liq_cv = en_∇tf.θ_liq_cv
     en_dif.∇q_tot_cv = en_∇tf.q_tot_cv
     en_dif.∇θ_liq_q_tot_cv = en_∇tf.θ_liq_q_tot_cv
 
-    # this fixes a problem with very high (state⁻.ρatke ≈ e20)
+    # this fixes a BC problem with very large state⁻.ρatke (≈ e20)
+    # at the lower boundary:
+    z = altitude(m, aux)
     if z==FT(0)
         en_dif.∇tke = en_dif.∇tke*FT(0)
         en_dif.∇θ_liq_cv = en_dif.∇θ_liq_cv*FT(0)
@@ -582,7 +584,7 @@ end
 function source(::PressSource{en_ρatke}, atmos, args)
     @unpack env, ρa_up, dpdz, w_up = args.precomputed.turbconv
     up = args.state.turbconv.updraft
-    N_up = n_updrafts(atmos.turbconv)
+    N_up = n_updrafts(atmos.turbco =alnv)
     press_tke = vuntuple(N_up) do i
         fix_void_up(ρa_up[i], ρa_up[i] * (w_up[i] - env.w) * dpdz[i])
     end
