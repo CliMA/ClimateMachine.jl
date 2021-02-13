@@ -157,6 +157,7 @@ function init_problem!(problem, bl, state, aux, localgeo, t)
     end
 
     ρ = bl.compressibility isa Compressible ? air_density(TS) : aux.ref_state.ρ
+
     # Compute momentum contributions
     ρu = ρ * u
     ρv = ρ * v

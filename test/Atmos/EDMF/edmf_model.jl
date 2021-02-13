@@ -64,7 +64,7 @@ end
 function SubdomainModel(
     ::Type{FT},
     N_up;
-    a_min::FT = 0.001,
+    a_min::FT = 0.0,
     a_max::FT = 1 - N_up * a_min,
 ) where {FT}
     return SubdomainModel(; a_min = a_min, a_max = a_max)
@@ -113,17 +113,22 @@ Constructor for `SurfaceModel` for EDMF, given:
  - `N_up`, the number of updrafts
 """
 function SurfaceModel{FT}(N_up;) where {FT}
-    a_surf::FT = 0.1
+    a_surf::FT = 0.0
 
-    surface_scalar_coeff = SVector(
-        ntuple(N_up) do i
-            percentile_bounds_mean_norm(
-                1 - a_surf + (i - 1) * FT(a_surf / N_up),
-                1 - a_surf + i * FT(a_surf / N_up),
-                1000,
-            )
-        end,
-    )
+    if a_surf>FT(0)
+        surface_scalar_coeff = SVector(
+            ntuple(N_up) do i
+                percentile_bounds_mean_norm(
+                    1 - a_surf + (i - 1) * FT(a_surf / N_up),
+                    1 - a_surf + i * FT(a_surf / N_up),
+                    1000,
+                )
+            end,
+        )
+    else
+        surface_scalar_coeff = FT(0)
+    end
+
     SV = typeof(surface_scalar_coeff)
     return SurfaceModel{FT, SV}(;
         scalar_coeff = surface_scalar_coeff,
