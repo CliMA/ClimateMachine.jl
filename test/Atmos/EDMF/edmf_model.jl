@@ -126,7 +126,11 @@ function SurfaceModel{FT}(N_up;) where {FT}
             end,
         )
     else
-        surface_scalar_coeff = FT(0)
+        surface_scalar_coeff = SVector(
+            ntuple(N_up) do i
+                FT(0)
+            end,
+        )
     end
 
     SV = typeof(surface_scalar_coeff)

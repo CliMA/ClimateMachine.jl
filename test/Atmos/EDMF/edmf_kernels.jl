@@ -952,7 +952,7 @@ function compute_buoyancy(
         abs_buoyancy_up[i] - b_gm
     end
 
-    # buoyancy_en -= b_gm
+    buoyancy_en -= b_gm
     return (; up = buoyancy_up, en = buoyancy_en)
 end
 
