@@ -143,8 +143,8 @@ function main(::Type{FT}) where {FT}
     t0 = FT(0)
 
     # Simulation time
-    timeend = FT(3600)
-    CFLmax = FT(100)
+    timeend = FT(360)
+    CFLmax = FT(10)
 
     config_type = SingleStackConfigType
 
@@ -187,7 +187,7 @@ function main(::Type{FT}) where {FT}
         driver_config,
         init_on_cpu = true,
         Courant_number = CFLmax,
-        # fixed_number_of_steps = 10
+        # fixed_number_of_steps = 120
     )
 
     # --- Zero-out horizontal variations:
