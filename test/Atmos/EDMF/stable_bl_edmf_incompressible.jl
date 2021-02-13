@@ -14,21 +14,6 @@ using ClimateMachine.Atmos
 const clima_dir = dirname(dirname(pathof(ClimateMachine)));
 import CLIMAParameters
 
-# Does not scale correctly at initialization
-# function DGMethods.calculate_dt(dg, model, Q, Courant_number, t, direction)
-#     Δt = one(eltype(Q))
-#     CFL = DGMethods.courant(
-#         Atmos.diffusive_courant,
-#         dg,
-#         model,
-#         Q,
-#         Δt,
-#         t,
-#         direction,
-#     )
-#     return Courant_number / CFL
-# end
-
 include(joinpath(clima_dir, "experiments", "AtmosLES", "stable_bl_model.jl"))
 include("edmf_model.jl")
 include("edmf_kernels.jl")
@@ -143,8 +128,8 @@ function main(::Type{FT}) where {FT}
     t0 = FT(0)
 
     # Simulation time
-    timeend = FT(30)
-    CFLmax = FT(1)
+    timeend = FT(1800 * 2)
+    CFLmax = FT(100)
 
     config_type = SingleStackConfigType
 
