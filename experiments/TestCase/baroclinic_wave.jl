@@ -163,13 +163,19 @@ end
 
 function config_baroclinic_wave(FT, poly_order, cutoff_order, resolution, with_moisture)
     # Set up a reference state for linearization of equations
+    domain_height::FT = 30e3
     temp_profile_ref =
         DecayingTemperatureProfile{FT}(param_set, FT(290), FT(220), FT(8e3))
     ref_state = HydrostaticState(temp_profile_ref)
 
+    z_sponge = FT(24e3)                    # height at which sponge begins (m)
+    α_relax = FT(1.0 / 1000)              # sponge relaxation rate (1/s)
+    exponent = FT(2)                       # sponge exponent for squared-sinusoid profile
+    u_relax = SVector(FT(0), FT(0), FT(0)) # relaxation velocity (m/s)
+    sponge_u = RayleighSponge(FT, domain_height, z_sponge, α_relax, u_relax, exponent);
+
     # Set up the atmosphere model
     exp_name = "BaroclinicWave"
-    domain_height::FT = 30e3 # distance between surface and top of atmosphere (m)
     τ = FT(0.5 * 3600)
     if with_moisture
         hyperdiffusion = EquilMoistBiharmonic(τ)
@@ -178,7 +184,7 @@ function config_baroclinic_wave(FT, poly_order, cutoff_order, resolution, with_m
     else
         hyperdiffusion = DryBiharmonic(τ)
         moisture = DryModel()
-        source = (Gravity(), Coriolis())
+        source = (Gravity(), Coriolis(), sponge_u)
     end
     model = AtmosModel{FT}(
         AtmosGCMConfigType,
@@ -224,10 +230,10 @@ function main()
 
     # Driver configuration parameters
     FT = Float64                             # floating type precision
-    poly_order = 4                           # discontinuous Galerkin polynomial order
-    cutoff_order = 3
-    n_horz = 12                              # horizontal element number
-    n_vert = 6                               # vertical element number
+    poly_order = 5                           # discontinuous Galerkin polynomial order
+    cutoff_order = 4
+    n_horz = 16                              # horizontal element number
+    n_vert = 8                               # vertical element number
     n_days::FT = 20
     timestart::FT = 0                        # start time (s)
     timeend::FT = n_days * day(param_set)    # end time (s)
@@ -253,7 +259,7 @@ function main()
         Courant_number = CFL,
         ode_solver_type = ode_solver_type,
         CFL_direction = HorizontalDirection(),
-        diffdir = HorizontalDirection(),
+        diffdir = EveryDirection(),
     )
 
     # Set up diagnostics

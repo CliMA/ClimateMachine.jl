@@ -116,12 +116,18 @@ RayleighSponge(::Type{FT}, args...) where {FT} =
 function source(s::RayleighSponge{Momentum}, m, args)
     @unpack state, aux = args
     z = altitude(m, aux)
+    FT = eltype(state)
+
     if z >= s.z_sponge
+        # get the vertical velocity component from Cartesian u
+        u = state.ρu / state.ρ
+        k̂ = vertical_unit_vector(m, aux)
+        uv = k̂ .* dot(u, k̂)
+
         r = (z - s.z_sponge) / (s.z_max - s.z_sponge)
         β_sponge = s.α_max * sinpi(r / 2)^s.γ
-        return -β_sponge * (state.ρu .- state.ρ * s.u_relaxation)
+        return -β_sponge * (state.ρ * ( uv .- s.u_relaxation ) )
     else
-        FT = eltype(state)
         return SVector{3, FT}(0, 0, 0)
     end
 end
