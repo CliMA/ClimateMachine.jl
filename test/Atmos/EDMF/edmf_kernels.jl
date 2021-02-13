@@ -584,7 +584,7 @@ end
 function source(::PressSource{en_ρatke}, atmos, args)
     @unpack env, ρa_up, dpdz, w_up = args.precomputed.turbconv
     up = args.state.turbconv.updraft
-    N_up = n_updrafts(atmos.turbco =alnv)
+    N_up = n_updrafts(atmos.turbconv)
     press_tke = vuntuple(N_up) do i
         fix_void_up(ρa_up[i], ρa_up[i] * (w_up[i] - env.w) * dpdz[i])
     end
