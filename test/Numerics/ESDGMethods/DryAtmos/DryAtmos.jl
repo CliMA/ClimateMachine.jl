@@ -131,7 +131,9 @@ function init_state_auxiliary!(
     _grav = FT(grav(param_set))
     @inbounds r = geom.coord[dim]
     state_auxiliary.Φ = _grav * r
-    state_auxiliary.∇Φ = SVector{3, FT}(0, 0, _grav)
+    state_auxiliary.∇Φ = dim == 2 ? 
+          SVector{3, FT}(0, _grav, 0) :
+          SVector{3, FT}(0, 0, _grav)
 end
 function init_state_auxiliary!(
     ::DryAtmosModel,

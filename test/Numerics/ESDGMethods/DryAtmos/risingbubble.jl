@@ -22,20 +22,6 @@ GaussQuadrature.maxiterations[Double64] = 40
 
 using ClimateMachine.TemperatureProfiles: DryAdiabaticProfile
 
-using CLIMAParameters
-using CLIMAParameters.Planet: R_d, cp_d, cv_d, MSLP, grav
-struct EarthParameterSet <: AbstractEarthParameterSet end
-const param_set = EarthParameterSet();
-
-if !@isdefined integration_testing
-    const integration_testing = parse(
-        Bool,
-        lowercase(get(ENV, "JULIA_CLIMA_INTEGRATION_TESTING", "false")),
-    )
-end
-
-const output = parse(Bool, lowercase(get(ENV, "JULIA_CLIMA_OUTPUT", "false")))
-
 include("DryAtmos.jl")
 include("../diagnostics.jl")
 
@@ -44,7 +30,7 @@ struct RisingBubble <: AbstractDryAtmosProblem end
 function init_state_prognostic!(bl::DryAtmosModel, 
                                 ::RisingBubble,
                                 state, aux, localgeo, t)
-    (x, y, z) = localgeo.coord
+    (x, z, _) = localgeo.coord
     ## Problem float-type
     FT = eltype(state)
 
@@ -58,7 +44,6 @@ function init_state_prognostic!(bl::DryAtmosModel,
 
     ## Define bubble center and background potential temperature
     xc::FT = 5000
-    yc::FT = 1000
     zc::FT = 2000
     r = sqrt((x - xc)^2 + (z - zc)^2)
     rc::FT = 2000
@@ -84,7 +69,6 @@ function init_state_prognostic!(bl::DryAtmosModel,
     ## State (prognostic) variable assignment
     e_kin = FT(0)                                       # kinetic energy
     e_pot = aux.Φ                                       # potential energy
-    # ρe_tot = ρ * total_energy(e_kin, e_pot, ts)         # total energy
     _cv_d = cv_d(param_set)
     e_int = _cv_d * T
     ρe = ρ * (e_kin + e_pot + e_int)
@@ -93,7 +77,6 @@ function init_state_prognostic!(bl::DryAtmosModel,
     state.ρ = ρ
     state.ρu = ρu
     state.ρe = ρe
-    p = pressure(ρ, ρu, ρe, e_pot)
 end
 
 function main()
@@ -105,10 +88,9 @@ function main()
 
     mpicomm = MPI.COMM_WORLD
     polynomialorder = 4
-    Ne = (10, 1, 10)
+    Ne = (10, 10)
 
     xmax = FT(10000)
-    ymax = FT(500)
     zmax = FT(10000)
 
     timeend = 5000
@@ -117,7 +99,6 @@ function main()
         polynomialorder,
         Ne,
         xmax,
-        ymax,
         zmax,
         timeend,
         ArrayType,
@@ -130,21 +111,19 @@ function run(
     polynomialorder,
     Ne,
     xmax,
-    ymax,
     zmax,
     timeend,
     ArrayType,
     FT,
 )
 
-    dim = 3
+    dim = 2
     brickrange = (
         range(FT(0), stop = xmax, length = Ne[1] + 1),
-        range(FT(0), stop = ymax, length = Ne[2] + 1),
-        range(FT(0), stop = zmax, length = Ne[3] + 1),
+        range(FT(0), stop = zmax, length = Ne[2] + 1),
     )
-    boundary = ((0, 0), (0, 0), (1, 2))
-    periodicity = (true, true, false)
+    boundary = ((0, 0), (1, 2))
+    periodicity = (true, false)
     topology = StackedBrickTopology(
         mpicomm,
         brickrange,
@@ -178,7 +157,7 @@ function run(
 
     # determine the time step
     dx = min_node_distance(grid)
-    cfl = FT(1.7)
+    cfl = FT(1.5)
     dt = cfl * dx / 330
 
     Q = init_ode_state(esdg, FT(0))
@@ -196,7 +175,6 @@ function run(
 
     #odesolver = LSRK144NiegemannDiehlBusch(esdg, Q; dt = dt, t0 = 0)
     odesolver = RLSRK144NiegemannDiehlBusch(esdg, η_int, η_prod, Q; dt = dt, t0 = 0)
-    
 
     eng0 = norm(Q)
     @info @sprintf """Starting
