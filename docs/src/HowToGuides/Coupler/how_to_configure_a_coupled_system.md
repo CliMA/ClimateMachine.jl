@@ -28,6 +28,13 @@ problems. The initial example experiments being developed aim to illustrate how 
 setup and how to extend the setup to new problems as follows:
 
 
+ * Simple cartesian coupled diffusion. 
+       * This example illustrates the basic building blocks and 
+         introduces how time-stepping is handled, the use of shadow variables in balance laws to capture
+         boudary fluxes exactly, the mapping between export in one component and import in another, how to 
+         check conservation.
+
+
 
 
 
