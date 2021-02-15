@@ -5,7 +5,7 @@ and potentially with models that do not use the Balance Law machinery.
 
 The ClimateMachine.jl Coupler consists of three main pieces
 
-1. A time-stepper [CplSolver.j](src/Numerics/ODESolvers/CplSolver.jl). This is a custom 
+1. A time-stepper, [CplSolver.j](/src/Numerics/ODESolvers/CplSolver.jl). This is a custom 
    time-stepper that is designed to step forward a list of component models, for example 
    Atmosphere, Ocean and Land components, following some specified sequence.
 
