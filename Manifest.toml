@@ -116,7 +116,7 @@ uuid = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"
 version = "0.9.27"
 
 [[ClimateMachine]]
-deps = ["Adapt", "ArgParse", "BenchmarkTools", "CLIMAParameters", "CUDA", "Combinatorics", "Coverage", "Dates", "DelimitedFiles", "Dierckx", "DiffEqBase", "Distributions", "DocStringExtensions", "DoubleFloats", "FFTW", "FileIO", "Formatting", "ForwardDiff", "GaussQuadrature", "JLD2", "KernelAbstractions", "LambertW", "LazyArrays", "LinearAlgebra", "Literate", "Logging", "MPI", "NCDatasets", "NLsolve", "OrderedCollections", "OrdinaryDiffEq", "PackageCompiler", "Pkg", "PrettyTables", "Printf", "QuickVizExample", "Random", "RootSolvers", "SpecialFunctions", "StaticArrays", "StaticNumbers", "Statistics", "UnPack", "WriteVTK"]
+deps = ["Adapt", "ArgParse", "BenchmarkTools", "CLIMAParameters", "CUDA", "Combinatorics", "Coverage", "Dates", "DelimitedFiles", "Dierckx", "DiffEqBase", "Distributions", "DocStringExtensions", "DoubleFloats", "FFTW", "FileIO", "Formatting", "ForwardDiff", "GaussQuadrature", "JLD2", "KernelAbstractions", "LambertW", "LazyArrays", "LinearAlgebra", "Literate", "Logging", "MPI", "NCDatasets", "NLsolve", "OrderedCollections", "OrdinaryDiffEq", "PackageCompiler", "Pkg", "PrettyTables", "Printf", "Random", "RootSolvers", "SpecialFunctions", "StaticArrays", "StaticNumbers", "Statistics", "UnPack", "WriteVTK"]
 uuid = "777c4786-024f-11e9-21a3-85d5d4106250"
 version = "0.3.0-DEV"
 
@@ -1026,14 +1026,6 @@ deps = ["Printf", "Random", "Requires"]
 git-tree-sha1 = "5a8f74af8eae654086a1d058b4ec94ff192e3de0"
 uuid = "be4d8f0f-7fa4-5f49-b795-2f01399ab2dd"
 version = "0.5.5"
-
-[[QuickVizExample]]
-deps = ["ClimateMachine", "GLMakie", "GaussQuadrature", "JLD2", "LinearAlgebra", "MPI", "Printf", "Statistics"]
-git-tree-sha1 = "10f251ae954a1242e084e17730fd25f73a45018d"
-repo-rev = "main"
-repo-url = "https://github.com/sandreza/QuickVizExample.jl"
-uuid = "8cf21e28-fba0-46cf-863d-203fb098e958"
-version = "0.1.0"
 
 [[REPL]]
 deps = ["InteractiveUtils", "Markdown", "Sockets"]
