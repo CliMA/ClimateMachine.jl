@@ -157,6 +157,7 @@ function main()
         CentralNumericalFluxSecondOrder(),
         CentralNumericalFluxGradient(),
         nothing,
+        nothing, # filter
         ClimateMachine.AtmosLESSpecificInfo(),
     )
 

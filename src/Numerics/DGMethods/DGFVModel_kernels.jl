@@ -1,6 +1,9 @@
 import .FVReconstructions: FVConstant, FVLinear
+using ..BalanceLaws: Primitive
 import ..BalanceLaws:
-    prognostic_to_primitive!, primitive_to_prognostic!, Primitive
+    prognostic_to_primitive!,
+    primitive_to_prognostic!,
+    construct_face_auxiliary_state!
 import .FVReconstructions: width
 import StaticArrays: SUnitRange
 
@@ -111,8 +114,15 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
         local_state_face_prognostic_neighbor =
             MArray{Tuple{num_state_prognostic}, FT}(undef)
 
+        local_state_face_auxiliary_neighbor =
+            MArray{Tuple{num_state_auxiliary}, FT}(undef)
+
         local_state_face_primitive = ntuple(Val(2)) do _
             MArray{Tuple{num_state_primitive}, FT}(undef)
+        end
+
+        local_state_face_auxiliary = ntuple(Val(2)) do _
+            MArray{Tuple{num_state_auxiliary}, FT}(undef)
         end
 
         # Storage for all the values in the stencil
@@ -154,11 +164,6 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
         # Storage for the tendency
         local_tendency = MArray{Tuple{num_state_prognostic}, FT}(undef)
         local_source = MArray{Tuple{num_state_prognostic}, FT}(undef)
-
-        # XXX: will revisit this later for FVM
-        fill!(local_state_prognostic_bottom1, NaN)
-        fill!(local_state_gradient_flux_bottom1, NaN)
-        fill!(local_state_auxiliary_bottom1, NaN)
 
         # The remainder model needs to know which direction of face the model is
         # being evaluated for. In this case we only have `VerticalDirection()`
@@ -257,6 +262,19 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
                 local_cell_weights[rng],
             )
 
+            construct_face_auxiliary_state!(
+                balance_law,
+                local_state_face_auxiliary[1],
+                local_state_auxiliary[stencil_center],
+                -local_cell_weights[stencil_center],
+            )
+            construct_face_auxiliary_state!(
+                balance_law,
+                local_state_face_auxiliary[2],
+                local_state_auxiliary[stencil_center],
+                local_cell_weights[stencil_center],
+            )
+
             # Transform the values back to prognostic state
             @unroll for f in 1:2
                 primitive_to_prognostic!(
@@ -264,7 +282,7 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
                     local_state_face_prognostic[f],
                     local_state_face_primitive[f],
                     # Use the cell auxiliary data
-                    local_state_auxiliary[stencil_center],
+                    local_state_face_auxiliary[f],
                 )
             end
 
@@ -292,14 +310,27 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
                 local_cell_weights[rng],
             )
 
+
+            construct_face_auxiliary_state!(
+                balance_law,
+                local_state_face_auxiliary[1],
+                local_state_auxiliary[stencil_center],
+                -local_cell_weights[stencil_center],
+            )
+            construct_face_auxiliary_state!(
+                balance_law,
+                local_state_face_auxiliary[2],
+                local_state_auxiliary[stencil_center],
+                local_cell_weights[stencil_center],
+            )
+
             # Transform the values back to prognostic state
             @unroll for k in 1:2
                 primitive_to_prognostic!(
                     balance_law,
                     local_state_face_prognostic[k],
                     local_state_face_primitive[k],
-                    # Use the cell auxiliary data
-                    local_state_auxiliary[stencil_center],
+                    local_state_face_auxiliary[k],
                 )
             end
 
@@ -307,8 +338,8 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
             fill!(local_flux, -zero(FT))
             local_state_face_prognostic_neighbor .=
                 local_state_face_prognostic[1]
-            local_state_auxiliary[stencil_center - 1] .=
-                local_state_auxiliary[stencil_center]
+            local_state_face_auxiliary_neighbor .= local_state_face_auxiliary[1]
+
 
             numerical_boundary_flux_first_order!(
                 numerical_flux_first_order,
@@ -316,14 +347,17 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
                 balance_law,
                 local_flux,
                 normal,
+                # current cell
                 local_state_face_prognostic[1],
-                local_state_auxiliary[stencil_center],
+                local_state_face_auxiliary[1],
+                # ghost cell
                 local_state_face_prognostic_neighbor,
-                local_state_auxiliary[stencil_center - 1],
+                local_state_face_auxiliary_neighbor,
                 t,
                 face_direction,
-                local_state_prognostic_bottom1,
-                local_state_auxiliary_bottom1,
+                # use current cell states as bottom states
+                local_state_face_prognostic[1],
+                local_state_face_auxiliary[1],
             )
 
             # Fill / reset ghost cell data
@@ -342,19 +376,23 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
                 balance_law,
                 local_flux,
                 normal,
+                # current cell
                 local_state_prognostic[stencil_center],
                 local_state_gradient_flux[stencil_center],
                 local_state_hyperdiffusive[stencil_center],
                 local_state_auxiliary[stencil_center],
+                # ghost cell
                 local_state_prognostic[stencil_center - 1],
                 local_state_gradient_flux[stencil_center - 1],
                 local_state_hyperdiffusive[stencil_center - 1],
                 local_state_auxiliary[stencil_center - 1],
                 t,
-                local_state_prognostic_bottom1,
-                local_state_gradient_flux_bottom1,
-                local_state_auxiliary_bottom1,
+                # use current cell states as bottom states
+                local_state_prognostic[stencil_center],
+                local_state_gradient_flux[stencil_center],
+                local_state_auxiliary[stencil_center],
             )
+
 
             # Compute boundary flux and add it in bottom element of the mesh
             @unroll for s in 1:num_state_prognostic
@@ -404,7 +442,7 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
             # compute flux for this face
             local_state_face_prognostic_neighbor .=
                 local_state_face_prognostic[2]
-
+            local_state_face_auxiliary_neighbor .= local_state_face_auxiliary[2]
             # Next data we need to load (assume periodic, mod1, for now  will
             # mask out below as needed for boundary conditions)
             eV_load = mod1(eV_up + stencil_width, nvertelem)
@@ -477,14 +515,26 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
                     end w -> throw(BoundsError(local_state_primitive, w))
             end
 
+            construct_face_auxiliary_state!(
+                balance_law,
+                local_state_face_auxiliary[1],
+                local_state_auxiliary[stencil_center],
+                -local_cell_weights[stencil_center],
+            )
+            construct_face_auxiliary_state!(
+                balance_law,
+                local_state_face_auxiliary[2],
+                local_state_auxiliary[stencil_center],
+                local_cell_weights[stencil_center],
+            )
+
             # Transform reconstructed primitive values to prognostic
             @unroll for k in 1:2
                 primitive_to_prognostic!(
                     balance_law,
                     local_state_face_prognostic[k],
                     local_state_face_primitive[k],
-                    # Use the cell auxiliary data
-                    local_state_auxiliary[stencil_center],
+                    local_state_face_auxiliary[k],
                 )
             end
 
@@ -497,12 +547,13 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
                 local_flux,
                 normal,
                 local_state_face_prognostic[1],
-                local_state_auxiliary[stencil_center],
+                local_state_face_auxiliary[1],
                 local_state_face_prognostic_neighbor,
-                local_state_auxiliary[stencil_center - 1],
+                local_state_face_auxiliary_neighbor,
                 t,
                 face_direction,
             )
+
 
             numerical_flux_second_order!(
                 numerical_flux_second_order,
@@ -520,6 +571,7 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
                 t,
             )
 
+
             if add_source
                 fill!(local_source, -zero(eltype(local_source)))
                 source_arr!(
@@ -531,6 +583,8 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
                     t,
                     (VerticalDirection(),),
                 )
+
+
                 @unroll for s in 1:num_state_prognostic
                     local_tendency[s] += local_source[s]
                 end
@@ -571,6 +625,8 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
                         t,
                         (VerticalDirection(),),
                     )
+
+
                     @unroll for s in 1:num_state_prognostic
                         local_tendency[s] += local_source[s]
                     end
@@ -605,8 +661,8 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
                     # Use the top reconstruction (since handling top face)
                     local_state_face_prognostic_neighbor .=
                         local_state_face_prognostic[2]
-                    local_state_auxiliary[stencil_center - 1] .=
-                        local_state_auxiliary[stencil_center]
+                    local_state_face_auxiliary_neighbor .=
+                        local_state_face_auxiliary[2]
                     numerical_boundary_flux_first_order!(
                         numerical_flux_first_order,
                         bctag,
@@ -614,15 +670,19 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
                         local_flux,
                         normal,
                         # Use the top reconstruction (since handling top face)
+                        # current state
                         local_state_face_prognostic[2],
-                        local_state_auxiliary[stencil_center],
+                        local_state_face_auxiliary[2],
+                        # ghost state
                         local_state_face_prognostic_neighbor,
-                        local_state_auxiliary[stencil_center - 1],
+                        local_state_face_auxiliary_neighbor,
                         t,
                         face_direction,
-                        local_state_prognostic_bottom1,
-                        local_state_auxiliary_bottom1,
+                        # use current cell states as bottom states
+                        local_state_face_prognostic[2],
+                        local_state_face_auxiliary[2],
                     )
+
 
                     # Fill / reset ghost cell data
                     local_state_prognostic[stencil_center - 1] .=
@@ -639,19 +699,23 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
                         balance_law,
                         local_flux,
                         normal,
+                        # current state
                         local_state_prognostic[stencil_center],
                         local_state_gradient_flux[stencil_center],
                         local_state_hyperdiffusive[stencil_center],
                         local_state_auxiliary[stencil_center],
+                        # ghost state
                         local_state_prognostic[stencil_center - 1],
                         local_state_gradient_flux[stencil_center - 1],
                         local_state_hyperdiffusive[stencil_center - 1],
                         local_state_auxiliary[stencil_center - 1],
                         t,
-                        local_state_prognostic_bottom1,
-                        local_state_gradient_flux_bottom1,
-                        local_state_auxiliary_bottom1,
+                        # use current cell states as bottom states
+                        local_state_prognostic[stencil_center],
+                        local_state_gradient_flux[stencil_center],
+                        local_state_auxiliary[stencil_center],
                     )
+
 
                     @unroll for s in 1:num_state_prognostic
                         local_tendency[s] -= α * sM * vMI[2] * local_flux[s]
@@ -1000,15 +1064,10 @@ end
 
 """
     kernel_fvm_balance!(f!, balance_law::BalanceLaw, ::Val{nvertelem}, state_auxiliary, vgeo, elems)
-    
-    To avoid the oscillation in the reference temperature
-    ρ[nvertelem] = ρ[nvertelem] * (1 - ϵ)
-    to ensure 
-    T[nvertelem - 1] ≥ T[nvertelem]
 
-    pᵢ₋₁ - pᵢ =  g ρᵢ Δzᵢ/2 + g ρᵢ₋₁ Δzᵢ₋₁/2
-    for i = nvertelem-1:-1:1 
-        ρᵢ₋₁  = (pᵢ₋₁ - pᵢ - g ρᵢ Δzᵢ/2) / (g  Δzᵢ₋₁/2)
+    pᵢ(ρᵢ, Tᵢ) =  pᵢ₋₁ - g ρᵢ Δzᵢ/2 - g ρᵢ₋₁ Δzᵢ₋₁/2
+    for i = 2:nvertelem
+        pᵢ(ρᵢ, Tᵢ) =  pᵢ₋₁ - g ρᵢ Δzᵢ/2 - g ρᵢ₋₁ Δzᵢ₋₁/2
     end
 
  - `f!`: update function
@@ -1043,48 +1102,48 @@ end
     @inbounds begin
         eH = elems[_eH]
 
-        # handle top element
-        eV = nvertelem
+        # handle bottom element
+        eV = 1
         e = eV + (eH - 1) * nvertelem
         @unroll for s in 1:num_state_auxiliary
-            local_state_auxiliary_top[s] = state_auxiliary[n, s, e]
+            local_state_auxiliary[s] = state_auxiliary[n, s, e]
         end
-        # Δzᵢ
-        Δz[2] = 2 * vgeo[n, _JcV, e]
+        # Δzᵢ₋₁
+        Δz[1] = 2 * vgeo[n, _JcV, e]
 
         # Loop up the stack of elements
-        for eV in (nvertelem - 1):-1:1
+        for eV in 2:nvertelem
             e = eV + (eH - 1) * nvertelem
 
             @unroll for s in 1:num_state_auxiliary
-                local_state_auxiliary[s] = state_auxiliary[n, s, e]
+                local_state_auxiliary_top[s] = state_auxiliary[n, s, e]
             end
-            # Δzᵢ₋₁
-            Δz[1] = 2 * vgeo[n, _JcV, e]
+            # Δzᵢ
+            Δz[2] = 2 * vgeo[n, _JcV, e]
 
             f!(
                 balance_law,
-                # ρᵢ₋₁ pᵢ₋₁
-                Vars{vars_state(balance_law, Auxiliary(), FT)}(
-                    local_state_auxiliary,
-                ),
                 # ρᵢ pᵢ
                 Vars{vars_state(balance_law, Auxiliary(), FT)}(
                     local_state_auxiliary_top,
+                ),
+                # ρᵢ₋₁ pᵢ₋₁
+                Vars{vars_state(balance_law, Auxiliary(), FT)}(
+                    local_state_auxiliary,
                 ),
                 Δz,
             )
 
             # update to the global array
             @unroll for s in 1:num_state_auxiliary
-                state_auxiliary[n, s, e] = local_state_auxiliary[s]
+                state_auxiliary[n, s, e] = local_state_auxiliary_top[s]
             end
 
-            # (ρᵢ₋₁ pᵢ₋₁ Δzᵢ₋₁) -> (ρᵢ pᵢ Δzᵢ) 
+            # (ρᵢ pᵢ Δzᵢ) -> (ρᵢ₋₁ pᵢ₋₁ Δzᵢ₋₁)
             @unroll for s in 1:num_state_auxiliary
-                local_state_auxiliary_top[s] = local_state_auxiliary[s]
+                local_state_auxiliary[s] = local_state_auxiliary_top[s]
             end
-            Δz[2] = Δz[1]
+            Δz[1] = Δz[2]
         end
     end
 end

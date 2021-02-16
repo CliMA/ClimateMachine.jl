@@ -260,15 +260,21 @@ end
 
 function fvm_balance_init!(
     m::AtmosModel,
-    aux::Vars,
     aux_top::Vars,
+    aux::Vars,
     Δz::MArray{Tuple{2}, FT},
 ) where {FT}
-    # ρᵢ₋₁  = (pᵢ₋₁ - pᵢ - g ρᵢ Δzᵢ/2) / (g  Δzᵢ₋₁/2)
     _grav::FT = grav(m.param_set)
-    aux.ref_state.ρ =
-        (
-            aux.ref_state.p - aux_top.ref_state.p -
-            _grav * aux_top.ref_state.ρ * Δz[2] / 2
-        ) / (_grav * Δz[1] / 2)
+    _R_d::FT = R_d(m.param_set)
+
+    ref = aux.ref_state
+    topref = aux_top.ref_state
+
+    T_virt = ref.p / (_R_d * ref.ρ)
+    top_T_virt = topref.p / (_R_d * topref.ρ)
+
+    topref.ρ =
+        ref.ρ * (_R_d * T_virt - _grav * Δz[1] / 2) /
+        (_R_d * top_T_virt + _grav * Δz[2] / 2)
+    topref.p = _R_d * topref.ρ * top_T_virt
 end

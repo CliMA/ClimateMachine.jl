@@ -21,12 +21,25 @@ const explicit_methods = (
     (LSRKEulerMethod, 1),
 )
 
-const imex_methods = (
+const imex_methods_lowstorage_compatible = (
+    # Low-storage variant methods have an assumption that the
+    # explicit and implicit rhs/time-scaling coefficients (B/C vectors)
+    # in the Butcher tables are the same.
     (ARK1ForwardBackwardEuler, 1),
     (ARK2ImplicitExplicitMidpoint, 2),
     (ARK2GiraldoKellyConstantinescu, 2),
     (ARK437L2SA1KennedyCarpenter, 4),
     (ARK548L2SA2KennedyCarpenter, 5),
+    (DBM453VoglEtAl, 3),
+)
+const imex_methods_naivestorage_compatible = (
+    imex_methods_lowstorage_compatible...,
+    # Some methods can only be used with the `NaiveVariant` storage
+    # scheme since, in general, ARK methods can have different time-scaling/rhs-scaling
+    # coefficients (C/B vectors in the Butcher tables). For future reference,
+    # any other ARK-type methods that have more general Butcher tables
+    # (but with same number of stages) should be tested here:
+    (Trap2LockWoodWeller, 2),
 )
 
 const mis_methods =

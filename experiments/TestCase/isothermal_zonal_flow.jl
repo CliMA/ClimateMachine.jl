@@ -79,7 +79,13 @@ function init_isothermal_zonal_flow!(problem, bl, state, aux, localgeo, t)
     state.energy.ρe = ρ * total_energy(bl.param_set, e_kin, e_pot, T₀)
 end
 
-function config_isothermal_zonal_flow(FT, poly_order, resolution, ref_state)
+function config_isothermal_zonal_flow(
+    FT,
+    poly_order,
+    cutoff_order,
+    resolution,
+    ref_state,
+)
     # Set up a reference state for linearization of equations
 
     domain_height = FT(10e3)
@@ -106,6 +112,7 @@ function config_isothermal_zonal_flow(FT, poly_order, resolution, ref_state)
         init_isothermal_zonal_flow!;
         model = model,
         numerical_flux_first_order = RoeNumericalFlux(),
+        Ncutoff = cutoff_order,
     )
 
     return config
@@ -142,6 +149,7 @@ function main()
     # Driver configuration parameters
     FT = Float64                             # floating type precision
     poly_order = 5                           # discontinuous Galerkin polynomial order
+    cutoff_order = 4
     n_horz = 10                              # horizontal element number
     n_vert = 5                               # vertical element number
     timestart = FT(0)                        # start time (s)
@@ -155,6 +163,7 @@ function main()
     driver_config = config_isothermal_zonal_flow(
         FT,
         poly_order,
+        cutoff_order,
         (n_horz, n_vert),
         ref_state,
     )

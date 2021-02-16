@@ -12,6 +12,8 @@ using ClimateMachine.DGMethods: LocalGeometry, DGModel
 import ClimateMachine.BalanceLaws:
     vars_state,
     prognostic_vars,
+    prognostic_to_primitive!,
+    primitive_to_prognostic!,
     flux,
     precompute,
     source,
@@ -69,11 +71,23 @@ function vars_state(::Environment, ::Prognostic, FT)
     @vars(ρatke::FT, ρaθ_liq_cv::FT, ρaq_tot_cv::FT, ρaθ_liq_q_tot_cv::FT,)
 end
 
-function vars_state(m::NTuple{N, Updraft}, st::Prognostic, FT) where {N}
+function vars_state(::Updraft, ::Primitive, FT)
+    @vars(a::FT, aw::FT, aθ_liq::FT, aq_tot::FT,)
+end
+
+function vars_state(::Environment, ::Primitive, FT)
+    @vars(atke::FT, aθ_liq_cv::FT, aq_tot_cv::FT, aθ_liq_q_tot_cv::FT,)
+end
+
+function vars_state(
+    m::NTuple{N, Updraft},
+    st::Union{Prognostic, Primitive},
+    FT,
+) where {N}
     return Tuple{ntuple(i -> vars_state(m[i], st, FT), N)...}
 end
 
-function vars_state(m::EDMF, st::Prognostic, FT)
+function vars_state(m::EDMF, st::Union{Prognostic, Primitive}, FT)
     @vars(
         environment::vars_state(m.environment, st, FT),
         updraft::vars_state(m.updraft, st, FT)
@@ -282,6 +296,78 @@ function turbconv_nodal_update_auxiliary_state!(
 ) where {FT}
     save_subdomain_temperature!(m, state, aux)
 end;
+
+function prognostic_to_primitive!(
+    turbconv::EDMF,
+    atmos,
+    moist::DryModel,
+    prim::Vars,
+    prog::Vars,
+)
+    N_up = n_updrafts(turbconv)
+    prim_en = prim.turbconv.environment
+    prog_en = prog.turbconv.environment
+    prim_up = prim.turbconv.updraft
+    prog_up = prog.turbconv.updraft
+
+    ρ_inv = 1 / prog.ρ
+    prim_en.atke = prog_en.ρatke * ρ_inv
+    prim_en.aθ_liq_cv = prog_en.ρaθ_liq_cv * ρ_inv
+    prim_en.aθ_liq_q_tot_cv = prog_en.ρaθ_liq_q_tot_cv * ρ_inv
+
+    if moist isa DryModel
+        prim_en.aq_tot_cv = 0
+    else
+        prim_en.aq_tot_cv = prog_en.ρaq_tot_cv * ρ_inv
+    end
+    @unroll_map(N_up) do i
+        prim_up[i].a = prog_up[i].ρa * ρ_inv
+        prim_up[i].aw = prog_up[i].ρaw * ρ_inv
+        prim_up[i].aθ_liq = prog_up[i].ρaθ_liq * ρ_inv
+        if moist isa DryModel
+            prim_up[i].aq_tot = 0
+        else
+            prim_up[i].aq_tot = prog_up[i].ρaq_tot * ρ_inv
+        end
+    end
+end
+
+function primitive_to_prognostic!(
+    turbconv::EDMF,
+    atmos,
+    moist::DryModel,
+    prog::Vars,
+    prim::Vars,
+)
+
+    N_up = n_updrafts(turbconv)
+    prim_en = prim.turbconv.environment
+    prog_en = prog.turbconv.environment
+    prim_up = prim.turbconv.updraft
+    prog_up = prog.turbconv.updraft
+
+    ρ_gm = prog.ρ
+    prog_en.ρatke = prim_en.atke * ρ_gm
+    prog_en.ρaθ_liq_cv = prim_en.aθ_liq_cv * ρ_gm
+    prog_en.ρaθ_liq_q_tot_cv = prim_en.aθ_liq_q_tot_cv * ρ_gm
+
+    if moist isa DryModel
+        prog_en.ρaq_tot_cv = 0
+    else
+        prog_en.ρaq_tot_cv = prim_en.aq_tot_cv * ρ_gm
+    end
+    @unroll_map(N_up) do i
+        prog_up[i].ρa = prim_up[i].a * ρ_gm
+        prog_up[i].ρaw = prim_up[i].aw * ρ_gm
+        prog_up[i].ρaθ_liq = prim_up[i].aθ_liq * ρ_gm
+        if moist isa DryModel
+            prog_up[i].ρaq_tot = 0
+        else
+            prog_up[i].ρaq_tot = prim_up[i].aq_tot * ρ_gm
+        end
+    end
+
+end
 
 function compute_gradient_argument!(
     turbconv::EDMF{FT},

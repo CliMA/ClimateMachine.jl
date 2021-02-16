@@ -172,12 +172,18 @@ function update_backward_Euler_solver!(lin::LinBESolver, Q, α)
 end
 
 function (lin::LinBESolver)(Q, Qhat, α, p, t)
-    rhs! = EulerOperator(lin.f_imp!, -α)
 
+    # If α is not the same as the already assembled operator
+    # with its previous value of α (lin.α), then we need to
+    # first check that the solver CAN be rebuilt (lin.isadjustable)
+    # followed by recalling the set up routine by updating the
+    # coefficient with the new version of α
     if lin.α != α
         @assert lin.isadjustable
         update_backward_Euler_solver!(lin, Q, α)
     end
+
+    rhs! = EulerOperator(lin.f_imp!, -α)
 
     if typeof(lin.solver) <: AbstractIterativeSystemSolver
         FT = eltype(α)
@@ -233,7 +239,7 @@ solvers of type `NLS`. See helper type
 ```
 """
 mutable struct NonLinBESolver{FT, F, NLS} <: AbstractBackwardEulerSolver
-    # Solve Q - α f_imp(Q) = Qrhs, not used
+    # Solve Q - α f_imp(Q) = Qrhs
     α::FT
     # implcit operator
     f_imp!::F
@@ -241,7 +247,7 @@ mutable struct NonLinBESolver{FT, F, NLS} <: AbstractBackwardEulerSolver
     jvp!::JacobianAction
     # nonlinear solver
     nlsolver::NLS
-    # whether adjust the time step or not, not used
+    # whether adjust the time step or not
     isadjustable::Bool
     # preconditioner, approximation of drhs!/dQ
     preconditioner::AbstractPreconditioner

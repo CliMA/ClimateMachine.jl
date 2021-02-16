@@ -82,6 +82,8 @@ Filters.CutoffFilter
 Filters.BoydVandevenFilter
 Filters.ExponentialFilter
 Filters.TMARFilter
+Filters.apply!
+Filters.apply_async!
 ```
 
 ## Interpolation
