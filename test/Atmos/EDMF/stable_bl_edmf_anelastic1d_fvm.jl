@@ -9,6 +9,7 @@ using ClimateMachine.SingleStackUtils
 using ClimateMachine.Checkpoint
 using ClimateMachine.BalanceLaws: vars_state
 import ClimateMachine.BalanceLaws: projection
+import ClimateMachine.DGMethods.FVReconstructions: FVLinear
 import ClimateMachine.DGMethods
 using ClimateMachine.Atmos
 const clima_dir = dirname(dirname(pathof(ClimateMachine)));
@@ -129,8 +130,8 @@ function main(::Type{FT}) where {FT}
 
     # Simulation time
 
-    timeend = FT(1800)
-    CFLmax = FT(100)
+    timeend = FT(3600)
+    CFLmax = FT(0.5)
 
     config_type = SingleStackConfigType
 
@@ -153,6 +154,10 @@ function main(::Type{FT}) where {FT}
         turbulence = ConstantKinematicViscosity(FT(0)),
         turbconv = turbconv,
         compressibility = compressibility,
+        ref_state = HydrostaticState(
+            DecayingTemperatureProfile{FT}(param_set);
+            subtract_off = false,
+        ),
     )
 
     # Assemble configuration
@@ -165,6 +170,8 @@ function main(::Type{FT}) where {FT}
         model;
         hmax = FT(40),
         solver_type = ode_solver_type,
+        numerical_flux_first_order = RoeNumericalFlux(),
+        fv_reconstruction = HBFVReconstruction(model, FVLinear()),
     )
 
     solver_config = ClimateMachine.SolverConfiguration(
@@ -197,17 +204,6 @@ function main(::Type{FT}) where {FT}
     # ---
 
     dgn_config = config_diagnostics(driver_config)
-
-    # TMAR filter
-    cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(1) do
-        Filters.apply!(
-            solver_config.Q,
-            (turbconv_filters(turbconv)...,),
-            solver_config.dg.grid,
-            TMARFilter(),
-        )
-        nothing
-    end
 
     # boyd vandeven filter
     cb_boyd = GenericCallbacks.EveryXSimulationSteps(1) do
@@ -248,7 +244,7 @@ function main(::Type{FT}) where {FT}
     check_cons =
         (ClimateMachine.ConservationCheck("ρ", "3000steps", FT(0.00000001)),)
 
-    cb_print_step = GenericCallbacks.EveryXSimulationSteps(100) do
+    cb_print_step = GenericCallbacks.EveryXSimulationSteps(1) do
         @show getsteps(solver_config.solver)
         nothing
     end
@@ -257,7 +253,8 @@ function main(::Type{FT}) where {FT}
         solver_config;
         diagnostics_config = dgn_config,
         check_cons = check_cons,
-        user_callbacks = (cb_boyd, cb_data_vs_time, cb_print_step), # cbtmarfilter, 
+        # user_callbacks = (cb_boyd, cb_data_vs_time, cb_print_step),
+        user_callbacks = (cb_data_vs_time, cb_print_step),
         check_euclidean_distance = true,
     )
 

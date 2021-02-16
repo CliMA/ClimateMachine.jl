@@ -239,7 +239,7 @@ eq_tends(
     pv::PV,
     m::EDMF,
     ::Flux{FirstOrder},
-) where {PV <: EDMFPrognosticVariable} = (Advect{PV}(),)
+) where {PV <: EDMFPrognosticVariable} = () #(Advect{PV}(),)
 
 eq_tends(pv::PV, m::EDMF, ::Source) where {PV} = ()
 
@@ -258,8 +258,11 @@ eq_tends(
     pv::PV,
     m::EDMF,
     ::Source,
-) where {PV <: Union{en_ρaθ_liq_cv, en_ρaq_tot_cv, en_ρaθ_liq_q_tot_cv}} =
-    (EntrDetr{PV}(), DissSource{PV}(), GradProdSource{PV}())
+) where {PV <: Union{en_ρaθ_liq_cv, en_ρaq_tot_cv, en_ρaθ_liq_q_tot_cv}} = (
+    # EntrDetr{PV}(),
+    DissSource{PV}(),
+    GradProdSource{PV}()
+    )
 
 eq_tends(pv::PV, m::EDMF, ::Source) where {PV <: up_ρaw} = (
 #     EntrDetr{PV}(),
@@ -472,12 +475,16 @@ function compute_gradient_flux!(
     # this fixes a BC problem with very large state⁻.ρatke (≈ 1e20)
     # at the lower boundary:
     z = altitude(m, aux)
-    if z==FT(0)
+    if z ≈ FT(0)
+        @show(aux.coord, en_dif.∇tke[3])
         en_dif.∇tke = en_dif.∇tke*FT(0)
-        # en_dif.∇θ_liq_cv = en_dif.∇θ_liq_cv*FT(0)
-        # en_dif.∇q_tot_cv = en_dif.∇q_tot_cv*FT(0)
-        # en_dif.∇θ_liq_q_tot_cv = en_dif.∇θ_liq_q_tot_cv*FT(0)
     end
+
+    # ---------------------------- z=0+ϵ state⁻  problematic? 
+    # ============================ z=0   tke = 0.3
+    # ---------------------------- z=0-ϵ state⁺
+
+
 
     # second moment env cov
     en_dif.∇θv = en_∇tf.θv
@@ -1233,6 +1240,10 @@ function flux(::Diffusion{en_ρatke}, atmos, args)
     en_dif = diffusive.turbconv.environment
     ẑ = vertical_unit_vector(atmos, aux)
     tot = -gm.ρ * env.a * K_m * en_dif.∇tke[3]
+    # z = altitude(atmos, aux)
+    # if z ≈ 0
+    #     tot = 0
+    # end
     return -gm.ρ * env.a * K_m * en_dif.∇tke[3] * ẑ
 end
 
@@ -1311,7 +1322,8 @@ function turbconv_boundary_state!(
     end
 
     a_en = environment_area(gm⁻, N_up)
-    en⁺.ρatke = gm⁻.ρ * a_en * tke
+    # en⁺.ρatke = gm⁻.ρ * a_en * tke
+    en⁺.ρatke = gm⁻.ρ * a_en * FT(0.3)
     en⁺.ρaθ_liq_cv = gm⁻.ρ * a_en * θ_liq_cv
     if !(m.moisture isa DryModel)
         en⁺.ρaq_tot_cv = gm⁻.ρ * a_en * q_tot_cv
@@ -1320,6 +1332,7 @@ function turbconv_boundary_state!(
         en⁺.ρaq_tot_cv = FT(0)
         en⁺.ρaθ_liq_q_tot_cv = FT(0)
     end
+    @show(en⁺.ρatke, state⁻.turbconv.environment.ρatke)
 end;
 function turbconv_boundary_state!(
     nf,
