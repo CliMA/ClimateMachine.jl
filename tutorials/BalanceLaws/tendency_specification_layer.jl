@@ -96,7 +96,7 @@ eq_tends(pv::PV, ::MyBalanceLaw, ::Source) where {PV <: Y} = (Source1{PV}(), Sou
 # to make sure that the tendency table is accurate.
 
 bl = MyBalanceLaw()
-show_tendencies(bl; table_complete = true, include_module = true)
+show_tendencies(bl; table_complete = true)
 
 # The table looks correct. Now we're ready to
 # add the specification layer.
