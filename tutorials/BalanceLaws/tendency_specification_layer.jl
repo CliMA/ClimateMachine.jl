@@ -43,12 +43,12 @@ struct MyBalanceLaw <: BalanceLaw end
 # Here, we'll define some prognostic variable types,
 # by sub-typing [`PrognosticVariable`](@ref ClimateMachine.BalanceLaws.PrognosticVariable),
 # for mass and energy:
-struct Mass <: PrognosticVariable end
-struct Energy <: PrognosticVariable end
+struct X <: PrognosticVariable end
+struct Y <: PrognosticVariable end
 
 # Define [`prognostic_vars`](@ref ClimateMachine.BalanceLaws.prognostic_vars),
 # which returns _all_ prognostic variables
-prognostic_vars(::MyBalanceLaw) = (Mass(), Energy());
+prognostic_vars(::MyBalanceLaw) = (X(), Y());
 
 # ## Define some tendency definition types
 
@@ -66,10 +66,10 @@ struct Source2{PV} <: TendencyDef{Source, PV} end
 
 # We can also permit tendency definitions to be defined for
 # only the relevant prognostic variables: here, we restrict
-# the second order flux, Diffusion, to be defined only for Energy.
-# Doing this means that if we try to create `Diffusion{Mass}()`,
+# the second order flux, Diffusion, to be defined only for Y.
+# Doing this means that if we try to create `Diffusion{X}()`,
 # an error will be thrown.
-struct Diffusion{PV <: Energy} <: TendencyDef{Flux{SecondOrder}, PV} end
+struct Diffusion{PV <: Y} <: TendencyDef{Flux{SecondOrder}, PV} end
 
 # Define [`eq_tends`](@ref ClimateMachine.BalanceLaws.eq_tends),
 # which returns a tuple of tendency definitions (those sub-typed
@@ -80,12 +80,12 @@ struct Diffusion{PV <: Energy} <: TendencyDef{Flux{SecondOrder}, PV} end
 #  - the tendency type ([`Flux`](@ref ClimateMachine.BalanceLaws.Flux) or
 #    [`Source`](@ref ClimateMachine.BalanceLaws.Source))
 #! format: off
-eq_tends(pv::PV, ::MyBalanceLaw, ::Flux{FirstOrder}) where {PV <: Mass} = (Advection{PV}(),);
-eq_tends(pv::PV, ::MyBalanceLaw, ::Flux{FirstOrder}) where {PV <: Energy} = (Advection{PV}(),);
-eq_tends(pv::PV, ::MyBalanceLaw, ::Flux{SecondOrder}) where {PV <: Mass} = ();
-eq_tends(pv::PV, ::MyBalanceLaw, ::Flux{SecondOrder}) where {PV <: Energy} = (Diffusion{PV}(),);
-eq_tends(pv::PV, ::MyBalanceLaw, ::Source) where {PV <: Mass} = (Source1{PV}(), Source2{PV}());
-eq_tends(pv::PV, ::MyBalanceLaw, ::Source) where {PV <: Energy} = (Source1{PV}(), Source2{PV}());
+eq_tends(pv::PV, ::MyBalanceLaw, ::Flux{FirstOrder}) where {PV <: X} = (Advection{PV}(),);
+eq_tends(pv::PV, ::MyBalanceLaw, ::Flux{FirstOrder}) where {PV <: Y} = (Advection{PV}(),);
+eq_tends(pv::PV, ::MyBalanceLaw, ::Flux{SecondOrder}) where {PV <: X} = ();
+eq_tends(pv::PV, ::MyBalanceLaw, ::Flux{SecondOrder}) where {PV <: Y} = (Diffusion{PV}(),);
+eq_tends(pv::PV, ::MyBalanceLaw, ::Source) where {PV <: X} = (Source1{PV}(), Source2{PV}());
+eq_tends(pv::PV, ::MyBalanceLaw, ::Source) where {PV <: Y} = (Source1{PV}(), Source2{PV}());
 #! format: on
 
 # ## Testing `prognostic_vars` `eq_tends`
@@ -96,7 +96,7 @@ eq_tends(pv::PV, ::MyBalanceLaw, ::Source) where {PV <: Energy} = (Source1{PV}()
 # to make sure that the tendency table is accurate.
 
 bl = MyBalanceLaw()
-show_tendencies(bl; table_complete = true)
+show_tendencies(bl; table_complete = true, include_module = true)
 
 # The table looks correct. Now we're ready to
 # add the specification layer.
@@ -110,8 +110,8 @@ show_tendencies(bl; table_complete = true)
 # we'll add a layer that tests the `Flux{FirstOrder}` column
 # in the table above. First, we'll define individual
 # [`flux`](@ref ClimateMachine.BalanceLaws.flux) kernels:
-flux(::Advection{Mass}, bl::MyBalanceLaw, args) = args.state.ρ;
-flux(::Advection{Energy}, bl::MyBalanceLaw, args) = args.state.ρe;
+flux(::Advection{X}, bl::MyBalanceLaw, args) = args.state.ρ;
+flux(::Advection{Y}, bl::MyBalanceLaw, args) = args.state.ρe;
 
 # Define `flux_first_order!` and utilize `eq_tends`
 function flux_first_order!(
@@ -127,14 +127,14 @@ function flux_first_order!(
     tend_type = Flux{FirstOrder}()
     args = (; state, aux, t, direction)
 
-    ## `Σfluxes(eq_tends(Mass(), bl, tend_type), bl, args)` calls
-    ## `flux(::Advection{Mass}, ...)` defined above:
-    eqt_ρ = eq_tends(Mass(), bl, tend_type)
+    ## `Σfluxes(eq_tends(X(), bl, tend_type), bl, args)` calls
+    ## `flux(::Advection{X}, ...)` defined above:
+    eqt_ρ = eq_tends(X(), bl, tend_type)
     flx.ρ = Σfluxes(eqt_ρ, bl, args) .* vec_pad
 
-    ## `Σfluxes(eq_tends(Energy(), bl, tend_type), bl, args)` calls
-    ## `flux(::Advection{Energy}, ...)` defined above:
-    eqt_ρe = eq_tends(Energy(), bl, tend_type)
+    ## `Σfluxes(eq_tends(Y(), bl, tend_type), bl, args)` calls
+    ## `flux(::Advection{Y}, ...)` defined above:
+    eqt_ρe = eq_tends(Y(), bl, tend_type)
     flx.ρe = Σfluxes(eqt_ρe, bl, args) .* vec_pad
     return nothing
 end;
