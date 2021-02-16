@@ -129,7 +129,7 @@ function main(::Type{FT}) where {FT}
 
     # Simulation time
 
-    timeend = FT(360)
+    timeend = FT(3600)
     CFLmax = FT(100)
 
     config_type = SingleStackConfigType
@@ -157,7 +157,7 @@ function main(::Type{FT}) where {FT}
 
     # Assemble configuration
     driver_config = ClimateMachine.SingleStackConfiguration(
-        "SBL_EDMF_INCOMPRESS",
+        "SBL_EDMF_ANELASTIC_1D",
         N,
         nelem_vert,
         zmax,
