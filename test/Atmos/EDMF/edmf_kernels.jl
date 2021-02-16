@@ -383,14 +383,14 @@ function compute_gradient_flux!(
     en_dif.∇q_tot_cv = en_∇tf.q_tot_cv
     en_dif.∇θ_liq_q_tot_cv = en_∇tf.θ_liq_q_tot_cv
 
-    # this fixes a BC problem with very large state⁻.ρatke (≈ e20)
+    # this fixes a BC problem with very large state⁻.ρatke (≈ 1e20)
     # at the lower boundary:
     z = altitude(m, aux)
     if z==FT(0)
         en_dif.∇tke = en_dif.∇tke*FT(0)
-        en_dif.∇θ_liq_cv = en_dif.∇θ_liq_cv*FT(0)
-        en_dif.∇q_tot_cv = en_dif.∇q_tot_cv*FT(0)
-        en_dif.∇θ_liq_q_tot_cv = en_dif.∇θ_liq_q_tot_cv*FT(0)
+        # en_dif.∇θ_liq_cv = en_dif.∇θ_liq_cv*FT(0)
+        # en_dif.∇q_tot_cv = en_dif.∇q_tot_cv*FT(0)
+        # en_dif.∇θ_liq_q_tot_cv = en_dif.∇θ_liq_q_tot_cv*FT(0)
     end
 
     # second moment env cov
