@@ -22,3 +22,6 @@ function CplState(;
                         CplStateBlob
                             )
 end
+
+function cpl_register(coupler::CplState,coupler_field_info)
+end

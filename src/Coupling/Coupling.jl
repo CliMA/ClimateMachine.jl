@@ -12,6 +12,7 @@ using ClimateMachine.DGMethods
 using ClimateMachine.DGMethods.NumericalFluxes
 using ClimateMachine.ODESolvers
 using ClimateMachine.ODESolvers: AbstractODESolver
+using ClimateMachine.Mesh.Grids: VerticalDirection
 
 import ClimateMachine.Ocean.Domains: DiscontinuousSpectralElementGrid
 
