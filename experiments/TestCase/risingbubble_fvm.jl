@@ -84,7 +84,7 @@ function init_risingbubble!(problem, bl, state, aux, localgeo, t)
     ## Assign State Variables
     state.ρ = ρ
     state.ρu = ρu
-    state.ρe = ρe_tot
+    state.energy.ρe = ρe_tot
     if !(bl.moisture isa DryModel)
         state.moisture.ρq_tot = ρq_tot
     end

@@ -50,6 +50,7 @@ Topologies.grid1d
 Geometry.LocalGeometry
 Geometry.lengthscale
 Geometry.resolutionmetric
+Geometry.lengthscale_horizontal
 ```
 
 ## Brick Mesh
@@ -81,6 +82,8 @@ Filters.CutoffFilter
 Filters.BoydVandevenFilter
 Filters.ExponentialFilter
 Filters.TMARFilter
+Filters.apply!
+Filters.apply_async!
 ```
 
 ## Interpolation

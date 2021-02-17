@@ -113,7 +113,7 @@ function atmos_refstate_perturbations!(
     vars.ref_state.pres = thermo.pres - aux.ref_state.p
     vars.ref_state.temp = thermo.temp - aux.ref_state.T
     vars.ref_state.et =
-        (state.ρe / state.ρ) - (aux.ref_state.ρe / aux.ref_state.ρ)
+        (state.energy.ρe / state.ρ) - (aux.ref_state.ρe / aux.ref_state.ρ)
     # FIXME properly
     if atmos.moisture isa EquilMoist
         vars.ref_state.qt =
@@ -157,15 +157,10 @@ function atmos_refstate_perturbations_init(dgngrp::DiagnosticsGroup, currtime)
         end
 
         # create the output file
-        dprefix = @sprintf(
-            "%s_%s_%s_rank%04d",
-            dgngrp.out_prefix,
-            dgngrp.name,
-            Settings.starttime,
-            mpirank,
-        )
+        dprefix = @sprintf("%s_%s", dgngrp.out_prefix, dgngrp.name)
         dfilename = joinpath(Settings.output_dir, dprefix)
-        init_data(dgngrp.writer, dfilename, dims, vars)
+        noov = Settings.no_overwrite
+        init_data(dgngrp.writer, dfilename, noov, dims, vars)
     end
 
     return nothing

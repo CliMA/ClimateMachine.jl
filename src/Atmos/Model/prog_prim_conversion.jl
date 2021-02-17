@@ -16,7 +16,13 @@ variables `prim` for the atmos model `atmos`.
     The only field in `aux` required for this
     method is the geo-potential.
 """
-prognostic_to_primitive!(atmos::AtmosModel, prim::Vars, prog::Vars, aux) =
+function prognostic_to_primitive!(
+    atmos::AtmosModel,
+    prim::Vars,
+    prog::Vars,
+    aux,
+)
+    atmos.energy isa EnergyModel || error("EnergyModel only supported")
     prognostic_to_primitive!(
         atmos,
         atmos.moisture,
@@ -24,11 +30,13 @@ prognostic_to_primitive!(atmos::AtmosModel, prim::Vars, prog::Vars, aux) =
         prog,
         Thermodynamics.internal_energy(
             prog.ρ,
-            prog.ρe,
+            prog.energy.ρe,
             prog.ρu,
             gravitational_potential(atmos.orientation, aux),
         ),
     )
+    prognostic_to_primitive!(atmos.turbconv, atmos, atmos.moisture, prim, prog)
+end
 
 """
     primitive_to_prognostic!(atmos::AtmosModel, prog::Vars, prim::Vars, aux::Vars)
@@ -40,7 +48,12 @@ variables `prog` for the atmos model `atmos`.
     The only field in `aux` required for this
     method is the geo-potential.
 """
-primitive_to_prognostic!(atmos::AtmosModel, prog::Vars, prim::Vars, aux) =
+function primitive_to_prognostic!(
+    atmos::AtmosModel,
+    prog::Vars,
+    prim::Vars,
+    aux,
+)
     primitive_to_prognostic!(
         atmos,
         atmos.moisture,
@@ -48,6 +61,8 @@ primitive_to_prognostic!(atmos::AtmosModel, prog::Vars, prim::Vars, aux) =
         prim,
         gravitational_potential(atmos.orientation, aux),
     )
+    primitive_to_prognostic!(atmos.turbconv, atmos, atmos.moisture, prog, prim)
+end
 
 ####
 #### prognostic to primitive
@@ -120,12 +135,13 @@ function primitive_to_prognostic!(
     prim::Vars,
     e_pot::AbstractFloat,
 )
+    atmos.energy isa EnergyModel || error("EnergyModel only supported")
     ts = PhaseDry_ρp(atmos.param_set, prim.ρ, prim.p)
     e_kin = prim.u' * prim.u / 2
 
     prog.ρ = prim.ρ
     prog.ρu = prim.ρ .* prim.u
-    prog.ρe = prim.ρ * total_energy(e_kin, e_pot, ts)
+    prog.energy.ρe = prim.ρ * total_energy(e_kin, e_pot, ts)
 end
 
 function primitive_to_prognostic!(
@@ -135,6 +151,7 @@ function primitive_to_prognostic!(
     prim::Vars,
     e_pot::AbstractFloat,
 )
+    atmos.energy isa EnergyModel || error("EnergyModel only supported")
     ts = PhaseEquil_ρpq(
         atmos.param_set,
         prim.ρ,
@@ -146,7 +163,7 @@ function primitive_to_prognostic!(
 
     prog.ρ = prim.ρ
     prog.ρu = prim.ρ .* prim.u
-    prog.ρe = prim.ρ * total_energy(e_kin, e_pot, ts)
+    prog.energy.ρe = prim.ρ * total_energy(e_kin, e_pot, ts)
     prog.moisture.ρq_tot = prim.ρ * PhasePartition(ts).tot
 end
 
@@ -157,6 +174,7 @@ function primitive_to_prognostic!(
     prim::Vars,
     e_pot::AbstractFloat,
 )
+    atmos.energy isa EnergyModel || error("EnergyModel only supported")
     q_pt = PhasePartition(
         prim.moisture.q_tot,
         prim.moisture.q_liq,
@@ -167,8 +185,25 @@ function primitive_to_prognostic!(
 
     prog.ρ = prim.ρ
     prog.ρu = prim.ρ .* prim.u
-    prog.ρe = prim.ρ * total_energy(e_kin, e_pot, ts)
+    prog.energy.ρe = prim.ρ * total_energy(e_kin, e_pot, ts)
     prog.moisture.ρq_tot = prim.ρ * PhasePartition(ts).tot
     prog.moisture.ρq_liq = prim.ρ * PhasePartition(ts).liq
     prog.moisture.ρq_ice = prim.ρ * PhasePartition(ts).ice
+end
+
+
+function construct_face_auxiliary_state!(
+    bl::AtmosModel,
+    aux_face::AbstractArray,
+    aux_cell::AbstractArray,
+    Δz::FT,
+) where {FT <: Real}
+    _grav = FT(grav(bl.param_set))
+    var_aux = Vars{vars_state(bl, Auxiliary(), FT)}
+    aux_face .= aux_cell
+
+    if !(bl.orientation isa NoOrientation)
+        var_aux(aux_face).orientation.Φ =
+            var_aux(aux_cell).orientation.Φ + _grav * Δz / 2
+    end
 end

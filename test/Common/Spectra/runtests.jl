@@ -1,3 +1,5 @@
+module TestSpectra
+
 using Test
 using FFTW
 
@@ -89,7 +91,7 @@ end
     dθ = π / length(wts)
     area_factor = reshape(cosθ .* dθ .^ 2 / 4π, (1, length(cosθ)))
 
-    sum_grid = sum(0.5 .* var_grid[:, :, 1] .^ 2 .* area_factor) # scaled to average over Earth's area (units: m2/s2) 
+    sum_grid = sum(0.5 .* var_grid[:, :, 1] .^ 2 .* area_factor) # scaled to average over Earth's area (units: m2/s2)
     sum_reco = sum(0.5 .* reconstruction[:, :, 1] .^ 2 .* area_factor)
 
     sum_res_1 = (sum_spec - sum_grid) / sum_grid
@@ -97,4 +99,6 @@ end
 
     @test abs(sum_res_1) < 0.1
     @test abs(sum_res_2) < 0.1
+end
+
 end

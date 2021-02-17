@@ -14,6 +14,7 @@ using ClimateMachine.SystemSolvers: ManyColumnLU
 using ClimateMachine.Mesh.Filters
 using ClimateMachine.Mesh.Grids
 using ClimateMachine.Mesh.Interpolation
+using ClimateMachine.Mesh.Topologies
 using ClimateMachine.TemperatureProfiles
 using ClimateMachine.VariableTemplates
 using ClimateMachine.Thermodynamics: air_density, total_energy
@@ -41,7 +42,7 @@ function init_solid_body_rotation!(problem, bl, state, aux, localgeo, t)
     # Assign state variables
     state.ρ = aux.ref_state.ρ
     state.ρu = u_init
-    state.ρe = aux.ref_state.ρe + state.ρ * e_kin
+    state.energy.ρe = aux.ref_state.ρe + state.ρ * e_kin
 
     nothing
 end
@@ -79,6 +80,7 @@ function config_solid_body_rotation(
         model = model,
         numerical_flux_first_order = RoeNumericalFlux(),
         fv_reconstruction = HBFVReconstruction(model, fv_reconstruction),
+        #grid_stretching = (SingleExponentialStretching(FT(2.0)),),
     )
 
     return config
@@ -91,7 +93,7 @@ function main()
     n_horz = 8                              # horizontal element number
     n_vert = 20                               # vertical element number
     timestart::FT = 0                        # start time (s)
-    timeend::FT = 7200    # end time (s)
+    timeend::FT = 3600    # end time (s)
     fv_reconstruction = FVLinear()
 
     # Set up a reference state for linearization of equations
@@ -191,15 +193,30 @@ function config_diagnostics(FT, driver_config)
     _planet_radius = FT(planet_radius(param_set))
 
     info = driver_config.config_info
+
+    # Setup diagnostic grid(s)
+
     boundaries = [
         FT(-90.0) FT(-180.0) _planet_radius
         FT(90.0) FT(180.0) FT(_planet_radius + info.domain_height)
     ]
-    resolution = (FT(2), FT(2), FT(1000)) # in (deg, deg, m)
+
+    lats = collect(range(boundaries[1, 1], boundaries[2, 1], step = FT(2)))
+
+    lons = collect(range(boundaries[1, 2], boundaries[2, 2], step = FT(2)))
+
+    lvls = collect(range(
+        boundaries[1, 3],
+        boundaries[2, 3],
+        step = FT(1000), # in m
+    ))
+
     interpol = ClimateMachine.InterpolationConfiguration(
+        driver_config.grid.topology,
         driver_config,
         boundaries,
-        resolution,
+        [lats, lons, lvls];
+        nr_toler = FT(1e-7),
     )
 
     dgngrp = setup_atmos_default_diagnostics(

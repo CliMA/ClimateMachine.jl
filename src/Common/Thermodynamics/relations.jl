@@ -1288,7 +1288,7 @@ by finding the root of
 
 `e_int - internal_energy_sat(param_set, T, ρ, q_tot, phase_type) = 0`
 
-using Newtons method with analytic gradients.
+using the given numerical method `sat_adjust_method`.
 
 See also [`saturation_adjustment`](@ref).
 """
@@ -1359,6 +1359,128 @@ function saturation_adjustment(
                     print_numerical_method(sat_adjust_method)
                     @print(", e_int=", e_int)
                     @print(", ρ=", ρ)
+                    @print(", q_tot=", q_tot)
+                    @print(", T=", sol.root)
+                    @print(", maxiter=", maxiter)
+                    @print(", tol=", tol.tol, "\n")
+                end
+                if error_on_non_convergence()
+                    error("Failed to converge with printed set of inputs.")
+                end
+            end
+            return sol.root
+        end
+    end
+end
+
+"""
+    saturation_adjustment_given_peq(
+        sat_adjust_method,
+        param_set,
+        e_int,
+        p,
+        q_tot,
+        phase_type,
+        maxiter,
+        temperature_tol
+    )
+
+Compute the temperature that is consistent with
+
+ - `sat_adjust_method` the numerical method to use.
+    See the [`Thermodynamics`](@ref) for options.
+ - `param_set` an `AbstractParameterSet`, see the [`Thermodynamics`](@ref) for more details
+ - `e_int` internal energy
+ - `p` air pressure
+ - `q_tot` total specific humidity
+ - `phase_type` a thermodynamic state type
+ - `maxiter` maximum iterations for non-linear equation solve
+ - `temperature_tol` temperature tolerance
+
+by finding the root of
+
+`e_int - internal_energy_sat(param_set, T, ρ(T), q_tot, phase_type) = 0`
+
+where `ρ(T) = air_density(param_set, T, p, PhasePartition(q_tot))`
+
+using the given numerical method `sat_adjust_method`.
+
+See also [`saturation_adjustment`](@ref).
+"""
+function saturation_adjustment_given_peq(
+    ::Type{sat_adjust_method},
+    param_set::APS,
+    p::FT,
+    e_int::FT,
+    q_tot::FT,
+    phase_type::Type{<:PhaseEquil},
+    maxiter::Int,
+    temperature_tol::FT,
+) where {FT <: Real, sat_adjust_method}
+    _T_min::FT = T_min(param_set)
+    _cv_d = FT(cv_d(param_set))
+    # Convert temperature tolerance to a convergence criterion on internal energy residuals
+    tol = ResidualTolerance(temperature_tol * _cv_d)
+
+    T_1 = max(_T_min, air_temperature(param_set, e_int, PhasePartition(q_tot))) # Assume all vapor
+    ρ_T(T) = air_density(param_set, T, p, PhasePartition(q_tot))
+    ρ_1 = ρ_T(T_1)
+    q_v_sat = q_vap_saturation(param_set, T_1, ρ_1, phase_type)
+    unsaturated = q_tot <= q_v_sat
+    if unsaturated && T_1 > _T_min
+        return T_1
+    else
+        _T_freeze::FT = T_freeze(param_set)
+        e_int_upper = internal_energy_sat(
+            param_set,
+            _T_freeze + temperature_tol / 2, # /2 => resulting interval is `temperature_tol` wide
+            ρ_T(_T_freeze + temperature_tol / 2),
+            q_tot,
+            phase_type,
+        )
+        e_int_lower = internal_energy_sat(
+            param_set,
+            _T_freeze - temperature_tol / 2, # /2 => resulting interval is `temperature_tol` wide
+            ρ_T(_T_freeze - temperature_tol / 2),
+            q_tot,
+            phase_type,
+        )
+        if e_int_lower < e_int < e_int_upper
+            return _T_freeze
+        else
+            sol = find_zero(
+                T ->
+                    internal_energy_sat(
+                        param_set,
+                        heavisided(T),
+                        air_density(
+                            param_set,
+                            T,
+                            oftype(T, p),
+                            PhasePartition(oftype(T, q_tot)),
+                        ),
+                        oftype(T, q_tot),
+                        phase_type,
+                    ) - e_int,
+                sa_numerical_method_peq(
+                    sat_adjust_method,
+                    param_set,
+                    p,
+                    e_int,
+                    q_tot,
+                    phase_type,
+                ),
+                CompactSolution(),
+                tol,
+                maxiter,
+            )
+            if !sol.converged
+                if print_warning()
+                    @print("-----------------------------------------\n")
+                    @print("maxiter reached in saturation_adjustment_peq:\n")
+                    print_numerical_method(sat_adjust_method)
+                    @print(", e_int=", e_int)
+                    @print(", p=", p)
                     @print(", q_tot=", q_tot)
                     @print(", T=", sol.root)
                     @print(", maxiter=", maxiter)

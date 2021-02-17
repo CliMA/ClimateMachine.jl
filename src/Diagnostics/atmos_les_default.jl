@@ -160,13 +160,13 @@ function atmos_les_default_simple_sums!(
     sums.temp += MH * thermo.temp * state.ρ
     sums.pres += MH * thermo.pres * state.ρ
     sums.thd += MH * thermo.θ_dry * state.ρ
-    sums.et += MH * state.ρe
+    sums.et += MH * state.energy.ρe
     sums.ei += MH * thermo.e_int * state.ρ
     sums.ht += MH * thermo.h_tot * state.ρ
     sums.hi += MH * thermo.h_int * state.ρ
 
     ν, D_t, _ = turbulence_tensors(atmos, state, gradflux, aux, currtime)
-    d_h_tot = -D_t .* gradflux.∇h_tot
+    d_h_tot = -D_t .* gradflux.energy.∇h_tot
     sums.w_ht_sgs += MH * d_h_tot[end] * state.ρ
 
     atmos_les_default_simple_sums!(
@@ -550,14 +550,9 @@ function atmos_les_default_init(dgngrp::DiagnosticsGroup, currtime)
         vars["swp"] = ((), FT, Variables["swp"].attrib)
 
         # create the output file
-        dprefix = @sprintf(
-            "%s_%s_%s",
-            dgngrp.out_prefix,
-            dgngrp.name,
-            Settings.starttime,
-        )
+        dprefix = @sprintf("%s_%s", dgngrp.out_prefix, dgngrp.name)
         dfilename = joinpath(Settings.output_dir, dprefix)
-        init_data(dgngrp.writer, dfilename, dims, vars)
+        init_data(dgngrp.writer, dfilename, Settings.no_overwrite, dims, vars)
     end
 
     return nothing
@@ -584,6 +579,8 @@ function atmos_les_default_collect(dgngrp::DiagnosticsGroup, currtime)
     nrealelem = topl_info.nrealelem
     nvertelem = topl_info.nvertelem
     nhorzelem = topl_info.nhorzrealelem
+
+    atmos.energy isa EnergyModel || error("EnergyModel only supported")
 
     # get needed arrays onto the CPU
     if array_device(Q) isa CPU

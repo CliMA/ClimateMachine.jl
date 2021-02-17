@@ -52,7 +52,7 @@ function initialcondition!(problem, bl, state, aux, localgeo, t)
     state.ρ = ρ
     state.ρu = ρ * u
     e_kin = u' * u / 2
-    state.ρe = ρ * total_energy(bl.param_set, e_kin, FT(0), T)
+    state.energy.ρe = ρ * total_energy(bl.param_set, e_kin, FT(0), T)
 
     nothing
 end

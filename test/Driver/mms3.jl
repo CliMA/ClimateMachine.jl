@@ -52,7 +52,7 @@ function mms3_init_state!(problem, bl, state::Vars, aux::Vars, localgeo, t)
         V_g(t, x1, x2, x3, Val(3)),
         W_g(t, x1, x2, x3, Val(3)),
     )
-    state.ρe = E_g(t, x1, x2, x3, Val(3))
+    state.energy.ρe = E_g(t, x1, x2, x3, Val(3))
 end
 
 struct MMSSource{PV <: Union{Mass, Momentum, Energy}, N} <:
@@ -157,6 +157,7 @@ function main()
         CentralNumericalFluxSecondOrder(),
         CentralNumericalFluxGradient(),
         nothing,
+        nothing, # filter
         ClimateMachine.AtmosLESSpecificInfo(),
     )
 

@@ -44,7 +44,7 @@ using CLIMAParameters.Atmos.SubgridScale: inv_Pr_turb
 
 using ClimateMachine
 
-import ..Mesh.Geometry: LocalGeometry, resolutionmetric, lengthscale
+import ..Mesh.Geometry: LocalGeometry, lengthscale, lengthscale_horizontal
 
 using ..Orientations
 using ..VariableTemplates
@@ -73,7 +73,9 @@ export TurbulenceClosureModel,
     turbulence_tensors,
     init_aux_turbulence!,
     init_aux_hyperdiffusion!,
-    sponge_viscosity_modifier
+    sponge_viscosity_modifier,
+    HyperdiffEnthalpyFlux,
+    HyperdiffViscousFlux
 
 # ### Abstract Type
 # We define a `TurbulenceClosureModel` abstract type and
@@ -835,7 +837,7 @@ function init_aux_hyperdiffusion!(
     aux::Vars,
     geom::LocalGeometry,
 )
-    aux.hyperdiffusion.Δ = lengthscale(geom)
+    aux.hyperdiffusion.Δ = lengthscale_horizontal(geom)
 end
 
 function compute_gradient_argument!(
@@ -851,7 +853,7 @@ function compute_gradient_argument!(
     k̂ = vertical_unit_vector(bl, aux)
     u_h = (SDiagonal(1, 1, 1) - k̂ * k̂') * u
     transform.hyperdiffusion.u_h = u_h
-    transform.hyperdiffusion.h_tot = transform.h_tot
+    transform.hyperdiffusion.h_tot = transform.energy.h_tot
     transform.hyperdiffusion.q_tot = state.moisture.ρq_tot * ρinv
 end
 
@@ -907,7 +909,7 @@ function init_aux_hyperdiffusion!(
     aux::Vars,
     geom::LocalGeometry,
 )
-    aux.hyperdiffusion.Δ = lengthscale(geom)
+    aux.hyperdiffusion.Δ = lengthscale_horizontal(geom)
 end
 
 function compute_gradient_argument!(
@@ -923,7 +925,7 @@ function compute_gradient_argument!(
     k̂ = vertical_unit_vector(bl, aux)
     u_h = (SDiagonal(1, 1, 1) - k̂ * k̂') * u
     transform.hyperdiffusion.u_h = u_h
-    transform.hyperdiffusion.h_tot = transform.h_tot
+    transform.hyperdiffusion.h_tot = transform.energy.h_tot
 end
 
 function transform_post_gradient_laplacian!(
@@ -1015,63 +1017,25 @@ end
 
 const Biharmonic = Union{EquilMoistBiharmonic, DryBiharmonic}
 
-export HyperdiffEnthalpyFlux
 struct HyperdiffEnthalpyFlux{PV} <: TendencyDef{Flux{SecondOrder}, PV} end
-
-export HyperdiffViscousFlux
 struct HyperdiffViscousFlux{PV} <: TendencyDef{Flux{SecondOrder}, PV} end
 
-export hyperdiff_enthalpy_and_momentum_flux
-
-"""
-    hyperdiff_enthalpy_and_momentum_flux(
-        ::PrognosticVariable,
-        ::HyperDiffusion,
-        ::AbstractTendencyType,
-    )
-
-A tuple of the hyperdiffusive enthalpy
-and viscous flux types based on the
-diffusive model.
-"""
-function hyperdiff_enthalpy_and_momentum_flux end
-
-# empty tuple by default
-hyperdiff_enthalpy_and_momentum_flux(
-    pv::PV,
-    ::HyperDiffusion,
-    ::Flux{SecondOrder},
-) where {PV} = ()
+# empty by default
+eq_tends(pv::PV, ::HyperDiffusion, ::AbstractTendencyType) where {PV} = ()
 
 # Enthalpy and viscous for Biharmonic model
-hyperdiff_enthalpy_and_momentum_flux(
+eq_tends(
     pv::PV,
     ::Biharmonic,
     ::Flux{SecondOrder},
-) where {PV} = (HyperdiffEnthalpyFlux{PV}(), HyperdiffViscousFlux{PV}())
-
-export hyperdiff_momentum_flux
-"""
-    hyperdiff_momentum_flux(
-        ::PrognosticVariable,
-        ::HyperDiffusion,
-        ::AbstractTendencyType,
-    )
-
-A tuple of the hyperdiffusive viscous
-flux types based on the diffusive model.
-"""
-function hyperdiff_momentum_flux end
-
-# empty tuple by default
-hyperdiff_momentum_flux(
-    pv::PV,
-    ::HyperDiffusion,
-    ::Flux{SecondOrder},
-) where {PV} = ()
+) where {PV <: AbstractEnergy} =
+    (HyperdiffEnthalpyFlux{PV}(), HyperdiffViscousFlux{PV}())
 
 # Viscous for Biharmonic model
-hyperdiff_momentum_flux(pv::PV, ::Biharmonic, ::Flux{SecondOrder}) where {PV} =
-    (HyperdiffViscousFlux{PV}(),)
+eq_tends(
+    pv::PV,
+    ::Biharmonic,
+    ::Flux{SecondOrder},
+) where {PV <: AbstractMomentum} = (HyperdiffViscousFlux{PV}(),)
 
 end #module TurbulenceClosures.jl

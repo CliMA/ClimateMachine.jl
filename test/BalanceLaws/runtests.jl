@@ -31,6 +31,8 @@ eq_tends(::Y, ::TestBL, ::Source) = (S{Y}(),)
     @test sources(bl) == (S{X}(), S{Y}())
     show_tendencies(bl)
     show_tendencies(bl; include_params = true)
+    show_tendencies(bl; include_module = true)
+    show_tendencies(bl; table_complete = true)
 end
 
 vars_state(bl::TestBL, st::Prognostic, FT) = @vars begin

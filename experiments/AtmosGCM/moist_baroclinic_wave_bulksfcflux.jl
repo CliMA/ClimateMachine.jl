@@ -160,7 +160,7 @@ function init_baroclinic_wave!(problem, bl, state, aux, localgeo, t)
     ## Assign state variables
     state.ρ = ρ
     state.ρu = ρ * u_cart
-    state.ρe = ρ * e_tot
+    state.energy.ρe = ρ * e_tot
 
     if bl.moisture isa EquilMoist
         state.moisture.ρq_tot = ρ * q_tot

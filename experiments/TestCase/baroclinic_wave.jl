@@ -152,7 +152,7 @@ function init_baroclinic_wave!(problem, bl, state, aux, localgeo, t)
     ## Assign state variables
     state.ρ = ρ
     state.ρu = ρ * u_cart
-    state.ρe = ρ * e_tot
+    state.energy.ρe = ρ * e_tot
 
     if !(bl.moisture isa DryModel)
         state.moisture.ρq_tot = ρ * q_tot
@@ -325,8 +325,8 @@ function config_diagnostics(FT, driver_config)
 
     interpol = ClimateMachine.InterpolationConfiguration(
         driver_config,
-        boundaries,
-        [lats, lons, lvls],
+        boundaries;
+        axes = [lats, lons, lvls],
     )
 
     dgngrp = setup_atmos_default_diagnostics(

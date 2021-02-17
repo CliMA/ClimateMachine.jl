@@ -35,6 +35,15 @@ function linearized_air_pressure(
     )
 end
 
+@inline linearized_pressure(atmos, state::Vars, aux::Vars) =
+    linearized_pressure(
+        atmos.moisture,
+        atmos.param_set,
+        atmos.orientation,
+        state,
+        aux,
+    )
+
 @inline function linearized_pressure(
     ::DryModel,
     param_set::AbstractParameterSet,
@@ -43,7 +52,7 @@ end
     aux::Vars,
 )
     ρe_pot = state.ρ * gravitational_potential(orientation, aux)
-    return linearized_air_pressure(param_set, state.ρ, state.ρe, ρe_pot)
+    return linearized_air_pressure(param_set, state.ρ, state.energy.ρe, ρe_pot)
 end
 @inline function linearized_pressure(
     ::EquilMoist,
@@ -56,7 +65,7 @@ end
     linearized_air_pressure(
         param_set,
         state.ρ,
-        state.ρe,
+        state.energy.ρe,
         ρe_pot,
         state.moisture.ρq_tot,
     )
@@ -72,7 +81,7 @@ end
     linearized_air_pressure(
         param_set,
         state.ρ,
-        state.ρe,
+        state.energy.ρe,
         ρe_pot,
         state.moisture.ρq_tot,
         state.moisture.ρq_liq,
@@ -96,13 +105,12 @@ function vars_state(lm::AtmosLinearModel, st::Prognostic, FT)
     @vars begin
         ρ::FT
         ρu::SVector{3, FT}
-        ρe::FT
+        energy::vars_state(lm.atmos.energy, st, FT)
         turbulence::vars_state(lm.atmos.turbulence, st, FT)
         hyperdiffusion::vars_state(lm.atmos.hyperdiffusion, st, FT)
         moisture::vars_state(lm.atmos.moisture, st, FT)
     end
 end
-vars_state(lm::AtmosLinearModel, ::AbstractStateType, FT) = @vars()
 vars_state(lm::AtmosLinearModel, st::Auxiliary, FT) =
     vars_state(lm.atmos, st, FT)
 vars_state(lm::AtmosLinearModel, ::Primitive, FT) =
@@ -146,14 +154,6 @@ reverse_integral_set_auxiliary_state!(
     lm::AtmosLinearModel,
     aux::Vars,
     integ::Vars,
-) = nothing
-flux_second_order!(
-    lm::AtmosLinearModel,
-    flux::Grad,
-    state::Vars,
-    diffusive::Vars,
-    aux::Vars,
-    t::Real,
 ) = nothing
 function wavespeed(
     lm::AtmosLinearModel,
@@ -211,30 +211,29 @@ struct AtmosAcousticLinearModel{M} <: AtmosLinearModel
 end
 
 function flux_first_order!(
-    lm::AtmosAcousticLinearModel,
+    lm::AtmosLinearModel,
     flux::Grad,
     state::Vars,
     aux::Vars,
     t::Real,
     direction,
 )
-    FT = eltype(state)
-    ref = aux.ref_state
-    e_pot = gravitational_potential(lm.atmos.orientation, aux)
+    tens_pad = SArray{Tuple{3, 3}}(ntuple(i -> 1, 9))
+    vec_pad = SVector(1, 1, 1)
+    tend = Flux{FirstOrder}()
+    _args = (; state, aux, t, direction)
 
-    flux.ρ = state.ρu
-    pL = linearized_pressure(
-        lm.atmos.moisture,
-        lm.atmos.param_set,
-        lm.atmos.orientation,
-        state,
-        aux,
-    )
-    flux.ρu += pL * I
-    flux.ρe = ((ref.ρe + ref.p) / ref.ρ - e_pot) * state.ρu
+    # For some reason, we cannot call precompute, because
+    # sometimes `state.ρ` is somehow `0`, which results in
+    # `e_int = Inf` -> failed saturation adjustment.
+    # TODO: look into this
+    args = _args
+    # args = merge(_args, (precomputed = precompute(lm.atmos, _args, tend),))
+    flux.ρ = Σfluxes(eq_tends(Mass(), lm, tend), lm, args) .* vec_pad
+    flux.ρu = Σfluxes(eq_tends(Momentum(), lm, tend), lm, args) .* tens_pad
+    flux.energy.ρe = Σfluxes(eq_tends(Energy(), lm, tend), lm, args) .* vec_pad
     nothing
 end
-source!(::AtmosAcousticLinearModel, _...) = nothing
 
 struct AtmosAcousticGravityLinearModel{M} <: AtmosLinearModel
     atmos::M
@@ -245,32 +244,9 @@ struct AtmosAcousticGravityLinearModel{M} <: AtmosLinearModel
         new{M}(atmos)
     end
 end
-function flux_first_order!(
-    lm::AtmosAcousticGravityLinearModel,
-    flux::Grad,
-    state::Vars,
-    aux::Vars,
-    t::Real,
-    direction,
-)
-    FT = eltype(state)
-    ref = aux.ref_state
-    e_pot = gravitational_potential(lm.atmos.orientation, aux)
 
-    flux.ρ = state.ρu
-    pL = linearized_pressure(
-        lm.atmos.moisture,
-        lm.atmos.param_set,
-        lm.atmos.orientation,
-        state,
-        aux,
-    )
-    flux.ρu += pL * I
-    flux.ρe = ((ref.ρe + ref.p) / ref.ρ) * state.ρu
-    nothing
-end
 function source!(
-    lm::AtmosAcousticGravityLinearModel,
+    lm::AtmosLinearModel,
     source::Vars,
     state::Vars,
     diffusive::Vars,
@@ -278,10 +254,20 @@ function source!(
     t::Real,
     ::NTuple{1, Dir},
 ) where {Dir <: Direction}
-    if Dir === VerticalDirection || Dir === EveryDirection
-        ∇Φ = ∇gravitational_potential(lm.atmos.orientation, aux)
-        source.ρu -= state.ρ * ∇Φ
-    end
+
+    vec_pad = SVector(1, 1, 1)
+    tend = Source()
+    _args = (; state, aux, t, direction = Dir, diffusive)
+
+    # For some reason, we cannot call precompute, because
+    # sometimes `state.ρ` is somehow `0`, which results in
+    # `e_int = Inf` -> failed saturation adjustment.
+    # TODO: look into this
+    args = _args
+    # args = merge(_args, (precomputed = precompute(lm.atmos, _args, tend),))
+
+    # Sources for the linear atmos model only appear in the momentum equation
+    source.ρu = Σsources(eq_tends(Momentum(), lm, tend), lm, args) .* vec_pad
     nothing
 end
 
@@ -324,13 +310,7 @@ function numerical_flux_first_order!(
     ref_h⁻ = (ref_ρe⁻ + ref_p⁻) / ref_ρ⁻
     ref_c⁻ = soundspeed_air(param_set, ref_T⁻)
 
-    pL⁻ = linearized_pressure(
-        atmos.moisture,
-        param_set,
-        atmos.orientation,
-        state_prognostic⁻,
-        state_auxiliary⁻,
-    )
+    pL⁻ = linearized_pressure(atmos, state_prognostic⁻, state_auxiliary⁻)
 
     ρu⁺ = state_prognostic⁺.ρu
 
@@ -341,13 +321,7 @@ function numerical_flux_first_order!(
     ref_h⁺ = (ref_ρe⁺ + ref_p⁺) / ref_ρ⁺
     ref_c⁺ = soundspeed_air(param_set, ref_T⁺)
 
-    pL⁺ = linearized_pressure(
-        atmos.moisture,
-        param_set,
-        atmos.orientation,
-        state_prognostic⁺,
-        state_auxiliary⁺,
-    )
+    pL⁺ = linearized_pressure(atmos, state_prognostic⁺, state_auxiliary⁺)
 
     # not sure if arithmetic averages are a good idea here
     h̃ = (ref_h⁻ + ref_h⁺) / 2
@@ -358,7 +332,7 @@ function numerical_flux_first_order!(
 
     fluxᵀn.ρ -= ΔpL / 2c̃
     fluxᵀn.ρu -= c̃ * Δρuᵀn * normal_vector / 2
-    fluxᵀn.ρe -= h̃ * ΔpL / 2c̃
+    fluxᵀn.energy.ρe -= h̃ * ΔpL / 2c̃
 end
 
 function numerical_flux_first_order!(
@@ -433,13 +407,7 @@ function numerical_flux_first_order!(
 
     ref_c⁻ = soundspeed_air(param_set, ref_T⁻, ref_q_pt⁻)
 
-    pL⁻ = linearized_pressure(
-        atmos.moisture,
-        param_set,
-        atmos.orientation,
-        state_prognostic⁻,
-        state_auxiliary⁻,
-    )
+    pL⁻ = linearized_pressure(atmos, state_prognostic⁻, state_auxiliary⁻)
 
     ρu⁺ = state_prognostic⁺.ρu
 
@@ -454,13 +422,7 @@ function numerical_flux_first_order!(
     _R_m⁺ = gas_constant_air(param_set, ref_q_pt⁺)
     ref_h⁺ = total_specific_enthalpy(ref_ρe⁺, _R_m⁺, ref_T⁺)
     ref_c⁺ = soundspeed_air(param_set, ref_T⁺, ref_q_pt⁺)
-    pL⁺ = linearized_pressure(
-        atmos.moisture,
-        param_set,
-        atmos.orientation,
-        state_prognostic⁺,
-        state_auxiliary⁺,
-    )
+    pL⁺ = linearized_pressure(atmos, state_prognostic⁺, state_auxiliary⁺)
 
     # not sure if arithmetic averages are a good idea here
     ref_h̃ = (ref_h⁻ + ref_h⁺) / 2
@@ -503,10 +465,37 @@ function numerical_flux_first_order!(
     )
     Δρ = state_prognostic⁺.ρ - state_prognostic⁻.ρ
     Δρu = ρu⁺ - ρu⁻
-    Δρe = state_prognostic⁺.ρe - state_prognostic⁻.ρe
+    Δρe = state_prognostic⁺.energy.ρe - state_prognostic⁻.energy.ρe
     Δρq_tot =
         state_prognostic⁺.moisture.ρq_tot - state_prognostic⁻.moisture.ρq_tot
     Δstate = SVector(Δρ, Δρu[1], Δρu[2], Δρu[3], Δρe, Δρq_tot)
 
     parent(fluxᵀn) .-= M * Λ * (M \ Δstate) / 2
+end
+
+function numerical_flux_first_order!(
+    ::LMARSNumericalFlux,
+    balance_law::AtmosLinearModel,
+    fluxᵀn::Vars{S},
+    normal_vector::SVector,
+    state_prognostic⁻::Vars{S},
+    state_auxiliary⁻::Vars{A},
+    state_prognostic⁺::Vars{S},
+    state_auxiliary⁺::Vars{A},
+    t,
+    direction,
+) where {S, A}
+
+    numerical_flux_first_order!(
+        RusanovNumericalFlux(),
+        balance_law,
+        fluxᵀn,
+        normal_vector,
+        state_prognostic⁻,
+        state_auxiliary⁻,
+        state_prognostic⁺,
+        state_auxiliary⁺,
+        t,
+        direction,
+    )
 end

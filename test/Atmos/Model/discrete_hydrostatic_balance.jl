@@ -25,7 +25,7 @@ function init_to_ref_state!(problem, bl, state, aux, localgeo, t)
     FT = eltype(state)
     state.ρ = aux.ref_state.ρ
     state.ρu = SVector{3, FT}(0, 0, 0)
-    state.ρe = aux.ref_state.ρe
+    state.energy.ρe = aux.ref_state.ρe
 end
 
 function config_balanced(

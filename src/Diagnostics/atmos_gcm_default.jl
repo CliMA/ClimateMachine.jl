@@ -151,7 +151,7 @@ function atmos_gcm_default_simple_3d_vars!(
     vars.v = state_prognostic.ρu[2] / state_prognostic.ρ
     vars.w = state_prognostic.ρu[3] / state_prognostic.ρ
     vars.rho = state_prognostic.ρ
-    vars.et = state_prognostic.ρe / state_prognostic.ρ
+    vars.et = state_prognostic.energy.ρe / state_prognostic.ρ
 
     vars.temp = thermo.temp
     vars.pres = thermo.pres
@@ -278,15 +278,10 @@ function atmos_gcm_default_init(dgngrp::DiagnosticsGroup, currtime)
         end
 
         # create the output file
-        dprefix = @sprintf(
-            "%s_%s_%s",
-            dgngrp.out_prefix,
-            dgngrp.name,
-            Settings.starttime,
-        )
+        dprefix = @sprintf("%s_%s", dgngrp.out_prefix, dgngrp.name)
         dfilename = joinpath(Settings.output_dir, dprefix)
-
-        init_data(dgngrp.writer, dfilename, dims, vars)
+        noov = Settings.no_overwrite
+        init_data(dgngrp.writer, dfilename, noov, dims, vars)
     end
 
     return nothing

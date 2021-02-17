@@ -180,7 +180,7 @@ function source(s::LargeScaleSubsidence{Energy}, m, args)
     k̂ = vertical_unit_vector(m, aux)
     # Establish subsidence velocity
     w_s = aux.lsforcing.w_s
-    return -state.ρ * w_s * dot(k̂, diffusive.∇h_tot)
+    return -state.ρ * w_s * dot(k̂, diffusive.energy.∇h_tot)
 end
 function source(s::LargeScaleSubsidence{TotalMoisture}, m, args)
     @unpack state, aux, diffusive = args
@@ -375,10 +375,10 @@ function init_cfsites!(problem, bl, state, aux, localgeo, t, spl)
     # Assignment of state variables
     state.ρ = ρ
     state.ρu = ρ * SVector(ua, va, 0)
-    state.ρe = ρ * (e_kin + e_pot + e_int)
+    state.energy.ρe = ρ * (e_kin + e_pot + e_int)
     state.moisture.ρq_tot = ρ * hus
     if z <= FT(400)
-        state.ρe += rand(seed) * FT(1 / 100) * (state.ρe)
+        state.energy.ρe += rand(seed) * FT(1 / 100) * (state.energy.ρe)
         state.moisture.ρq_tot +=
             rand(seed) * FT(1 / 100) * (state.moisture.ρq_tot)
     end

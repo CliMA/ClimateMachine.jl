@@ -166,7 +166,7 @@ function main(::Type{FT}) where {FT}
     horizontally_average!(
         driver_config.grid,
         solver_config.Q,
-        varsindex(vsp, :ρe),
+        varsindex(vsp, :energy, :ρe),
     )
     horizontally_average!(
         driver_config.grid,
@@ -182,7 +182,7 @@ function main(::Type{FT}) where {FT}
     )
     # ---
 
-    dgn_config = config_diagnostics(driver_config)
+    dgn_config = config_diagnostics(driver_config, timeend)
 
     cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(1) do
         Filters.apply!(
@@ -224,7 +224,7 @@ function main(::Type{FT}) where {FT}
 
     check_cons = (
         ClimateMachine.ConservationCheck("ρ", "3000steps", FT(0.001)),
-        ClimateMachine.ConservationCheck("ρe", "3000steps", FT(0.0025)),
+        ClimateMachine.ConservationCheck("energy.ρe", "3000steps", FT(0.0025)),
     )
 
     cb_print_step = GenericCallbacks.EveryXSimulationSteps(100) do
@@ -246,6 +246,42 @@ function main(::Type{FT}) where {FT}
 
     return solver_config, diag_arr, time_data
 end
+
+function config_diagnostics(driver_config, timeend)
+    FT = eltype(driver_config.grid)
+    info = driver_config.config_info
+    interval = "$(cld(timeend, 2) + 10)ssecs"
+    #interval = "10steps"
+
+    boundaries = [
+        FT(0) FT(0) FT(0)
+        FT(info.hmax) FT(info.hmax) FT(info.zmax)
+    ]
+    axes = (
+        [FT(1)],
+        [FT(1)],
+        collect(range(boundaries[1, 3], boundaries[2, 3], step = FT(50)),),
+    )
+    interpol = ClimateMachine.InterpolationConfiguration(
+        driver_config,
+        boundaries;
+        axes = axes,
+    )
+    ds_dgngrp = setup_dump_state_diagnostics(
+        SingleStackConfigType(),
+        interval,
+        driver_config.name,
+        interpol = interpol,
+    )
+    dt_dgngrp = setup_dump_tendencies_diagnostics(
+        SingleStackConfigType(),
+        interval,
+        driver_config.name,
+        interpol = interpol,
+    )
+    return ClimateMachine.DiagnosticsConfiguration([ds_dgngrp, dt_dgngrp])
+end
+
 
 solver_config, diag_arr, time_data = main(Float64)
 

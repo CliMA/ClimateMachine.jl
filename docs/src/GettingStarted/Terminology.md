@@ -37,8 +37,8 @@ The `ClimateMachine` documentation uses terminology from several disciplines. Be
 
 ## Numerics
 
-* __Balance Law__: The system of PDEs being solved, expressed in a particular form
-  amenable to DG methods. Please see the [how-to-guide](../HowToGuides/Numerics/DGMethods/how_to_make_a_balance_law.md)
+* __Balance Law__: The system of PDEs being solved. Please see the
+  [how-to-guide](../HowToGuides/BalanceLaws/how_to_make_a_balance_law.md)
   or the [API](../APIs/BalanceLaws/BalanceLaws.md#ClimateMachine.BalanceLaws.BalanceLaw).
 * __Courant number__: The ratio of the distance sound waves, diffusion, and other physical processes in your
   model travel or carry information in a timestep, relative to the resolution of your

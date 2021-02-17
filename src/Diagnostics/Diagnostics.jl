@@ -14,7 +14,8 @@ export DiagnosticsGroup,
     setup_atmos_mass_energy_loss,
     setup_atmos_spectra_diagnostics,
     setup_dump_state_diagnostics,
-    setup_dump_aux_diagnostics
+    setup_dump_aux_diagnostics,
+    setup_dump_tendencies_diagnostics
 
 using CUDA
 using Dates
@@ -27,16 +28,16 @@ using Printf
 using StaticArrays
 import KernelAbstractions: CPU
 
+using ..BalanceLaws
 using ..ConfigTypes
 using ..DGMethods
-using ..BalanceLaws
 using ..Mesh.Interpolation
 using ..MPIStateArrays
+using ..Spectra
+using ..TicToc
 using ..VariableTemplates
 using ..Writers
 import ..GenericCallbacks
-using ..TicToc
-using ..Spectra
 
 using CLIMAParameters
 using CLIMAParameters.Planet: planet_radius
@@ -48,6 +49,7 @@ Base.@kwdef mutable struct Diagnostic_Settings
     Q::Union{Nothing, MPIStateArray} = nothing
     starttime::Union{Nothing, String} = nothing
     output_dir::Union{Nothing, String} = nothing
+    no_overwrite::Bool = false
 end
 const Settings = Diagnostic_Settings()
 
@@ -64,6 +66,7 @@ function init(
     Q::MPIStateArray,
     starttime::String,
     output_dir::String,
+    no_overwrite::Bool,
 )
     Settings.mpicomm = mpicomm
     Settings.param_set = param_set
@@ -71,6 +74,7 @@ function init(
     Settings.Q = Q
     Settings.starttime = starttime
     Settings.output_dir = output_dir
+    Settings.no_overwrite = no_overwrite
 end
 
 include("variables.jl")

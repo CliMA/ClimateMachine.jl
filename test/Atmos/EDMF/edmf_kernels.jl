@@ -12,6 +12,8 @@ using ClimateMachine.DGMethods: LocalGeometry, DGModel
 import ClimateMachine.BalanceLaws:
     vars_state,
     prognostic_vars,
+    prognostic_to_primitive!,
+    primitive_to_prognostic!,
     flux,
     precompute,
     source,
@@ -69,11 +71,23 @@ function vars_state(::Environment, ::Prognostic, FT)
     @vars(ρatke::FT, ρaθ_liq_cv::FT, ρaq_tot_cv::FT, ρaθ_liq_q_tot_cv::FT,)
 end
 
-function vars_state(m::NTuple{N, Updraft}, st::Prognostic, FT) where {N}
+function vars_state(::Updraft, ::Primitive, FT)
+    @vars(a::FT, aw::FT, aθ_liq::FT, aq_tot::FT,)
+end
+
+function vars_state(::Environment, ::Primitive, FT)
+    @vars(atke::FT, aθ_liq_cv::FT, aq_tot_cv::FT, aθ_liq_q_tot_cv::FT,)
+end
+
+function vars_state(
+    m::NTuple{N, Updraft},
+    st::Union{Prognostic, Primitive},
+    FT,
+) where {N}
     return Tuple{ntuple(i -> vars_state(m[i], st, FT), N)...}
 end
 
-function vars_state(m::EDMF, st::Prognostic, FT)
+function vars_state(m::EDMF, st::Union{Prognostic, Primitive}, FT)
     @vars(
         environment::vars_state(m.environment, st, FT),
         updraft::vars_state(m.updraft, st, FT)
@@ -202,7 +216,7 @@ eq_tends(
     pv::PV,
     m::EDMF,
     ::Flux{SecondOrder},
-) where {PV <: Union{Momentum, Energy, TotalMoisture}} = () # do _not_ add SGSFlux back to grid-mean
+) where {PV <: Union{Momentum, Energy, TotalMoisture}} = ()  # do _not_ add SGSFlux back to grid-mean
 # (SGSFlux{PV}(),) # add SGSFlux back to grid-mean
 
 # Turbconv tendencies
@@ -283,6 +297,78 @@ function turbconv_nodal_update_auxiliary_state!(
     save_subdomain_temperature!(m, state, aux)
 end;
 
+function prognostic_to_primitive!(
+    turbconv::EDMF,
+    atmos,
+    moist::DryModel,
+    prim::Vars,
+    prog::Vars,
+)
+    N_up = n_updrafts(turbconv)
+    prim_en = prim.turbconv.environment
+    prog_en = prog.turbconv.environment
+    prim_up = prim.turbconv.updraft
+    prog_up = prog.turbconv.updraft
+
+    ρ_inv = 1 / prog.ρ
+    prim_en.atke = prog_en.ρatke * ρ_inv
+    prim_en.aθ_liq_cv = prog_en.ρaθ_liq_cv * ρ_inv
+    prim_en.aθ_liq_q_tot_cv = prog_en.ρaθ_liq_q_tot_cv * ρ_inv
+
+    if moist isa DryModel
+        prim_en.aq_tot_cv = 0
+    else
+        prim_en.aq_tot_cv = prog_en.ρaq_tot_cv * ρ_inv
+    end
+    @unroll_map(N_up) do i
+        prim_up[i].a = prog_up[i].ρa * ρ_inv
+        prim_up[i].aw = prog_up[i].ρaw * ρ_inv
+        prim_up[i].aθ_liq = prog_up[i].ρaθ_liq * ρ_inv
+        if moist isa DryModel
+            prim_up[i].aq_tot = 0
+        else
+            prim_up[i].aq_tot = prog_up[i].ρaq_tot * ρ_inv
+        end
+    end
+end
+
+function primitive_to_prognostic!(
+    turbconv::EDMF,
+    atmos,
+    moist::DryModel,
+    prog::Vars,
+    prim::Vars,
+)
+
+    N_up = n_updrafts(turbconv)
+    prim_en = prim.turbconv.environment
+    prog_en = prog.turbconv.environment
+    prim_up = prim.turbconv.updraft
+    prog_up = prog.turbconv.updraft
+
+    ρ_gm = prog.ρ
+    prog_en.ρatke = prim_en.atke * ρ_gm
+    prog_en.ρaθ_liq_cv = prim_en.aθ_liq_cv * ρ_gm
+    prog_en.ρaθ_liq_q_tot_cv = prim_en.aθ_liq_q_tot_cv * ρ_gm
+
+    if moist isa DryModel
+        prog_en.ρaq_tot_cv = 0
+    else
+        prog_en.ρaq_tot_cv = prim_en.aq_tot_cv * ρ_gm
+    end
+    @unroll_map(N_up) do i
+        prog_up[i].ρa = prim_up[i].a * ρ_gm
+        prog_up[i].ρaw = prim_up[i].aw * ρ_gm
+        prog_up[i].ρaθ_liq = prim_up[i].aθ_liq * ρ_gm
+        if moist isa DryModel
+            prog_up[i].ρaq_tot = 0
+        else
+            prog_up[i].ρaq_tot = prim_up[i].aq_tot * ρ_gm
+        end
+    end
+
+end
+
 function compute_gradient_argument!(
     turbconv::EDMF{FT},
     m::AtmosModel{FT},
@@ -315,7 +401,12 @@ function compute_gradient_argument!(
 
     ρ_inv = 1 / gm.ρ
     θ_liq_en = liquid_ice_pottemp(ts.en)
-    q_tot_en = total_specific_humidity(ts.en)
+
+    if m.moisture isa DryModel
+        q_tot_en = FT(0)
+    else
+        q_tot_en = total_specific_humidity(ts.en)
+    end
 
     # populate gradient arguments
     en_tf.θ_liq = θ_liq_en
@@ -324,8 +415,14 @@ function compute_gradient_argument!(
 
     en_tf.tke = enforce_positivity(en.ρatke) / (env.a * gm.ρ)
     en_tf.θ_liq_cv = enforce_positivity(en.ρaθ_liq_cv) / (env.a * gm.ρ)
-    en_tf.q_tot_cv = enforce_positivity(en.ρaq_tot_cv) / (env.a * gm.ρ)
-    en_tf.θ_liq_q_tot_cv = en.ρaθ_liq_q_tot_cv / (env.a * gm.ρ)
+
+    if m.moisture isa DryModel
+        en_tf.q_tot_cv = FT(0)
+        en_tf.θ_liq_q_tot_cv = FT(0)
+    else
+        en_tf.q_tot_cv = enforce_positivity(en.ρaq_tot_cv) / (env.a * gm.ρ)
+        en_tf.θ_liq_q_tot_cv = en.ρaθ_liq_q_tot_cv / (env.a * gm.ρ)
+    end
 
     en_tf.θv = virtual_pottemp(ts.en)
     e_kin = FT(1 // 2) * ((gm.ρu[1] * ρ_inv)^2 + (gm.ρu[2] * ρ_inv)^2 + env.w^2) # TBD: Check
@@ -666,16 +763,22 @@ function source!(m::EDMF, src::Vars, atmos, args)
             Σsources(eq_tends(up_ρaw{i}(), atmos, tend), atmos, args)
         up_src[i].ρaθ_liq =
             Σsources(eq_tends(up_ρaθ_liq{i}(), atmos, tend), atmos, args)
-        up_src[i].ρaq_tot =
-            Σsources(eq_tends(up_ρaq_tot{i}(), atmos, tend), atmos, args)
+
+        if !(atmos.moisture isa DryModel)
+            up_src[i].ρaq_tot =
+                Σsources(eq_tends(up_ρaq_tot{i}(), atmos, tend), atmos, args)
+        end
     end
     en_src.ρatke = Σsources(eq_tends(en_ρatke(), atmos, tend), atmos, args)
     en_src.ρaθ_liq_cv =
         Σsources(eq_tends(en_ρaθ_liq_cv(), atmos, tend), atmos, args)
-    en_src.ρaq_tot_cv =
-        Σsources(eq_tends(en_ρaq_tot_cv(), atmos, tend), atmos, args)
-    en_src.ρaθ_liq_q_tot_cv =
-        Σsources(eq_tends(en_ρaθ_liq_q_tot_cv(), atmos, tend), atmos, args)
+
+    if !(atmos.moisture isa DryModel)
+        en_src.ρaq_tot_cv =
+            Σsources(eq_tends(en_ρaq_tot_cv(), atmos, tend), atmos, args)
+        en_src.ρaθ_liq_q_tot_cv =
+            Σsources(eq_tends(en_ρaθ_liq_q_tot_cv(), atmos, tend), atmos, args)
+    end
 end;
 
 function compute_ρa_up(atmos, state, aux)
@@ -768,22 +871,37 @@ function flux_first_order!(
     N_up = n_updrafts(turbconv)
     # in future GCM implementations we need to think about grid mean advection
     tend = Flux{FirstOrder}()
+    vec_pad = SVector(1, 1, 1)
 
     @unroll_map(N_up) do i
-        up_flx[i].ρa = Σfluxes(eq_tends(up_ρa{i}(), atmos, tend), atmos, args)
-        up_flx[i].ρaw = Σfluxes(eq_tends(up_ρaw{i}(), atmos, tend), atmos, args)
+        up_flx[i].ρa =
+            Σfluxes(eq_tends(up_ρa{i}(), atmos, tend), atmos, args) .* vec_pad
+        up_flx[i].ρaw =
+            Σfluxes(eq_tends(up_ρaw{i}(), atmos, tend), atmos, args) .* vec_pad
         up_flx[i].ρaθ_liq =
-            Σfluxes(eq_tends(up_ρaθ_liq{i}(), atmos, tend), atmos, args)
-        up_flx[i].ρaq_tot =
-            Σfluxes(eq_tends(up_ρaq_tot{i}(), atmos, tend), atmos, args)
+            Σfluxes(eq_tends(up_ρaθ_liq{i}(), atmos, tend), atmos, args) .*
+            vec_pad
+        if !(atmos.moisture isa DryModel)
+            up_flx[i].ρaq_tot =
+                Σfluxes(eq_tends(up_ρaq_tot{i}(), atmos, tend), atmos, args) .*
+                vec_pad
+        end
     end
-    en_flx.ρatke = Σfluxes(eq_tends(en_ρatke(), atmos, tend), atmos, args)
+    en_flx.ρatke =
+        Σfluxes(eq_tends(en_ρatke(), atmos, tend), atmos, args) .* vec_pad
     en_flx.ρaθ_liq_cv =
-        Σfluxes(eq_tends(en_ρaθ_liq_cv(), atmos, tend), atmos, args)
-    en_flx.ρaq_tot_cv =
-        Σfluxes(eq_tends(en_ρaq_tot_cv(), atmos, tend), atmos, args)
-    en_flx.ρaθ_liq_q_tot_cv =
-        Σfluxes(eq_tends(en_ρaθ_liq_q_tot_cv(), atmos, tend), atmos, args)
+        Σfluxes(eq_tends(en_ρaθ_liq_cv(), atmos, tend), atmos, args) .* vec_pad
+    if !(atmos.moisture isa DryModel)
+        en_flx.ρaq_tot_cv =
+            Σfluxes(eq_tends(en_ρaq_tot_cv(), atmos, tend), atmos, args) .*
+            vec_pad
+        en_flx.ρaθ_liq_q_tot_cv =
+            Σfluxes(
+                eq_tends(en_ρaθ_liq_q_tot_cv(), atmos, tend),
+                atmos,
+                args,
+            ) .* vec_pad
+    end
 end;
 
 function precompute(::EDMF, bl, args, ts, ::Flux{FirstOrder})
@@ -993,7 +1111,7 @@ function flux(::SGSFlux{Energy}, atmos, args)
             fix_void_up(
                 ρa_up[i],
                 ρa_up[i] *
-                (gm.ρe * ρ_inv - e_tot_up[i]) *
+                (gm.energy.ρe * ρ_inv - e_tot_up[i]) *
                 (gm.ρu[3] * ρ_inv - ρaw_up[i] / ρa_up[i]),
             )
         end,
@@ -1111,20 +1229,26 @@ function flux_second_order!(
 
     # Aliases:
     en_flx = flux.turbconv.environment
-    flux_pad = SVector(1, 1, 1)
+    vec_pad = SVector(1, 1, 1)
     # in future GCM implementations we need to think about grid mean advection
     tend = Flux{SecondOrder}()
     en_flx.ρatke =
-        Σfluxes(eq_tends(en_ρatke(), atmos, tend), atmos, args) .* flux_pad
+        Σfluxes(eq_tends(en_ρatke(), atmos, tend), atmos, args) .* vec_pad
     # in the EDMF second order (diffusive) fluxes
     # exist only in the grid mean and the environment
     en_flx.ρaθ_liq_cv =
-        Σfluxes(eq_tends(en_ρaθ_liq_cv(), atmos, tend), atmos, args) .* flux_pad
-    en_flx.ρaq_tot_cv =
-        Σfluxes(eq_tends(en_ρaq_tot_cv(), atmos, tend), atmos, args) .* flux_pad
-    en_flx.ρaθ_liq_q_tot_cv =
-        Σfluxes(eq_tends(en_ρaθ_liq_q_tot_cv(), atmos, tend), atmos, args) .*
-        flux_pad
+        Σfluxes(eq_tends(en_ρaθ_liq_cv(), atmos, tend), atmos, args) .* vec_pad
+    if !(atmos.moisture isa DryModel)
+        en_flx.ρaq_tot_cv =
+            Σfluxes(eq_tends(en_ρaq_tot_cv(), atmos, tend), atmos, args) .*
+            vec_pad
+        en_flx.ρaθ_liq_q_tot_cv =
+            Σfluxes(
+                eq_tends(en_ρaθ_liq_q_tot_cv(), atmos, tend),
+                atmos,
+                args,
+            ) .* vec_pad
+    end
 end;
 
 # First order boundary conditions
@@ -1163,13 +1287,23 @@ function turbconv_boundary_state!(
         up⁺[i].ρaw = FT(0)
         up⁺[i].ρa = gm⁻.ρ * a_up_surf[i]
         up⁺[i].ρaθ_liq = gm⁻.ρ * a_up_surf[i] * θ_liq_up_surf[i]
-        up⁺[i].ρaq_tot = gm⁻.ρ * a_up_surf[i] * q_tot_up_surf[i]
+        if !(m.moisture isa DryModel)
+            up⁺[i].ρaq_tot = gm⁻.ρ * a_up_surf[i] * q_tot_up_surf[i]
+        else
+            up⁺[i].ρaq_tot = FT(0)
+        end
     end
+
     a_en = environment_area(gm⁻, N_up)
     en⁺.ρatke = gm⁻.ρ * a_en * tke
     en⁺.ρaθ_liq_cv = gm⁻.ρ * a_en * θ_liq_cv
-    en⁺.ρaq_tot_cv = gm⁻.ρ * a_en * q_tot_cv
-    en⁺.ρaθ_liq_q_tot_cv = gm⁻.ρ * a_en * θ_liq_q_tot_cv
+    if !(m.moisture isa DryModel)
+        en⁺.ρaq_tot_cv = gm⁻.ρ * a_en * q_tot_cv
+        en⁺.ρaθ_liq_q_tot_cv = gm⁻.ρ * a_en * θ_liq_q_tot_cv
+    else
+        en⁺.ρaq_tot_cv = FT(0)
+        en⁺.ρaθ_liq_q_tot_cv = FT(0)
+    end
 end;
 function turbconv_boundary_state!(
     nf,
@@ -1184,7 +1318,12 @@ function turbconv_boundary_state!(
     state_int::Vars,
     aux_int::Vars,
 ) where {FT}
-    nothing
+    turbconv = m.turbconv
+    N_up = n_updrafts(turbconv)
+    up⁺ = state⁺.turbconv.updraft
+    @unroll_map(N_up) do i
+        up⁺[i].ρaw = FT(0)
+    end
 end;
 
 
@@ -1225,19 +1364,19 @@ function turbconv_normal_boundary_flux_second_order!(
     t,
     _...,
 ) where {FT}
+
     turbconv = m.turbconv
     N_up = n_updrafts(turbconv)
     up_flx = fluxᵀn.turbconv.updraft
     en_flx = fluxᵀn.turbconv.environment
-    # @unroll_map(N_up) do i
-    #     up_flx[i].ρaw = -n⁻ * FT(0)
-    #     up_flx[i].ρa = -n⁻ * FT(0)
-    #     up_flx[i].ρaθ_liq = -n⁻ * FT(0)
-    #     up_flx[i].ρaq_tot = -n⁻ * FT(0)
-    # end
-    # en_flx.∇tke = -n⁻ * FT(0)
-    # en_flx.∇e_int_cv = -n⁻ * FT(0)
-    # en_flx.∇q_tot_cv = -n⁻ * FT(0)
-    # en_flx.∇e_int_q_tot_cv = -n⁻ * FT(0)
+    @unroll_map(N_up) do i
+        up_flx[i].ρa = FT(0)
+        up_flx[i].ρaθ_liq = FT(0)
+        up_flx[i].ρaq_tot = FT(0)
+    end
+    en_flx.ρatke = FT(0)
+    en_flx.ρaθ_liq_cv = FT(0)
+    en_flx.ρaq_tot_cv = FT(0)
+    en_flx.ρaθ_liq_q_tot_cv = FT(0)
 
 end;

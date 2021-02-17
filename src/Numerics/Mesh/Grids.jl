@@ -18,6 +18,19 @@ struct HorizontalDirection <: Direction end
 struct VerticalDirection <: Direction end
 Base.in(::T, ::S) where {T <: Direction, S <: Direction} = T == S
 
+"""
+    MinNodalDistance{FT}
+
+A struct containing the minimum nodal distance
+along horizontal and vertical directions.
+"""
+struct MinNodalDistance{FT}
+    "horizontal"
+    h::FT
+    "vertical"
+    v::FT
+end
+
 abstract type AbstractGrid{
     FloatType,
     dim,
@@ -56,6 +69,8 @@ function min_node_distance(
 end
 
 # {{{
+# `vgeo` stores geometry and metrics terms at the volume quadrature /
+# interpolation points
 const _nvgeo = 16
 const _ξ1x1,
 _ξ2x1,
@@ -74,6 +89,8 @@ _x2,
 _x3,
 _JcV = 1:_nvgeo
 const vgeoid = (
+    # ∂ξk/∂xi: derivative of the Cartesian reference element coordinate `ξ_k`
+    # with respect to the Cartesian physical coordinate `x_i`
     ξ1x1id = _ξ1x1,
     ξ2x1id = _ξ2x1,
     ξ3x1id = _ξ3x1,
@@ -83,19 +100,48 @@ const vgeoid = (
     ξ1x3id = _ξ1x3,
     ξ2x3id = _ξ2x3,
     ξ3x3id = _ξ3x3,
+    # M refers to the mass matrix. This is the physical mass matrix, and thus
+    # contains the Jacobian determinant:
+    #    J .* (ωᵢ ⊗ ωⱼ ⊗ ωₖ)
+    # where ωᵢ are the quadrature weights and J is the Jacobian determinant
+    # det(∂x/∂ξ)
     Mid = _M,
+    # Inverse mass matrix: 1 ./ M
     MIid = _MI,
+    # Horizontal mass matrix (used in diagnostics)
+    #    J .* norm(∂ξ3/∂x) * (ωᵢ ⊗ ωⱼ); for integrating over a plane
+    # (in 2-D ξ2 not ξ3 is used)
     MHid = _MH,
+    # Nodal degrees of freedom locations in Cartesian physical space
     x1id = _x1,
     x2id = _x2,
     x3id = _x3,
+    # Metric terms for vertical line integrals
+    #   norm(∂x/∂ξ3)
+    # (in 2-D ξ2 not ξ3 is used)
     JcVid = _JcV,
 )
-# JcV is the vertical line integral Jacobian
-# The MH terms are for integrating over a plane.
+
+# `sgeo` stores geometry and metrics terms at the surface quadrature /
+# interpolation points
 const _nsgeo = 5
 const _n1, _n2, _n3, _sM, _vMI = 1:_nsgeo
-const sgeoid = (n1id = _n1, n2id = _n2, n3id = _n3, sMid = _sM, vMIid = _vMI)
+const sgeoid = (
+    # outward pointing unit normal in physical space
+    n1id = _n1,
+    n2id = _n2,
+    n3id = _n3,
+    # sM refers to the surface mass matrix. This is the physical mass matrix,
+    # and thus contains the surface Jacobian determinant:
+    #    sJ .* (ωⱼ ⊗ ωₖ)
+    # where ωᵢ are the quadrature weights and sJ is the surface Jacobian
+    # determinant
+    sMid = _sM,
+    # Volume mass matrix at the surface nodes (needed in the lift operation,
+    # i.e., the projection of a face field back to the volume). Since DGSEM is
+    # used only collocated volume mass matrices are required.
+    vMIid = _vMI,
+)
 # }}}
 
 """
@@ -134,6 +180,7 @@ struct DiscontinuousSpectralElementGrid{
     DAI3,
     TOP,
     TVTK,
+    MINΔ,
 } <: AbstractGrid{T, dim, N, Np, DA}
     "mesh topology"
     topology::TOP
@@ -188,6 +235,11 @@ struct DiscontinuousSpectralElementGrid{
     other cases these match `vgeo` values
     """
     x_vtk::TVTK
+
+    """
+    Minimum nodal distances for horizontal and vertical directions
+    """
+    minΔ::MINΔ
 
     # Constructor for a tuple of polynomial orders
     function DiscontinuousSpectralElementGrid(
@@ -279,6 +331,13 @@ struct DiscontinuousSpectralElementGrid{
         TOP = typeof(topology)
         TVTK = typeof(x_vtk)
 
+        FT = FloatType
+        minΔ = MinNodalDistance(
+            min_node_distance(vgeo, topology, N, FT, HorizontalDirection()),
+            min_node_distance(vgeo, topology, N, FT, VerticalDirection()),
+        )
+        MINΔ = typeof(minΔ)
+
         new{
             FloatType,
             dim,
@@ -294,6 +353,7 @@ struct DiscontinuousSpectralElementGrid{
             DAI3,
             TOP,
             TVTK,
+            MINΔ,
         }(
             topology,
             vgeo,
@@ -312,6 +372,7 @@ struct DiscontinuousSpectralElementGrid{
             D,
             Imat,
             x_vtk,
+            minΔ,
         )
     end
 end
@@ -335,32 +396,46 @@ function referencepoints(
 end
 
 """
-    min_node_distance(::DiscontinuousSpectralElementGrid,
-                      direction::Direction=EveryDirection()))
+    min_node_distance(
+        ::DiscontinuousSpectralElementGrid,
+        direction::Direction=EveryDirection())
+    )
 
 Returns an approximation of the minimum node distance in physical space along
 the reference coordinate directions.  The direction controls which reference
 directions are considered.
 """
-function min_node_distance(
-    grid::DiscontinuousSpectralElementGrid{T, dim, N},
+min_node_distance(
+    grid::DiscontinuousSpectralElementGrid,
     direction::Direction = EveryDirection(),
-) where {T, dim, N}
-    topology = grid.topology
-    nrealelem = length(topology.realelems)
+) = min_node_distance(grid.minΔ, direction)
 
+min_node_distance(minΔ::MinNodalDistance, ::VerticalDirection) = minΔ.v
+min_node_distance(minΔ::MinNodalDistance, ::HorizontalDirection) = minΔ.h
+min_node_distance(minΔ::MinNodalDistance, ::EveryDirection) =
+    min(minΔ.h, minΔ.v)
+
+function min_node_distance(
+    vgeo,
+    topology::AbstractTopology{dim},
+    N,
+    ::Type{T},
+    direction::Direction = EveryDirection(),
+) where {T, dim}
+    topology = topology
+    nrealelem = length(topology.realelems)
     if nrealelem > 0
         Nq = N .+ 1
         Np = prod(Nq)
-        device = grid.vgeo isa Array ? CPU() : CUDADevice()
-        min_neighbor_distance = similar(grid.vgeo, Np, nrealelem)
+        device = vgeo isa Array ? CPU() : CUDADevice()
+        min_neighbor_distance = similar(vgeo, Np, nrealelem)
         event = Event(device)
         event = kernel_min_neighbor_distance!(device, min(Np, 1024))(
             Val(N),
             Val(dim),
             direction,
             min_neighbor_distance,
-            grid.vgeo,
+            vgeo,
             topology.realelems;
             ndrange = (Np * nrealelem),
             dependencies = (event,),
@@ -394,6 +469,9 @@ function get_z(
     Nvert = N[end]
     Nph = (Nhoriz + 1)^2
     Np = Nph * (Nvert + 1)
+    if last(polynomialorders(grid)) == 0
+        rm_dupes = false # no duplicates in FVM
+    end
     if rm_dupes
         ijk_range = (1:Nph:(Np - Nph))
         vgeo = Array(grid.vgeo)

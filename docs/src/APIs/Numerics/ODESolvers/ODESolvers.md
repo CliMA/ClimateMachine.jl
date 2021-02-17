@@ -41,6 +41,8 @@ ODESolvers.ARK2ImplicitExplicitMidpoint
 ODESolvers.ARK2GiraldoKellyConstantinescu
 ODESolvers.ARK548L2SA2KennedyCarpenter
 ODESolvers.ARK437L2SA1KennedyCarpenter
+ODESolvers.Trap2LockWoodWeller
+ODESolvers.DBM453VoglEtAl
 ODESolvers.SSPRK22Ralstons
 ODESolvers.SSPRK22Heuns
 ODESolvers.LSRKEulerMethod
@@ -57,6 +59,17 @@ ODESolvers.MultirateRungeKutta
 ```@docs
 ODESolvers.TimeScaledRHS
 ODESolvers.MultirateInfinitesimalStep
+ODESolvers.MISRK1
+ODESolvers.MIS2
+ODESolvers.MISRK2a
+ODESolvers.MISRK2b
+ODESolvers.MIS3C
+ODESolvers.MISRK3
+ODESolvers.MIS4
+ODESolvers.MIS4a
+ODESolvers.MISKWRK43
+ODESolvers.TVDMISA
+ODESolvers.TVDMISB
 ```
 
 ## Split-explicit methods

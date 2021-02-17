@@ -44,7 +44,7 @@ function atmos_energy_boundary_state!(
 
     T = bc_energy.fn(state⁻, aux⁻, t)
     E_int⁺ = state⁺.ρ * _cv_d * (T - _T_0)
-    state⁺.ρe =
+    state⁺.energy.ρe =
         E_int⁺ + state⁺.ρ * gravitational_potential(atmos.orientation, aux⁻)
 end
 function atmos_energy_normal_boundary_flux_second_order!(
@@ -67,10 +67,10 @@ function atmos_energy_normal_boundary_flux_second_order!(
 
     # TODO: figure out a better way...
     ν, D_t, _ = turbulence_tensors(atmos, state⁻, diffusive⁻, aux⁻, t)
-    d_h_tot = -D_t .* diffusive⁻.∇h_tot
+    d_h_tot = -D_t .* diffusive⁻.energy.∇h_tot
     nd_h_tot = dot(n⁻, d_h_tot)
     # both sides involve projections of normals, so signs are consistent
-    fluxᵀn.ρe += nd_h_tot * state⁻.ρ
+    fluxᵀn.energy.ρe += nd_h_tot * state⁻.ρ
 end
 
 
@@ -109,7 +109,40 @@ function atmos_energy_normal_boundary_flux_second_order!(
 
     # DG normal is defined in the outward direction
     # we want to prescribe the inward flux
-    fluxᵀn.ρe -= bc_energy.fn(state⁻, aux⁻, t)
+    fluxᵀn.energy.ρe -= bc_energy.fn(state⁻, aux⁻, t)
+end
+
+"""
+    Adiabaticθ(fn) :: EnergyBC
+
+Prescribe the net inward potential temperature flux
+across the boundary by `fn`, a function with signature
+`fn(state, aux, t)`, returning the flux (in kgK/m^2).
+"""
+struct Adiabaticθ{FN} <: EnergyBC
+    fn::FN
+end
+function atmos_energy_boundary_state!(nf, bc_energy::Adiabaticθ, atmos, args...) end
+function atmos_energy_normal_boundary_flux_second_order!(
+    nf,
+    bc_energy::Adiabaticθ,
+    atmos,
+    fluxᵀn,
+    n⁻,
+    state⁻,
+    diffusive⁻,
+    hyperdiffusive⁻,
+    aux⁻,
+    state⁺,
+    diffusive⁺,
+    hyperdiffusive⁺,
+    aux⁺,
+    t,
+    args...,
+)
+    # DG normal is defined in the outward direction
+    # we want to prescribe the inward flux
+    fluxᵀn.energy.ρθ_liq_ice -= bc_energy.fn(state⁻, aux⁻, t)
 end
 
 """
@@ -159,7 +192,7 @@ function atmos_energy_normal_boundary_flux_second_order!(
 
     # calculate MSE from the states at the boundary and at the interior point
     ts = PhaseEquil_ρTq(atmos.param_set, state⁻.ρ, T, q_tot)
-    ts_int = recover_thermo_state(atmos, atmos.moisture, state_int⁻, aux_int⁻)
+    ts_int = recover_thermo_state(atmos, state_int⁻, aux_int⁻)
     e_pot = gravitational_potential(atmos.orientation, aux⁻)
     e_pot_int = gravitational_potential(atmos.orientation, aux_int⁻)
     MSE = moist_static_energy(ts, e_pot)
@@ -168,5 +201,5 @@ function atmos_energy_normal_boundary_flux_second_order!(
     # TODO: use the correct density at the surface
     ρ_avg = average_density(state⁻.ρ, state_int⁻.ρ)
     # NOTE: difference from design docs since normal points outwards
-    fluxᵀn.ρe -= C_h * ρ_avg * normu_int⁻_tan * (MSE - MSE_int)
+    fluxᵀn.energy.ρe -= C_h * ρ_avg * normu_int⁻_tan * (MSE - MSE_int)
 end

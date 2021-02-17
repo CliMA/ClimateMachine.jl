@@ -239,7 +239,7 @@ function source(s::BomexTendencies{Energy}, m, args)
     cvm = cv_m(ts)
     _e_int_v0 = FT(e_int_v0(m.param_set))
     term1 = cvm * ρ∂θ∂t * exner(ts) + _e_int_v0 * ρ∂qt∂t
-    term2 = state.ρ * w_s * dot(k̂, diffusive.∇h_tot)
+    term2 = state.ρ * w_s * dot(k̂, diffusive.energy.∇h_tot)
     return term1 - term2
 end
 function source(s::BomexTendencies{TotalMoisture}, m, args)
@@ -337,7 +337,7 @@ function init_bomex!(problem, bl, state, aux, localgeo, t)
     # Assign initial conditions for prognostic state variables
     state.ρ = ρ
     state.ρu = SVector(ρu, ρv, ρw)
-    state.ρe = ρe_tot
+    state.energy.ρe = ρe_tot
     state.moisture.ρq_tot = ρ * q_tot
     if bl.moisture isa NonEquilMoist
         state.moisture.ρq_liq = FT(0)
@@ -482,21 +482,4 @@ function bomex_model(
     )
 
     return model
-end
-
-function config_diagnostics(driver_config)
-    default_dgngrp = setup_atmos_default_diagnostics(
-        AtmosLESConfigType(),
-        "2500steps",
-        driver_config.name,
-    )
-    core_dgngrp = setup_atmos_core_diagnostics(
-        AtmosLESConfigType(),
-        "2500steps",
-        driver_config.name,
-    )
-    return ClimateMachine.DiagnosticsConfiguration([
-        default_dgngrp,
-        core_dgngrp,
-    ])
 end

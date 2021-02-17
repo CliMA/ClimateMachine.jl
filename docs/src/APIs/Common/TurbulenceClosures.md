@@ -12,8 +12,6 @@ TurbulenceClosures
 
 ```@docs
 TurbulenceClosureModel
-hyperdiff_enthalpy_and_momentum_flux
-hyperdiff_momentum_flux
 WithDivergence
 WithoutDivergence
 ConstantViscosity
