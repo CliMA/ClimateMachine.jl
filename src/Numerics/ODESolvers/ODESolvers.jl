@@ -114,7 +114,7 @@ function solve!(
     adjustfinalstep = true,
     numberofsteps::Integer = 0,
     callbacks = (),
-    do_callback_ini = true,
+    do_callback_init = true,
     do_callback_fini = true,
 )
 
@@ -125,7 +125,7 @@ function solve!(
     t0 = gettime(solver)
 
     # Loop through an initialize callbacks (if they need it)
-    if do_callback_ini
+    if do_callback_init
         GenericCallbacks.init!(callbacks, solver, Q, param, t0)
     end
 
