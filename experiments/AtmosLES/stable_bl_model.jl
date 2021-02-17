@@ -294,7 +294,7 @@ function stable_bl_model(
     moisture_bcs = moisture_model == "dry" ? () : (; moisture = moisture_bc)
     boundary_conditions = (
         AtmosBC(;
-            momentum = Impenetrable(DragLaw(
+            momentum = Impenetrable{Momentum}(DragLaw(
                 # normPu_int is the internal horizontal speed
                 # P represents the projection onto the horizontal
                 (state, aux, t, normPu_int) -> (u_star / normPu_int)^2,

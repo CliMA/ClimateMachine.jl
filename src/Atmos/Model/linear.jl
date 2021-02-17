@@ -173,9 +173,32 @@ function boundary_state!(
     nf::NumericalFluxFirstOrder,
     bc,
     atmoslm::AtmosLinearModel,
+    state⁺,
+    aux⁺,
+    n,
+    state⁻,
+    aux⁻,
+    t,
     args...,
 )
-    atmos_boundary_state!(nf, bc, atmoslm, args...)
+
+    ntargs = (; n, state = state⁻, aux = aux⁻, t, args)
+
+    set_bcs!(state⁺, atmoslm.atmos, nf, bc, ntargs, prognostic_vars(atmoslm))
+
+    atmos_boundary_state!(
+        nf,
+        bc,
+        atmoslm,
+        state⁺,
+        aux⁺,
+        n,
+        state⁻,
+        aux⁻,
+        t,
+        args...,
+    )
+
 end
 function boundary_state!(
     nf::NumericalFluxSecondOrder,

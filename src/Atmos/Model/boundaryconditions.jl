@@ -1,6 +1,11 @@
 using CLIMAParameters.Planet: cv_d, T_0
-
+using ..BalanceLaws: BCDef
+import ..BalanceLaws: bc_val
 export InitStateBC
+
+const NF1 = NumericalFluxFirstOrder
+const NF2 = NumericalFluxSecondOrder
+const NF∇ = NumericalFluxGradient
 
 export AtmosBC,
     Impenetrable,
@@ -31,20 +36,20 @@ export average_density_sfc_int
 
 The standard boundary condition for [`AtmosModel`](@ref). The default options imply a "no flux" boundary condition.
 """
-Base.@kwdef struct AtmosBC{M, E, Q, P, TR, TC}
-    momentum::M = Impenetrable(FreeSlip())
+Base.@kwdef struct AtmosBC{M, E, Q, P, TR, TC, T}
+    momentum::M = Impenetrable{Momentum}(FreeSlip())
     energy::E = Insulating()
     moisture::Q = Impermeable()
     precipitation::P = OutflowPrecipitation()
     tracer::TR = ImpermeableTracer()
     turbconv::TC = NoTurbConvBC()
+    tup::T = (Impenetrable(FreeSlip())...,)
 end
 
 boundary_conditions(atmos::AtmosModel) = atmos.problem.boundaryconditions
 
-
 function boundary_state!(
-    nf,
+    nf::Union{NumericalFluxFirstOrder, NumericalFluxGradient},
     bc::AtmosBC,
     atmos::AtmosModel,
     state⁺,
@@ -55,6 +60,11 @@ function boundary_state!(
     t,
     args...,
 )
+
+    ntargs = (; n, state = state⁻, aux = aux⁻, t, args)
+
+    set_bcs!(state⁺, atmos, nf, bc, ntargs)
+
     atmos_boundary_state!(
         nf,
         bc,
@@ -82,7 +92,6 @@ function boundary_state!(
 end
 
 function atmos_boundary_state!(nf, bc::AtmosBC, atmos, args...)
-    atmos_momentum_boundary_state!(nf, bc.momentum, atmos, args...)
     atmos_energy_boundary_state!(nf, bc.energy, atmos, args...)
     atmos_moisture_boundary_state!(nf, bc.moisture, atmos, args...)
     atmos_precipitation_boundary_state!(nf, bc.precipitation, atmos, args...)

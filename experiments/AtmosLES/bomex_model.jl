@@ -453,14 +453,17 @@ function bomex_model(
         )
     end
 
+    drag_law = DragLaw(
+        # normPu_int is the internal horizontal speed
+        # P represents the projection onto the horizontal
+        (state, aux, t, normPu_int) -> (u_star / normPu_int)^2,
+    )
+
     problem = AtmosProblem(
         boundaryconditions = (
             AtmosBC(
-                momentum = Impenetrable(DragLaw(
-                    # normPu_int is the internal horizontal speed
-                    # P represents the projection onto the horizontal
-                    (state, aux, t, normPu_int) -> (u_star / normPu_int)^2,
-                )),
+                tup = (Impenetrable(drag_law)...,),
+                momentum = Impenetrable{Momentum}(drag_law),
                 energy = energy_bc,
                 moisture = moisture_bc,
                 turbconv = turbconv_bcs(turbconv)[1],

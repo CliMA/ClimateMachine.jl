@@ -98,6 +98,9 @@ transform_post_gradient_laplacian!
 ## Boundary conditions
 
 ```@docs
+BCDef
+DefaultBC
+set_bcs!
 boundary_conditions
 boundary_state!
 ```
