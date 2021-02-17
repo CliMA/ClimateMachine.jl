@@ -20,6 +20,7 @@ using ClimateMachine.Orientations
 using CLIMAParameters
 using CLIMAParameters.Planet
 
+# import and modify Earth parameters
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 CLIMAParameters.Planet.planet_radius(::EarthParameterSet) = 60e3
