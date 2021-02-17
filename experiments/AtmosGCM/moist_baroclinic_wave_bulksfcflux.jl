@@ -231,9 +231,11 @@ function config_baroclinic_wave(
     if with_moisture
         hyperdiffusion = EquilMoistBiharmonic(FT(8 * 3600))
         moisture = EquilMoist{FT}()
+        source = (Gravity(), Coriolis(), RemovePrecipitation(true)...) # precipitation is default to NoPrecipitation() as 0M microphysics
     else
         hyperdiffusion = DryBiharmonic(FT(8 * 3600))
         moisture = DryModel()
+        source = (Gravity(), Coriolis())
     end
 
     _C_drag = C_drag(param_set)::FT
@@ -266,7 +268,7 @@ function config_baroclinic_wave(
         turbulence = ConstantKinematicViscosity(FT(0)),
         hyperdiffusion = hyperdiffusion,
         moisture = moisture,
-        source = (Gravity(), Coriolis()),
+        source = source,
     )
 
     config = ClimateMachine.AtmosGCMConfiguration(
