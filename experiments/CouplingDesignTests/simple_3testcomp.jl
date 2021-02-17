@@ -27,11 +27,11 @@ ClimateMachine.init()
 const FT = Float64;
 
 # Use toy balance law for now
-include("CplTestingBL.jl")
-using .CplTestingBL
+# include("CplTestingBL.jl")
+# using .CplTestingBL
 
 
-couple_dt = 300.0
+couple_dt = 3600.0
 nstepsA = 5
 nstepsO = 5
 
@@ -64,12 +64,13 @@ domainL = RectangularDomain(
 
 # Set some paramters
 #  Haney like relaxation 60-day time scale.
+#  and 100m length scale
 const τ_airsea=FT(60*86400)
 #  Background atmos diffusivities
-const κᵃʰ=FT(1e4)
-const κᵃᶻ=FT(1e-2)
-const κᵒʰ=FT(1e3)
-const κᵒᶻ=FT(1e-4)
+const κᵃʰ=FT(1e4)*0.
+const κᵃᶻ=FT(1e-1)*0.
+const κᵒʰ=FT(1e3)*0.
+const κᵒᶻ=FT(1e-4)*0.
 
 # Create 3 components - one on each domain, for now all are instances
 # of the same balance law
@@ -100,12 +101,17 @@ function atmos_source_theta(θᵃ,npt,el,xc,yc,zc,θᵒ)
   end
   return tsource
 end
+## Set penalty term tau (for debugging)
+function atmos_get_penalty_tau(_...)
+  return FT(3.0 * 0.)
+end
 ## Create atmos component
 bl_prop=CplTestingBL.prop_defaults()
 bl_prop=(bl_prop..., init_theta=atmos_init_theta)
 bl_prop=(bl_prop..., theta_shadow_boundary_flux=atmos_theta_shadow_boundary_flux)
 bl_prop=(bl_prop..., calc_kappa_diff=atmos_calc_kappa_diff)
 bl_prop=(bl_prop..., source_theta=atmos_source_theta)
+bl_prop=(bl_prop..., get_penalty_tau=atmos_get_penalty_tau)
 mA=Coupling.CplTestModel(;domain=domainA,
     equations=CplTestBL(bl_prop, (CoupledPrimaryBoundary(), ExteriorBoundary())),
     nsteps=nstepsA, dt=couple_dt/nstepsA, NFSecondOrder=CplTestingBL.PenaltyNumFluxDiffusive() )
@@ -130,7 +136,7 @@ function ocean_calc_kappa_diff(_...)
 end
 ## Set penalty term tau (for debugging)
 function ocean_get_penalty_tau(_...)
-  return FT(0.5)
+  return FT(0.15 *0. )
 end
 ## Create ocean component
 bl_prop=CplTestingBL.prop_defaults()
@@ -240,4 +246,4 @@ cState.CplStateBlob[:Ocean_SST]=deepcopy( mO.state.θ[boundaryO] )
 cState.CplStateBlob[:Atmos_MeanAirSeaθFlux]=deepcopy(mA.state.F_accum[boundaryA] )
 
 # Invoke solve! with coupled timestepper and callback list.
-solve!(nothing,cC;numberofsteps=4)
+solve!(nothing,cC;numberofsteps=100)
