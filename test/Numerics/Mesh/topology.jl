@@ -4,25 +4,37 @@ using Combinatorics, MPI
 
 MPI.Initialized() || MPI.Init()
 
-@testset "cubedshellwarp tests" begin
-    import ClimateMachine.Mesh.Topologies: cubedshellwarp
+@testset "equiangular_cubed_shell_warp tests" begin
+    import ClimateMachine.Mesh.Topologies: equiangular_cubed_shell_warp
 
     @testset "check radius" begin
-        @test hypot(cubedshellwarp(3.0, -2.2, 1.3)...) ≈ 3.0 rtol = eps()
-        @test hypot(cubedshellwarp(-3.0, -2.2, 1.3)...) ≈ 3.0 rtol = eps()
-        @test hypot(cubedshellwarp(1.1, -2.2, 3.0)...) ≈ 3.0 rtol = eps()
-        @test hypot(cubedshellwarp(1.1, -2.2, -3.0)...) ≈ 3.0 rtol = eps()
-        @test hypot(cubedshellwarp(1.1, 3.0, 0.0)...) ≈ 3.0 rtol = eps()
-        @test hypot(cubedshellwarp(1.1, -3.0, 0.0)...) ≈ 3.0 rtol = eps()
+        @test hypot(equiangular_cubed_shell_warp(3.0, -2.2, 1.3)...) ≈ 3.0 rtol =
+            eps()
+        @test hypot(equiangular_cubed_shell_warp(-3.0, -2.2, 1.3)...) ≈ 3.0 rtol =
+            eps()
+        @test hypot(equiangular_cubed_shell_warp(1.1, -2.2, 3.0)...) ≈ 3.0 rtol =
+            eps()
+        @test hypot(equiangular_cubed_shell_warp(1.1, -2.2, -3.0)...) ≈ 3.0 rtol =
+            eps()
+        @test hypot(equiangular_cubed_shell_warp(1.1, 3.0, 0.0)...) ≈ 3.0 rtol =
+            eps()
+        @test hypot(equiangular_cubed_shell_warp(1.1, -3.0, 0.0)...) ≈ 3.0 rtol =
+            eps()
     end
 
     @testset "check sign" begin
-        @test sign.(cubedshellwarp(3.0, -2.2, 1.3)) == sign.((3.0, -2.2, 1.3))
-        @test sign.(cubedshellwarp(-3.0, -2.2, 1.3)) == sign.((-3.0, -2.2, 1.3))
-        @test sign.(cubedshellwarp(1.1, -2.2, 3.0)) == sign.((1.1, -2.2, 3.0))
-        @test sign.(cubedshellwarp(1.1, -2.2, -3.0)) == sign.((1.1, -2.2, -3.0))
-        @test sign.(cubedshellwarp(1.1, 3.0, 0.0)) == sign.((1.1, 3.0, 0.0))
-        @test sign.(cubedshellwarp(1.1, -3.0, 0.0)) == sign.((1.1, -3.0, 0.0))
+        @test sign.(equiangular_cubed_shell_warp(3.0, -2.2, 1.3)) ==
+              sign.((3.0, -2.2, 1.3))
+        @test sign.(equiangular_cubed_shell_warp(-3.0, -2.2, 1.3)) ==
+              sign.((-3.0, -2.2, 1.3))
+        @test sign.(equiangular_cubed_shell_warp(1.1, -2.2, 3.0)) ==
+              sign.((1.1, -2.2, 3.0))
+        @test sign.(equiangular_cubed_shell_warp(1.1, -2.2, -3.0)) ==
+              sign.((1.1, -2.2, -3.0))
+        @test sign.(equiangular_cubed_shell_warp(1.1, 3.0, 0.0)) ==
+              sign.((1.1, 3.0, 0.0))
+        @test sign.(equiangular_cubed_shell_warp(1.1, -3.0, 0.0)) ==
+              sign.((1.1, -3.0, 0.0))
     end
 
     @testset "check continuity" begin
@@ -30,43 +42,68 @@ MPI.Initialized() || MPI.Init()
             permutations([3.0, 2.999999999, 1.3]),
             permutations([2.999999999, 3.0, 1.3]),
         )
-            @test all(cubedshellwarp(u...) .≈ cubedshellwarp(v...))
+            @test all(
+                equiangular_cubed_shell_warp(u...) .≈
+                equiangular_cubed_shell_warp(v...),
+            )
         end
         for (u, v) in zip(
             permutations([3.0, -2.999999999, 1.3]),
             permutations([2.999999999, -3.0, 1.3]),
         )
-            @test all(cubedshellwarp(u...) .≈ cubedshellwarp(v...))
+            @test all(
+                equiangular_cubed_shell_warp(u...) .≈
+                equiangular_cubed_shell_warp(v...),
+            )
         end
         for (u, v) in zip(
             permutations([-3.0, 2.999999999, 1.3]),
             permutations([-2.999999999, 3.0, 1.3]),
         )
-            @test all(cubedshellwarp(u...) .≈ cubedshellwarp(v...))
+            @test all(
+                equiangular_cubed_shell_warp(u...) .≈
+                equiangular_cubed_shell_warp(v...),
+            )
         end
         for (u, v) in zip(
             permutations([-3.0, -2.999999999, 1.3]),
             permutations([-2.999999999, -3.0, 1.3]),
         )
-            @test all(cubedshellwarp(u...) .≈ cubedshellwarp(v...))
+            @test all(
+                equiangular_cubed_shell_warp(u...) .≈
+                equiangular_cubed_shell_warp(v...),
+            )
         end
     end
 end
 
-@testset "cubedshellunwarp" begin
-    import ClimateMachine.Mesh.Topologies: cubedshellwarp, cubedshellunwarp
+@testset "equiangular_cubed_shell_unwarp" begin
+    import ClimateMachine.Mesh.Topologies:
+        equiangular_cubed_shell_warp, equiangular_cubed_shell_unwarp
 
     for u in permutations([3.0, 2.999999999, 1.3])
-        @test all(cubedshellunwarp(cubedshellwarp(u...)...) .≈ u)
+        @test all(
+            equiangular_cubed_shell_unwarp(equiangular_cubed_shell_warp(u...)...) .≈
+            u,
+        )
     end
     for u in permutations([3.0, -2.999999999, 1.3])
-        @test all(cubedshellunwarp(cubedshellwarp(u...)...) .≈ u)
+        @test all(
+            equiangular_cubed_shell_unwarp(equiangular_cubed_shell_warp(u...)...) .≈
+            u,
+        )
     end
     for u in permutations([-3.0, 2.999999999, 1.3])
-        @test all(cubedshellunwarp(cubedshellwarp(u...)...) .≈ u)
+        @test all(
+            equiangular_cubed_shell_unwarp(equiangular_cubed_shell_warp(u...)...) .≈
+            u,
+        )
     end
     for u in permutations([-3.0, -2.999999999, 1.3])
-        @test all(cubedshellunwarp(cubedshellwarp(u...)...) .≈ u)
+        @test all(
+            equiangular_cubed_shell_unwarp(equiangular_cubed_shell_warp(u...)...) .≈
+            u,
+        )
     end
 end
 

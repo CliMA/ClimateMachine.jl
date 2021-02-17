@@ -31,7 +31,7 @@ function main()
         FloatType = FT,
         DeviceArray = DA,
         polynomialorder = N,
-        meshwarp = Topologies.cubedshellwarp,
+        meshwarp = Topologies.equiangular_cubed_shell_warp,
     )
 
     let

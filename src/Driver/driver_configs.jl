@@ -355,7 +355,7 @@ function AtmosGCMConfiguration(
     ),
     mpicomm = MPI.COMM_WORLD,
     grid_stretching = (nothing,),
-    meshwarp::Function = cubedshellwarp,
+    meshwarp::Function = equiangular_cubed_shell_warp,
     numerical_flux_first_order = RusanovNumericalFlux(),
     numerical_flux_second_order = CentralNumericalFluxSecondOrder(),
     numerical_flux_gradient = CentralNumericalFluxGradient(),

@@ -169,7 +169,7 @@ function run_test3(mpicomm, dim, Ne, N, FT, ArrayType)
             FloatType = FT,
             DeviceArray = ArrayType,
             polynomialorder = N,
-            meshwarp = Topologies.cubedshellwarp,
+            meshwarp = Topologies.equiangular_cubed_shell_warp,
         )
 
         nrealelem = length(topl.realelems)

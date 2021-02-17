@@ -37,9 +37,9 @@ Topologies.StackedCubedSphereTopology(mpicomm, Nhorz, Rrange)
 
 ```@docs
 Topologies.cubedshellmesh
-Topologies.cubedshellwarp
+Topologies.equiangular_cubed_shell_warp
 Topologies.hasboundary
-Topologies.cubedshellunwarp
+Topologies.equiangular_cubed_shell_unwarp
 Topologies.compute_lat_long
 Topologies.cubedshelltopowarp
 Topologies.grid1d

@@ -150,7 +150,7 @@ function test_run(mpicomm, topl, ArrayType, N, FT, Rinner, Router)
         FloatType = FT,
         DeviceArray = ArrayType,
         polynomialorder = N,
-        meshwarp = Topologies.cubedshellwarp,
+        meshwarp = Topologies.equiangular_cubed_shell_warp,
     )
     dg = DGModel(
         IntegralTestSphereModel(Rinner, Router),
