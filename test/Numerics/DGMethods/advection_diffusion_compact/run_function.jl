@@ -73,6 +73,6 @@ function run(
     # do_output(mpicomm, "output", dg, Q_DGlsrk, Q_anal, model)
 
     rel_error = norm(rhs_anal .- rhs_DGsource) / norm(rhs_anal)
-    return dg, model, rhs_DGsource, rhs_anal, rel_error
+    return dg, model, Q_DGlsrk, Q_anal, rel_error
     # return norm(Q_anal-Q_DGlsrk)/norm(Q_anal)
 end

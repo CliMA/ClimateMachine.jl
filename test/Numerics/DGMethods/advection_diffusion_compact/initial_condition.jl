@@ -25,7 +25,7 @@ function initial_condition!(
 
         c = get_c(l, r)
         # state.ρ = calc_Ylm(φ, λ, l, m) * exp(-problem.D*c*t)
-        # state.ρ = calc_Ylm(φ, λ, l, m) * exp(-problem.D*c*t) * exp(-z/30.0e3)
-        state.ρ = cos(z/30.0e3)
+        state.ρ = calc_Ylm(φ, λ, l, m) * exp(-problem.D*c*t) * exp(-z/30.0e3)
+        #state.ρ = cos(z/30.0e3)
     end
 end
