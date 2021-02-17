@@ -17,7 +17,7 @@ The ClimateMachine.jl Coupler consists of three main pieces
    defines the API through which components can export fields to and import fields from 
    the coupler. 
    
-3. A set of [example experiments](.experiments/CouplingDesignTests/). These use the Coupler to 
+3. A set of [example experiments](/experiments/CouplingDesignTests/). These use the Coupler to 
    carry out simulations involving multiple components.
    
 The time-stepper and module pieces that make up the Coupler are designed to be generic. 
