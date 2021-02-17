@@ -4,7 +4,7 @@ include("Topologies.jl")
 include("Metrics.jl")
 include("Elements.jl")
 include("Grids.jl")
-include("Filters.jl")
 include("Geometry.jl")
+include("Filters.jl")
 include("Interpolation.jl")
 end # module

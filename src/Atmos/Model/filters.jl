@@ -18,6 +18,7 @@ function compute_filter_argument!(
     filter_state::Vars,
     state::Vars,
     aux::Vars,
+    geo::LocalGeometry,
 )
     # copy the whole state
     parent(filter_state) .= parent(state)
@@ -37,6 +38,7 @@ function compute_filter_result!(
     state::Vars,
     filter_state::Vars,
     aux::Vars,
+    geo::LocalGeometry,
 )
     # copy the whole filter state
     parent(state) .= parent(filter_state)

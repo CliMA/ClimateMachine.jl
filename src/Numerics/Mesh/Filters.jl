@@ -6,6 +6,7 @@ using KernelAbstractions.Extras: @unroll
 using StaticArrays
 using ..Grids
 using ..Grids: Direction, EveryDirection, HorizontalDirection, VerticalDirection
+using ..Geometry: LocalGeometry
 
 using ...MPIStateArrays
 using ...VariableTemplates: @vars, varsize, Vars, varsindices
@@ -36,7 +37,8 @@ function vars_state_filtered end
     compute_filter_argument!(::AbstractFilterTarget,
                              state_filter::Vars,
                              state::Vars,
-                             state_auxiliary::Vars)
+                             state_auxiliary::Vars,
+                             vgeo::LocalGeometry)
 
 Compute filter argument `state_filter` based on `state`
 and `state_auxiliary`
@@ -46,7 +48,8 @@ function compute_filter_argument! end
     compute_filter_result!(::AbstractFilterTarget,
                            state::Vars,
                            state_filter::Vars,
-                           state_auxiliary::Vars)
+                           state_auxiliary::Vars,
+                           vgeo::LocalGeometry)
 
 Compute filter result `state` based on the filtered state
 `state_filter` and `state_auxiliary`
@@ -80,6 +83,7 @@ function compute_filter_argument!(
     filter_state::Vars,
     state::Vars,
     aux::Vars,
+    geo::LocalGeometry,
 ) where {I}
     @unroll for s in 1:length(I)
         @inbounds parent(filter_state)[s] = parent(state)[I[s]]
@@ -91,6 +95,7 @@ function compute_filter_result!(
     state::Vars,
     filter_state::Vars,
     aux::Vars,
+    geo::LocalGeometry,
 ) where {I}
     @unroll for s in 1:length(I)
         @inbounds parent(state)[I[s]] = parent(filter_state)[s]
@@ -350,6 +355,7 @@ function apply!(
             HorizontalDirection(),
             Q.data,
             isnothing(state_auxiliary) ? nothing : state_auxiliary.data,
+            grid.vgeo,
             target,
             filtermatrix,
             ndrange = (nrealelem * Nq1, Nq2, Nq3),
@@ -367,6 +373,7 @@ function apply!(
             VerticalDirection(),
             Q.data,
             isnothing(state_auxiliary) ? nothing : state_auxiliary.data,
+            grid.vgeo,
             target,
             filtermatrix,
             ndrange = (nrealelem * Nq1, Nq2, Nq3),
@@ -493,6 +500,7 @@ horizontal and/or vertical reference directions.
     direction,
     Q,
     state_auxiliary,
+    vgeo,
     target::AbstractFilterTarget,
     filtermatrix,
 ) where {dim, N, vars_Q, vars_state_auxiliary}
@@ -503,6 +511,7 @@ horizontal and/or vertical reference directions.
         Nq1 = Nqs[1]
         Nq2 = Nqs[2]
         Nq3 = dim == 2 ? 1 : Nqs[dim]
+        Np = Nq1 * Nq2 * Nq3
 
         if direction isa EveryDirection
             filterinξ1 = filterinξ2 = true
@@ -554,6 +563,7 @@ horizontal and/or vertical reference directions.
             Vars{vars_state_filtered(target, FT)}(l_Qfiltered2),
             Vars{vars_Q}(l_Q[:]),
             Vars{vars_state_auxiliary}(l_aux[:]),
+            LocalGeometry{Np, N}(vgeo, ijk, e),
         )
 
         @unroll for fs in 1:nfilterstates
@@ -611,15 +621,16 @@ horizontal and/or vertical reference directions.
             l_Q2[s] = l_Q[s]
         end
 
+        ijk = i + Nq1 * ((j - 1) + Nq2 * (k - 1))
         compute_filter_result!(
             target,
             Vars{vars_Q}(l_Q2),
             Vars{vars_state_filtered(target, FT)}(l_Qfiltered[:]),
             Vars{vars_state_auxiliary}(l_aux[:]),
+            LocalGeometry{Np, N}(vgeo, ijk, e),
         )
 
         # Store result
-        ijk = i + Nq1 * ((j - 1) + Nq2 * (k - 1))
         @unroll for s in 1:nstates
             Q[ijk, s, e] = l_Q2[s]
         end
