@@ -14,6 +14,7 @@ using ClimateMachine.GenericCallbacks
 using ClimateMachine.ODESolvers
 using ClimateMachine.TurbulenceClosures
 using ClimateMachine.SystemSolvers: ManyColumnLU
+using ClimateMachine.NumericalFluxes
 using ClimateMachine.Mesh.Filters
 using ClimateMachine.Mesh.Grids
 using ClimateMachine.TemperatureProfiles
@@ -175,7 +176,7 @@ function config_baroclinic_wave(FT, poly_order, resolution, with_moisture)
         moisture = EquilMoist{FT}()
         source = (Gravity(), Coriolis())
     else
-        hyperdiffusion = NoHyperDiffusion()
+      hyperdiffusion = HorizDryBiharmonic(FT(8 * 3600))
         moisture = DryModel()
         source = (Gravity(), Coriolis())
     end
@@ -184,7 +185,7 @@ function config_baroclinic_wave(FT, poly_order, resolution, with_moisture)
         param_set;
         init_state_prognostic = init_baroclinic_wave!,
         ref_state = ref_state,
-        turbulence = ConstantKinematicViscosity(FT(10), WithDivergence()),
+        turbulence = ConstantKinematicViscosity(FT(0), WithDivergence()),
         hyperdiffusion = hyperdiffusion,
         moisture = moisture,
         source = source,
@@ -198,6 +199,7 @@ function config_baroclinic_wave(FT, poly_order, resolution, with_moisture)
         param_set,
         init_baroclinic_wave!;
         model = model,
+        numerical_flux_first_order = RoeNumericalFlux()
     )
 
     return config
@@ -238,7 +240,7 @@ function main()
         implicit_solver = ManyColumnLU,
         solver_method = ARK2GiraldoKellyConstantinescu,
         split_explicit_implicit = true,
-        discrete_splitting = false,
+        discrete_splitting = true,
     )
 
     CFL = FT(0.1) # target acoustic CFL number
