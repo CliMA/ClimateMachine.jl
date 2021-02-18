@@ -30,6 +30,7 @@ jobs:
           branch: ${{ fromJson(steps.get_pr.outputs.data).head.ref }}
           commit: ${{ fromJson(steps.get_pr.outputs.data).head.sha }}
           message: ":github: Triggered by comment on PR #${{ github.event.issue.number }}"
+          env: '{"PULL_REQUEST": ${{ github.event.issue.number }} }'
           async: true
 
       - name: Create comment
