@@ -33,7 +33,13 @@ function compute_filter_argument!(
         filter_state.moisture.ρq_liq -= aux.ref_state.ρq_liq
         filter_state.moisture.ρq_ice -= aux.ref_state.ρq_ice
     end
+
+    # XXX: Should we do this?
+    # Rotate to covariant Basis
+    ∇ξ = geo.invJ
+    filter_state.ρu = ∇ξ * state.ρu
 end
+
 function compute_filter_result!(
     target::AtmosFilterPerturbations,
     state::Vars,
@@ -53,6 +59,11 @@ function compute_filter_result!(
         filter_state.moisture.ρq_liq += aux.ref_state.ρq_liq
         filter_state.moisture.ρq_ice += aux.ref_state.ρq_ice
     end
+
+    # XXX: Should we do this?
+    # Rotate back to Cartesian basis
+    ∇ξ = geo.invJ
+    state.ρu = ∇ξ \ filter_state.ρu
 end
 
 struct AtmosCovariantVelocityFilter{M} <: AbstractFilterTarget
