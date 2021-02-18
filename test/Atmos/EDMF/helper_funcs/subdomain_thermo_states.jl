@@ -198,6 +198,7 @@ function new_thermo_state_en(
     a_min = m.turbconv.subdomains.a_min
     a_max = m.turbconv.subdomains.a_max
     if !(0 <= θ_liq_en)
+        @show(ts)
         @print("ρaθ_liq_up = ", ρaθ_liq_up[Val(1)], "\n")
         @print("θ_liq = ", θ_liq, "\n")
         @print("θ_liq_en = ", θ_liq_en, "\n")

@@ -130,8 +130,8 @@ function main(::Type{FT}) where {FT}
 
     # Simulation time
 
-    timeend = FT(3600)
-    CFLmax = FT(0.5)
+    timeend = FT(1800)
+    CFLmax = FT(100)
 
     config_type = SingleStackConfigType
 
@@ -151,7 +151,8 @@ function main(::Type{FT}) where {FT}
         config_type,
         zmax,
         surface_flux;
-        turbulence = ConstantKinematicViscosity(FT(0)),
+        # turbulence = ConstantKinematicViscosity(FT(0)),
+        turbulence = SmagorinskyLilly{FT}(0.21),
         turbconv = turbconv,
         compressibility = compressibility,
         ref_state = HydrostaticState(

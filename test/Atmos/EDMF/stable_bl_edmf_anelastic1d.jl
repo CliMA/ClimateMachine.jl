@@ -150,8 +150,8 @@ function main(::Type{FT}) where {FT}
         config_type,
         zmax,
         surface_flux;
-        turbulence = ConstantKinematicViscosity(FT(0)),
-        # turbulence = SmagorinskyLilly{FT}(0.21),
+        # turbulence = ConstantKinematicViscosity(FT(0)),
+        turbulence = SmagorinskyLilly{FT}(0.21),
         turbconv = turbconv,
         compressibility = compressibility,
     )
@@ -174,7 +174,7 @@ function main(::Type{FT}) where {FT}
         driver_config,
         init_on_cpu = true,
         Courant_number = CFLmax,
-        fixed_number_of_steps = 250
+        # fixed_number_of_steps = 25
     )
 
     # --- Zero-out horizontal variations:
@@ -249,7 +249,7 @@ function main(::Type{FT}) where {FT}
     check_cons =
         (ClimateMachine.ConservationCheck("ρ", "3000steps", FT(0.00000001)),)
 
-    cb_print_step = GenericCallbacks.EveryXSimulationSteps(1) do
+    cb_print_step = GenericCallbacks.EveryXSimulationSteps(100) do
         @show getsteps(solver_config.solver)
         nothing
     end
@@ -258,7 +258,7 @@ function main(::Type{FT}) where {FT}
         solver_config;
         diagnostics_config = dgn_config,
         check_cons = check_cons,
-        user_callbacks = (cb_boyd, cb_data_vs_time, cb_print_step), # cbtmarfilter, 
+        user_callbacks = (cb_boyd, cbtmarfilter, cb_data_vs_time, cb_print_step), # 
         check_euclidean_distance = true,
     )
 
