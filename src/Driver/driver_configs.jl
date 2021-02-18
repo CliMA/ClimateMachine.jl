@@ -353,6 +353,7 @@ function AtmosGCMConfiguration(
     numerical_flux_gradient = CentralNumericalFluxGradient(),
     fv_reconstruction = nothing,
     Ncutoff = N,
+    tendency_filter_target = nothing,
 ) where {FT <: AbstractFloat}
 
     (polyorder_horz, polyorder_vert) = get_polyorders(N)
@@ -448,7 +449,7 @@ Establishing Atmos GCM configuration for %s
         fv_reconstruction,
         filter,
         nothing, # gradient_filter_target
-        nothing, # tendency_filter_target
+        tendency_filter_target,
         AtmosGCMSpecificInfo(
             domain_height,
             nelem_vert,
