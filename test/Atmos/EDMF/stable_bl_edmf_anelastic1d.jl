@@ -111,7 +111,8 @@ function main(::Type{FT}) where {FT}
         help = "specify surface flux for energy and moisture"
         metavar = "prescribed|bulk|custom_sbl"
         arg_type = String
-        default = "custom_sbl"
+        # default = "custom_sbl"
+        default = "prescribed"
     end
 
     cl_args = ClimateMachine.init(parse_clargs = true, custom_clargs = sbl_args)
@@ -130,7 +131,7 @@ function main(::Type{FT}) where {FT}
     # Simulation time
 
     timeend = FT(1800)
-    CFLmax = FT(100)
+    CFLmax = FT(1000)
 
     config_type = SingleStackConfigType
 
@@ -140,8 +141,8 @@ function main(::Type{FT}) where {FT}
 
     N_updrafts = 1
     N_quad = 3
-    # turbconv = NoTurbConv()
-    turbconv = EDMF(FT, N_updrafts, N_quad)
+    turbconv = NoTurbConv()
+    # turbconv = EDMF(FT, N_updrafts, N_quad)
     # compressibility = Compressible()
     compressibility = Anelastic1D()
 
@@ -150,8 +151,8 @@ function main(::Type{FT}) where {FT}
         config_type,
         zmax,
         surface_flux;
-        # turbulence = ConstantKinematicViscosity(FT(0)),
-        turbulence = SmagorinskyLilly{FT}(0.21),
+        turbulence = ConstantKinematicViscosity(FT(0)),
+        # turbulence = SmagorinskyLilly{FT}(0.21),
         turbconv = turbconv,
         compressibility = compressibility,
     )
@@ -214,6 +215,7 @@ function main(::Type{FT}) where {FT}
     cb_boyd = GenericCallbacks.EveryXSimulationSteps(1) do
         Filters.apply!(
             solver_config.Q,
+            # ("energy.ρe",turbconv_filters(turbconv)...,),
             ("energy.ρe",),
             solver_config.dg.grid,
             BoydVandevenFilter(
@@ -258,7 +260,7 @@ function main(::Type{FT}) where {FT}
         solver_config;
         diagnostics_config = dgn_config,
         check_cons = check_cons,
-        user_callbacks = (cb_boyd, cbtmarfilter, cb_data_vs_time, cb_print_step), # 
+        user_callbacks = (cb_boyd, cb_data_vs_time, cb_print_step), #  
         check_euclidean_distance = true,
     )
 
