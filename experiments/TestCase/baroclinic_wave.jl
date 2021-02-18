@@ -22,6 +22,7 @@ using ClimateMachine.Thermodynamics:
 using ClimateMachine.TurbulenceClosures
 using ClimateMachine.VariableTemplates
 using ClimateMachine.Spectra: compute_gaussian!
+using ClimateMachine.NumericalFluxes
 
 using CLIMAParameters
 using CLIMAParameters.Planet: MSLP, R_d, day, grav, Omega, planet_radius
@@ -161,21 +162,29 @@ function init_baroclinic_wave!(problem, bl, state, aux, localgeo, t)
     nothing
 end
 
-function config_baroclinic_wave(FT, poly_order, resolution, with_moisture)
+function config_baroclinic_wave(FT, poly_order, cutoff_order, resolution, with_moisture)
     # Set up a reference state for linearization of equations
     temp_profile_ref =
         DecayingTemperatureProfile{FT}(param_set, FT(290), FT(220), FT(8e3))
     ref_state = HydrostaticState(temp_profile_ref)
 
+    # Params for Rayleigh spoge
+    domain_height::FT = 30e3
+    z_sponge = FT(24e3)                    # height at which sponge begins (m)
+    α_relax = FT(1.0 / 1000)              # sponge relaxation rate (1/s)
+    exponent = FT(2)                       # sponge exponent for squared-sinusoid profile
+    u_relax = SVector(FT(0), FT(0), FT(0)) # relaxation velocity (m/s)
+    sponge_u = RayleighSponge(FT, domain_height, z_sponge, α_relax, u_relax, exponent);
+    
     # Set up the atmosphere model
     exp_name = "BaroclinicWave"
-    domain_height::FT = 30e3 # distance between surface and top of atmosphere (m)
+     
     if with_moisture
         hyperdiffusion = EquilMoistBiharmonic(FT(8 * 3600))
         moisture = EquilMoist{FT}()
         source = (Gravity(), Coriolis(), RemovePrecipitation(true)...) # precipitation is default to NoPrecipitation() as 0M microphysics
     else
-        hyperdiffusion = DryBiharmonic(FT(8 * 3600))
+        hyperdiffusion = NoHyperDiffusion()
         moisture = DryModel()
         source = (Gravity(), Coriolis())
     end
@@ -198,6 +207,8 @@ function config_baroclinic_wave(FT, poly_order, resolution, with_moisture)
         param_set,
         init_baroclinic_wave!;
         model = model,
+        numerical_flux_first_order = RoeNumericalFlux(),
+        Ncutoff = cutoff_order,
     )
 
     return config
@@ -221,16 +232,17 @@ function main()
 
     # Driver configuration parameters
     FT = Float64                             # floating type precision
-    poly_order = (5, 6)                      # discontinuous Galerkin polynomial order
+    poly_order = (5, 5)                      # discontinuous Galerkin polynomial order
+    cutoff_order = 4
     n_horz = 8                               # horizontal element number
-    n_vert = 3                               # vertical element number
+    n_vert = 4                               # vertical element number
     n_days::FT = 1
     timestart::FT = 0                        # start time (s)
     timeend::FT = n_days * day(param_set)    # end time (s)
 
     # Set up driver configuration
     driver_config =
-        config_baroclinic_wave(FT, poly_order, (n_horz, n_vert), with_moisture)
+        config_baroclinic_wave(FT, poly_order, cutoff_order, (n_horz, n_vert), with_moisture)
 
     # Set up experiment
     ode_solver_type = ClimateMachine.IMEXSolverType(
@@ -238,7 +250,7 @@ function main()
         implicit_solver = ManyColumnLU,
         solver_method = ARK2GiraldoKellyConstantinescu,
         split_explicit_implicit = true,
-        discrete_splitting = false,
+        discrete_splitting = true,
     )
 
     CFL = FT(0.1) # target acoustic CFL number
@@ -258,7 +270,7 @@ function main()
     dgn_config = config_diagnostics(FT, driver_config)
 
     # Set up user-defined callbacks
-    filterorder = 20
+    filterorder = 32
     filter = ExponentialFilter(solver_config.dg.grid, 0, filterorder)
     cbfilter = GenericCallbacks.EveryXSimulationSteps(1) do
         Filters.apply!(
