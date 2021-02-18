@@ -1,4 +1,5 @@
 export AtmosFilterPerturbations
+export AtmosCovariantVelocityFilter
 
 import ..Mesh.Filters:
     AbstractFilterTarget,
@@ -52,4 +53,39 @@ function compute_filter_result!(
         filter_state.moisture.ρq_liq += aux.ref_state.ρq_liq
         filter_state.moisture.ρq_ice += aux.ref_state.ρq_ice
     end
+end
+
+struct AtmosCovariantVelocityFilter{M} <: AbstractFilterTarget
+    atmos::M
+end
+
+vars_state_filtered(target::AtmosCovariantVelocityFilter, FT) =
+    vars_state(target.atmos, Prognostic(), FT)
+
+function compute_filter_argument!(
+    target::AtmosCovariantVelocityFilter,
+    filter_state::Vars,
+    state::Vars,
+    aux::Vars,
+    geo::LocalGeometry,
+)
+    parent(filter_state) .= parent(state)
+
+    # Rotate to covariant basis
+    ∇ξ = geo.invJ
+    filter_state.ρu = ∇ξ * state.ρu
+end
+
+function compute_filter_result!(
+    target::AtmosCovariantVelocityFilter,
+    state::Vars,
+    filter_state::Vars,
+    aux::Vars,
+    geo::LocalGeometry,
+)
+    parent(state) .= parent(filter_state)
+
+    # Rotate to Cartesian basis
+    ∇ξ = geo.invJ
+    state.ρu = ∇ξ \ filter_state.ρu
 end
