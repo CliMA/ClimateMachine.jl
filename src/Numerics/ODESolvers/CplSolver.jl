@@ -39,27 +39,30 @@ mutable struct CplSolver{CL, FT} <: AbstractODESolver
     steps::Int
 end
 
-function CplSolver(;component_list=component_list, coupling_dt=coupling_dt, t0=t0)
-    return CplSolver(component_list, coupling_dt, t0, t0 , 0 )
+function CplSolver(;
+    component_list = component_list,
+    coupling_dt = coupling_dt,
+    t0 = t0,
+)
+    return CplSolver(component_list, coupling_dt, t0, t0, 0)
 end
 
-function dostep!(Qtop,
-                 csolver::CplSolver,
-                 param,
-                 time::Real)
+function dostep!(Qtop, csolver::CplSolver, param, time::Real)
 
     println("Start coupled cycle")
 
     for cpl_component in csolver.component_list
 
-         # pre_step fetching imports goes here
-         cpl_component.pre_step(csolver)
-         component=cpl_component[:component_model]
-         solve!(component.state,
-                component.stepper;
-                numberofsteps=component.nsteps)
-         # post step pushing exports goes here
-         cpl_component.post_step(csolver)
+        # pre_step fetching imports goes here
+        cpl_component.pre_step(csolver)
+        component = cpl_component[:component_model]
+        solve!(
+            component.state,
+            component.stepper;
+            numberofsteps = component.nsteps,
+        )
+        # post step pushing exports goes here
+        cpl_component.post_step(csolver)
 
     end
     return nothing

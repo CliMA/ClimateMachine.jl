@@ -1,5 +1,5 @@
 mutable struct CplState{DT}
-        CplStateBlob::DT
+    CplStateBlob::DT
 end
 
 """
@@ -14,14 +14,9 @@ To start with we can just use a dictionary key and value table that holds labell
 A field is exported by one component and imported by one or more other components. Components
 can select which fields are needed by using the Dict symbols.
 """
-function CplState(;
-                  CplStateBlob
-                     )
+function CplState(; CplStateBlob)
 
-        return CplState(
-                        CplStateBlob
-                            )
+    return CplState(CplStateBlob)
 end
 
-function cpl_register(coupler::CplState,coupler_field_info)
-end
+function cpl_register(coupler::CplState, coupler_field_info) end

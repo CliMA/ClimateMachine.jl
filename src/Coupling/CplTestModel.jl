@@ -1,4 +1,4 @@
-struct CplTestModel{G,D,S,TS}
+struct CplTestModel{G, D, S, TS}
     grid::G
     discretization::D
     state::S
@@ -38,64 +38,52 @@ to execute with a certain timestep to synchronize with the coupling time scale.
 
 """
 function CplTestModel(;
-                      domain,
-                      equations,
-                      nsteps,
-                      btags=( (0,0), (0,0), (1,2) ),
-                      dt=1.,
-                      NFSecondOrder=CentralNumericalFluxSecondOrder(),
-                     )
+    domain,
+    equations,
+    nsteps,
+    btags = ((0, 0), (0, 0), (1, 2)),
+    dt = 1.0,
+    NFSecondOrder = CentralNumericalFluxSecondOrder(),
+)
 
-        FT = eltype(domain)
+    FT = eltype(domain)
 
-        ###
-        ### Instantiate the spatial grid for this component.
-        ### Use ocean scripting interface convenience wrapper for now.
-        ###
-        grid = nothing
-        grid = DiscontinuousSpectralElementGrid(
-         domain;
-         boundary_tags = btags
-        )
+    ###
+    ### Instantiate the spatial grid for this component.
+    ### Use ocean scripting interface convenience wrapper for now.
+    ###
+    grid = nothing
+    grid = DiscontinuousSpectralElementGrid(domain; boundary_tags = btags)
 
-        ###
-        ### Create a discretization that is the union of the spatial
-        ### grid and the equations, plus some numerical flux settings.
-        ###
-        discretization = DGModel(equations,
-                                 grid,
-                                 RusanovNumericalFlux(),
-                                 NFSecondOrder,
-                                 # CentralNumericalFluxSecondOrder(),
-                                 CentralNumericalFluxGradient();
-                                 # direction = VerticalDirection(),
-                                )
+    ###
+    ### Create a discretization that is the union of the spatial
+    ### grid and the equations, plus some numerical flux settings.
+    ###
+    discretization = DGModel(
+        equations,
+        grid,
+        RusanovNumericalFlux(),
+        NFSecondOrder,
+        # CentralNumericalFluxSecondOrder(),
+        CentralNumericalFluxGradient();,
+        # direction = VerticalDirection(),
+    )
 
- 
-        ###
-        ### Invoke the spatial ODE initialization functions
-        ###
-        state=init_ode_state(discretization, FT(0); init_on_cpu = true)
 
-        ###
-        ### Create a timestepper of the sort needed for this component.
-        ### Hard coded here - but can be configurable.
-        ###
-        stepper=LSRK54CarpenterKennedy(
-                                  discretization,
-                                  state,
-                                  dt=dt,
-                                  t0=0.)
+    ###
+    ### Invoke the spatial ODE initialization functions
+    ###
+    state = init_ode_state(discretization, FT(0); init_on_cpu = true)
 
-        ###
-        ### Return a CplTestModel entity that holds all the information
-        ### for a component that can be driver from a coupled stepping layer.
-        ###
-        return CplTestModel(
-                             grid,
-                             discretization,
-                             state,
-                             stepper,
-                             nsteps,
-                            )
+    ###
+    ### Create a timestepper of the sort needed for this component.
+    ### Hard coded here - but can be configurable.
+    ###
+    stepper = LSRK54CarpenterKennedy(discretization, state, dt = dt, t0 = 0.0)
+
+    ###
+    ### Return a CplTestModel entity that holds all the information
+    ### for a component that can be driver from a coupled stepping layer.
+    ###
+    return CplTestModel(grid, discretization, state, stepper, nsteps)
 end
