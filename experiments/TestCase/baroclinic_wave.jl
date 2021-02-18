@@ -214,6 +214,7 @@ function config_baroclinic_wave(
         model = model,
         numerical_flux_first_order = RoeNumericalFlux(),
         Ncutoff = cutoff_order,
+        tendency_filter_target = AtmosCovariantVelocityFilter(model),
     )
 
     return config
