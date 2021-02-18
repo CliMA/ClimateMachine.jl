@@ -47,34 +47,6 @@ import CLIMAParameters
 
 using ClimateMachine.Atmos: altitude, recover_thermo_state, density
 
-"""
-  StableBL Geostrophic Forcing (Source)
-"""
-struct StableBLGeostrophic{PV <: Momentum, FT} <: TendencyDef{Source, PV}
-    "Coriolis parameter [s⁻¹]"
-    f_coriolis::FT
-    "Eastward geostrophic velocity `[m/s]` (Base)"
-    u_geostrophic::FT
-    "Eastward geostrophic velocity `[m/s]` (Slope)"
-    u_slope::FT
-    "Northward geostrophic velocity `[m/s]`"
-    v_geostrophic::FT
-end
-StableBLGeostrophic(::Type{FT}, args...) where {FT} =
-    StableBLGeostrophic{Momentum, FT}(args...)
-
-function source(s::StableBLGeostrophic{Momentum}, m, args)
-    @unpack state, aux = args
-    @unpack f_coriolis, u_geostrophic, u_slope, v_geostrophic = s
-
-    z = altitude(m, aux)
-    # Note z dependence of eastward geostrophic velocity
-    u_geo = SVector(u_geostrophic + u_slope * z, v_geostrophic, 0)
-    ẑ = vertical_unit_vector(m, aux)
-    fkvector = f_coriolis * ẑ
-    # Accumulate sources
-    return -fkvector × (state.ρu .- state.ρ * u_geo)
-end
 
 """
   StableBL Sponge (Source)
@@ -211,6 +183,9 @@ function stable_bl_model(
     f_coriolis = FT(1.39e-4) # Coriolis parameter at 73N
 
     q_sfc = FT(0)
+    SHF = FT(0)
+    LHF = FT(0)
+    moisture_flux = FT(0)
 
     g = compressibility isa Compressible ? (Gravity(),) : ()
 
@@ -223,13 +198,6 @@ function stable_bl_model(
             z_sponge,
             α_max,
             γ,
-            u_geostrophic,
-            u_slope,
-            v_geostrophic,
-        ),
-        StableBLGeostrophic(
-            FT,
-            f_coriolis,
             u_geostrophic,
             u_slope,
             v_geostrophic,
@@ -312,7 +280,6 @@ function stable_bl_model(
         )
     end
 
-    moisture_flux = FT(0)
     problem = AtmosProblem(
         init_state_prognostic = ics,
         boundaryconditions = boundary_conditions,

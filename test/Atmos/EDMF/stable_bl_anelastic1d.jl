@@ -15,81 +15,11 @@ const clima_dir = dirname(dirname(pathof(ClimateMachine)));
 import CLIMAParameters
 
 include(joinpath(clima_dir, "experiments", "AtmosLES", "stable_bl_model.jl"))
-include("edmf_model.jl")
-include("edmf_kernels.jl")
+# include("edmf_model.jl")
+# include("edmf_kernels.jl")
 
 # CLIMAParameters.Planet.T_surf_ref(::EarthParameterSet) = 290.0 # default
 CLIMAParameters.Planet.T_surf_ref(::EarthParameterSet) = 265
-
-"""
-    init_state_prognostic!(
-            turbconv::EDMF{FT},
-            m::AtmosModel{FT},
-            state::Vars,
-            aux::Vars,
-            localgeo,
-            t::Real,
-        ) where {FT}
-
-Initialize EDMF state variables.
-This method is only called at `t=0`.
-"""
-function init_state_prognostic!(
-    turbconv::EDMF{FT},
-    m::AtmosModel{FT},
-    state::Vars,
-    aux::Vars,
-    localgeo,
-    t::Real,
-) where {FT}
-    # Aliases:
-    gm = state
-    en = state.turbconv.environment
-    up = state.turbconv.updraft
-    N_up = n_updrafts(turbconv)
-    # GCM setting - Initialize the grid mean profiles of prognostic variables (ρ,e_int,q_tot,u,v,w)
-    z = altitude(m, aux)
-
-    # SCM setting - need to have separate cases coded and called from a folder - see what LES does
-    # a thermo state is used here to convert the input θ to e_int profile
-    e_int = internal_energy(m, state, aux)
-
-    ts = PhaseDry(m.param_set, e_int, state.ρ)
-    T = air_temperature(ts)
-    p = air_pressure(ts)
-    q = PhasePartition(ts)
-    θ_liq = liquid_ice_pottemp(ts)
-
-    a_min = turbconv.subdomains.a_min
-    @unroll_map(N_up) do i
-        up[i].ρa = gm.ρ * a_min
-        up[i].ρaw = gm.ρu[3] * a_min
-        up[i].ρaθ_liq = gm.ρ * a_min * θ_liq
-        up[i].ρaq_tot = FT(0)
-    end
-
-    # initialize environment covariance with zero for now
-    if z <= FT(250)
-        en.ρatke =
-            gm.ρ *
-            FT(0.4) *
-            FT(1 - z / 250.0) *
-            FT(1 - z / 250.0) *
-            FT(1 - z / 250.0)
-        en.ρaθ_liq_cv =
-            gm.ρ *
-            FT(0.4) *
-            FT(1 - z / 250.0) *
-            FT(1 - z / 250.0) *
-            FT(1 - z / 250.0)
-    else
-        en.ρatke = FT(0)
-        en.ρaθ_liq_cv = FT(0)
-    end
-    en.ρaq_tot_cv = FT(0)
-    en.ρaθ_liq_q_tot_cv = FT(0)
-    return nothing
-end;
 
 function main(::Type{FT}) where {FT}
     # add a command line argument to specify the kind of surface flux
@@ -101,7 +31,7 @@ function main(::Type{FT}) where {FT}
         help = "specify surface flux for energy and moisture"
         metavar = "prescribed|bulk|custom_sbl"
         arg_type = String
-        default = "custom_sbl"
+        default = "prescribed"
     end
 
     cl_args = ClimateMachine.init(parse_clargs = true, custom_clargs = sbl_args)
@@ -118,8 +48,8 @@ function main(::Type{FT}) where {FT}
     t0 = FT(0)
 
     # Simulation time
-    timeend = FT(1800 * 1)
-    CFLmax = FT(100)
+    timeend = FT(1800)
+    CFLmax = FT(100) # compared to soundwaves which are excluded in the Anelastic1D setup
 
     config_type = SingleStackConfigType
 
@@ -130,7 +60,6 @@ function main(::Type{FT}) where {FT}
     N_updrafts = 1
     N_quad = 3
     turbconv = NoTurbConv()
-    # turbconv = EDMF(FT, N_updrafts, N_quad)
     # compressibility = Compressible()
     compressibility = Anelastic1D()
 
@@ -139,7 +68,7 @@ function main(::Type{FT}) where {FT}
         config_type,
         zmax,
         surface_flux;
-        turbulence = SmagorinskyLilly{FT}(0.21),
+        turbulence = ConstantKinematicViscosity(FT(0)),
         turbconv = turbconv,
         compressibility = compressibility,
     )
@@ -247,6 +176,6 @@ end
 
 solver_config, diag_arr, time_data = main(Float64)
 
-include(joinpath(@__DIR__, "report_mse_sbl_anelastic.jl"))
+# include(joinpath(@__DIR__, "report_mse_sbl_anelastic.jl"))
 
 nothing
