@@ -65,7 +65,7 @@ function CplTestModel(;
         RusanovNumericalFlux(),
         NFSecondOrder,
         # CentralNumericalFluxSecondOrder(),
-        CentralNumericalFluxGradient();,
+        CentralNumericalFluxGradient(),
         # direction = VerticalDirection(),
     )
 
