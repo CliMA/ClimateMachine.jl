@@ -14,8 +14,24 @@ Must have the following properties:
 """
 abstract type SpaceDiscretization end
 
-struct DGFVModel{BL, G, FVR, NFND, NFD, GNF, AS, DS, HDS, D, DD, MD, GF, TF} <:
-       SpaceDiscretization
+struct DGFVModel{
+    BL,
+    G,
+    FVR,
+    NFND,
+    NFD,
+    GNF,
+    AS,
+    DS,
+    HDS,
+    D,
+    DD,
+    MD,
+    GF,
+    TF,
+    GFT,
+    TFT,
+} <: SpaceDiscretization
     balance_law::BL
     grid::G
     fv_reconstruction::FVR
@@ -30,6 +46,8 @@ struct DGFVModel{BL, G, FVR, NFND, NFD, GNF, AS, DS, HDS, D, DD, MD, GF, TF} <:
     modeldata::MD
     gradient_filter::GF
     tendency_filter::TF
+    gradient_filter_target::GFT
+    tendency_filter_target::TFT
 end
 
 function DGFVModel(
@@ -56,6 +74,8 @@ function DGFVModel(
     modeldata = nothing,
     gradient_filter = nothing,
     tendency_filter = nothing,
+    gradient_filter_target = 1:number_states(balance_law, GradientFlux()),
+    tendency_filter_target = 1:number_states(balance_law, Prognostic()),
 )
     # Make sure we are FVM in the vertical
     @assert polynomialorders(grid)[end] == 0
@@ -77,11 +97,28 @@ function DGFVModel(
         modeldata,
         gradient_filter,
         tendency_filter,
+        gradient_filter_target,
+        tendency_filter_target,
     )
 end
 
-struct DGModel{BL, G, NFND, NFD, GNF, AS, DS, HDS, D, DD, MD, GF, TF} <:
-       SpaceDiscretization
+struct DGModel{
+    BL,
+    G,
+    NFND,
+    NFD,
+    GNF,
+    AS,
+    DS,
+    HDS,
+    D,
+    DD,
+    MD,
+    GF,
+    TF,
+    GFT,
+    TFT,
+} <: SpaceDiscretization
     balance_law::BL
     grid::G
     numerical_flux_first_order::NFND
@@ -95,6 +132,8 @@ struct DGModel{BL, G, NFND, NFD, GNF, AS, DS, HDS, D, DD, MD, GF, TF} <:
     modeldata::MD
     gradient_filter::GF
     tendency_filter::TF
+    gradient_filter_target::GFT
+    tendency_filter_target::TFT
 end
 
 function DGModel(
@@ -120,7 +159,15 @@ function DGModel(
     modeldata = nothing,
     gradient_filter = nothing,
     tendency_filter = nothing,
+    gradient_filter_target = nothing,
+    tendency_filter_target = nothing,
 )
+    if isnothing(gradient_filter_target)
+        gradient_filter_target = 1:number_states(balance_law, GradientFlux())
+    end
+    if isnothing(tendency_filter_target)
+        tendency_filter_target = 1:number_states(balance_law, Prognostic())
+    end
     state_auxiliary =
         init_state(state_auxiliary, balance_law, grid, direction, Auxiliary())
     DGModel(
@@ -137,6 +184,8 @@ function DGModel(
         modeldata,
         gradient_filter,
         tendency_filter,
+        gradient_filter_target,
+        tendency_filter_target,
     )
 end
 
@@ -310,7 +359,7 @@ function (dgfvm::DGFVModel)(tendency, state_prognostic, _, t, α, β)
             wait(device, comp_stream)
             Filters.apply!(
                 dgfvm.state_gradient_flux,
-                1:num_state_gradient_flux,
+                dgfvm.gradient_filter_target,
                 dgfvm.grid,
                 dgfvm.gradient_filter,
             )
@@ -429,7 +478,7 @@ function (dgfvm::DGFVModel)(tendency, state_prognostic, _, t, α, β)
     if dgfvm.tendency_filter !== nothing
         Filters.apply!(
             tendency,
-            1:num_state_tendency,
+            dgfvm.tendency_filter_target,
             dgfvm.grid,
             dgfvm.tendency_filter,
         )
@@ -548,7 +597,7 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
             wait(device, comp_stream)
             Filters.apply!(
                 dg.state_gradient_flux,
-                1:num_state_gradient_flux,
+                dg.gradient_filter_target,
                 dg.grid,
                 dg.gradient_filter,
             )
@@ -765,7 +814,7 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
     if dg.tendency_filter !== nothing
         Filters.apply!(
             tendency,
-            1:num_state_tendency,
+            dg.tendency_filter_target,
             dg.grid,
             dg.tendency_filter,
         )
