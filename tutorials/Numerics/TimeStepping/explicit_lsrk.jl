@@ -17,8 +17,7 @@ include(joinpath(
     "tutorial_risingbubble_config.jl",
 ))
 
-FT = Float64
-timeend = FT(100);
+FT = Float64;
 
 # After discretizing the spatial terms in the equation, the semi-discretization
 # of the governing equations have the form:
@@ -56,7 +55,7 @@ timeend = FT(100);
 # ## Runge-Kutta methods
 #
 # A single step of an ``s``-stage Runge-Kutta (RK) method for
-# solving the resulting ODE problem in [eq:foo] and can be
+# solving the resulting ODE problem presented above and can be
 # expressed as the following:
 #
 # ```math
@@ -136,10 +135,11 @@ timeend = FT(100);
 # we can determine the ``\Delta t`` by specifying the desired Courant number ``C``.
 # In our case, a heuristically determined value of 0.4 is used.
 
+timeend = FT(100)
 ode_solver =
     ClimateMachine.ExplicitSolverType(solver_method = LSRK54CarpenterKennedy)
 C = FT(0.4)
-run_simulation(ode_solver, C, timeend)
+run_simulation(ode_solver, C, timeend);
 
 # What if we wish to take a larger timestep size?  We could
 # try to increase the target Courant number, say ``C = 1.7``, and
@@ -156,7 +156,7 @@ ode_solver = ClimateMachine.ExplicitSolverType(
     solver_method = LSRK144NiegemannDiehlBusch,
 )
 C = FT(1.7)
-run_simulation(ode_solver, C, timeend)
+run_simulation(ode_solver, C, timeend);
 
 # And it successfully completes. Currently, the 14-stage LSRK method
 # `LSRK144NiegemannDiehlBusch` contains the largest stability region of the
@@ -183,7 +183,7 @@ run_simulation(ode_solver, C, timeend)
 
 ode_solver = ClimateMachine.ExplicitSolverType(solver_method = SSPRK33ShuOsher)
 C = FT(0.2)
-run_simulation(ode_solver, C, timeend)
+run_simulation(ode_solver, C, timeend);
 
 # ## References
 # - [Shu1988](@cite)

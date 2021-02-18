@@ -5,7 +5,7 @@
 # For our model problem, we shall reuse the acoustic wave test in the GCM
 # configuration. See its [code](@ref Acoustic-Wave-Configuration)
 # for details on the model and parameters. For the purposes of this tutorial,
-# we will only run the experiment for a total of 1800 simulation seconds.
+# we will only run the experiment for a total of 3600 simulation seconds.
 # Details on this test case can be found in Sec. 4.3 of [Giraldo2013](@cite).
 
 using ClimateMachine
@@ -16,7 +16,7 @@ include(joinpath(
     "Numerics",
     "TimeStepping",
     "tutorial_acousticwave_config.jl",
-))
+));
 
 # The acoustic wave test case used in this tutorial represents a global-scale
 # problem with inertia-gravity waves traveling around the entire planet.
@@ -41,7 +41,7 @@ timeend = FT(100)
 
 ode_solver = ClimateMachine.ExplicitSolverType(
     solver_method = LSRK144NiegemannDiehlBusch,
-)
+);
 
 # In the following example, the timestep calculation is based on the CFL condition
 # for horizontally-propogating acoustic waves. We use, ``C = 0.002`` in the
@@ -49,7 +49,7 @@ ode_solver = ClimateMachine.ExplicitSolverType(
 
 C = FT(0.002)
 cfl_direction = HorizontalDirection()
-run_acousticwave(ode_solver, C, cfl_direction, timeend)
+run_acousticwave(ode_solver, C, cfl_direction, timeend);
 
 # However, as it is imaginable, for real-world climate processes a time step
 # of 1 second would lead to extemely long time-to-solution simulations.
@@ -173,7 +173,7 @@ ode_solver = ClimateMachine.IMEXSolverType(
 )
 C = FT(0.5)
 cfl_direction = HorizontalDirection()
-run_acousticwave(ode_solver, C, cfl_direction, timeend)
+run_acousticwave(ode_solver, C, cfl_direction, timeend);
 
 # ## References
 # - [Giraldo2013](@cite)

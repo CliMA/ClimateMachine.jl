@@ -20,51 +20,51 @@ if generate_tutorials
 
     tutorials = [
         "Home" => "TutorialList.jl",
-        # "BalanceLaws" => [
-        #     "Tendency specification" =>
-        #         "BalanceLaws/tendency_specification_layer.jl",
-        # ],
-        # "Atmos" => [
-        #     "Dry Idealized GCM (Held-Suarez)" => "Atmos/heldsuarez.jl",
-        #     "Single Element Stack Experiment (Burgers Equation)" =>
-        #         "Atmos/burgers_single_stack.jl",
-        #     "Single Element Stack Experiment (Burgers Equation)" =>
-        #         "Atmos/burgers_single_stack_fvm.jl",
-        #     "LES Experiment (Density Current)" => "Atmos/densitycurrent.jl",
-        #     "LES Experiment (Rising Thermal Bubble)" =>
-        #         "Atmos/risingbubble.jl",
-        #     "Linear Hydrostatic Mountain (Topography)" =>
-        #         "Atmos/agnesi_hs_lin.jl",
-        #     "Linear Non-Hydrostatic Mountain (Topography)" =>
-        #         "Atmos/agnesi_nh_lin.jl",
-        # ],
-        # "Land" => [
-        #     "Heat" => ["Heat Equation" => "Land/Heat/heat_equation.jl"],
-        #     "Soil" => [
-        #         "Hydraulic Functions" =>
-        #             "Land/Soil/Water/hydraulic_functions.jl",
-        #         "Soil Heat Equation" =>
-        #             "Land/Soil/Heat/bonan_heat_tutorial.jl",
-        #         "Richards Equation" =>
-        #             "Land/Soil/Water/equilibrium_test.jl",
-        #         "Coupled Water and Heat" =>
-        #             "Land/Soil/Coupled/equilibrium_test.jl",
-        #     ],
-        # ],
-        # "Ocean" => [
-        #     "One-dimensional geostrophic adjustment" =>
-        #         "Ocean/geostrophic_adjustment.jl",
-        #     "Propagating mode-1 internal wave" => "Ocean/internal_wave.jl",
-        #     "Shear instability" => "Ocean/shear_instability.jl",
-        # ],
+        "BalanceLaws" => [
+            "Tendency specification" =>
+                "BalanceLaws/tendency_specification_layer.jl",
+        ],
+        "Atmos" => [
+            "Dry Idealized GCM (Held-Suarez)" => "Atmos/heldsuarez.jl",
+            "Single Element Stack Experiment (Burgers Equation)" =>
+                "Atmos/burgers_single_stack.jl",
+            "Single Element Stack Experiment (Burgers Equation)" =>
+                "Atmos/burgers_single_stack_fvm.jl",
+            "LES Experiment (Density Current)" => "Atmos/densitycurrent.jl",
+            "LES Experiment (Rising Thermal Bubble)" =>
+                "Atmos/risingbubble.jl",
+            "Linear Hydrostatic Mountain (Topography)" =>
+                "Atmos/agnesi_hs_lin.jl",
+            "Linear Non-Hydrostatic Mountain (Topography)" =>
+                "Atmos/agnesi_nh_lin.jl",
+        ],
+        "Land" => [
+            "Heat" => ["Heat Equation" => "Land/Heat/heat_equation.jl"],
+            "Soil" => [
+                "Hydraulic Functions" =>
+                    "Land/Soil/Water/hydraulic_functions.jl",
+                "Soil Heat Equation" =>
+                    "Land/Soil/Heat/bonan_heat_tutorial.jl",
+                "Richards Equation" =>
+                    "Land/Soil/Water/equilibrium_test.jl",
+                "Coupled Water and Heat" =>
+                    "Land/Soil/Coupled/equilibrium_test.jl",
+            ],
+        ],
+        "Ocean" => [
+            "One-dimensional geostrophic adjustment" =>
+                "Ocean/geostrophic_adjustment.jl",
+            "Propagating mode-1 internal wave" => "Ocean/internal_wave.jl",
+            "Shear instability" => "Ocean/shear_instability.jl",
+        ],
         "Numerics" => [
-            # "System Solvers" => [
-            #     "Conjugate Gradient" => "Numerics/SystemSolvers/cg.jl",
-            #     "Batched Generalized Minimal Residual" =>
-            #         "Numerics/SystemSolvers/bgmres.jl",
-            # ],
-            # "DG Methods" =>
-            #     ["Filters" => "Numerics/DGMethods/showcase_filters.jl"],
+            "System Solvers" => [
+                "Conjugate Gradient" => "Numerics/SystemSolvers/cg.jl",
+                "Batched Generalized Minimal Residual" =>
+                    "Numerics/SystemSolvers/bgmres.jl",
+            ],
+            "DG Methods" =>
+                ["Filters" => "Numerics/DGMethods/showcase_filters.jl"],
             "Time-Stepping" => [
                 "Introduction" => "Numerics/TimeStepping/ts_intro.jl",
                 "Explicit Runge-Kutta methods" => [
@@ -76,14 +76,22 @@ if generate_tutorials
                         "Numerics/TimeStepping/imex_ark.jl",
                         "Numerics/TimeStepping/tutorial_acousticwave_config.jl",
                     ],
+                "Multirate Runge-Kutta methods" => [
+                    "Numerics/TimeStepping/multirate_rk.jl",
+                    "Numerics/TimeStepping/tutorial_risingbubble_config.jl",
+                ],
+                "MIS methods" => [
+                    "Numerics/TimeStepping/mis.jl",
+                    "Numerics/TimeStepping/tutorial_acousticwave_config.jl",
+                ],
             ],
         ],
-        # "Diagnostics" => [
-        #     "Debug" => [
-        #         "State Statistics Regression" =>
-        #             "Diagnostics/Debug/StateCheck.jl",
-        #     ],
-        # ],
+        "Diagnostics" => [
+            "Debug" => [
+                "State Statistics Regression" =>
+                    "Diagnostics/Debug/StateCheck.jl",
+            ],
+        ],
     ]
 
     # Prepend tutorials_dir
