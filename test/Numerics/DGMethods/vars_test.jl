@@ -12,7 +12,7 @@ using LinearAlgebra
 using Logging
 
 using ClimateMachine.BalanceLaws:
-    BalanceLaw, Prognostic, Auxiliary, GradientFlux
+    BalanceLaw, Prognostic, Auxiliary, GradientFlux, GradientHyperFlux
 
 import ClimateMachine.BalanceLaws:
     vars_state,

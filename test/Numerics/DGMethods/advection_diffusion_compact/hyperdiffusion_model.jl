@@ -16,6 +16,7 @@ import ClimateMachine.BalanceLaws:
     source!,
     compute_gradient_argument!,
     compute_gradient_flux!,
+    compute_gradient_hyperflux!,
     nodal_init_state_auxiliary!,
     init_state_prognostic!,
     boundary_conditions,
@@ -37,17 +38,24 @@ struct HyperDiffusion{dim, P} <: BalanceLaw
     end
 end
 
-vars_state(::HyperDiffusion, ::Auxiliary, FT) = @vars(D::SMatrix{3, 3, FT, 9})
-#
+# Set hyperdiffusion tensor, D, coordinate info, coorc, and c = l^2*(l+1)^2/r^4
+vars_state(::HyperDiffusion, ::Auxiliary, FT) = @vars(D::SMatrix{3, 3, FT, 9}, coord::SVector{3, FT}, c::FT, H::SMatrix{3, 3, FT, 9}, P::SMatrix{3, 3, FT, 9})
+
 # Density is only state
 vars_state(::HyperDiffusion, ::Prognostic, FT) = @vars(ρ::FT)
 
 # Take the gradient of density
 vars_state(::HyperDiffusion, ::Gradient, FT) = @vars(ρ::FT)
+
 # Take the gradient of laplacian of density
 vars_state(::HyperDiffusion, ::GradientLaplacian, FT) = @vars(ρ::FT)
 
 vars_state(::HyperDiffusion, ::GradientFlux, FT) = @vars()
+
+# The DG hyperdiffusion auxiliary variable: χ = P ∇ ρ
+vars_state(::HyperDiffusion, ::GradientHyperFlux, FT) =
+    @vars(χ::SVector{3, FT})
+
 # The hyperdiffusion DG auxiliary variable: D ∇ Δρ
 vars_state(::HyperDiffusion, ::Hyperdiffusive, FT) = @vars(σ::SVector{3, FT})
 
@@ -81,6 +89,7 @@ function flux_second_order!(
     flux.ρ += σ
 end
 
+
 """
     compute_gradient_argument!(m::HyperDiffusion, transform::Vars, state::Vars,
                    aux::Vars, t::Real)
@@ -97,6 +106,17 @@ function compute_gradient_argument!(
     transform.ρ = state.ρ
 end
 
+function compute_gradient_hyperflux!(
+    ::HyperDiffusion,
+    auxHDG::Vars,
+    gradvars::Grad,
+    aux::Vars,
+) where {N}
+    ∇ρ = gradvars.ρ
+    P = aux.hyperdiffusion.P
+    auxHDG.χ = P * ∇ρ
+end
+
 compute_gradient_flux!(m::HyperDiffusion, _...) = nothing
 function transform_post_gradient_laplacian!(
     m::HyperDiffusion,
@@ -106,10 +126,12 @@ function transform_post_gradient_laplacian!(
     aux::Vars,
     t::Real,
 )
+     
     ∇Δρ = gradvars.ρ
-    D = aux.D
-    auxHDG.σ = D * ∇Δρ
+    H = aux.hyperdiffusion.H
+    auxHDG.η = H * ∇Δρ
 end
+
 
 """
     source!(m::HyperDiffusion, _...)
@@ -130,3 +152,29 @@ end
 
 boundary_conditions(::HyperDiffusion) = ()
 boundary_state!(nf, ::HyperDiffusion, _...) = nothing
+
+# define variables specific to spherical harmonic testing (generalise later)
+function nodal_init_state_auxiliary!(
+    balance_law::HyperDiffusion,
+    aux::Vars,
+    tmp::Vars,
+    geom::LocalGeometry,
+)
+    FT = eltype(aux)
+    aux.coord = geom.coord
+    r = norm(aux.coord)
+    l = balance_law.problem.l
+    aux.c = get_c(l, r)
+    aux.D = balance_law.problem.D * SMatrix{3,3,Float64}(I)
+
+    k = aux.coord / norm(aux.coord)
+    # horizontal hyperdiffusion tensor
+    aux.H = balance_law.problem.D * (I - k * k')
+    # horizontal hyperdiffusion projection of gradients
+    aux.P = I - k * k'
+    # vertical diffusion tensor
+    #aux.D = vert_diff_ν * k * k'
+
+end
+
+
