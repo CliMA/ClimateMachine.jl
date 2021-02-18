@@ -60,19 +60,19 @@ function coupledviz(modellist, plottime = 0.0, np_def = 100; title = "")
     for (i, model) in enumerate(modellist)
         gh = GridHelper(model.grid)
         x, y, z = coordinates(model.grid)
-        xr = range(minimum(x),maximum(x),length=np_def)
-        yr = range(minimum(y),maximum(y),length=np_def)
-        zr = range(minimum(z),maximum(z),length=np_def)
+        xr = range(minimum(x), maximum(x), length = np_def)
+        yr = range(minimum(y), maximum(y), length = np_def)
+        zr = range(minimum(z), maximum(z), length = np_def)
 
         # interpolate data
         fld = zeros(np_def, np_def, np_def)
         ϕ = ScalarField(copy(x), gh)
-        ϕ .= view(model.state,:,1,:)
-        fld[:,:,:] .= view(ϕ(xr,yr,zr),:,:,:)
+        ϕ .= view(model.state, :, 1, :)
+        fld[:, :, :] .= view(ϕ(xr, yr, zr), :, :, :)
         states[i] = fld
-        statenames[i] = names[i] 
+        statenames[i] = names[i]
     end
-    volumeslice(states, statenames = statenames, title=title)
+    volumeslice(states, statenames = statenames, title = title)
     return states
 end
 

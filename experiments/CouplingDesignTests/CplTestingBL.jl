@@ -19,43 +19,38 @@ export PenaltyNumFluxDiffusive
 export ExteriorBoundary
 export CoupledPrimaryBoundary, CoupledSecondaryBoundary
 
-const τ = 60*86400
+const τ = 60 * 86400
 using ClimateMachine.BalanceLaws:
-      Auxiliary,
-      BalanceLaw,
-      Gradient,
-      GradientFlux,
-      Prognostic
+    Auxiliary, BalanceLaw, Gradient, GradientFlux, Prognostic
 
 import ClimateMachine.BalanceLaws:
-       boundary_conditions,
-       boundary_state!,
-       compute_gradient_argument!,
-       compute_gradient_flux!,
-       flux_first_order!,
-       flux_second_order!,
-       init_state_prognostic!,
-       nodal_init_state_auxiliary!,
-       source!,
-       vars_state,
-       wavespeed
+    boundary_conditions,
+    boundary_state!,
+    compute_gradient_argument!,
+    compute_gradient_flux!,
+    flux_first_order!,
+    flux_second_order!,
+    init_state_prognostic!,
+    nodal_init_state_auxiliary!,
+    source!,
+    vars_state,
+    wavespeed
 
 using ClimateMachine.Mesh.Geometry: LocalGeometry
 using ClimateMachine.MPIStateArrays
 
 using ClimateMachine.DGMethods.NumericalFluxes:
-      CentralNumericalFluxGradient,
-      CentralNumericalFluxSecondOrder,
-      NumericalFluxFirstOrder,
-      NumericalFluxSecondOrder,
-      RusanovNumericalFlux
+    CentralNumericalFluxGradient,
+    CentralNumericalFluxSecondOrder,
+    NumericalFluxFirstOrder,
+    NumericalFluxSecondOrder,
+    RusanovNumericalFlux
 
 import ClimateMachine.DGMethods.NumericalFluxes:
-       numerical_boundary_flux_second_order!,
-       numerical_flux_second_order!
+    numerical_boundary_flux_second_order!, numerical_flux_second_order!
 
 
-using  ClimateMachine.VariableTemplates
+using ClimateMachine.VariableTemplates
 
 using LinearAlgebra
 using StaticArrays
@@ -65,11 +60,11 @@ using StaticArrays
 Type that holds specification for a diffusion equation balance law instance.
 """
 struct CplTestBL{BLP, BCS} <: BalanceLaw
-        bl_prop :: BLP
-        boundaryconditions :: BCS
+    bl_prop::BLP
+    boundaryconditions::BCS
 end
 
-l_type=CplTestBL
+l_type = CplTestBL
 
 """
   Extend the NumericalFluxSecondOrder to include a penalty term numerical
@@ -88,36 +83,37 @@ struct PenaltyNumFluxDiffusive <: NumericalFluxSecondOrder end
   - theta_shadow_boundary_flux :: function to set boundary flux into shadow variable for passing to coupler
 """
 function prop_defaults()
-  bl_prop=NamedTuple()
+    bl_prop = NamedTuple()
 
-  function init_aux_geom(npt,elnum,x,y,z)
-    return npt, elnum,x,y,z
-  end
-  # init_aux_geom(_...)=(return 0., 0., 0., 0., 0.)
-  bl_prop=( bl_prop...,init_aux_geom=init_aux_geom )
+    function init_aux_geom(npt, elnum, x, y, z)
+        return npt, elnum, x, y, z
+    end
+    # init_aux_geom(_...)=(return 0., 0., 0., 0., 0.)
+    bl_prop = (bl_prop..., init_aux_geom = init_aux_geom)
 
-  init_theta(_...)=(return 0.)
-  bl_prop=( bl_prop...,   init_theta=init_theta )
+    init_theta(_...) = (return 0.0)
+    bl_prop = (bl_prop..., init_theta = init_theta)
 
-  source_theta(_...)=(return 0.)
-  bl_prop=( bl_prop..., source_theta=source_theta )
+    source_theta(_...) = (return 0.0)
+    bl_prop = (bl_prop..., source_theta = source_theta)
 
-  calc_kappa_diff(_...)=(return 0., 0., 0.)
-  bl_prop=( bl_prop..., calc_kappa_diff=calc_kappa_diff)
+    calc_kappa_diff(_...) = (return 0.0, 0.0, 0.0)
+    bl_prop = (bl_prop..., calc_kappa_diff = calc_kappa_diff)
 
-  get_wavespeed(_...)=(return 0.)
-  bl_prop=( bl_prop..., get_wavespeed=get_wavespeed )
+    get_wavespeed(_...) = (return 0.0)
+    bl_prop = (bl_prop..., get_wavespeed = get_wavespeed)
 
-  get_penalty_tau(_...)=(return 1.)
-  bl_prop=( bl_prop..., get_penalty_tau=get_penalty_tau )
+    get_penalty_tau(_...) = (return 1.0)
+    bl_prop = (bl_prop..., get_penalty_tau = get_penalty_tau)
 
-  theta_shadow_boundary_flux(_...)=(return 0.)
-  bl_prop=( bl_prop..., theta_shadow_boundary_flux=theta_shadow_boundary_flux )
+    theta_shadow_boundary_flux(_...) = (return 0.0)
+    bl_prop =
+        (bl_prop..., theta_shadow_boundary_flux = theta_shadow_boundary_flux)
 
-  coupling_lambda(_...)=(return 0.)
-  bl_prop=( bl_prop..., coupling_lambda=coupling_lambda )
+    coupling_lambda(_...) = (return 0.0)
+    bl_prop = (bl_prop..., coupling_lambda = coupling_lambda)
 
-  bl_prop=( bl_prop..., LAW=CplTestBL )
+    bl_prop = (bl_prop..., LAW = CplTestBL)
 end
 
 """
@@ -133,10 +129,10 @@ end
   coupling cycle for a component.
 """
 function vars_state(bl::l_type, ::Prognostic, FT)
-  @vars begin
-     θ::FT
-     F_accum::FT # accumulated flux across boundary (atmosphere export)
-  end
+    @vars begin
+        θ::FT
+        F_accum::FT # accumulated flux across boundary (atmosphere export)
+    end
 end
 
 """
@@ -144,65 +140,78 @@ end
   θ value at reference time used to compute κ.
 """
 function vars_state(bl::l_type, ::Auxiliary, FT)
-  @vars begin
-       npt::Int
-     elnum::Int
+    @vars begin
+        npt::Int
+        elnum::Int
         xc::FT
         yc::FT
         zc::FT
-     θⁱⁿⁱᵗ::FT
-     θ_secondary::FT # stores opposite face for primary (atmospheric import)
-     F_prescribed::FT # stores prescribed flux for secondary (ocean import)
-  end
+        θⁱⁿⁱᵗ::FT
+        θ_secondary::FT # stores opposite face for primary (atmospheric import)
+        F_prescribed::FT # stores prescribed flux for secondary (ocean import)
+    end
 end
 
 """
   Gradient computation stage input (and output) variable symbols
 """
 function vars_state(bl::l_type, ::Gradient, FT)
-  @vars begin
+    @vars begin
         ∇θ::FT
-    ∇θⁱⁿⁱᵗ::FT
-  end
+        ∇θⁱⁿⁱᵗ::FT
+    end
 end
 
 """
   Flux due to gradient accumulation stage variable symbols
 """
 function vars_state(bl::l_type, ::GradientFlux, FT)
-  @vars begin
-   κ∇θ::SVector{3,FT}
-  end
+    @vars begin
+        κ∇θ::SVector{3, FT}
+    end
 end
 
 """
   Initialize prognostic state variables
 """
-function init_state_prognostic!(bl::l_type, Q::Vars, A::Vars, geom::LocalGeometry, FT)
-  npt=getproperty(geom,:n)
-  elnum=getproperty(geom,:e)
-  x=geom.coord[1]
-  y=geom.coord[2]
-  z=geom.coord[3]
-  Q.θ=bl.bl_prop.init_theta(x,y,z,npt,elnum)
-  Q.F_accum = 0
-  nothing
+function init_state_prognostic!(
+    bl::l_type,
+    Q::Vars,
+    A::Vars,
+    geom::LocalGeometry,
+    FT,
+)
+    npt = getproperty(geom, :n)
+    elnum = getproperty(geom, :e)
+    x = geom.coord[1]
+    y = geom.coord[2]
+    z = geom.coord[3]
+    Q.θ = bl.bl_prop.init_theta(x, y, z, npt, elnum)
+    Q.F_accum = 0
+    nothing
 end
 
 """
   Initialize auxiliary state variables
 """
-function nodal_init_state_auxiliary!(bl::l_type, A::Vars, tmp::Vars, geom::LocalGeometry, _...)
-  npt=getproperty(geom,:n)
-  elnum=getproperty(geom,:e)
-  x=geom.coord[1]
-  y=geom.coord[2]
-  z=geom.coord[3]
-  A.npt, A.elnum, A.xc, A.yc, A.zc = bl.bl_prop.init_aux_geom(npt,elnum,x,y,z)
-  A.θⁱⁿⁱᵗ=0
-  A.θ_secondary=0
-  A.F_prescribed=0
-  nothing
+function nodal_init_state_auxiliary!(
+    bl::l_type,
+    A::Vars,
+    tmp::Vars,
+    geom::LocalGeometry,
+    _...,
+)
+    npt = getproperty(geom, :n)
+    elnum = getproperty(geom, :e)
+    x = geom.coord[1]
+    y = geom.coord[2]
+    z = geom.coord[3]
+    A.npt, A.elnum, A.xc, A.yc, A.zc =
+        bl.bl_prop.init_aux_geom(npt, elnum, x, y, z)
+    A.θⁱⁿⁱᵗ = 0
+    A.θ_secondary = 0
+    A.F_prescribed = 0
+    nothing
 end
 
 #====
@@ -224,49 +233,65 @@ Land
   Also use to record boundary flux terms into shadow variables
   for export to coupler.
 """
-function source!(bl::l_type,S::Vars,Q::Vars,G::Vars,A::Vars,_...)
-  #S.θ=bl.bl_prop.source_theta(Q.θ,A.npt,A.elnum,A.xc,A.yc,A.zc,A.θ_secondary)
-  # Record boundary condition fluxes as needed by adding to shadow
-  # prognostic variable
-  S.F_accum = (Q.θ - A.θ_secondary) * bl.bl_prop.coupling_lambda()
-  nothing
+function source!(bl::l_type, S::Vars, Q::Vars, G::Vars, A::Vars, _...)
+    #S.θ=bl.bl_prop.source_theta(Q.θ,A.npt,A.elnum,A.xc,A.yc,A.zc,A.θ_secondary)
+    # Record boundary condition fluxes as needed by adding to shadow
+    # prognostic variable
+    S.F_accum = (Q.θ - A.θ_secondary) * bl.bl_prop.coupling_lambda()
+    nothing
 end
 
 """
   No flux first order for diffusion equation, but we must define a stub.
 """
-function flux_first_order!( bl::l_type, _...)
-  nothing
+function flux_first_order!(bl::l_type, _...)
+    nothing
 end
 
 """
   Set values to have gradients computed.
 """
-function compute_gradient_argument!( bl::l_type, G::Vars, Q::Vars, A::Vars, t )
-  G.∇θ = Q.θ
-  G.∇θⁱⁿⁱᵗ=A.θⁱⁿⁱᵗ
-  nothing
+function compute_gradient_argument!(bl::l_type, G::Vars, Q::Vars, A::Vars, t)
+    G.∇θ = Q.θ
+    G.∇θⁱⁿⁱᵗ = A.θⁱⁿⁱᵗ
+    nothing
 end
 
 """
   Compute diffusivity tensor times computed gradient to give net gradient flux.
 """
-function compute_gradient_flux!( bl::l_type, GF::Vars, G::Grad, Q::Vars, A::Vars, t )
-  # "Non-linear" form (for time stepped)
-  ### κ¹,κ²,κ³=bl.bl_prop.calc_kappa_diff(G.∇θ,A.npt,A.elnum,A.xc,A.yc,A.zc)
-  # "Linear" form (for implicit)
-  κ¹,κ²,κ³=bl.bl_prop.calc_kappa_diff(G.∇θⁱⁿⁱᵗ,A.npt,A.elnum,A.xc,A.yc,A.zc)
-  # Maybe I should pass both G.∇θ and G.∇θⁱⁿⁱᵗ?
-  GF.κ∇θ = Diagonal(@SVector([κ¹,κ²,κ³]))*G.∇θ
-  nothing
+function compute_gradient_flux!(
+    bl::l_type,
+    GF::Vars,
+    G::Grad,
+    Q::Vars,
+    A::Vars,
+    t,
+)
+    # "Non-linear" form (for time stepped)
+    ### κ¹,κ²,κ³=bl.bl_prop.calc_kappa_diff(G.∇θ,A.npt,A.elnum,A.xc,A.yc,A.zc)
+    # "Linear" form (for implicit)
+    κ¹, κ², κ³ =
+        bl.bl_prop.calc_kappa_diff(G.∇θⁱⁿⁱᵗ, A.npt, A.elnum, A.xc, A.yc, A.zc)
+    # Maybe I should pass both G.∇θ and G.∇θⁱⁿⁱᵗ?
+    GF.κ∇θ = Diagonal(@SVector([κ¹, κ², κ³])) * G.∇θ
+    nothing
 end
 
 """
   Pass flux components for second order term into update kernel.
 """
-function flux_second_order!( bl::l_type, F::Grad, Q::Vars, GF::Vars, H::Vars, A::Vars, t )
-  F.θ += GF.κ∇θ
-  nothing
+function flux_second_order!(
+    bl::l_type,
+    F::Grad,
+    Q::Vars,
+    GF::Vars,
+    H::Vars,
+    A::Vars,
+    t,
+)
+    F.θ += GF.κ∇θ
+    nothing
 end
 
 # Boundary conditions
@@ -274,7 +299,7 @@ end
 """
   Define boundary condition flags/types to iterate over, for now keep it simple.
 """
-function boundary_conditions( bl::l_type, _...)
+function boundary_conditions(bl::l_type, _...)
     bl.boundaryconditions
 end
 
@@ -284,78 +309,111 @@ end
   RusanovNumericalFlux, CentralNumericalFluxFirstOrder, RoeNumericalFlux, HLLCNumericalFlux.
 """
 # No first order fluxes so numerical flux needed. NumericalFluxFirstOrder
-function boundary_state!(nF::NumericalFluxFirstOrder, bc, bl::l_type, Q⁺::Vars, A⁺::Vars,n,Q⁻::Vars,A⁻::Vars,t,_...)
-   nothing
+function boundary_state!(
+    nF::NumericalFluxFirstOrder,
+    bc,
+    bl::l_type,
+    Q⁺::Vars,
+    A⁺::Vars,
+    n,
+    Q⁻::Vars,
+    A⁻::Vars,
+    t,
+    _...,
+)
+    nothing
 end
 
 
 ## ExteriorBoundary
 # flux is 0 across the boundary
-struct ExteriorBoundary
-end
+struct ExteriorBoundary end
 
 """
   Zero normal gradient boundary condition.
 """
-function boundary_state!(nF::Union{CentralNumericalFluxGradient}, bc::ExteriorBoundary, bl::l_type, Q⁺::Vars, A⁺::Vars,n,Q⁻::Vars,A⁻::Vars,t,_...)
-   Q⁺.θ=Q⁻.θ
-   nothing
+function boundary_state!(
+    nF::Union{CentralNumericalFluxGradient},
+    bc::ExteriorBoundary,
+    bl::l_type,
+    Q⁺::Vars,
+    A⁺::Vars,
+    n,
+    Q⁻::Vars,
+    A⁻::Vars,
+    t,
+    _...,
+)
+    Q⁺.θ = Q⁻.θ
+    nothing
 end
 function numerical_boundary_flux_second_order!(
-  numerical_flux::NumericalFluxSecondOrder,
-  bctype::ExteriorBoundary,
-  balance_law::l_type,
-  fluxᵀn::Vars{S},
-  normal_vector::SVector,
-  state_prognostic⁻::Vars{S},
-  state_gradient_flux⁻::Vars{D},
-  state_hyperdiffusive⁻::Vars{HD},
-  state_auxiliary⁻::Vars{A},
-  state_prognostic⁺::Vars{S},
-  state_gradient_flux⁺::Vars{D},
-  state_hyperdiffusive⁺::Vars{HD},
-  state_auxiliary⁺::Vars{A},
-  t,
-  state1⁻::Vars{S},
-  diff1⁻::Vars{D},
-  aux1⁻::Vars{A},
-) where {S,D,A,HD}
-  fluxᵀn.θ = 0
+    numerical_flux::NumericalFluxSecondOrder,
+    bctype::ExteriorBoundary,
+    balance_law::l_type,
+    fluxᵀn::Vars{S},
+    normal_vector::SVector,
+    state_prognostic⁻::Vars{S},
+    state_gradient_flux⁻::Vars{D},
+    state_hyperdiffusive⁻::Vars{HD},
+    state_auxiliary⁻::Vars{A},
+    state_prognostic⁺::Vars{S},
+    state_gradient_flux⁺::Vars{D},
+    state_hyperdiffusive⁺::Vars{HD},
+    state_auxiliary⁺::Vars{A},
+    t,
+    state1⁻::Vars{S},
+    diff1⁻::Vars{D},
+    aux1⁻::Vars{A},
+) where {S, D, A, HD}
+    fluxᵀn.θ = 0
 end
 
 
 ## CoupledPrimaryBoundary
 # compute flux based on opposite face
 # also need to accumulate net flux across boundary
-struct CoupledPrimaryBoundary
-end
+struct CoupledPrimaryBoundary end
 
 
-function boundary_state!(nF::Union{CentralNumericalFluxGradient}, bc::CoupledPrimaryBoundary, bl::l_type, Q⁺::Vars, A⁺::Vars,n,Q⁻::Vars,A⁻::Vars,t,_...)
-  Q⁺.θ=Q⁻.θ # Q⁺.θ=A⁺.θ_secondary
-  nothing
+function boundary_state!(
+    nF::Union{CentralNumericalFluxGradient},
+    bc::CoupledPrimaryBoundary,
+    bl::l_type,
+    Q⁺::Vars,
+    A⁺::Vars,
+    n,
+    Q⁻::Vars,
+    A⁻::Vars,
+    t,
+    _...,
+)
+    Q⁺.θ = Q⁻.θ # Q⁺.θ=A⁺.θ_secondary
+    nothing
 end
 function numerical_boundary_flux_second_order!(
-  numerical_flux::NumericalFluxSecondOrder,
-  bctype::CoupledPrimaryBoundary,
-  balance_law::l_type,
-  fluxᵀn::Vars{S},
-  normal_vector::SVector,
-  state_prognostic⁻::Vars{S},
-  state_gradient_flux⁻::Vars{D},
-  state_hyperdiffusive⁻::Vars{HD},
-  state_auxiliary⁻::Vars{A},
-  state_prognostic⁺::Vars{S},
-  state_gradient_flux⁺::Vars{D},
-  state_hyperdiffusive⁺::Vars{HD},
-  state_auxiliary⁺::Vars{A},
-  t,
-  state1⁻::Vars{S},
-  diff1⁻::Vars{D},
-  aux1⁻::Vars{A},
-) where {S,D,A,HD}
+    numerical_flux::NumericalFluxSecondOrder,
+    bctype::CoupledPrimaryBoundary,
+    balance_law::l_type,
+    fluxᵀn::Vars{S},
+    normal_vector::SVector,
+    state_prognostic⁻::Vars{S},
+    state_gradient_flux⁻::Vars{D},
+    state_hyperdiffusive⁻::Vars{HD},
+    state_auxiliary⁻::Vars{A},
+    state_prognostic⁺::Vars{S},
+    state_gradient_flux⁺::Vars{D},
+    state_hyperdiffusive⁺::Vars{HD},
+    state_auxiliary⁺::Vars{A},
+    t,
+    state1⁻::Vars{S},
+    diff1⁻::Vars{D},
+    aux1⁻::Vars{A},
+) where {S, D, A, HD}
 
-  fluxᵀn.θ = (state_prognostic⁻.θ - state_auxiliary⁺.θ_secondary) *  balance_law.bl_prop.coupling_lambda() # W/m^2
+    fluxᵀn.θ =
+        (state_prognostic⁻.θ - state_auxiliary⁺.θ_secondary) *
+        balance_law.bl_prop.coupling_lambda() # W/m^2
 end
 
 
@@ -376,38 +434,48 @@ end
 
 ## CoupledSecondaryBoundary
 # use prescribed flux computed in primary
-struct CoupledSecondaryBoundary
-end
-function boundary_state!(nF::Union{CentralNumericalFluxGradient}, bc::CoupledSecondaryBoundary, bl::l_type, Q⁺::Vars, A⁺::Vars,n,Q⁻::Vars,A⁻::Vars,t,_...)
-  Q⁺.θ=Q⁻.θ
-  nothing
+struct CoupledSecondaryBoundary end
+function boundary_state!(
+    nF::Union{CentralNumericalFluxGradient},
+    bc::CoupledSecondaryBoundary,
+    bl::l_type,
+    Q⁺::Vars,
+    A⁺::Vars,
+    n,
+    Q⁻::Vars,
+    A⁻::Vars,
+    t,
+    _...,
+)
+    Q⁺.θ = Q⁻.θ
+    nothing
 end
 function numerical_boundary_flux_second_order!(
-  numerical_flux::NumericalFluxSecondOrder,
-  bctype::CoupledSecondaryBoundary,
-  balance_law::l_type,
-  fluxᵀn::Vars{S},
-  normal_vector::SVector,
-  state_prognostic⁻::Vars{S},
-  state_gradient_flux⁻::Vars{D},
-  state_hyperdiffusive⁻::Vars{HD},
-  state_auxiliary⁻::Vars{A},
-  state_prognostic⁺::Vars{S},
-  state_gradient_flux⁺::Vars{D},
-  state_hyperdiffusive⁺::Vars{HD},
-  state_auxiliary⁺::Vars{A},
-  t,
-  state1⁻::Vars{S},
-  diff1⁻::Vars{D},
-  aux1⁻::Vars{A},
-) where {S,D,A,HD}
-  fluxᵀn.θ = -state_auxiliary⁺.F_prescribed
+    numerical_flux::NumericalFluxSecondOrder,
+    bctype::CoupledSecondaryBoundary,
+    balance_law::l_type,
+    fluxᵀn::Vars{S},
+    normal_vector::SVector,
+    state_prognostic⁻::Vars{S},
+    state_gradient_flux⁻::Vars{D},
+    state_hyperdiffusive⁻::Vars{HD},
+    state_auxiliary⁻::Vars{A},
+    state_prognostic⁺::Vars{S},
+    state_gradient_flux⁺::Vars{D},
+    state_hyperdiffusive⁺::Vars{HD},
+    state_auxiliary⁺::Vars{A},
+    t,
+    state1⁻::Vars{S},
+    diff1⁻::Vars{D},
+    aux1⁻::Vars{A},
+) where {S, D, A, HD}
+    fluxᵀn.θ = -state_auxiliary⁺.F_prescribed
 end
 
 function wavespeed(bl::l_type, _...)
- # Used in Rusanov term.
- # Only active if there is a flux first order term?
- bl.bl_prop.get_wavespeed()
+    # Used in Rusanov term.
+    # Only active if there is a flux first order term?
+    bl.bl_prop.get_wavespeed()
 end
 
 """
