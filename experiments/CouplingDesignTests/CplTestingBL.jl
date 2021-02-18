@@ -114,6 +114,9 @@ function prop_defaults()
   theta_shadow_boundary_flux(_...)=(return 0.)
   bl_prop=( bl_prop..., theta_shadow_boundary_flux=theta_shadow_boundary_flux )
 
+  coupling_lambda(_...)=(return 0.)
+  bl_prop=( bl_prop..., coupling_lambda=coupling_lambda )
+
   bl_prop=( bl_prop..., LAW=CplTestBL )
 end
 
@@ -225,7 +228,7 @@ function source!(bl::l_type,S::Vars,Q::Vars,G::Vars,A::Vars,_...)
   #S.θ=bl.bl_prop.source_theta(Q.θ,A.npt,A.elnum,A.xc,A.yc,A.zc,A.θ_secondary)
   # Record boundary condition fluxes as needed by adding to shadow
   # prognostic variable
-  S.F_accum = (Q.θ - A.θ_secondary) / τ
+  S.F_accum = (Q.θ - A.θ_secondary) * bl.bl_prop.coupling_lambda()
   nothing
 end
 
@@ -352,7 +355,7 @@ function numerical_boundary_flux_second_order!(
   aux1⁻::Vars{A},
 ) where {S,D,A,HD}
 
-  fluxᵀn.θ = (state_prognostic⁻.θ - state_auxiliary⁺.θ_secondary) / τ # W/m^2
+  fluxᵀn.θ = (state_prognostic⁻.θ - state_auxiliary⁺.θ_secondary) *  balance_law.bl_prop.coupling_lambda() # W/m^2
 end
 
 

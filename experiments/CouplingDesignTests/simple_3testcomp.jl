@@ -27,8 +27,8 @@ ClimateMachine.init()
 const FT = Float64;
 
 # Use toy balance law for now
-# include("CplTestingBL.jl")
-# using .CplTestingBL
+include("CplTestingBL.jl")
+using .CplTestingBL
 
 
 couple_dt = 3600.0
@@ -63,14 +63,22 @@ domainL = RectangularDomain(
 )
 
 # Set some paramters
-#  Haney like relaxation 60-day time scale.
-#  and 100m length scale
+
+#  Haney like relaxation time scale and a length scale
+#  (Haney, 1971).
+#  Air-sea exchange vigor is governed by length/time-scale.
 const τ_airsea=FT(60*86400)
-#  Background atmos diffusivities
+const L_airsea=FT(500)
+const λ_airsea=FT(L_airsea/τ_airsea)
+function coupling_lambda()
+ return( λ_airsea )
+end
+
+#  Background atmos and ocean diffusivities
 const κᵃʰ=FT(1e4)*0.
-const κᵃᶻ=FT(1e-1)*0.
+const κᵃᶻ=FT(1e-1)
 const κᵒʰ=FT(1e3)*0.
-const κᵒᶻ=FT(1e-4)*0.
+const κᵒᶻ=FT(1e-4)
 
 # Create 3 components - one on each domain, for now all are instances
 # of the same balance law
@@ -112,6 +120,7 @@ bl_prop=(bl_prop..., theta_shadow_boundary_flux=atmos_theta_shadow_boundary_flux
 bl_prop=(bl_prop..., calc_kappa_diff=atmos_calc_kappa_diff)
 bl_prop=(bl_prop..., source_theta=atmos_source_theta)
 bl_prop=(bl_prop..., get_penalty_tau=atmos_get_penalty_tau)
+bl_prop=(bl_prop..., coupling_lambda=coupling_lambda)
 mA=Coupling.CplTestModel(;domain=domainA,
     equations=CplTestBL(bl_prop, (CoupledPrimaryBoundary(), ExteriorBoundary())),
     nsteps=nstepsA, dt=couple_dt/nstepsA, NFSecondOrder=CplTestingBL.PenaltyNumFluxDiffusive() )
@@ -144,6 +153,7 @@ bl_prop=(bl_prop..., init_theta=ocean_init_theta)
 bl_prop=(bl_prop..., source_theta=ocean_source_theta)
 bl_prop=(bl_prop..., calc_kappa_diff=ocean_calc_kappa_diff)
 bl_prop=(bl_prop..., get_penalty_tau=ocean_get_penalty_tau)
+bl_prop=(bl_prop..., coupling_lambda=coupling_lambda)
 mO=Coupling.CplTestModel(;domain=domainO,
     equations=CplTestBL(bl_prop, (ExteriorBoundary(), CoupledSecondaryBoundary())),
     nsteps=nstepsO, dt=couple_dt/nstepsO, NFSecondOrder=CplTestingBL.PenaltyNumFluxDiffusive() )
@@ -246,4 +256,4 @@ cState.CplStateBlob[:Ocean_SST]=deepcopy( mO.state.θ[boundaryO] )
 cState.CplStateBlob[:Atmos_MeanAirSeaθFlux]=deepcopy(mA.state.F_accum[boundaryA] )
 
 # Invoke solve! with coupled timestepper and callback list.
-solve!(nothing,cC;numberofsteps=100)
+solve!(nothing,cC;numberofsteps=1940)
