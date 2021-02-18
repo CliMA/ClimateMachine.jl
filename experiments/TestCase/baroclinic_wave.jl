@@ -161,7 +161,13 @@ function init_baroclinic_wave!(problem, bl, state, aux, localgeo, t)
     nothing
 end
 
-function config_baroclinic_wave(FT, poly_order, cutoff_order, resolution, with_moisture)
+function config_baroclinic_wave(
+    FT,
+    poly_order,
+    cutoff_order,
+    resolution,
+    with_moisture,
+)
     # Set up a reference state for linearization of equations
     domain_height::FT = 30e3
     temp_profile_ref =
@@ -172,7 +178,8 @@ function config_baroclinic_wave(FT, poly_order, cutoff_order, resolution, with_m
     α_relax = FT(1.0 / 1000)              # sponge relaxation rate (1/s)
     exponent = FT(2)                       # sponge exponent for squared-sinusoid profile
     u_relax = SVector(FT(0), FT(0), FT(0)) # relaxation velocity (m/s)
-    sponge_u = RayleighSponge(FT, domain_height, z_sponge, α_relax, u_relax, exponent);
+    sponge_u =
+        RayleighSponge(FT, domain_height, z_sponge, α_relax, u_relax, exponent)
 
     # Set up the atmosphere model
     exp_name = "BaroclinicWave"
@@ -239,8 +246,13 @@ function main()
     timeend::FT = n_days * day(param_set)    # end time (s)
 
     # Set up driver configuration
-    driver_config =
-        config_baroclinic_wave(FT, poly_order, cutoff_order, (n_horz, n_vert), with_moisture)
+    driver_config = config_baroclinic_wave(
+        FT,
+        poly_order,
+        cutoff_order,
+        (n_horz, n_vert),
+        with_moisture,
+    )
 
     # Set up experiment
     ode_solver_type = ClimateMachine.IMEXSolverType(
