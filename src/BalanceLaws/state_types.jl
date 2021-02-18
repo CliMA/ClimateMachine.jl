@@ -73,6 +73,11 @@ Flux variables, which are functions of gradients.
 """
 struct GradientFlux <: AbstractStateType end
 
+"""
+    GradientHyperFlux <: AbstractStateType
+
+Flux variables, which are functions of hypergradients.
+"""
 struct GradientHyperFlux <: AbstractStateType end
 
 """

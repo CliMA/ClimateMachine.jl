@@ -28,6 +28,8 @@ using ClimateMachine.Mesh.Geometry: LocalGeometry
 using ClimateMachine.DGMethods.NumericalFluxes:
     NumericalFluxFirstOrder, NumericalFluxSecondOrder
 
+using ClimateMachine.Atmos
+
 abstract type HyperDiffusionProblem end
 struct HyperDiffusion{dim, P} <: BalanceLaw
     problem::P
@@ -39,27 +41,33 @@ struct HyperDiffusion{dim, P} <: BalanceLaw
 end
 
 # Set hyperdiffusion tensor, D, coordinate info, coorc, and c = l^2*(l+1)^2/r^4
-vars_state(::HyperDiffusion, ::Auxiliary, FT) = @vars(D::SMatrix{3, 3, FT, 9}, coord::SVector{3, FT}, c::FT, H::SMatrix{3, 3, FT, 9}, P::SMatrix{3, 3, FT, 9})
+vars_state(::HyperDiffusion, ::Auxiliary, FT) = 
+    @vars(D::SMatrix{3, 3, FT, 9}, coord::SVector{3, FT}, c::FT, H::SMatrix{3, 3, FT, 9}, P::SMatrix{3, 3, FT, 9})
 
 # Density is only state
-vars_state(::HyperDiffusion, ::Prognostic, FT) = @vars(ρ::FT)
+vars_state(::HyperDiffusion, ::Prognostic, FT) = 
+    @vars(ρ::FT)
 
 # Take the gradient of density
-vars_state(::HyperDiffusion, ::Gradient, FT) = @vars(ρ::FT)
+vars_state(::HyperDiffusion, ::Gradient, FT) = 
+    @vars(ρ::FT)
 
 # Take the gradient of laplacian of density
-vars_state(::HyperDiffusion, ::GradientLaplacian, FT) = @vars(ρ::FT)
+vars_state(::HyperDiffusion, ::GradientLaplacian, FT) = 
+    @vars(ρ::FT)
 
-vars_state(::HyperDiffusion, ::GradientFlux, FT) = @vars()
+#vars_state(::HyperDiffusion, ::GradientFlux, FT) = @vars()
 
-# The DG hyperdiffusion auxiliary variable: χ = P ∇ ρ
+# The DG hyperdiffusion auxiliary variable: P ∇ ρ
 vars_state(::HyperDiffusion, ::GradientHyperFlux, FT) =
-    @vars(χ::SVector{3, FT})
+    @vars(P∇ρ::SVector{3, FT})
 
-# The hyperdiffusion DG auxiliary variable: D ∇ Δρ
-vars_state(::HyperDiffusion, ::Hyperdiffusive, FT) = @vars(σ::SVector{3, FT})
+# The hyperdiffusion DG auxiliary variable: H ∇ Δρ
+vars_state(::HyperDiffusion, ::Hyperdiffusive, FT) = 
+    @vars(H∇Δρ::SVector{3, FT})
 
 function flux_first_order!(m::HyperDiffusion, _...) end
+
 
 """
     flux_second_order!(m::HyperDiffusion, flux::Grad, state::Vars,
@@ -74,7 +82,7 @@ Computes diffusive flux `F` in:
 ```
 Where
 
- - `σ` is hyperdiffusion DG auxiliary variable (`σ = D ∇ Δρ` with D being the hyperdiffusion tensor)
+ - `σ` is hyperdiffusion DG auxiliary variable (`σ = H ∇ Δ ρ` with H being the hyperdiffusion tensor)
 """
 function flux_second_order!(
     m::HyperDiffusion,
@@ -85,8 +93,8 @@ function flux_second_order!(
     aux::Vars,
     t::Real,
 )
-    σ = auxHDG.σ
-    flux.ρ += σ
+    H∇Δρ = auxHDG.H∇Δρ
+    flux.ρ += H∇Δρ
 end
 
 
@@ -110,11 +118,14 @@ function compute_gradient_hyperflux!(
     ::HyperDiffusion,
     auxHDG::Vars,
     gradvars::Grad,
+    state::Vars,
     aux::Vars,
-) where {N}
+    t::Real,
+    ) # this is never called
+    #@show "yaaayyY!!!!"
     ∇ρ = gradvars.ρ
-    P = aux.hyperdiffusion.P
-    auxHDG.χ = P * ∇ρ
+    P = aux.P
+    auxHDG.P∇ρ = P * ∇ρ
 end
 
 compute_gradient_flux!(m::HyperDiffusion, _...) = nothing
@@ -128,8 +139,8 @@ function transform_post_gradient_laplacian!(
 )
      
     ∇Δρ = gradvars.ρ
-    H = aux.hyperdiffusion.H
-    auxHDG.η = H * ∇Δρ
+    H = aux.H
+    auxHDG.H∇Δρ = H * ∇Δρ
 end
 
 
@@ -150,8 +161,14 @@ function init_state_prognostic!(
     initial_condition!(m.problem, state, aux, localgeo, t)
 end
 
-boundary_conditions(::HyperDiffusion) = ()
-boundary_state!(nf, ::HyperDiffusion, _...) = nothing
+boundary_conditions(::HyperDiffusion) = ( AtmosBC(), AtmosBC() )
+#boundary_state!(nf, ::HyperDiffusion, _...) = nothing
+boundary_state!(
+    ::Union{CentralNumericalFluxDivergence, CentralNumericalFluxHigherOrder},
+    bc,
+    cm::HyperDiffusion,
+    _...,
+) = nothing
 
 # define variables specific to spherical harmonic testing (generalise later)
 function nodal_init_state_auxiliary!(
@@ -178,3 +195,11 @@ function nodal_init_state_auxiliary!(
 end
 
 
+#@inline function boundary_state!(
+#    nf::NumericalFluxFirstOrder,
+#    bc,
+#    cm::Continuity3dModel,
+#)
+#return ocean_model_boundary!(cm, bc, nf, args...)
+#    args...,
+#end

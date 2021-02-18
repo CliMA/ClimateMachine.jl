@@ -48,10 +48,10 @@ ClimateMachine.init()
 ArrayType = ClimateMachine.array_type()
 mpicomm = MPI.COMM_WORLD
 
-output_dir = "output"
+output_dir = "output_hyper"
 
 # Set global model parameters
-direction = HorizontalDirection # direction for diffusion kernels
+direction = EveryDirection      # direction for diffusion kernels
 dim = 3                         # no dimensions
 _a = planet_radius(param_set)   # planet radius (m)
 

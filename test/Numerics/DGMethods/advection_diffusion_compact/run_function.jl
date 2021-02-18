@@ -31,6 +31,7 @@ function run(
             CentralNumericalFluxSecondOrder(),
             CentralNumericalFluxGradient(),
             direction = direction(),
+            diffusion_direction = EveryDirection()
         )
 
     Q0 = init_ode_state(dg, FT(0))
