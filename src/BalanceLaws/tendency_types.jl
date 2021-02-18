@@ -16,7 +16,7 @@
 #  - `S` - the non-conservative source (column vector)
 
 export PrognosticVariable,
-    AbstractMomentum, AbstractEnergy, Moisture, Precipitation
+    AbstractMomentum, AbstractEnergy, Moisture, Precipitation, AbstractTracers
 
 export FirstOrder, SecondOrder
 export AbstractTendencyType, Flux, Source
@@ -35,6 +35,7 @@ abstract type AbstractMomentum <: PrognosticVariable end
 abstract type AbstractEnergy <: PrognosticVariable end
 abstract type Moisture <: PrognosticVariable end
 abstract type Precipitation <: PrognosticVariable end
+abstract type AbstractTracers{N} <: PrognosticVariable end
 
 
 """
@@ -119,6 +120,24 @@ corresponding to the column-vector `Yᵢ` in:
     `∂_t Yᵢ + (∇•F₁(Y))ᵢ + (∇•F₂(Y,G)))ᵢ = (S(Y,G))ᵢ`
 """
 prognostic_vars(::BalanceLaw) = ()
+
+"""
+    var, name = get_prog_state(state::Union{Vars, Grad}, pv::PrognosticVariable)
+
+Returns a tuple of two elements. `var` is a `Vars` or `Grad`
+object, and `name` is a Symbol. They should be linked such that
+`getproperty(var, name)` returns the corresponding prognostic
+variable type `pv`.
+
+# Example
+
+```julia
+get_prog_state(state, ::Moisture) = (state.moisture, :ρq_tot)
+var, name = get_prog_state(state, Moisture())
+@test getproperty(var, name) == state.moisture.ρq_tot
+```
+"""
+function get_prog_state end
 
 """
     sources(bl::BalanceLaw)

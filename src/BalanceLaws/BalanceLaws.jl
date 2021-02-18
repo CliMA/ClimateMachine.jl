@@ -1,6 +1,7 @@
 module BalanceLaws
 
 using ..VariableTemplates
+using StaticArrays
 
 export BalanceLaw,
     vars_state,

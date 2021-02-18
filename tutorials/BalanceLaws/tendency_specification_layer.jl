@@ -110,8 +110,16 @@ show_tendencies(bl; table_complete = true)
 # we'll add a layer that tests the `Flux{FirstOrder}` column
 # in the table above. First, we'll define individual
 # [`flux`](@ref ClimateMachine.BalanceLaws.flux) kernels:
-flux(::Advection{Mass}, bl::MyBalanceLaw, args) = args.state.ρ;
-flux(::Advection{Energy}, bl::MyBalanceLaw, args) = args.state.ρe;
+flux(::Advection{Mass}, bl::MyBalanceLaw, args) =
+    args.state.ρ * SVector(1, 1, 1);
+flux(::Advection{Energy}, bl::MyBalanceLaw, args) =
+    args.state.ρe * SVector(1, 1, 1);
+
+# !!! note
+#     - `flux` should return a 3-componet vector for scalar equations
+#     - `flux` should return a 3xN-componet tensor for N-component vector equations
+#     - `source` should return a scalar for scalar equations
+#     - `source` should return a N-componet vector for N-component vector equations
 
 # Define `flux_first_order!` and utilize `eq_tends`
 function flux_first_order!(
@@ -123,19 +131,18 @@ function flux_first_order!(
     direction,
 )
 
-    vec_pad = SVector(1, 1, 1)
     tend_type = Flux{FirstOrder}()
     args = (; state, aux, t, direction)
 
-    ## `Σfluxes(eq_tends(Mass(), bl, tend_type), bl, args)` calls
+    ## `Σfluxes(Mass(), eq_tends(Mass(), bl, tend_type), bl, args)` calls
     ## `flux(::Advection{Mass}, ...)` defined above:
     eqt_ρ = eq_tends(Mass(), bl, tend_type)
-    flx.ρ = Σfluxes(eqt_ρ, bl, args) .* vec_pad
+    flx.ρ = Σfluxes(Mass(), eqt_ρ, bl, args)
 
-    ## `Σfluxes(eq_tends(Energy(), bl, tend_type), bl, args)` calls
+    ## `Σfluxes(Energy(), eq_tends(Energy(), bl, tend_type), bl, args)` calls
     ## `flux(::Advection{Energy}, ...)` defined above:
     eqt_ρe = eq_tends(Energy(), bl, tend_type)
-    flx.ρe = Σfluxes(eqt_ρe, bl, args) .* vec_pad
+    flx.ρe = Σfluxes(Energy(), eqt_ρe, bl, args)
     return nothing
 end;
 
