@@ -474,16 +474,11 @@ function compute_gradient_flux!(
 
     # this fixes a BC problem with very large state⁻.ρatke (≈ 1e20)
     # at the lower boundary:
-    z = altitude(m, aux)
-    if z ≈ FT(0)
-        @show(aux.coord, en_dif.∇tke[3])
-        en_dif.∇tke = en_dif.∇tke*FT(0)
-    end
-
-    # ---------------------------- z=0+ϵ state⁻  problematic? 
-    # ============================ z=0   tke = 0.3
-    # ---------------------------- z=0-ϵ state⁺
-
+    # z = altitude(m, aux)
+    # if z ≈ FT(0)
+    #     @show(aux.coord, en_dif.∇tke[3])
+    #     # en_dif.∇tke = en_dif.∇tke*FT(0)
+    # end
 
 
     # second moment env cov
@@ -493,8 +488,14 @@ function compute_gradient_flux!(
     gm_dif.∇u = gm_∇tf.u
     gm_dif.∇v = gm_∇tf.v
 
+    z = altitude(m, aux)
+
     gm_dif.S² = ∇transform.u[3, 1]^2 + ∇transform.u[3, 2]^2 + en_dif.∇w[3]^2 # ∇transform.u is Jacobian.T
 
+    if z ≈ 0
+        # @show(aux.coord, state.ρu[1], ∇transform.u[3, 1]^2, gm_dif.S²)
+        # gm_dif.S² = FT(0)
+    end
     # Recompute l_mix, K_m and tke budget terms for output.
     ts = recover_thermo_state_all(m, state, aux)
 
@@ -520,10 +521,15 @@ function compute_gradient_flux!(
     K_h = en_dif.K_m / Pr_t
     ρa₀ = gm.ρ * env.a
     Diss₀ = m.turbconv.mix_len.c_d * sqrt(tke_en) / en_dif.l_mix
-
     en_dif.shear_prod = ρa₀ * en_dif.K_m * gm_dif.S² # tke Shear source
     en_dif.buoy_prod = -ρa₀ * K_h * ∂b∂z_env   # tke Buoyancy source
     en_dif.tke_diss = -ρa₀ * Diss₀ * tke_en  # tke Dissipation
+    
+    # z = altitude(m, aux)
+    # if z ≈ FT(0)
+    #     @show(aux.coord, gm_dif.S²,en_dif.K_m, en_dif.l_mix)
+    #     # en_dif.shear_prod = FT(0)
+    # end
 end;
 
 function source(::EntrDetr{up_ρa{i}}, atmos, args) where {i}
@@ -1239,7 +1245,7 @@ function flux(::Diffusion{en_ρatke}, atmos, args)
     gm = state
     en_dif = diffusive.turbconv.environment
     ẑ = vertical_unit_vector(atmos, aux)
-    tot = -gm.ρ * env.a * K_m * en_dif.∇tke[3]
+    # tot = -gm.ρ * env.a * K_m * en_dif.∇tke[3]
     # z = altitude(atmos, aux)
     # if z ≈ 0
     #     tot = 0
@@ -1322,8 +1328,7 @@ function turbconv_boundary_state!(
     end
 
     a_en = environment_area(gm⁻, N_up)
-    # en⁺.ρatke = gm⁻.ρ * a_en * tke
-    en⁺.ρatke = gm⁻.ρ * a_en * FT(0.3)
+    en⁺.ρatke = gm⁻.ρ * a_en * tke
     en⁺.ρaθ_liq_cv = gm⁻.ρ * a_en * θ_liq_cv
     if !(m.moisture isa DryModel)
         en⁺.ρaq_tot_cv = gm⁻.ρ * a_en * q_tot_cv
@@ -1332,7 +1337,7 @@ function turbconv_boundary_state!(
         en⁺.ρaq_tot_cv = FT(0)
         en⁺.ρaθ_liq_q_tot_cv = FT(0)
     end
-    @show(en⁺.ρatke, state⁻.turbconv.environment.ρatke)
+    # @show(en⁺.ρatke, state⁻.turbconv.environment.ρatke)
 end;
 function turbconv_boundary_state!(
     nf,
