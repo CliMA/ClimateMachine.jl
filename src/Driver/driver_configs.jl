@@ -109,7 +109,9 @@ struct DriverConfiguration{FT}
     # DGFVModel details, used when polyorder_vert = 0
     fv_reconstruction::Union{Nothing, AbstractReconstruction}
     # Cutoff filter to emulate overintegration
-    filter
+    filter::Any
+    gradient_filter_target::Any
+    tendency_filter_target::Any
     #
     # Configuration-specific info
     config_info::ConfigSpecificInfo
@@ -130,6 +132,8 @@ struct DriverConfiguration{FT}
         numerical_flux_gradient::NumericalFluxGradient,
         fv_reconstruction::Union{Nothing, AbstractReconstruction},
         filter,
+        gradient_filter_target,
+        tendency_filter_target,
         config_info::ConfigSpecificInfo,
     )
         return new{FT}(
@@ -147,6 +151,8 @@ struct DriverConfiguration{FT}
             numerical_flux_gradient,
             fv_reconstruction,
             filter,
+            gradient_filter_target,
+            tendency_filter_target,
             config_info,
         )
     end
@@ -260,7 +266,10 @@ function AtmosLESConfiguration(
     )
 
     if cutofforder_horz < polyorder_horz || cutofforder_vert < polyorder_vert
-        filter = CutoffFilter(grid, (cutofforder_horz + 1, cutofforder_horz + 1, cutofforder_vert + 1))
+        filter = CutoffFilter(
+            grid,
+            (cutofforder_horz + 1, cutofforder_horz + 1, cutofforder_vert + 1),
+        )
     else
         filter = nothing
     end
@@ -316,6 +325,8 @@ Establishing Atmos LES configuration for %s
         numerical_flux_gradient,
         fv_reconstruction,
         filter,
+        nothing, # gradient_filter_target
+        nothing, # tendency_filter_target
         AtmosLESSpecificInfo(),
     )
 end
@@ -384,7 +395,10 @@ function AtmosGCMConfiguration(
 
 
     if cutofforder_horz < polyorder_horz || cutofforder_vert < polyorder_vert
-        filter = CutoffFilter(grid, (cutofforder_horz + 1, cutofforder_horz + 1, cutofforder_vert + 1))
+        filter = CutoffFilter(
+            grid,
+            (cutofforder_horz + 1, cutofforder_horz + 1, cutofforder_vert + 1),
+        )
     else
         filter = nothing
     end
@@ -433,6 +447,8 @@ Establishing Atmos GCM configuration for %s
         numerical_flux_gradient,
         fv_reconstruction,
         filter,
+        nothing, # gradient_filter_target
+        nothing, # tendency_filter_target
         AtmosGCMSpecificInfo(
             domain_height,
             nelem_vert,
@@ -527,6 +543,8 @@ Establishing Ocean Box GCM configuration for %s
         numerical_flux_gradient,
         fv_reconstruction,
         nothing, # filter
+        nothing, # gradient_filter_target
+        nothing, # tendency_filter_target
         OceanBoxGCMSpecificInfo(),
     )
 end
@@ -633,6 +651,8 @@ Establishing single stack configuration for %s
         numerical_flux_gradient,
         fv_reconstruction,
         nothing, # filter
+        nothing, # gradient_filter_target
+        nothing, # tendency_filter_target
         SingleStackSpecificInfo(),
     )
 end
@@ -747,6 +767,8 @@ Establishing MultiColumnLandModel configuration for %s
         numerical_flux_gradient,
         fv_reconstruction,
         nothing, # filter
+        nothing, # gradient_filter_target
+        nothing, # tendency_filter_target
         MultiColumnLandSpecificInfo(),
     )
 end
@@ -766,8 +788,10 @@ DGModel(driver_config; kwargs...) = DGModel(
     driver_config.numerical_flux_first_order,
     driver_config.numerical_flux_second_order,
     driver_config.numerical_flux_gradient;
-    gradient_filter=driver_config.filter,
-    tendency_filter=driver_config.filter,
+    gradient_filter = driver_config.filter,
+    tendency_filter = driver_config.filter,
+    gradient_filter_target = driver_config.gradient_filter_target,
+    tendency_filter_target = driver_config.tendency_filter_target,
     kwargs...,
 )
 
