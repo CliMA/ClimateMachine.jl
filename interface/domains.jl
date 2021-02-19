@@ -1,4 +1,4 @@
-module Domains
+# module Domains
 
 export Interval, Periodic
 
@@ -91,19 +91,20 @@ function periodicityof(Ω::ProductDomain)
     return Tuple(periodicity)
 end
 
+
 ```
 CubedSphere for GCM 
 ```
 
 struct AtmosDomain{S} <: AbstractDomain
-    _radius::S
-    _height::S
+    radius::S
+    height::S
 
-    function AtmosDomain(a, b)
-        a, b = promote(a, b)
+    function AtmosDomain(; radius = nothing, height = nothing )
+        radius, height = promote(radius, height)
 
-        return new{typeof(a)}(a, b)
+        return new{typeof(radius)}(radius, height)
     end
 end
 
-end # end of module
+# end # end of module

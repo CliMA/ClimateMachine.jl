@@ -1,4 +1,4 @@
-using Domains
+# using Domains
 
 using ClimateMachine, MPI
 using ClimateMachine.Mesh.Grids
@@ -26,12 +26,12 @@ Computes a DiscontinuousSpectralElementGrid as specified by a product domain
 A DiscontinuousSpectralElementGrid object
 """
 function DiscontinuousSpectralElementGrid(
-    Ω::ProductDomain;
-    elements = nothing,
-    polynomialorder = nothing,
+    Ω::ProductDomain,
+    elements,
+    polynomialorder;
+    mpicomm = MPI.COMM_WORLD,
     boundary = nothing,
     FT = Float64,
-    mpicomm = MPI.COMM_WORLD,
     array = Array,
 )
     if elements == nothing
@@ -83,7 +83,7 @@ function DiscontinuousSpectralElementGrid(
         boundary = (ntuple(j -> (1, 2), dimension - 1)..., (3, 4))
     end
 
-    topl = StackedBrickTopology(
+    topology = StackedBrickTopology(
         mpicomm,
         brickrange;
         periodicity = periodicity,
@@ -91,7 +91,7 @@ function DiscontinuousSpectralElementGrid(
     )
 
     grid = DiscontinuousSpectralElementGrid(
-        topl,
+        topology,
         FloatType = FT,
         DeviceArray = array,
         polynomialorder = polynomialorder,
@@ -102,51 +102,40 @@ end
 ```
 for CubedSphere
 ```
+# using CLIMAParameters
+# using CLIMAParameters.Planet: MSLP, R_d, day, grav, Omega, planet_radius
+# struct EarthParameterSet <: AbstractEarthParameterSet end
+# const param_set = EarthParameterSet()
+# _a::Float64 = planet_radius(param_set)
+# atmos_height::Float64 = 30e3
+
+# ```
+# grid = DiscontinuousSpectralElementGrid(Ω=, elements=, polynomialorder=)
+# ```
+
 function DiscontinuousSpectralElementGrid(
-    Ω::AtmosDomain;
-    elements = nothing,
-    polynomialorder = nothing,
-    boundary = nothing,
-    FT = Float64,
+    Ω::AtmosDomain,
+    elements,
+    polynomialorder;
     mpicomm = MPI.COMM_WORLD,
+    boundary = (1, 2),
+    FT = Float64,
     array = Array,
 )
-    #=
-    function StackedCubedSphereTopology(
-        mpicomm,
-        Nhorz,
-        Rrange;
-        boundary = (1, 1),
-        connectivity = :face,
-        ghostsize = 1,
-    )
-    =#
-
-    n_horz = elements[1]
-    n_vert = elements[2]
-
-    Rrange = grid1d( Ω._radius, Ω._radius + Ω._height, nelem = n_vert)
+    Rrange = grid1d(Ω.radius, Ω.radius + Ω.height, nelem = elements.vertical)
 
     topl = StackedCubedSphereTopology(
         mpicomm,
-        n_horz,
-        Rrange
-        boundary = (1, 1), # ???
+        elements.horizontal,
+        Rrange,
+        boundary = boundary, 
     )
-
-    # grid = DiscontinuousSpectralElementGrid(
-    #     topology,
-    #     FloatType = FT,
-    #     DeviceArray = array_type,
-    #     polynomialorder = (polyorder_horz, polyorder_vert),
-    #     meshwarp = meshwarp,
-    # )
 
     grid = DiscontinuousSpectralElementGrid(
         topl,
         FloatType = FT,
         DeviceArray = array,
-        polynomialorder = polynomialorder,
+        polynomialorder = (polynomialorder.horizontal, polynomialorder.vertical),
         meshwarp = ClimateMachine.Mesh.Topologies.cubedshellwarp,
     )
     return grid
