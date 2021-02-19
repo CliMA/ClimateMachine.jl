@@ -9,8 +9,6 @@ using ClimateMachine.VariableTemplates
 using ClimateMachine.Mesh.Grids: polynomialorders
 using ClimateMachine.Ocean
 
-include("TwoDimensionalCompressibleNavierStokesEquations.jl")
-
 using ClimateMachine.Mesh.Topologies
 using ClimateMachine.Mesh.Grids
 using ClimateMachine.DGMethods
@@ -33,9 +31,10 @@ struct Config{N, D, O, M, AT}
     ArrayType::AT
 end
 
-function run_bickley_jet(
+function run_CNSE(
     config,
-    params;
+    resolution,
+    timespan;
     TimeStepper = LSRK54CarpenterKennedy,
     refDat = (),
 )
@@ -43,7 +42,7 @@ function run_bickley_jet(
     Q = init_ode_state(dg, FT(0); init_on_cpu = true)
 
     if config.Nover > 0
-        cutoff = CutoffFilter(dg.grid, params.N + config.Nover)
+        cutoff = CutoffFilter(dg.grid, resolution.N + config.Nover)
         num_state_prognostic = number_states(dg.balance_law, Prognostic())
         Filters.apply!(Q, 1:num_state_prognostic, dg.grid, cutoff)
     end
@@ -51,19 +50,21 @@ function run_bickley_jet(
     function custom_tendency(tendency, x...; kw...)
         dg(tendency, x...; kw...)
         if config.Nover > 0
-            cutoff = CutoffFilter(dg.grid, params.N + config.Nover)
+            cutoff = CutoffFilter(dg.grid, resolution.N + config.Nover)
             num_state_prognostic = number_states(dg.balance_law, Prognostic())
             Filters.apply!(tendency, 1:num_state_prognostic, dg.grid, cutoff)
         end
     end
 
-    odesolver = TimeStepper(custom_tendency, Q, dt = params.dt, t0 = 0)
+    println("time step is " * string(timespan.dt))
+    println("time end is " * string(timespan.timeend))
+    odesolver = TimeStepper(custom_tendency, Q, dt = timespan.dt, t0 = 0)
 
     vtkstep = 0
     cbvector = make_callbacks(
         vtkpath,
         vtkstep,
-        params,
+        timespan,
         config.mpicomm,
         odesolver,
         dg,
@@ -77,10 +78,7 @@ function run_bickley_jet(
     norm(Q₀) = %.16e
     ArrayType = %s""" eng0 config.ArrayType
 
-    solve!(Q, odesolver; timeend = params.timeend, callbacks = cbvector)
-
-    # file = jldopen(vtkpath * "/" * config.name * ".jld2", "w")
-    # close(file)
+    solve!(Q, odesolver; timeend = timespan.timeend, callbacks = cbvector)
 
     ## Check results against reference
     ClimateMachine.StateCheck.scprintref(cbvector[end])
@@ -94,7 +92,7 @@ end
 function make_callbacks(
     vtkpath,
     vtkstep,
-    params,
+    timespan,
     mpicomm,
     odesolver,
     dg,
@@ -117,13 +115,17 @@ function make_callbacks(
                 runtime = %s
                 norm(Q) = %.16e""",
                 ODESolvers.gettime(odesolver),
-                params.timeend,
+                timespan.timeend,
                 Dates.format(
                     convert(Dates.DateTime, Dates.now() - starttime[]),
                     Dates.dateformat"HH:MM:SS",
                 ),
                 energy
             )
+
+            if isnan(energy)
+                error("NaNs")
+            end
         end
     end
 
@@ -136,8 +138,11 @@ function make_callbacks(
         end
         mkpath(vtkpath)
 
-        # file = jldopen(vtkpath * "/" * filename * ".jld2", "w")
-        # file["grid"] = grid
+        """
+        file = jldopen(vtkpath * "/" * filename * ".jld2", "w")
+        file["grid"] = dg.grid
+        close(file)
+        """
 
         function do_output(vtkstep, model, dg, Q)
             outprefix = @sprintf(
@@ -155,7 +160,8 @@ function make_callbacks(
             """
             @info "doing JLD2 output" vtkstep
             file = jldopen(vtkpath * "/" * filename * ".jld2", "a+")
-            file[string(vtkstep)] = Q.realdata
+            file[string(vtkstep)] = Array(Q.realdata)
+            close(file)
             """
 
             vtkstep += 1
@@ -165,7 +171,7 @@ function make_callbacks(
 
         vtkstep = do_output(vtkstep, model, dg, Q)
         cbvtk =
-            ClimateMachine.GenericCallbacks.EveryXSimulationSteps(params.nout) do (
+            ClimateMachine.GenericCallbacks.EveryXSimulationSteps(timespan.nout) do (
                 init = false
             )
                 vtkstep = do_output(vtkstep, model, dg, Q)
@@ -176,7 +182,7 @@ function make_callbacks(
 
     cbcs_dg = ClimateMachine.StateCheck.sccreate(
         [(Q, "state")],
-        params.nout;
+        timespan.nout;
         prec = 12,
     )
 
