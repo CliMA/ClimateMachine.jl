@@ -157,13 +157,12 @@ function atmos_momentum_normal_boundary_flux_second_order!(
     aux_int⁻,
 ) where {DL <: DragLaw}
 
-    u1⁻ = state_int⁻.ρu / state_int⁻.ρ
-    u_int⁻_tan = u1⁻ - dot(u1⁻, n) .* SVector(n)
-    normu_int⁻_tan = norm(u_int⁻_tan)
+    u1⁻ = state⁻.ρu / state⁻.ρ
+    u⁻_tan = u1⁻ - dot(u1⁻, n) .* SVector(n)
+    normu⁻_tan = norm(u⁻_tan)
     # NOTE: difference from design docs since normal points outwards
-    C = bc_momentum.drag.fn(state⁻, aux⁻, t, normu_int⁻_tan)
-    τn = C * normu_int⁻_tan * u_int⁻_tan
-    # both sides involve projections of normals, so signs are consistent
+    C = bc_momentum.drag.fn(state⁻, aux⁻, t, normu⁻_tan)
+    τn = C * normu⁻_tan * u⁻_tan
     fluxᵀn.ρu += state⁻.ρ * τn
     fluxᵀn.energy.ρe += state⁻.ρu' * τn
 end

@@ -47,6 +47,34 @@ import CLIMAParameters
 
 using ClimateMachine.Atmos: altitude, recover_thermo_state, density
 
+"""
+  StableBL Geostrophic Forcing (Source)
+"""
+struct StableBLGeostrophic{PV <: Momentum, FT} <: TendencyDef{Source, PV}
+    "Coriolis parameter [s⁻¹]"
+    f_coriolis::FT
+    "Eastward geostrophic velocity `[m/s]` (Base)"
+    u_geostrophic::FT
+    "Eastward geostrophic velocity `[m/s]` (Slope)"
+    u_slope::FT
+    "Northward geostrophic velocity `[m/s]`"
+    v_geostrophic::FT
+end
+StableBLGeostrophic(::Type{FT}, args...) where {FT} =
+    StableBLGeostrophic{Momentum, FT}(args...)
+
+function source(s::StableBLGeostrophic{Momentum}, m, args)
+    @unpack state, aux = args
+    @unpack f_coriolis, u_geostrophic, u_slope, v_geostrophic = s
+
+    z = altitude(m, aux)
+    # Note z dependence of eastward geostrophic velocity
+    u_geo = SVector(u_geostrophic + u_slope * z, v_geostrophic, 0)
+    ẑ = vertical_unit_vector(m, aux)
+    fkvector = f_coriolis * ẑ
+    # Accumulate sources
+    return -fkvector × (state.ρu .- state.ρ * u_geo)
+end
 
 """
   StableBL Sponge (Source)
@@ -177,7 +205,7 @@ function stable_bl_model(
     α_max = FT(0.75)       # Strength of sponge layer (timescale)
     γ = 2                  # Strength of sponge layer (exponent)
 
-    u_geostrophic = FT(8)        # Eastward relaxation speed
+    u_geostrophic = FT(1)        # Eastward relaxation speed
     u_slope = FT(0)              # Slope of altitude-dependent relaxation speed
     v_geostrophic = FT(0)        # Northward relaxation speed
     f_coriolis = FT(1.39e-4) # Coriolis parameter at 73N
