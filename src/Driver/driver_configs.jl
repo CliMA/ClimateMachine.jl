@@ -46,7 +46,6 @@ end
 
 """
     ArgParse.parse_item
-
 Parses custom command line option for tuples of three or fewer integers.
 """
 function ArgParse.parse_item(::Type{NTuple{3, Int}}, s::AbstractString)
