@@ -2,12 +2,6 @@ using ClimateMachine
 using ClimateMachine.SystemSolvers
 using ClimateMachine.ODESolvers
 using ClimateMachine.MPIStateArrays
-
-ClimateMachine.init(;
-    parse_clargs = true,
-    output_dir = get(ENV, "CLIMATEMACHINE_SETTINGS_OUTPUT_DIR", "output"),
-    fix_rng_seed = true,
-)
 using ClimateMachine.SingleStackUtils
 using ClimateMachine.Checkpoint
 using ClimateMachine.BalanceLaws: vars_state
@@ -18,20 +12,7 @@ include(joinpath(clima_dir, "experiments", "AtmosLES", "stable_bl_model.jl"))
 include("edmf_model.jl")
 include("edmf_kernels.jl")
 
-function main(::Type{FT}) where {FT}
-    # add a command line argument to specify the kind of surface flux
-    # TODO: this will move to the future namelist functionality
-    sbl_args = ArgParseSettings(autofix_names = true)
-    add_arg_group!(sbl_args, "StableBoundaryLayer")
-    @add_arg_table! sbl_args begin
-        "--surface-flux"
-        help = "specify surface flux for energy and moisture"
-        metavar = "prescribed|bulk|custom_sbl"
-        arg_type = String
-        default = "custom_sbl"
-    end
-
-    cl_args = ClimateMachine.init(parse_clargs = true, custom_clargs = sbl_args)
+function main(::Type{FT}, cl_args) where {FT}
 
     surface_flux = cl_args["surface_flux"]
 
@@ -224,6 +205,25 @@ function main(::Type{FT}) where {FT}
     return solver_config, diag_arr, time_data
 end
 
-solver_config, diag_arr, time_data = main(Float64)
+# add a command line argument to specify the kind of surface flux
+# TODO: this will move to the future namelist functionality
+sbl_args = ArgParseSettings(autofix_names = true)
+add_arg_group!(sbl_args, "StableBoundaryLayer")
+@add_arg_table! sbl_args begin
+    "--surface-flux"
+    help = "specify surface flux for energy and moisture"
+    metavar = "prescribed|bulk|custom_sbl"
+    arg_type = String
+    default = "custom_sbl"
+end
+
+cl_args = ClimateMachine.init(
+    parse_clargs = true,
+    custom_clargs = sbl_args,
+    output_dir = get(ENV, "CLIMATEMACHINE_SETTINGS_OUTPUT_DIR", "output"),
+    fix_rng_seed = true,
+)
+
+solver_config, diag_arr, time_data = main(Float64, cl_args)
 
 nothing
