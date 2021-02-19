@@ -58,7 +58,7 @@ end
 function init_state_prognostic!(bl::DryAtmosModel, 
                                 problem::GravityWave,
                                 state, aux, localgeo, t)
-    x, y, z = localgeo.coord
+    x, z, _ = localgeo.coord
     FT = eltype(state)
     _R_d::FT = R_d(param_set)
     _cp_d::FT = cp_d(param_set)
@@ -148,13 +148,13 @@ function init_state_prognostic!(bl::DryAtmosModel,
       δT = exp(δ * z / 2) * real(δT_b)
     end
    
-    #ρ = ρ_s * exp(-δ * z) + δρ
-    #T = T_ref + δT
+    ρ = ρ_s * exp(-δ * z) + δρ
+    T = T_ref + δT
     
-    ρ = aux.ref_state.ρ + δρ
-    T = aux.ref_state.T + δT
+    #ρ = aux.ref_state.ρ + δρ
+    #T = aux.ref_state.T + δT
 
-    u = SVector{3, FT}(u_0 + δu, δv, δw) 
+    u = SVector{3, FT}(u_0 + δu, δw, 0)
     e_kin = u' * u / 2
     e_pot = aux.Φ
     e_int = _cv_d * T
@@ -170,29 +170,71 @@ function main()
     ArrayType = ClimateMachine.array_type()
 
     FT = Float64
-    problem = gw_large_setup(FT)
+    problem = gw_small_setup(FT)
 
     mpicomm = MPI.COMM_WORLD
-    polynomialorder = 3
-    Ne = (64, 1, 8)
     xmax = FT(problem.L)
-    ymax = FT(problem.L / Ne[1])
     zmax = FT(problem.H)
+    
+    numlevels = 4
+    l2_errors = zeros(FT, numlevels)
+    linf_errors = zeros(FT, numlevels)
 
-    timeend = problem.timeend
-    FT = Float64
-    result = run(
-        mpicomm,
-        polynomialorder,
-        Ne,
-        xmax,
-        ymax,
-        zmax,
-        timeend,
-        problem,
-        ArrayType,
-        FT,
-    )
+    for surfaceflux in (MatrixFlux,)
+      for N in (1, 2, 3, 4, 5)
+        ndof_x = 60
+        ndof_y = 15
+
+        Ne_x_base = round(Int, ndof_x / N)
+        Ne_y_base = round(Int, ndof_y / N)
+
+        Ne_x = Ne_x_base * 2 .^ ((1:numlevels) .- 1)
+        Ne_y = Ne_y_base * 2 .^ ((1:numlevels) .- 1)
+
+        for l in 1:numlevels
+          timeend = problem.timeend
+          FT = Float64
+          l2_err, linf_err = run(
+              mpicomm,
+              N,
+              (Ne_x[l], Ne_y[l]),
+              xmax,
+              zmax,
+              timeend,
+              problem,
+              ArrayType,
+              FT,
+              surfaceflux()
+          )
+          @show l, l2_err, linf_err
+          l2_errors[l] = l2_err
+          linf_errors[l] = linf_err
+        end
+        l2_rates = log2.(l2_errors[1:numlevels-1] ./ l2_errors[2:numlevels])
+        linf_rates = log2.(linf_errors[1:numlevels-1] ./ linf_errors[2:numlevels])
+
+        path = "gravitywave_convergence_$(surfaceflux)_$N.txt"
+        open(path, "w") do f
+          msg = ""
+          for l in 1:numlevels
+            avg_Δx = problem.L / Ne_x[l] / N
+            avg_Δy = problem.H / Ne_y[l] / N
+
+            msg *= @sprintf(
+              "%d %.4e %.4e %.16e %.4e %.16e %.4e\n",
+              l,
+              avg_Δx,
+              avg_Δy,
+              l2_errors[l],
+              l > 1 ? l2_rates[l-1] : 0,
+              linf_errors[l],
+              l > 1 ? linf_rates[l-1] : 0,
+            )
+          end
+          write(f, msg)
+        end
+      end
+    end
 end
 
 function run(
@@ -200,22 +242,21 @@ function run(
     polynomialorder,
     Ne,
     xmax,
-    ymax,
     zmax,
     timeend,
     problem,
     ArrayType,
     FT,
+    surfaceflux
 )
 
-    dim = 3
+    dim = 2
     brickrange = (
         range(FT(0), stop = xmax, length = Ne[1] + 1),
-        range(FT(0), stop = ymax, length = Ne[2] + 1),
-        range(FT(0), stop = zmax, length = Ne[3] + 1),
+        range(FT(0), stop = zmax, length = Ne[2] + 1),
     )
-    boundary = ((0, 0), (0, 0), (1, 2))
-    periodicity = (true, true, false)
+    boundary = ((0, 0), (1, 2))
+    periodicity = (true, false)
     topology = StackedBrickTopology(
         mpicomm,
         brickrange,
@@ -240,7 +281,7 @@ function run(
         model,
         grid;
         volume_numerical_flux_first_order = EntropyConservative(),
-        surface_numerical_flux_first_order = EntropyConservative(),
+        surface_numerical_flux_first_order = surfaceflux,
     )
 
     # determine the time step
@@ -255,14 +296,14 @@ function run(
                       ArrayType       = %s
                       FT              = %s
                       polynomialorder = %d
-                      numelem         = %d
+                      numelem         = (%d, %d)
                       dt              = %.16e
                       norm(Q₀)        = %.16e
-                      """ "$ArrayType" "$FT" polynomialorder Ne[1] dt eng0
+                      """ "$ArrayType" "$FT" polynomialorder Ne[1] Ne[2] dt eng0
 
     # Set up the information callback
     starttime = Ref(now())
-    cbinfo = EveryXSimulationSteps(100) do (s = false)
+    cbinfo = EveryXSimulationSteps(1000) do (s = false)
         if s
             starttime[] = now()
         else
@@ -280,13 +321,13 @@ function run(
     end
     callbacks = (cbinfo,)
 
-    output_vtk = true
+    output_vtk = false
     if output_vtk
 
         # create vtk dir
         Nelem = Ne[1]
         vtkdir =
-            "esdg_large_gravitywave" *
+            "esdg_small_gravitywave" *
             "_poly$(polynomialorder)_dims$(dim)_$(ArrayType)_$(FT)_nelem$(Nelem)"
         mkpath(vtkdir)
 
@@ -295,7 +336,7 @@ function run(
         do_output(mpicomm, vtkdir, vtkstep, esdg, Q, Q, model)
 
         # setup the output callback
-        outputtime = 6000
+        outputtime = timeend
         cbvtk = EveryXSimulationSteps(floor(outputtime / dt)) do
             Qexact = init_ode_state(esdg, FT(gettime(odesolver)))
             vtkstep += 1
@@ -305,15 +346,19 @@ function run(
     end
 
     solve!(Q, odesolver; callbacks = callbacks, timeend = timeend)
+    Qexact = init_ode_state(esdg, FT(timeend))
+    l2_err = norm(Q - Qexact)
+    linf_err = maximum(abs.(Q - Qexact))
 
     # final statistics
     engf = norm(Q)
     @info @sprintf """Finished
-    norm(Q)                 = %.16e
-    norm(Q) / norm(Q₀)      = %.16e
-    norm(Q) - norm(Q₀)      = %.16e
-    """ engf engf / eng0 engf - eng0
-    engf
+    norm(Q)            = %.16e
+    norm(Q) / norm(Q₀) = %.16e
+    norm(Q) - norm(Q₀) = %.16e
+    norm(Q - Qexact)   = %.16e
+    """ engf engf / eng0 engf - eng0 l2_err
+    l2_err, linf_err
 end
 
 function do_output(mpicomm, vtkdir, vtkstep, esdg, Q, Qexact, model, testname = "RTB")
