@@ -1,6 +1,6 @@
-module TwoDimensionalCompressibleNavierStokes
+module ThreeDimensionalCompressibleNavierStokes
 
-export TwoDimensionalCompressibleNavierStokesEquations
+export ThreeDimensionalCompressibleNavierStokesEquations
 
 using Test
 using StaticArrays
@@ -40,17 +40,16 @@ import ClimateMachine.NumericalFluxes: numerical_flux_first_order!
 ⊗(a::SVector, b::SVector) = a * b'
 
 abstract type TurbulenceClosure end
-struct LinearDrag{T} <: TurbulenceClosure
-    λ::T
-end
 struct ConstantViscosity{T} <: TurbulenceClosure
+    μ::T
     ν::T
     κ::T
     function ConstantViscosity{T}(;
-        ν = FT(1e-6),   # m²/s
-        κ = FT(1e-6),   # m²/s
+        μ = T(1e-6),   # m²/s
+        ν = T(1e-6),   # m²/s
+        κ = T(1e-6),   # m²/s
     ) where {T <: AbstractFloat}
-        return new{T}(ν, κ)
+        return new{T}(μ, ν, κ)
     end
 end
 
@@ -67,44 +66,47 @@ struct fPlaneCoriolis{T} <: CoriolisForce
 end
 
 abstract type Forcing end
-struct KinematicStress{T} <: Forcing
-    τₒ::T
-    function KinematicStress{T}(; τₒ = T(1e-4)) where {T <: AbstractFloat}
-        return new{T}(τₒ)
+struct Buoyancy{T} <: Forcing
+    α::T # 1/K
+    g::T # m/s²
+    function Buoyancy{T}(; α = T(2e-4), g = T(10)) where {T <: AbstractFloat}
+        return new{T}(α, g)
     end
 end
 
 """
-    TwoDimensionalCompressibleNavierStokesEquations <: BalanceLaw
-
+    ThreeDimensionalCompressibleNavierStokesEquations <: BalanceLaw
 A `BalanceLaw` for shallow water modeling.
-
 write out the equations here
-
 # Usage
-
-    TwoDimensionalCompressibleNavierStokesEquations()
-
+    ThreeDimensionalCompressibleNavierStokesEquations()
 """
-struct TwoDimensionalCompressibleNavierStokesEquations{D, A, T, C, F, BC, FT} <:
-       BalanceLaw
+struct ThreeDimensionalCompressibleNavierStokesEquations{
+    D,
+    A,
+    T,
+    C,
+    F,
+    BC,
+    FT,
+} <: BalanceLaw
     domain::D
     advection::A
     turbulence::T
     coriolis::C
     forcing::F
     boundary_conditions::BC
-    g::FT
-    c::FT
-    function TwoDimensionalCompressibleNavierStokesEquations{FT}(
+    cₛ::FT
+    ρₒ::FT
+    function ThreeDimensionalCompressibleNavierStokesEquations{FT}(
         domain::D,
         advection::A,
         turbulence::T,
         coriolis::C,
         forcing::F,
         boundary_conditions::BC;
-        g = FT(10), # m/s²
-        c = FT(0),  #m/s
+        cₛ = FT(sqrt(10)),  #m/s
+        ρₒ = FT(1),  #kg/m³
     ) where {FT <: AbstractFloat, D, A, T, C, F, BC}
         return new{D, A, T, C, F, BC, FT}(
             domain,
@@ -113,34 +115,36 @@ struct TwoDimensionalCompressibleNavierStokesEquations{D, A, T, C, F, BC, FT} <:
             coriolis,
             forcing,
             boundary_conditions,
-            g,
-            c,
+            cₛ,
+            ρₒ,
         )
     end
 end
-CNSE2D = TwoDimensionalCompressibleNavierStokesEquations
 
-function vars_state(m::CNSE2D, ::Prognostic, T)
+CNSE3D = ThreeDimensionalCompressibleNavierStokesEquations
+
+function vars_state(m::CNSE3D, ::Prognostic, T)
     @vars begin
         ρ::T
-        ρu::SVector{2, T}
+        ρu::SVector{3, T}
         ρθ::T
     end
 end
 
-function init_state_prognostic!(m::CNSE2D, state::Vars, aux::Vars, localgeo, t)
+function init_state_prognostic!(m::CNSE3D, state::Vars, aux::Vars, localgeo, t)
     ocean_init_state!(m, state, aux, localgeo, t)
 end
 
-function vars_state(m::CNSE2D, ::Auxiliary, T)
+function vars_state(m::CNSE3D, ::Auxiliary, T)
     @vars begin
         x::T
         y::T
+        z::T
     end
 end
 
 function init_state_auxiliary!(
-    model::CNSE2D,
+    model::CNSE3D,
     state_auxiliary::MPIStateArray,
     grid,
     direction,
@@ -154,15 +158,16 @@ function init_state_auxiliary!(
     )
 end
 
-function vars_state(m::CNSE2D, ::Gradient, T)
+function vars_state(m::CNSE3D, ::Gradient, T)
     @vars begin
-        ∇u::SVector{2, T}
+        ∇ρ::T
+        ∇u::SVector{3, T}
         ∇θ::T
     end
 end
 
 function compute_gradient_argument!(
-    model::CNSE2D,
+    model::CNSE3D,
     grad::Vars,
     state::Vars,
     aux::Vars,
@@ -170,8 +175,6 @@ function compute_gradient_argument!(
 )
     compute_gradient_argument!(model.turbulence, grad, state, aux, t)
 end
-
-compute_gradient_argument!(::LinearDrag, _...) = nothing
 
 @inline function compute_gradient_argument!(
     ::ConstantViscosity,
@@ -187,21 +190,23 @@ compute_gradient_argument!(::LinearDrag, _...) = nothing
     u = ρu / ρ
     θ = ρθ / ρ
 
+    grad.∇ρ = ρ
     grad.∇u = u
     grad.∇θ = θ
 
     return nothing
 end
 
-function vars_state(m::CNSE2D, ::GradientFlux, T)
+function vars_state(m::CNSE3D, ::GradientFlux, T)
     @vars begin
-        ν∇u::SMatrix{3, 2, T, 6}
+        μ∇ρ::SVector{3, T}
+        ν∇u::SMatrix{3, 3, T, 9}
         κ∇θ::SVector{3, T}
     end
 end
 
 function compute_gradient_flux!(
-    model::CNSE2D,
+    model::CNSE3D,
     gradflux::Vars,
     grad::Grad,
     state::Vars,
@@ -219,10 +224,8 @@ function compute_gradient_flux!(
     )
 end
 
-compute_gradient_flux!(::CNSE2D, ::LinearDrag, _...) = nothing
-
 @inline function compute_gradient_flux!(
-    ::CNSE2D,
+    ::CNSE3D,
     turb::ConstantViscosity,
     gradflux::Vars,
     grad::Grad,
@@ -230,9 +233,11 @@ compute_gradient_flux!(::CNSE2D, ::LinearDrag, _...) = nothing
     aux::Vars,
     t::Real,
 )
-    ν = Diagonal(@SVector [turb.ν, turb.ν, -0])
-    κ = Diagonal(@SVector [turb.κ, turb.κ, -0])
+    μ = turb.μ * I
+    ν = turb.ν * I
+    κ = turb.κ * I
 
+    gradflux.μ∇ρ = -μ * grad.∇ρ
     gradflux.ν∇u = -ν * grad.∇u
     gradflux.κ∇θ = -κ * grad.∇θ
 
@@ -240,42 +245,32 @@ compute_gradient_flux!(::CNSE2D, ::LinearDrag, _...) = nothing
 end
 
 @inline function flux_first_order!(
-    model::CNSE2D,
+    model::CNSE3D,
     flux::Grad,
     state::Vars,
     aux::Vars,
     t::Real,
     direction,
 )
-
     ρ = state.ρ
-    ρu = @SVector [state.ρu[1], state.ρu[2], -0]
+    ρu = state.ρu
     ρθ = state.ρθ
 
-    ρₜ = flux.ρ
-    ρuₜ = flux.ρu
-    θₜ = flux.ρθ
-
-    g = model.g
-
-    Iʰ = @SMatrix [
-        1 -0
-        -0 1
-        -0 -0
-    ]
+    cₛ = model.cₛ
+    ρₒ = model.ρₒ
 
     flux.ρ += ρu
-    flux.ρu += g * ρ^2 * Iʰ / 2
+    flux.ρu += (cₛ * ρ)^2 / (2 * ρₒ) * I
 
     advective_flux!(model, model.advection, flux, state, aux, t)
 
     return nothing
 end
 
-advective_flux!(::CNSE2D, ::Nothing, _...) = nothing
+advective_flux!(::CNSE3D, ::Nothing, _...) = nothing
 
 @inline function advective_flux!(
-    ::CNSE2D,
+    ::CNSE3D,
     ::NonLinearAdvectionTerm,
     flux::Grad,
     state::Vars,
@@ -284,17 +279,16 @@ advective_flux!(::CNSE2D, ::Nothing, _...) = nothing
 )
     ρ = state.ρ
     ρu = state.ρu
-    ρv = @SVector [state.ρu[1], state.ρu[2], -0]
     ρθ = state.ρθ
 
-    flux.ρu += ρv ⊗ ρu / ρ
-    flux.ρθ += ρv * ρθ / ρ
+    flux.ρu += ρu ⊗ ρu / ρ
+    flux.ρθ += ρu * ρθ / ρ
 
     return nothing
 end
 
 function flux_second_order!(
-    model::CNSE2D,
+    model::CNSE3D,
     flux::Grad,
     state::Vars,
     gradflux::Vars,
@@ -305,10 +299,8 @@ function flux_second_order!(
     flux_second_order!(model, model.turbulence, flux, state, gradflux, aux, t)
 end
 
-flux_second_order!(::CNSE2D, ::LinearDrag, _...) = nothing
-
 @inline function flux_second_order!(
-    ::CNSE2D,
+    ::CNSE3D,
     ::ConstantViscosity,
     flux::Grad,
     state::Vars,
@@ -316,6 +308,7 @@ flux_second_order!(::CNSE2D, ::LinearDrag, _...) = nothing
     aux::Vars,
     t::Real,
 )
+    flux.ρ += gradflux.μ∇ρ
     flux.ρu += gradflux.ν∇u
     flux.ρθ += gradflux.κ∇θ
 
@@ -323,7 +316,7 @@ flux_second_order!(::CNSE2D, ::LinearDrag, _...) = nothing
 end
 
 @inline function source!(
-    model::CNSE2D,
+    model::CNSE3D,
     source::Vars,
     state::Vars,
     gradflux::Vars,
@@ -333,64 +326,57 @@ end
 )
     coriolis_force!(model, model.coriolis, source, state, aux, t)
     forcing_term!(model, model.forcing, source, state, aux, t)
-    linear_drag!(model, model.turbulence, source, state, aux, t)
 
     return nothing
 end
 
-coriolis_force!(::CNSE2D, ::Nothing, _...) = nothing
+coriolis_force!(::CNSE3D, ::Nothing, _...) = nothing
 
 @inline function coriolis_force!(
-    model::CNSE2D,
+    model::CNSE3D,
     coriolis::fPlaneCoriolis,
     source,
     state,
     aux,
     t,
 )
-    ρu = @SVector [state.ρu[1], state.ρu[2], -0]
-
     # f × u
     f = [-0, -0, coriolis_parameter(model, coriolis, aux.coords)]
-    id = @SVector [1, 2]
-    fxρu = (f × ρu)[id]
+    ρu = state.ρu
 
-    source.ρu -= fxρu
+    source.ρu -= f × ρu
 
     return nothing
 end
 
-forcing_term!(::CNSE2D, ::Nothing, _...) = nothing
+forcing_term!(::CNSE3D, ::Nothing, _...) = nothing
 
 @inline function forcing_term!(
-    model::CNSE2D,
-    forcing::KinematicStress,
+    model::CNSE3D,
+    buoy::Buoyancy,
     source,
     state,
     aux,
     t,
 )
-    source.ρu += kinematic_stress(model, forcing, aux.coords)
+    α = buoy.α
+    g = buoy.g
+    ρθ = state.ρθ
 
-    return nothing
+    B = α * g * ρθ
+
+    # only in a box, need to generalize for sphere
+    source.ρu += @SVector [-0, -0, B]
 end
 
-linear_drag!(::CNSE2D, ::ConstantViscosity, _...) = nothing
-
-@inline function linear_drag!(::CNSE2D, turb::LinearDrag, source, state, aux, t)
-    source.ρu -= turb.λ * state.ρu
-
-    return nothing
-end
-
-@inline wavespeed(m::CNSE2D, _...) = m.c
+@inline wavespeed(m::CNSE3D, _...) = m.cₛ
 
 roe_average(ρ⁻, ρ⁺, var⁻, var⁺) =
     (sqrt(ρ⁻) * var⁻ + sqrt(ρ⁺) * var⁺) / (sqrt(ρ⁻) + sqrt(ρ⁺))
 
 function numerical_flux_first_order!(
     ::RoeNumericalFlux,
-    model::CNSE2D,
+    model::CNSE3D,
     fluxᵀn::Vars{S},
     n⁻::SVector,
     state⁻::Vars{S},
@@ -416,119 +402,100 @@ function numerical_flux_first_order!(
     FT = eltype(fluxᵀn)
 
     # constants and normal vectors
-    g = model.g
-    @inbounds nˣ = n⁻[1]
-    @inbounds nʸ = n⁻[2]
+    cₛ = model.cₛ
+    ρₒ = model.ρₒ
 
-    # get minus side states
+    # - states
     ρ⁻ = state⁻.ρ
-    @inbounds ρu⁻ = state⁻.ρu[1]
-    @inbounds ρv⁻ = state⁻.ρu[2]
+    ρu⁻ = state⁻.ρu
     ρθ⁻ = state⁻.ρθ
 
+    # constructed states
     u⁻ = ρu⁻ / ρ⁻
-    v⁻ = ρv⁻ / ρ⁻
     θ⁻ = ρθ⁻ / ρ⁻
+    uₙ⁻ = u⁻' * n⁻
 
-    # get plus side states
+    # in general thermodynamics
+    p⁻ = (cₛ * ρ⁻)^2 / (2 * ρₒ)
+    c⁻ = cₛ * sqrt(ρ⁻ / ρₒ)
+
+    # + states
     ρ⁺ = state⁺.ρ
-    @inbounds ρu⁺ = state⁺.ρu[1]
-    @inbounds ρv⁺ = state⁺.ρu[2]
+    ρu⁺ = state⁺.ρu
     ρθ⁺ = state⁺.ρθ
 
+    # constructed states
     u⁺ = ρu⁺ / ρ⁺
-    v⁺ = ρv⁺ / ρ⁺
     θ⁺ = ρθ⁺ / ρ⁺
+    uₙ⁺ = u⁺' * n⁻
 
-    # averages for roe fluxes
-    ρ = (ρ⁺ + ρ⁻) / 2
-    ρu = (ρu⁺ + ρu⁻) / 2
-    ρv = (ρv⁺ + ρv⁻) / 2
-    ρθ = (ρθ⁺ + ρθ⁻) / 2
+    # in general thermodynamics
+    p⁺ = (cₛ * ρ⁺)^2 / (2 * ρₒ)
+    c⁺ = cₛ * sqrt(ρ⁺ / ρₒ)
 
+    # construct roe averges
+    ρ = sqrt(ρ⁻ * ρ⁺)
     u = roe_average(ρ⁻, ρ⁺, u⁻, u⁺)
-    v = roe_average(ρ⁻, ρ⁺, v⁻, v⁺)
     θ = roe_average(ρ⁻, ρ⁺, θ⁻, θ⁺)
+    c = roe_average(ρ⁻, ρ⁺, c⁻, c⁺)
 
-    # normal and tangent velocities
-    uₙ = nˣ * u + nʸ * v
-    uₚ = nˣ * v - nʸ * u
+    # construct normal velocity
+    uₙ = u' * n⁻
 
-    # differences for difference vector
+    # differences
     Δρ = ρ⁺ - ρ⁻
-    Δρu = ρu⁺ - ρu⁻
-    Δρv = ρv⁺ - ρv⁻
+    Δp = p⁺ - p⁻
+    Δu = u⁺ - u⁻
     Δρθ = ρθ⁺ - ρθ⁻
+    Δuₙ = Δu' * n⁻
 
-    Δφ = @SVector [Δρ, Δρu, Δρv, Δρθ]
+    # constructed values
+    c⁻² = 1 / c^2
+    w1 = abs(uₙ - c) * (Δp - ρ * c * Δuₙ) * 0.5 * c⁻²
+    w2 = abs(uₙ + c) * (Δp + ρ * c * Δuₙ) * 0.5 * c⁻²
+    w3 = abs(uₙ) * (Δρ - Δp * c⁻²)
+    w4 = abs(uₙ) * ρ
+    w5 = abs(uₙ) * (Δρθ - θ * Δp * c⁻²)
 
-    """
-    # jacobian
-    ∂F∂φ = [
-        0 nˣ nʸ 0
-        (nˣ * c^2 - u * uₙ) (uₙ + nˣ * u) (nʸ * u) 0
-        (nʸ * c^2 - v * uₙ) (nˣ * v) (uₙ + nʸ * v) 0
-        (-θ * uₙ) (nˣ * θ) (nʸ * θ) uₙ
-    ]
-
-    # eigen decomposition
-    λ, R = eigen(∂F∂φ)
-    """
-
-    # eigen values matrix
-    c = sqrt(g * ρ)
-    λ = @SVector [uₙ, uₙ + c, uₙ - c, uₙ]
-    Λ = Diagonal(abs.(λ))
-
-
-    # eigenvector matrix
-    R = @SMatrix [
-        0 1 1 0
-        -nʸ (u+nˣ * c) (u-nˣ * c) 0
-        nˣ (v+nʸ * c) (v-nʸ * c) 0
-        0 θ θ 1
-    ]
-
-    # inverse of eigenvector matrix
-    R⁻¹ = @SMatrix [
-        -uₚ -nʸ nˣ 0
-        (c - uₙ)/(2c) nˣ/(2c) nʸ/(2c) 0
-        (c + uₙ)/(2c) -nˣ/(2c) -nʸ/(2c) 0
-        -θ 0 0 1
-    ]
-
-    # @test norm(R⁻¹ * R - I) ≈ 0
-
-    # actually calculate flux
-    # parent(fluxᵀn) .-= R * Λ * (R \ Δφ) / 2
-    parent(fluxᵀn) .-= R * Λ * R⁻¹ * Δφ / 2
+    # fluxes!!!
+    fluxᵀn.ρ -= (w1 + w2 + w3) * 0.5
+    fluxᵀn.ρu -=
+        (
+            w1 * (u - c * n⁻) +
+            w2 * (u + c * n⁻) +
+            w3 * u +
+            w4 * (Δu - Δuₙ * n⁻)
+        ) * 0.5
+    fluxᵀn.ρθ -= ((w1 + w2) * θ + w5) * 0.5
 
     return nothing
 end
 
-boundary_conditions(model::CNSE2D) = model.boundary_conditions
+## Boundary Conditions
+
+boundary_conditions(model::CNSE3D) = model.boundary_conditions
 
 """
-    boundary_state!(nf, ::CNSE2D, args...)
-
+    boundary_state!(nf, ::CNSE3D, args...)
 applies boundary conditions for the hyperbolic fluxes
 dispatches to a function in OceanBoundaryConditions
 """
-@inline function boundary_state!(nf, bc, model::CNSE2D, args...)
+@inline function boundary_state!(nf, bc, model::CNSE3D, args...)
     return _ocean_boundary_state!(nf, bc, model, args...)
 end
 
 """
-    ocean_boundary_state!(nf, bc::OceanBC, ::CNSE2D)
-
+    ocean_boundary_state!(nf, bc::OceanBC, ::CNSE3D)
 splits boundary condition application into velocity
 """
-@inline function ocean_boundary_state!(nf, bc::OceanBC, m::CNSE2D, args...)
-    return ocean_boundary_state!(nf, bc.velocity, m, m.turbulence, args...)
-    return ocean_boundary_state!(nf, bc.temperature, m, args...)
+@inline function ocean_boundary_state!(nf, bc::OceanBC, m::CNSE3D, args...)
+    ocean_boundary_state!(nf, bc.velocity, m, m.turbulence, args...)
+    ocean_boundary_state!(nf, bc.temperature, m, args...)
+
+    return nothing
 end
 
-include("bc_velocity.jl")
+include("bc_momentum.jl")
 include("bc_tracer.jl")
 
 end

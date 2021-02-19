@@ -15,7 +15,7 @@ const vtkpath = nothing
     # simulation times
     timeend = FT(200) # s
     dt = FT(0.02) # s
-    nout = Int(1000)
+    nout = Int(timeend / dt / 10)
 
     # Domain Resolution
     N = 3
@@ -26,7 +26,16 @@ const vtkpath = nothing
     Lˣ = 4 * FT(π)  # m
     Lʸ = 4 * FT(π)  # m
 
-    params = (; N, Nˣ, Nʸ, Lˣ, Lʸ, dt, nout, timeend)
+    # model params
+    c = 2 # m/s
+    g = 10 # m/s²
+    ν = 0 # 1e-6,   # m²/s
+    κ = 0 # 1e-6,   # m²/s
+
+    resolution = (; N, Nˣ, Nʸ)
+    domain = (; Lˣ, Lʸ)
+    timespan = (; dt, nout, timeend)
+    params = (; c, g, ν, κ)
 
     setups = [
         (;
@@ -64,7 +73,6 @@ const vtkpath = nothing
             boundary = ((0, 0), (1, 1)),
             Nover = 1,
         ),
-        # rusanov and overintegration seems to be non-deterministic
         (;
             name = "roeflux_overintegration",
             flux = RoeNumericalFlux(),
@@ -78,6 +86,8 @@ const vtkpath = nothing
         @testset "$(setup.name)" begin
             config = Config(
                 setup.name,
+                resolution,
+                domain,
                 params;
                 numerical_flux_first_order = setup.flux,
                 Nover = setup.Nover,
@@ -89,9 +99,10 @@ const vtkpath = nothing
                 ),),
             )
 
-            run_bickley_jet(
+            run_CNSE(
                 config,
-                params;
+                resolution,
+                timespan;
                 refDat = getproperty(refVals, Symbol(setup.name)),
             )
         end
