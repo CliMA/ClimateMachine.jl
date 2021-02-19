@@ -3,7 +3,7 @@ abstract type EnergyBC end
 using ..TurbulenceClosures
 using ClimateMachine.SurfaceFluxes:
     get_energy_flux, surface_conditions, DGScheme
-using ClimateMachine.Atmos: altitude
+
 """
     Insulating() :: EnergyBC
 No energy flux across the boundary.
