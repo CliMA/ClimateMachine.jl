@@ -222,6 +222,8 @@ struct InterpolationBrick{
                     end
                 end
                 offset[el + 1] = offset[el] + length(ξ1[el])
+            else
+                offset[el + 1] = offset[el]
             end
 
         end # el loop
