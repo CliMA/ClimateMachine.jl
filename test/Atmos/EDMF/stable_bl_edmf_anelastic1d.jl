@@ -167,6 +167,7 @@ function main(::Type{FT}) where {FT}
         model;
         hmax = FT(40),
         solver_type = ode_solver_type,
+        # numerical_flux_first_order = RoeNumericalFlux(),
     )
 
     solver_config = ClimateMachine.SolverConfiguration(
@@ -269,6 +270,41 @@ function main(::Type{FT}) where {FT}
     push!(time_data, gettime(solver_config.solver))
 
     return solver_config, diag_arr, time_data
+end
+
+function config_diagnostics(driver_config, timeend)
+    FT = eltype(driver_config.grid)
+    info = driver_config.config_info
+    interval = "$(cld(timeend, 2) + 10)ssecs"
+    interval = "10steps"
+
+    boundaries = [
+        FT(0) FT(0) FT(0)
+        FT(info.hmax) FT(info.hmax) FT(info.zmax)
+    ]
+    axes = (
+        [FT(1)],
+        [FT(1)],
+        collect(range(boundaries[1, 3], boundaries[2, 3], step = FT(50)),),
+    )
+    interpol = ClimateMachine.InterpolationConfiguration(
+        driver_config,
+        boundaries;
+        axes = axes,
+    )
+    ds_dgngrp = setup_dump_state_diagnostics(
+        SingleStackConfigType(),
+        interval,
+        driver_config.name,
+        interpol = interpol,
+    )
+    dt_dgngrp = setup_dump_tendencies_diagnostics(
+        SingleStackConfigType(),
+        interval,
+        driver_config.name,
+        interpol = interpol,
+    )
+    return ClimateMachine.DiagnosticsConfiguration([ds_dgngrp, dt_dgngrp])
 end
 
 solver_config, diag_arr, time_data = main(Float64)
