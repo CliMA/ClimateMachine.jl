@@ -107,7 +107,7 @@ function init_problem!(problem, bl, state, aux, localgeo, t)
     _grav::FT = grav(bl.param_set)
     γ::FT = c_p / c_v
     # Initialise speeds [u = Eastward, v = Northward, w = Vertical]
-    u::FT = 8
+    u::FT = 1
     v::FT = 0
     w::FT = 0
     # Assign piecewise quantities to θ_liq and q_tot
@@ -192,16 +192,16 @@ function stable_bl_model(
     # Assemble source components
     source_default = (
         g...,
-        StableBLSponge(
-            FT,
-            zmax,
-            z_sponge,
-            α_max,
-            γ,
-            u_geostrophic,
-            u_slope,
-            v_geostrophic,
-        ),
+        # StableBLSponge(
+        #     FT,
+        #     zmax,
+        #     z_sponge,
+        #     α_max,
+        #     γ,
+        #     u_geostrophic,
+        #     u_slope,
+        #     v_geostrophic,
+        # ),
         turbconv_sources(turbconv)...,
     )
     if moisture_model == "dry"

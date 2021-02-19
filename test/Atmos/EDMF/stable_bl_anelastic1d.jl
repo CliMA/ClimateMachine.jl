@@ -15,10 +15,7 @@ const clima_dir = dirname(dirname(pathof(ClimateMachine)));
 import CLIMAParameters
 
 include(joinpath(clima_dir, "experiments", "AtmosLES", "stable_bl_model.jl"))
-# include("edmf_model.jl")
-# include("edmf_kernels.jl")
 
-# CLIMAParameters.Planet.T_surf_ref(::EarthParameterSet) = 290.0 # default
 CLIMAParameters.Planet.T_surf_ref(::EarthParameterSet) = 265
 
 function main(::Type{FT}) where {FT}
@@ -175,7 +172,5 @@ function main(::Type{FT}) where {FT}
 end
 
 solver_config, diag_arr, time_data = main(Float64)
-
-# include(joinpath(@__DIR__, "report_mse_sbl_anelastic.jl"))
 
 nothing
