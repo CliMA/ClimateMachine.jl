@@ -172,7 +172,7 @@ function main(::Type{FT}) where {FT}
     )
     # ---
 
-    dgn_config = config_diagnostics(driver_config)
+    dgn_config = config_ss_diagnostics(driver_config, timeend)
 
     cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(1) do
         Filters.apply!(
@@ -230,7 +230,7 @@ function main(::Type{FT}) where {FT}
     return solver_config, diag_arr, time_data
 end
 
-function config_diagnostics(driver_config, timeend)
+function config_ss_diagnostics(driver_config, timeend)
     FT = eltype(driver_config.grid)
     info = driver_config.config_info
     interval = "$(cld(timeend, 2) + 10)ssecs"
