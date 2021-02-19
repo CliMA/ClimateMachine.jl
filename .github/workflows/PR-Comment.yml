@@ -37,5 +37,7 @@ jobs:
         uses: peter-evans/create-or-update-comment@v1
         with:
           issue-number: ${{ github.event.issue.number }}
-          body: "Docs build created: ${{ steps.buildkite.outputs.web_url }}"
+          body: |
+            Docs build created: ${{ steps.buildkite.outputs.web_url }}
+            Preview link: https://clima.github.io/ClimateMachine.jl/previews/PR${{ github.event.issue.number}}
         
