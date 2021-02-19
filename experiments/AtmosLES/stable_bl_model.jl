@@ -192,16 +192,16 @@ function stable_bl_model(
     # Assemble source components
     source_default = (
         g...,
-        # StableBLSponge(
-        #     FT,
-        #     zmax,
-        #     z_sponge,
-        #     α_max,
-        #     γ,
-        #     u_geostrophic,
-        #     u_slope,
-        #     v_geostrophic,
-        # ),
+        StableBLSponge(
+            FT,
+            zmax,
+            z_sponge,
+            α_max,
+            γ,
+            u_geostrophic,
+            u_slope,
+            v_geostrophic,
+        ),
         turbconv_sources(turbconv)...,
     )
     if moisture_model == "dry"
