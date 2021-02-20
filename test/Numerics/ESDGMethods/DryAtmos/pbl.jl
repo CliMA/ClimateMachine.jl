@@ -67,7 +67,7 @@ function source!(
     hscale = FT(25)
     hflux = h0 * exp(-z / hscale) / hscale
     exner = (p / _MSLP) ^ (_R_d / _cp_d)
-    source.ρe += _cv_d * ρ * hflux * exner
+    source.ρe += _cp_d * ρ * hflux * exner
     
     return nothing
 end
