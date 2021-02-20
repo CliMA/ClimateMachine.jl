@@ -618,12 +618,22 @@ function numerical_flux_first_order!(
       SVector(1, upc[1], upc[2], upc[3], h_bar + c_bar * u_avgᵀn),
     )
 
-    Λ = SDiagonal(
-      abs(u_avgᵀn - c_bar) * ρ_log / 2γ,
-      abs(u_avgᵀn) * ρ_log * (γ - 1) / γ,
-      abs(u_avgᵀn) * p_avg,
-      abs(u_avgᵀn) * p_avg,
-      abs(u_avgᵀn + c_bar) * ρ_log / 2γ,
+    ΛM = SDiagonal(
+      abs(u_avgᵀn - c_bar),
+      abs(u_avgᵀn),
+      abs(u_avgᵀn),
+      abs(u_avgᵀn),
+      abs(u_avgᵀn + c_bar),
+    )
+    Ξ = sqrt(abs((p⁺ - p⁻) / (p⁺ + p⁻)))
+    Λ = Ξ * abs(u_avgᵀn + c_bar) * I + (1 - Ξ) * ΛM
+
+    T = SDiagonal(
+      ρ_log / 2γ,
+      ρ_log * (γ - 1) / γ,
+      p_avg,
+      p_avg,
+      ρ_log / 2γ,
     )
 
     entropy⁻ = similar(parent(state_prognostic⁻), Size(6))
@@ -644,7 +654,7 @@ function numerical_flux_first_order!(
 
     Δentropy = parent(entropy⁺) - parent(entropy⁻)
 
-    fluxᵀn .-= R * Λ * R' * Δentropy[SOneTo(5)] / 2
+    fluxᵀn .-= R * Λ * T * R' * Δentropy[SOneTo(5)] / 2
 end
 
 function vertical_unit_vector(m::DryAtmosModel, aux::Vars)
