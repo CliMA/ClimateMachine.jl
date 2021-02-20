@@ -253,7 +253,7 @@ function orientation_nodal_init_aux!(
 )
     FT = eltype(aux)
     _grav::FT = grav(param_set)
-    @inbounds aux.orientation.Φ = _grav * geom.coord[3]
+    @inbounds aux.orientation.Φ = _grav * geom.coord[2]
 end
 
 end

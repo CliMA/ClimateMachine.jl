@@ -30,7 +30,6 @@ function main()
 
     mpicomm = MPI.COMM_WORLD
 
-    polynomialorder = 4
     FT = Float64
     NumericalFlux = RoeNumericalFlux
     @info @sprintf """Configuration
@@ -39,15 +38,16 @@ function main()
                       NumericalFlux = %s
                       """ ArrayType FT NumericalFlux
 
-    numelem_horz = 10
-    numelem_vert = 10
+    Ndof = 400
+    N = 6
+    Ne = round(Int, Ndof / (N+1))
 
     test_run(
         mpicomm,
         ArrayType,
-        polynomialorder,
-        numelem_horz,
-        numelem_vert,
+        N,
+        Ne,
+        Ne,
         NumericalFlux,
         FT,
     )
@@ -67,11 +67,11 @@ function test_run(
     horz_range =
         range(FT(0), length = numelem_horz + 1, stop = FT(domain_width))
     vert_range = range(0, length = numelem_vert + 1, stop = domain_height)
-    brickrange = (horz_range, horz_range, vert_range)
-    periodicity = (false, false, false)
+    brickrange = (horz_range, vert_range)
+    periodicity = (false, false)
     topology =
         StackedBrickTopology(mpicomm, brickrange; periodicity = periodicity,
-                             boundary = ((1,1), (1, 1), (1,1)))
+                             boundary = ((1,1), (1, 1)))
 
     grid = DiscontinuousSpectralElementGrid(
         topology,
@@ -199,7 +199,7 @@ function test_run(
 end
 
 function initialcondition!(problem, bl, state, aux, localgeo, t, args...)
-    (x, y, z) = localgeo.coord
+    (x, z, _) = localgeo.coord
     FT = eltype(state)
     param_set = bl.param_set
 
