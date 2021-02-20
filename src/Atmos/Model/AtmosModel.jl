@@ -6,7 +6,9 @@ export AtmosModel,
     HLLCNumericalFlux,
     RoeNumericalFlux,
     RoeNumericalFluxMoist,
-    LMARSNumericalFlux
+    LMARSNumericalFlux,
+    Compressible,
+    Anelastic1D
 
 using UnPack
 using CLIMAParameters
@@ -34,7 +36,7 @@ using ..TurbulenceClosures
 import ..TurbulenceClosures: turbulence_tensors
 using ..TurbulenceConvection
 
-import ..Thermodynamics: internal_energy
+import ..Thermodynamics: internal_energy, soundspeed_air
 using ..MPIStateArrays: MPIStateArray
 using ..Mesh.Grids:
     VerticalDirection,
@@ -48,6 +50,7 @@ using ClimateMachine.Problems
 
 import ..BalanceLaws:
     vars_state,
+    projection,
     flux_first_order!,
     flux_second_order!,
     source!,
@@ -119,6 +122,7 @@ default values for each field.
         radiation,
         source,
         tracers,
+        compressibility,
         data_config,
     )
 
@@ -142,6 +146,7 @@ struct AtmosModel{
     S,
     TR,
     LF,
+    C,
     DC,
 } <: BalanceLaw
     "Parameter Set (type to dispatch on, e.g., planet parameters. See CLIMAParameters.jl package)"
@@ -174,9 +179,32 @@ struct AtmosModel{
     tracers::TR
     "Large-scale forcing (Forcing information from GCMs, reanalyses, or observations)"
     lsforcing::LF
+    "Compressibility switch"
+    compressibility::C
     "Data Configuration (Helper field for experiment configuration)"
     data_config::DC
 end
+
+abstract type Compressibilty end
+
+"""
+    Compressible <: Compressibilty
+
+Dispatch on compressible model (default)
+
+ - Density is prognostic
+"""
+struct Compressible <: Compressibilty end
+
+"""
+    Anelastic1D <: Compressibilty
+
+Dispatch on Anelastic1D model
+
+ - Density is constant in time
+ - Remove momentum z-component tendencies
+"""
+struct Anelastic1D <: Compressibilty end
 
 """
     AtmosModel{FT}()
@@ -207,6 +235,7 @@ function AtmosModel{FT}(
     ),
     tracers::TR = NoTracers(),
     lsforcing::LF = NoLSForcing(),
+    compressibility::C = Compressible(),
     data_config::DC = nothing,
 ) where {
     FT <: AbstractFloat,
@@ -225,6 +254,7 @@ function AtmosModel{FT}(
     S,
     TR,
     LF,
+    C,
     DC,
 }
     @assert !any(isa.(source, Tuple))
@@ -245,6 +275,7 @@ function AtmosModel{FT}(
         source,
         tracers,
         lsforcing,
+        compressibility,
         data_config,
     )
 
@@ -275,6 +306,7 @@ function AtmosModel{FT}(
     source::S = (Gravity(), Coriolis(), turbconv_sources(turbconv)...),
     tracers::TR = NoTracers(),
     lsforcing::LF = NoLSForcing(),
+    compressibility::C = Compressible(),
     data_config::DC = nothing,
 ) where {
     FT <: AbstractFloat,
@@ -293,6 +325,7 @@ function AtmosModel{FT}(
     S,
     TR,
     LF,
+    C,
     DC,
 }
 
@@ -314,6 +347,7 @@ function AtmosModel{FT}(
         source,
         tracers,
         lsforcing,
+        compressibility,
         data_config,
     )
 
@@ -480,6 +514,22 @@ gravitational_potential(bl, aux) = gravitational_potential(bl.orientation, aux)
 turbulence_tensors(atmos::AtmosModel, args...) =
     turbulence_tensors(atmos.turbulence, atmos, args...)
 
+"""
+    density(atmos::AtmosModel, state::Vars, aux::Vars)
+
+In the Anelastic1D state, `state.ρ` that is used to
+extract intrinsic values (i.e. `e=state.energy.ρe/state.ρ`)
+is time invariant (by eliminating the tendencies) while
+`ref_state.ρ` is used to construct a thermodynamic state.
+`density` will get the `ref_state.ρ` for thermodynamic state
+when the model is Anelastic1D.
+"""
+density(atmos::AtmosModel, state::Vars, aux::Vars) =
+    density(atmos.compressibility, state, aux)
+density(::Compressible, state, aux) = state.ρ
+density(::Anelastic1D, state, aux) = aux.ref_state.ρ
+
+
 include("declare_prognostic_vars.jl") # declare prognostic variables
 include("multiphysics_types.jl")      # types for multi-physics tendencies
 include("tendencies_mass.jl")         # specify mass tendencies
@@ -495,6 +545,7 @@ include("moisture.jl")
 include("energy.jl")
 include("precipitation.jl")
 include("thermo_states.jl")
+include("thermo_states_anelastic.jl")
 include("radiation.jl")
 include("tracers.jl")
 include("lsforcing.jl")
@@ -503,6 +554,7 @@ include("courant.jl")
 include("filters.jl")
 include("prog_prim_conversion.jl")   # prognostic<->primitive conversion
 include("reconstructions.jl")   # finite-volume method reconstructions
+include("projections.jl")            # include term-by-term projectinos
 
 include("linear_tendencies.jl")
 include("linear_atmos_tendencies.jl")
@@ -689,6 +741,8 @@ function. Contributions from subcomponents are then assembled (pointwise).
     nothing
 end
 
+soundspeed_air(ts::ThermodynamicState, ::Anelastic1D) = 0
+soundspeed_air(ts::ThermodynamicState, ::Compressible) = soundspeed_air(ts)
 @inline function wavespeed(
     m::AtmosModel,
     nM,
@@ -701,7 +755,7 @@ end
     u = ρinv * state.ρu
     uN = abs(dot(nM, u))
     ts = recover_thermo_state(m, state, aux)
-    ss = soundspeed_air(ts)
+    ss = soundspeed_air(ts, m.compressibility)
     FT = typeof(state.ρ)
     ws = fill(uN + ss, MVector{number_states(m, Prognostic()), FT})
     vars_ws = Vars{vars_state(m, Prognostic(), FT)}(ws)

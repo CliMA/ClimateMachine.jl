@@ -29,19 +29,24 @@ runs to help improve debugging.
 ntuple_sum(nt::NTuple{N, T}) where {N, T} = sum(nt)
 
 """
-    Σfluxes(fluxes::NTuple, args...)
+    Σfluxes(fluxes::NTuple, bl, args)
 
 Sum of the fluxes where
  - `fluxes` is an `NTuple{N, TendencyDef{Flux{O}, PV}} where {N, PV, O}`
+ - `bl` is the balance law
+ - `args` are the arguments passed to the individual `flux` functions
 """
 function Σfluxes(
     pv::PV,
     fluxes::NTuple{N, TendencyDef{Flux{O}, PV}},
-    args...,
+    bl,
+    args,
 ) where {N, O, PV}
-    return ntuple_sum(ntuple(Val(N)) do i
-        flux(fluxes[i], args...)
-    end)
+    return ntuple_sum(
+        ntuple(Val(N)) do i
+            projection(bl, fluxes[i], args, flux(fluxes[i], bl, args))
+        end,
+    )
 end
 
 # Emptry scalar case:
@@ -72,19 +77,24 @@ function Σfluxes(
 end
 
 """
-    Σsources(sources::NTuple, args...)
+    Σsources(sources::NTuple, bl, args)
 
 Sum of the sources where
  - `sources` is an `NTuple{N, TendencyDef{Source, PV}} where {N, PV}`
+ - `bl` is the balance law
+ - `args` are the arguments passed to the individual `source` functions
 """
 function Σsources(
     pv::PV,
     sources::NTuple{N, TendencyDef{Source, PV}},
-    args...,
+    bl,
+    args,
 ) where {N, PV}
-    return ntuple_sum(ntuple(Val(N)) do i
-        source(sources[i], args...)
-    end)
+    return ntuple_sum(
+        ntuple(Val(N)) do i
+            projection(bl, sources[i], args, source(sources[i], bl, args))
+        end,
+    )
 end
 
 # Emptry scalar case:
