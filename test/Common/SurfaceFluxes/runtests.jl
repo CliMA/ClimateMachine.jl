@@ -99,7 +99,7 @@ const param_set = EarthParameterSet()
         u_star_init = FT(0.1)
         th_star_init = -FT(0.1)
         qt_star_init = -FT(1e-5)
-        x_init =
+        MO_param_guess =
             ArrayType(FT[LMO_init, u_star_init, th_star_init, qt_star_init])
 
         # Surface values for variables
@@ -115,19 +115,13 @@ const param_set = EarthParameterSet()
         # Constants
         Δz = Tuple(z)[ii]
 
-        # F_exchange
-        F_exchange = ArrayType(FT[0.01, -0.01, -0.000001])
-
         args = (
             param_set,
-            x_init,
+            MO_param_guess,
             x_ave,
             x_s,
             z_rough,
-            F_exchange,
             vdse_ave,
-            qt_ave,
-            Δz,
             z_ave / 2,
         )
 

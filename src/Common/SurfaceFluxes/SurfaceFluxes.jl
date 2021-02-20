@@ -47,59 +47,62 @@ $(DocStringExtensions.FIELDS)
 """
 struct SurfaceFluxConditions{FT, VFT}
     L_MO::FT
-    VDSE_flux_star::FT
+    wθ_flux_star::FT
     flux::VFT
     x_star::VFT
-    K_exchange::VFT
     C_exchange::VFT
 end
 
 function Base.show(io::IO, sfc::SurfaceFluxConditions)
     println(io, "----------------------- SurfaceFluxConditions")
     println(io, "L_MO           = ", sfc.L_MO)
-    println(io, "VDSE_flux_star = ", sfc.VDSE_flux_star)
+    println(io, "wθ_flux_star = ", sfc.wθ_flux_star)
     println(io, "flux           = ", sfc.flux)
     println(io, "x_star         = ", sfc.x_star)
-    println(io, "K_exchange     = ", sfc.K_exchange)
     println(io, "C_exchange     = ", sfc.C_exchange)
     println(io, "-----------------------")
 end
 
 function surface_fluxes_f!(F, x, nt)
     param_set = nt.param_set
-    VDSE_flux_star = nt.VDSE_flux_star
-    Δz = nt.Δz
-    z_0 = Tuple(nt.z_0)
-    x_ave = Tuple(nt.x_ave)
+    wθ_flux_star = nt.wθ_flux_star
+    z_in = nt.z_in
+    z_0 = length(nt.z_0) > 1 ? Tuple(nt.z_0) : nt.z_0
+    x_in = Tuple(nt.x_in)
     x_s = Tuple(nt.x_s)
     n_vars = nt.n_vars
     scheme = nt.scheme
     universal_func = nt.universal_func
-    VDSE_scale = nt.VDSE_scale
+    θ_scale = nt.θ_scale
 
     x_tup = Tuple(x)
 
-    u, θ = x_tup[2], x_tup[3]
-    if VDSE_flux_star == nothing
-        flux = -u * θ
+    u_star, θ_star = x_tup[2], x_tup[3]
+    if wθ_flux_star == nothing
+        wθ_surf_flux = -u_star * θ_star
     else
-        flux = VDSE_flux_star
+        wθ_surf_flux = wθ_flux_star
     end
-    L_MO = monin_obukhov_length(param_set, u, VDSE_scale, flux)
+    L_MO = monin_obukhov_length(param_set, u_star, θ_scale, wθ_surf_flux)
     uf = universal_func(param_set, L_MO)
     F_nt = ntuple(Val(n_vars + 1)) do i
         if i == 1
             F_i =
-                x_tup[1] - monin_obukhov_length(param_set, u, VDSE_scale, flux)
+                x_tup[1] - monin_obukhov_length(
+                    param_set,
+                    u_star,
+                    θ_scale,
+                    wθ_surf_flux,
+                )
         else
             ϕ = x_tup[i]
             transport = i - 1 == 1 ? MomentumTransport() : HeatTransport()
             F_i =
                 ϕ - compute_physical_scale(
                     uf,
-                    Δz,
-                    z_0[i - 1],
-                    x_ave[i - 1],
+                    z_in,
+                    length(nt.z_0) > 1 ? z_0[i - 1] : z_0,
+                    x_in[i - 1],
                     x_s[i - 1],
                     transport,
                     scheme,
@@ -113,61 +116,57 @@ end
 """
     surface_conditions
 Surface conditions given
- - `x_initial` initial guess for solution (`L_MO, u_star, θ_star, ϕ_star, ...`)
- - `x_ave` volume-averaged value for variable `x`
- - `x_s` surface value for variable `x`
- - `z_0` roughness length for variable `x`
- - `F_exchange` flux at the top for variable `x`
- - `VDSE_scale` virtual dry static energy (i.e., basic potential temperature)
- - `Δz` layer thickness (not spatial discretization)
- - `z` coordinate axis
- - `VDSE_flux_star` potential temperature flux (optional)
+ - `MO_param_guess` initial guess for solution (`L_MO, u_star, θ_star, ϕ_star, ...`)
+ - `x_in` Inner values for state variable array `x`. They correspond to volume averages in FV and
+    nodal point values in DG
+ - `x_s` surface values for state variable array `x`
+ - `z_0` roughness lengths for state variable array `x`
+ - `θ_scale` virtual dry static energy (i.e., basic potential temperature)
+ - `z_in` Input height for the similarity functions. It is Δz for FV and the height
+    of the first nodal point for DG
+ - `wθ_flux_star` potential temperature flux (optional)
+  - `universal_func` family of flux-gradient universal functions used (optional)
 
-If `VDSE_flux_star` is not given, then it is computed by iteration
+If `wθ_flux_star` is not given, then it is computed by iteration
 of equations 3, 17, and 18 in Nishizawa2018.
 """
 function surface_conditions(
     param_set::AbstractEarthParameterSet,
-    x_initial::AbstractVector,
-    x_ave::AbstractVector,
+    MO_param_guess::AbstractVector,
+    x_in::AbstractVector,
     x_s::AbstractVector,
-    z_0::AbstractVector,
-    F_exchange::AbstractVector,
-    VDSE_scale::FT,
-    qt_bar::FT,
-    Δz::FT,
-    z::FT,
+    z_0::Union{AbstractVector, FT},
+    θ_scale::FT,
+    z_in::FT,
     scheme,
-    VDSE_flux_star::Union{Nothing, FT} = nothing,
+    wθ_flux_star::Union{Nothing, FT} = nothing,
     universal_func::Union{Nothing, F} = Businger,
 ) where {FT <: AbstractFloat, AbstractEarthParameterSet, F}
 
-    n_vars = length(x_initial) - 1
-    @assert length(x_initial) == n_vars + 1
-    @assert length(x_ave) == n_vars
+    n_vars = length(MO_param_guess) - 1
+    @assert length(MO_param_guess) == n_vars + 1
+    @assert length(x_in) == n_vars
     @assert length(x_s) == n_vars
-    @assert length(z_0) == n_vars
-    @assert length(F_exchange) == n_vars
     local sol
 
     args = (;
         param_set,
-        VDSE_flux_star,
-        Δz,
+        wθ_flux_star,
+        z_in,
         z_0,
         n_vars,
-        x_ave,
+        x_in,
         x_s,
         scheme,
-        VDSE_scale,
-        x_initial,
+        θ_scale,
+        MO_param_guess,
         universal_func,
     )
 
     # Define closure over args
     f!(F, x_all) = surface_fluxes_f!(F, x_all, args)
 
-    nls = NewtonsMethodAD(f!, x_initial)
+    nls = NewtonsMethodAD(f!, MO_param_guess)
     # sol = solve!(nls, CompactSolution(), ResidualTolerance(FT(10)), 1)
     sol = solve!(nls, CompactSolution())
 
@@ -183,24 +182,14 @@ function surface_conditions(
 
     _grav::FT = grav(param_set)
     _von_karman_const::FT = von_karman_const(param_set)
-    VDSE_flux_star = -u_star^3 * VDSE_scale / (_von_karman_const * _grav * L_MO)
+    wθ_flux_star = -u_star^3 * θ_scale / (_von_karman_const * _grav * L_MO)
     flux = -u_star * x_star
-
-    K_exchange = exchange_coefficients(
-        param_set,
-        z,
-        F_exchange,
-        x_star,
-        VDSE_scale,
-        L_MO,
-        universal_func,
-    )
 
     C_exchange = get_flux_coefficients(
         param_set,
-        z,
+        z_in,
         x_star,
-        VDSE_scale,
+        θ_scale,
         L_MO,
         z_0,
         universal_func,
@@ -209,23 +198,44 @@ function surface_conditions(
     VFT = typeof(flux)
     return SurfaceFluxConditions{FT, VFT}(
         L_MO,
-        VDSE_flux_star,
+        wθ_flux_star,
         flux,
         x_star,
-        K_exchange,
         C_exchange,
     )
 end
 
 """
-    compute_physical_scale
-    (3), (17), (18), (19)
+    get_energy_flux(surf_conds::SurfaceFluxConditions{FT, VFT})
+
+Returns the potential temperature and q_tot fluxes needed to
+compute the energy flux.
+"""
+function get_energy_flux(surf_conds::SurfaceFluxConditions)
+    θ_flux = surf_conds.flux[2]
+    q_tot_flux = surf_conds.flux[3]
+    return θ_flux, q_tot_flux
+end
+
+"""
+    compute_physical_scale(uf, z_in, z_0, x_in, x_s, transport, ::FVScheme)
+
+ - `uf` universal function family
+ - `z_in` Input height for the similarity functions. It is Δz for FV and the height
+    of the first nodal point for DG
+ - `z_0` roughness lengths for state variable array `x`
+ - `x_in` Inner values for state variable array `x`. They correspond to volume averages in FV and
+    nodal point values in DG
+ - `x_s` surface values for state variable array `x`
+ - `transport` Type of transport (momentum or heat)
+
+    Equations (17), (18) for FV and (8), (9) for DG from Nishizawa & Kitamura (2018)
 """
 function compute_physical_scale(
     uf::AbstractUniversalFunction{FT},
-    Δz,
+    z_in,
     z_0,
-    x_ave,
+    x_in,
     x_s,
     transport,
     ::FVScheme,
@@ -233,20 +243,20 @@ function compute_physical_scale(
     _von_karman_const::FT = von_karman_const(uf.param_set)
     _π_group = FT(UF.π_group(uf, transport))
     _π_group⁻¹ = (1 / _π_group)
-    R_z0 = 1 - z_0 / Δz
-    temp1 = log(Δz / z_0)
-    temp2 = -Psi(uf, Δz / uf.L, transport)
-    temp3 = z_0 / Δz * Psi(uf, z_0 / uf.L, transport)
+    R_z0 = 1 - z_0 / z_in
+    temp1 = log(z_in / z_0)
+    temp2 = -Psi(uf, z_in / uf.L, transport)
+    temp3 = z_0 / z_in * Psi(uf, z_0 / uf.L, transport)
     temp4 = R_z0 * (psi(uf, z_0 / uf.L, transport) - 1)
     Σterms = temp1 + temp2 + temp3 + temp4
-    return _π_group⁻¹ * _von_karman_const / Σterms * (x_ave - x_s)
+    return _π_group⁻¹ * _von_karman_const / Σterms * (x_in - x_s)
 end
 
 function compute_physical_scale(
     uf::AbstractUniversalFunction{FT},
-    Δz,
+    z_in,
     z_0,
-    x_ave,
+    x_in,
     x_s,
     transport,
     ::DGScheme,
@@ -254,30 +264,30 @@ function compute_physical_scale(
     _von_karman_const::FT = von_karman_const(uf.param_set)
     _π_group = FT(UF.π_group(uf, transport))
     _π_group⁻¹ = (1 / _π_group)
-    temp1 = log(Δz / z_0)
-    temp2 = -psi(uf, Δz / uf.L, transport)
+    temp1 = log(z_in / z_0)
+    temp2 = -psi(uf, z_in / uf.L, transport)
     temp3 = psi(uf, z_0 / uf.L, transport)
     Σterms = temp1 + temp2 + temp3
-    return _π_group⁻¹ * _von_karman_const / Σterms * (x_ave - x_s)
+    return _π_group⁻¹ * _von_karman_const / Σterms * (x_in - x_s)
 end
 
 ### Generic terms
 
 """
-    monin_obukhov_length(param_set, u, θ, flux)
+    monin_obukhov_length(param_set, u_star, θ_scale, wθ_surf_flux)
 
 Monin-Obukhov length. Eq. 3
 """
 function monin_obukhov_length(
     param_set::AbstractEarthParameterSet,
     u_star,
-    VDSE_scale,
-    flux,
+    θ_scale,
+    wθ_surf_flux,
 )
     FT = typeof(u_star)
     _grav::FT = grav(param_set)
     _von_karman_const::FT = von_karman_const(param_set)
-    return -u_star^3 * VDSE_scale / (_von_karman_const * _grav * flux)
+    return -u_star^3 * θ_scale / (_von_karman_const * _grav * wθ_surf_flux)
 end
 
 """
@@ -286,7 +296,7 @@ end
         z,
         F_exchange,
         x_star::VFT,
-        VDSE_scale,
+        θ_scale,
         L_MO,
         universal_func,
     )
@@ -299,7 +309,7 @@ function exchange_coefficients(
     z,
     F_exchange,
     x_star::VFT,
-    VDSE_scale,
+    θ_scale,
     L_MO,
     universal_func,
 ) where {VFT}
@@ -326,7 +336,7 @@ end
         param_set,
         z,
         x_star::VFT,
-        VDSE_scale,
+        θ_scale,
         L_MO,
         z0,
         universal_func,
@@ -338,7 +348,7 @@ function get_flux_coefficients(
     param_set,
     z,
     x_star::VFT,
-    VDSE_scale,
+    θ_scale,
     L_MO,
     z0,
     universal_func,
@@ -352,8 +362,8 @@ function get_flux_coefficients(
     z0_tup = Tuple(z0)
     C = similar(x_star)
     C .= ntuple(Val(length(x_star))) do i
-        logζ_ψ_m = log(z / z0_tup[i] - psi_m)
-        logζ_ψ_h = log(z / z0_tup[i] - psi_h)
+        logζ_ψ_m = log(z / (length(z0) > 1 ? z0_tup[i] : z0) - psi_m)
+        logζ_ψ_h = log(z / (length(z0) > 1 ? z0_tup[i] : z0) - psi_h)
         if i == 1
             C_i = _von_karman_const^2 / logζ_ψ_m^2
         else
