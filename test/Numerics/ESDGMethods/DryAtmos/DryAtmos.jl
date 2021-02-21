@@ -541,7 +541,12 @@ function numerical_flux_first_order!(
     fluxᵀn .+= penalty / 2
 end
 
-struct MatrixFlux <: NumericalFluxFirstOrder end
+Base.@kwdef struct MatrixFlux{FT} <: NumericalFluxFirstOrder
+  Mcut::FT = 0
+  low_mach::Bool = false
+  kinetic_energy_preserving::Bool = false
+end
+
 function numerical_flux_first_order!(
     numerical_flux::MatrixFlux,
     balance_law::BalanceLaw,
@@ -571,6 +576,10 @@ function numerical_flux_first_order!(
     fluxᵀn = parent(fluxᵀn)
     
     γ = FT(gamma(param_set))
+    
+    low_mach = numerical_flux.low_mach
+    Mcut = numerical_flux.Mcut
+    kinetic_energy_preserving = numerical_flux.kinetic_energy_preserving
 
     ω = FT(π) / 3
     δ = FT(π) / 5
@@ -618,15 +627,28 @@ function numerical_flux_first_order!(
       SVector(1, upc[1], upc[2], upc[3], h_bar + c_bar * u_avgᵀn),
     )
 
-    ΛM = SDiagonal(
-      abs(u_avgᵀn - c_bar),
+    if low_mach
+      M = abs(u_avg' * normal_vector) / c_bar
+      c_bar *= max(min(M, FT(1)), Mcut)
+    end
+
+    if kinetic_energy_preserving
+      λl = abs(u_avgᵀn) + c_bar
+      λr = λl
+    else
+      λl = abs(u_avgᵀn - c_bar)
+      λr = abs(u_avgᵀn + c_bar)
+    end
+
+    Λ = SDiagonal(
+      λl,
       abs(u_avgᵀn),
       abs(u_avgᵀn),
       abs(u_avgᵀn),
-      abs(u_avgᵀn + c_bar),
+      λr,
     )
-    Ξ = sqrt(abs((p⁺ - p⁻) / (p⁺ + p⁻)))
-    Λ = Ξ * abs(u_avgᵀn + c_bar) * I + (1 - Ξ) * ΛM
+    #Ξ = sqrt(abs((p⁺ - p⁻) / (p⁺ + p⁻)))
+    #Λ = Ξ * abs(u_avgᵀn + c_bar) * I + (1 - Ξ) * ΛM
 
     T = SDiagonal(
       ρ_log / 2γ,

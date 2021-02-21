@@ -390,7 +390,8 @@ function run(
                                nstate=varsize(diagnostic_vars))
     cbdiagnostics = EveryXSimulationSteps(1) do
       step = getsteps(odesolver)
-      if mod(step, 10000) == 0 || step > (nsteps - 50)
+      time = gettime(odesolver)
+      if mod(step, 10000) == 0 || (time > (timeend - 500) && mod(step, 100) == 0)
         prof_steps += 1
         nodal_diagnostics!(pbl_diagnostics!, diagnostic_vars, 
                            esdg, state_diagnostic, Q)
