@@ -15,6 +15,7 @@ using ClimateMachine.VariableTemplates
 using ClimateMachine.ODESolvers
 using StaticArrays: @SVector
 using LazyArrays
+using JLD2
 
 using DoubleFloats
 using GaussQuadrature
@@ -207,43 +208,47 @@ function main()
     ArrayType = ClimateMachine.array_type()
     FT = Float64
 
-    polynomialorder = 5
-    numelem_horz = 6
-    numelem_vert = 6
+    N = 5
+    KH = 6
+    KV = 6
+    surfaceflux = MatrixFlux()
 
     timeend = 15000
+    #timeend = 500
     outputtime = 200
 
     result = run(
         mpicomm,
-        polynomialorder,
-        numelem_horz,
-        numelem_vert,
+        N,
+        KH,
+        KV,
         timeend,
         outputtime,
         ArrayType,
         FT,
+        surfaceflux
     )
 end
 
 function run(
     mpicomm,
-    polynomialorder,
-    numelem_horz,
-    numelem_vert,
+    N,
+    KH,
+    KV,
     timeend,
     outputtime,
     ArrayType,
     FT,
+    surfaceflux,
 )
     setup = PBL{FT}()
 
     horz_range = range(FT(0),
                        stop = setup.domain_length,
-                       length = numelem_horz+1)
+                       length = KH+1)
     vert_range = range(FT(0),
                        stop = setup.domain_height,
-                       length = numelem_vert+1)
+                       length = KV+1)
     brickrange = (horz_range, horz_range, vert_range)
     topology = StackedBrickTopology(mpicomm,
                                     brickrange,
@@ -253,7 +258,7 @@ function run(
         topology,
         FloatType = FT,
         DeviceArray = ArrayType,
-        polynomialorder = polynomialorder,
+        polynomialorder = N,
     )
 
     dim = 3
@@ -272,7 +277,7 @@ function run(
         grid;
         volume_numerical_flux_first_order = EntropyConservative(),
         #surface_numerical_flux_first_order = EntropyConservative(),
-        surface_numerical_flux_first_order = MatrixFlux(),
+        surface_numerical_flux_first_order = surfaceflux
     )
 
     # determine the time step
@@ -308,7 +313,7 @@ function run(
                       dt              = %.16e
                       norm(Q₀)        = %.16e
                       ∫η              = %.16e
-                      """ "$ArrayType" "$FT" polynomialorder numelem_horz numelem_vert dt eng0 ∫η0
+                      """ "$ArrayType" "$FT" N KH KV dt eng0 ∫η0
 
     # Set up the information callback
     starttime = Ref(now())
@@ -364,7 +369,7 @@ function run(
         Nelem = Ne[1]
         vtkdir =
             "test_RTB" *
-            "_poly$(polynomialorder)_dims$(dim)_$(ArrayType)_$(FT)_nelem$(Nelem)"
+            "_poly$(N)_dims$(dim)_$(ArrayType)_$(FT)_nelem$(Nelem)"
         mkpath(vtkdir)
 
         vtkstep = 0
@@ -382,38 +387,68 @@ function run(
 
 
     nsteps = ceil(Int, timeend / dt)
-    prof_steps = 0
-    mkpath("esdg_pbl_profs")
-    diagnostic_vars = pbl_diagnostic_vars(FT)
-    state_diagnostic = similar(Q;
-                               vars = pbl_diagnostic_vars(FT),
-                               nstate=varsize(diagnostic_vars))
-    cbdiagnostics = EveryXSimulationSteps(1) do
+
+    #prof_steps = 0
+    #mkpath("esdg_pbl_profs")
+    #diagnostic_vars = pbl_diagnostic_vars(FT)
+    #state_diagnostic = similar(Q;
+    #                           vars = pbl_diagnostic_vars(FT),
+    #                           nstate=varsize(diagnostic_vars))
+    #cbdiagnostics = EveryXSimulationSteps(1) do
+    #  step = getsteps(odesolver)
+    #  time = gettime(odesolver)
+    #  if mod(step, 10000) == 0 || (time > (timeend - 500) && mod(step, 100) == 0)
+    #    prof_steps += 1
+    #    nodal_diagnostics!(pbl_diagnostics!, diagnostic_vars, 
+    #                       esdg, state_diagnostic, Q)
+    #    variance_pairs = ((:θ, :θ), (:w, :θ), (:w, :w))
+    #    z, profs, variances = profiles(diagnostic_vars, variance_pairs, esdg, state_diagnostic)
+
+    #    s = @sprintf "z θ w θxθ wxθ, wxw\n"
+    #    for k in 1:length(profs.θ)
+    #      s *= @sprintf("%.16e %.16e %.16e %.16e %.16e %.16e\n",
+    #                    z[k],
+    #                    profs.θ[k],
+    #                    profs.w[k],
+    #                    variances.θxθ[k],
+    #                    variances.wxθ[k],
+    #                    variances.wxw[k])
+    #    end
+    #    open("esdg_pbl_profs/pbl_profiles_$step.txt", "w") do f
+    #      write(f, s)
+    #    end
+    #  end
+    #end
+    #callbacks = (callbacks..., cbdiagnostics)
+
+    fluxshort = surfaceflux.low_mach ? "LM" : "NLM"
+    fluxshort *= "$(surfaceflux.Mcut)"
+    fluxshort *= surfaceflux.kinetic_energy_preserving ? "_KEP" : "_NKEP"
+   
+    datapath = "esdg_pbl_data/N$N/$(KH)x$(KV)/$fluxshort/"
+    mkpath(datapath)
+    cbsave = EveryXSimulationSteps(1) do
       step = getsteps(odesolver)
       time = gettime(odesolver)
-      if mod(step, 10000) == 0 || (time > (timeend - 500) && mod(step, 100) == 0)
-        prof_steps += 1
-        nodal_diagnostics!(pbl_diagnostics!, diagnostic_vars, 
-                           esdg, state_diagnostic, Q)
-        variance_pairs = ((:θ, :θ), (:w, :θ), (:w, :w))
-        z, profs, variances = profiles(diagnostic_vars, variance_pairs, esdg, state_diagnostic)
+      if (time > (timeend - 500) && mod(step, 100) == 0)
+        let
+          state_prognostic = Array(Q)
+          state_auxiliary = Array(esdg.state_auxiliary)
+          vgeo = Array(grid.vgeo)
 
-        s = @sprintf "z θ w θxθ wxθ, wxw\n"
-        for k in 1:length(profs.θ)
-          s *= @sprintf("%.16e %.16e %.16e %.16e %.16e %.16e\n",
-                        z[k],
-                        profs.θ[k],
-                        profs.w[k],
-                        variances.θxθ[k],
-                        variances.wxθ[k],
-                        variances.wxw[k])
-        end
-        open("esdg_pbl_profs/pbl_profiles_$step.txt", "w") do f
-          write(f, s)
+          @save("$datapath/pbl_$step.jld2",
+                model,
+                step,
+                time,
+                N, KH, KV,
+                surfaceflux,
+                state_prognostic,
+                state_auxiliary,
+                vgeo)
         end
       end
     end
-    callbacks = (callbacks..., cbdiagnostics)
+    callbacks = (callbacks..., cbsave)
 
     solve!(Q, odesolver; callbacks = callbacks, timeend = timeend)
 
