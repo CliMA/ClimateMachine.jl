@@ -1,10 +1,5 @@
 using JLD2, FileIO
 using ClimateMachine
-ClimateMachine.init(;
-    parse_clargs = true,
-    output_dir = get(ENV, "CLIMATEMACHINE_SETTINGS_OUTPUT_DIR", "output"),
-    fix_rng_seed = true,
-)
 using ClimateMachine.SingleStackUtils
 using ClimateMachine.Checkpoint
 using ClimateMachine.BalanceLaws: vars_state
@@ -85,20 +80,7 @@ function init_state_prognostic!(
     return nothing
 end;
 
-function main(::Type{FT}) where {FT}
-    # add a command line argument to specify the kind of surface flux
-    # TODO: this will move to the future namelist functionality
-    sbl_args = ArgParseSettings(autofix_names = true)
-    add_arg_group!(sbl_args, "StableBoundaryLayer")
-    @add_arg_table! sbl_args begin
-        "--surface-flux"
-        help = "specify surface flux for energy and moisture"
-        metavar = "prescribed|bulk"
-        arg_type = String
-        default = "bulk"
-    end
-
-    cl_args = ClimateMachine.init(parse_clargs = true, custom_clargs = sbl_args)
+function main(::Type{FT}, cl_args) where {FT}
 
     surface_flux = cl_args["surface_flux"]
 
@@ -215,7 +197,7 @@ function main(::Type{FT}) where {FT}
         end
 
     check_cons = (
-        ClimateMachine.ConservationCheck("ρ", "3000steps", FT(0.001)),
+        ClimateMachine.ConservationCheck("ρ", "3000steps", FT(0.01)),
         ClimateMachine.ConservationCheck("energy.ρe", "3000steps", FT(0.1)),
     )
 
@@ -239,7 +221,26 @@ function main(::Type{FT}) where {FT}
     return solver_config, diag_arr, time_data
 end
 
-solver_config, diag_arr, time_data = main(Float64)
+# add a command line argument to specify the kind of surface flux
+# TODO: this will move to the future namelist functionality
+sbl_args = ArgParseSettings(autofix_names = true)
+add_arg_group!(sbl_args, "StableBoundaryLayer")
+@add_arg_table! sbl_args begin
+    "--surface-flux"
+    help = "specify surface flux for energy and moisture"
+    metavar = "prescribed|bulk|custom_sbl"
+    arg_type = String
+    default = "custom_sbl"
+end
+
+cl_args = ClimateMachine.init(
+    parse_clargs = true,
+    custom_clargs = sbl_args,
+    output_dir = get(ENV, "CLIMATEMACHINE_SETTINGS_OUTPUT_DIR", "output"),
+    fix_rng_seed = true,
+)
+
+solver_config, diag_arr, time_data = main(Float64, cl_args)
 
 include(joinpath(@__DIR__, "report_mse_sbl_fv.jl"))
 
