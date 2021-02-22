@@ -15,10 +15,13 @@
 #  - `T₂` - the second order flux divergence (column vector)
 #  - `S` - the non-conservative source (column vector)
 
-export PrognosticVariable
+export PrognosticVariable,
+    AbstractMomentum, AbstractEnergy, Moisture, Precipitation, AbstractTracers
+
 export FirstOrder, SecondOrder
 export AbstractTendencyType, Flux, Source
 export TendencyDef
+export eq_tends, prognostic_vars, fluxes, sources
 
 """
     PrognosticVariable
@@ -28,6 +31,13 @@ each prognostic variable.
 """
 abstract type PrognosticVariable end
 
+abstract type AbstractMomentum <: PrognosticVariable end
+abstract type AbstractEnergy <: PrognosticVariable end
+abstract type Moisture <: PrognosticVariable end
+abstract type Precipitation <: PrognosticVariable end
+abstract type AbstractTracers{N} <: PrognosticVariable end
+
+
 """
     AbstractOrder
 
@@ -35,7 +45,19 @@ Subtypes are used for dispatching
 on the flux order.
 """
 abstract type AbstractOrder end
+
+"""
+    FirstOrder
+
+A type for dispatching on first order fluxes
+"""
 struct FirstOrder <: AbstractOrder end
+
+"""
+    SecondOrder
+
+A type for dispatching on second order fluxes
+"""
 struct SecondOrder <: AbstractOrder end
 
 """
@@ -45,7 +67,21 @@ Subtypes are used for specifying a
 tuple of tendencies to be accumulated.
 """
 abstract type AbstractTendencyType end
+
+"""
+    Flux{O <: AbstractOrder}
+
+A type for dispatching on flux tendency types
+where `O` is an abstract order ([`FirstOrder`](@ref)
+or [`SecondOrder`](@ref)).
+"""
 struct Flux{O <: AbstractOrder} <: AbstractTendencyType end
+
+"""
+    Source
+
+A type for dispatching on source tendency types
+"""
 struct Source <: AbstractTendencyType end
 
 """
@@ -85,7 +121,32 @@ corresponding to the column-vector `Yᵢ` in:
 """
 prognostic_vars(::BalanceLaw) = ()
 
-export sources
+"""
+    projection(bl, ::TendencyDef, args, x)
+
+Provide a hook to project individual tendencies.
+Return identity by defualt
+"""
+projection(bl, ::TendencyDef{TT, PV}, args, x) where {TT, PV} = x
+
+"""
+    var, name = get_prog_state(state::Union{Vars, Grad}, pv::PrognosticVariable)
+
+Returns a tuple of two elements. `var` is a `Vars` or `Grad`
+object, and `name` is a Symbol. They should be linked such that
+`getproperty(var, name)` returns the corresponding prognostic
+variable type `pv`.
+
+# Example
+
+```julia
+get_prog_state(state, ::Moisture) = (state.moisture, :ρq_tot)
+var, name = get_prog_state(state, Moisture())
+@test getproperty(var, name) == state.moisture.ρq_tot
+```
+"""
+function get_prog_state end
+
 """
     sources(bl::BalanceLaw)
 
@@ -103,7 +164,6 @@ function sources(bl::BalanceLaw)
     return Tuple(Iterators.flatten(tend))
 end
 
-export fluxes
 """
     fluxes(bl::BalanceLaw, order::O) where {O <: AbstractOrder}
 

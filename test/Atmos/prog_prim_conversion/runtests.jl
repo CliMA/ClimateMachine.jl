@@ -18,7 +18,8 @@ using ClimateMachine.ConfigTypes
 using ClimateMachine.VariableTemplates
 using ClimateMachine.Thermodynamics
 using ClimateMachine.TemperatureProfiles
-using ClimateMachine.Atmos: AtmosModel, DryModel, EquilMoist, NonEquilMoist
+using ClimateMachine.Atmos:
+    AtmosModel, DryModel, EquilMoist, NonEquilMoist, EnergyModel
 using ClimateMachine.BalanceLaws:
     prognostic_to_primitive!, primitive_to_prognostic!
 const BL = BalanceLaws
@@ -31,15 +32,16 @@ atol_energy = cv_d(param_set) * atol_temperature
 
 import ClimateMachine.BalanceLaws: vars_state
 
-struct TestBL{PS, M} <: BalanceLaw
+struct TestBL{PS, M, E} <: BalanceLaw
     param_set::PS
     moisture::M
+    energy::E
 end
 
 vars_state(bl::TestBL, st::Prognostic, FT) = @vars begin
     ρ::FT
     ρu::SVector{3, FT}
-    ρe::FT
+    energy::vars_state(bl.energy, st, FT)
     moisture::vars_state(bl.moisture, st, FT)
 end
 
@@ -54,7 +56,8 @@ function assign!(state, bl, nt, st::Prognostic)
     @unpack u, v, w, ρ, e_kin, e_pot, T, q_pt = nt
     state.ρ = ρ
     state.ρu = SVector(ρ * u, ρ * v, ρ * w)
-    state.ρe = state.ρ * total_energy(bl.param_set, e_kin, e_pot, T, q_pt)
+    state.energy.ρe =
+        state.ρ * total_energy(bl.param_set, e_kin, e_pot, T, q_pt)
     assign!(state, bl, bl.moisture, nt, st)
 end
 assign!(state, bl, moisture::DryModel, nt, ::Prognostic) = nothing
@@ -85,7 +88,7 @@ end
 
 @testset "Prognostic-Primitive conversion (dry)" begin
     FT = Float64
-    bl = TestBL(param_set, DryModel())
+    bl = TestBL(param_set, DryModel(), EnergyModel())
     vs_prog = vars_state(bl, Prognostic(), FT)
     vs_prim = vars_state(bl, Primitive(), FT)
     prog_arr = zeros(varsize(vs_prog))
@@ -117,7 +120,7 @@ end
 
 @testset "Prognostic-Primitive conversion (EquilMoist)" begin
     FT = Float64
-    bl = TestBL(param_set, EquilMoist{FT}())
+    bl = TestBL(param_set, EquilMoist{FT}(), EnergyModel())
     vs_prog = vars_state(bl, Prognostic(), FT)
     vs_prim = vars_state(bl, Primitive(), FT)
     prog_arr = zeros(varsize(vs_prog))
@@ -162,7 +165,7 @@ end
 
 @testset "Prognostic-Primitive conversion (NonEquilMoist)" begin
     FT = Float64
-    bl = TestBL(param_set, NonEquilMoist())
+    bl = TestBL(param_set, NonEquilMoist(), EnergyModel())
     vs_prog = vars_state(bl, Prognostic(), FT)
     vs_prim = vars_state(bl, Primitive(), FT)
     prog_arr = zeros(varsize(vs_prog))

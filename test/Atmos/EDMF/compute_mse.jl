@@ -4,6 +4,7 @@ if parse(Bool, get(ENV, "CLIMATEMACHINE_PLOT_EDMF_COMPARISON", "false"))
     using Plots
 end
 
+using OrderedCollections
 using Test
 using NCDatasets
 using Dierckx
@@ -19,7 +20,7 @@ PyCLES_output_dataset = ArtifactWrapper(
     "PyCLES_output",
     ArtifactFile[
     # ArtifactFile(url = "https://caltech.box.com/shared/static/johlutwhohvr66wn38cdo7a6rluvz708.nc", filename = "Rico.nc",),
-    # ArtifactFile(url = "https://caltech.box.com/shared/static/zraeiftuzlgmykzhppqwrym2upqsiwyb.nc", filename = "Gabls.nc",),
+    ArtifactFile(url = "https://caltech.box.com/shared/static/zraeiftuzlgmykzhppqwrym2upqsiwyb.nc", filename = "Gabls.nc",),
     # ArtifactFile(url = "https://caltech.box.com/shared/static/toyvhbwmow3nz5bfa145m5fmcb2qbfuz.nc", filename = "DYCOMS_RF01.nc",),
     # ArtifactFile(url = "https://caltech.box.com/shared/static/ivo4751camlph6u3k68ftmb1dl4z7uox.nc", filename = "TRMM_LBA.nc",),
     # ArtifactFile(url = "https://caltech.box.com/shared/static/4osqp0jpt4cny8fq2ukimgfnyi787vsy.nc", filename = "ARM_SGP.nc",),
@@ -29,13 +30,6 @@ PyCLES_output_dataset = ArtifactWrapper(
     ],
 )
 PyCLES_output_dataset_path = get_data_folder(PyCLES_output_dataset)
-# data_files[:Rico] = Dataset(joinpath(PyCLES_output_dataset_path, "Rico.nc"), "r")
-# data_files[:Gabls] = Dataset(joinpath(PyCLES_output_dataset_path, "Gabls.nc"), "r")
-# data_files[:DYCOMS_RF01] = Dataset(joinpath(PyCLES_output_dataset_path, "DYCOMS_RF01.nc"), "r")
-# data_files[:TRMM_LBA] = Dataset(joinpath(PyCLES_output_dataset_path, "TRMM_LBA.nc"), "r")
-# data_files[:ARM_SGP] = Dataset(joinpath(PyCLES_output_dataset_path, "ARM_SGP.nc"), "r")
-# data_files[:Soares] = Dataset(joinpath(PyCLES_output_dataset_path, "Soares.nc"), "r")
-# data_files[:Nieuwstadt] = Dataset(joinpath(PyCLES_output_dataset_path, "Nieuwstadt.nc"), "r")
 #! format: on
 
 include("variable_map.jl")
@@ -48,6 +42,7 @@ function compute_mse(
     ds,
     experiment,
     best_mse,
+    t_compare,
     plot_dir = nothing,
 )
     mse = Dict()
@@ -55,7 +50,10 @@ function compute_mse(
     # Ensure domain matches:
     z_les = ds["z_half"][:]
     z_cm = get_z(grid; rm_dupes = true)
-    @test maximum(z_les) + last(diff(z_les)) / 2 ≈ z_cm[end]
+    @info "Z extent for LES vs CLIMA:"
+    @show extrema(z_cm)
+    @show extrema(z_les)
+
     time_les = ds["t"][:]
 
     # Find the nearest matching final time:
@@ -63,9 +61,9 @@ function compute_mse(
 
     # Accidentally running a short simulation
     # could improve MSE. So, let's test that
-    # we run for at least 400. We should increase
-    # this as we can reach higher CFL.
-    @test t_cmp >= 400
+    # we run for at least t_compare. We should
+    # increase this as we can reach higher CFL.
+    @test t_cmp >= t_compare
 
     # Ensure z_cm and dons_arr fields are consistent lengths:
     @test length(z_cm) == length(dons_arr[1][first(keys(dons_arr[1]))])
@@ -79,7 +77,7 @@ function compute_mse(
     pycles_variables = []
     data_scales = []
     pycles_weight = []
-    for (ftc) in keys(first(dons_arr))
+    for (ftc) in keys(best_mse)
         # Only compare fields defined for var_map
         tup = var_map(ftc)
         tup == nothing && continue

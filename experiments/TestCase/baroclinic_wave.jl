@@ -152,7 +152,7 @@ function init_baroclinic_wave!(problem, bl, state, aux, localgeo, t)
     ## Assign state variables
     state.ρ = ρ
     state.ρu = ρ * u_cart
-    state.ρe = ρ * e_tot
+    state.energy.ρe = ρ * e_tot
 
     if !(bl.moisture isa DryModel)
         state.moisture.ρq_tot = ρ * q_tot
@@ -173,7 +173,7 @@ function config_baroclinic_wave(FT, poly_order, resolution, with_moisture)
     if with_moisture
         hyperdiffusion = EquilMoistBiharmonic(FT(8 * 3600))
         moisture = EquilMoist{FT}()
-        source = (Gravity(), Coriolis())
+        source = (Gravity(), Coriolis(), RemovePrecipitation(true)...) # precipitation is default to NoPrecipitation() as 0M microphysics
     else
         hyperdiffusion = DryBiharmonic(FT(8 * 3600))
         moisture = DryModel()

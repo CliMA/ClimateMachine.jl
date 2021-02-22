@@ -57,6 +57,7 @@ Base.@kwdef mutable struct ClimateMachine_Settings
     disable_gpu::Bool = false
     show_updates::String = "60secs"
     diagnostics::String = "never"
+    no_overwrite::Bool = false
     vtk::String = "never"
     vtk_number_sample_points::Int = 0
     monitor_timestep_duration::String = "never"
@@ -77,7 +78,8 @@ Base.@kwdef mutable struct ClimateMachine_Settings
     sim_time::Float64 = NaN
     fixed_number_of_steps::Int = -1
     degree::NTuple{2, Int} = (-1, -1)
-    nelems::NTuple{2, Int} = (-1, -1)
+    cutoff_degree::NTuple{2, Int} = (-1, -1)
+    nelems::NTuple{3, Int} = (-1, -1, -1)
     domain_height::Float64 = -1
     resolution::NTuple{3, Float64} = (-1, -1, -1)
     domain_min::NTuple{3, Float64} = (-1, -1, -1)
@@ -204,6 +206,11 @@ function parse_commandline(
         metavar = "<interval>"
         arg_type = String
         default = get_setting(:diagnostics, defaults, global_defaults)
+        "--no-overwrite"
+        help = "throw an error if an output file would be overwritten"
+        action = :store_const
+        constant = true
+        default = get_setting(:no_overwrite, defaults, global_defaults)
         "--vtk"
         help = "interval at which to output VTK"
         metavar = "<interval>"
@@ -306,10 +313,15 @@ function parse_commandline(
         metavar = "<horizontal>,<vertical>"
         arg_type = NTuple{2, Int}
         default = get_setting(:degree, defaults, global_defaults)
-        "--nelems"
-        help = "tuple of number of elements in each direction: 2 for GCM or 1 for single-stack (no space before/after comma)"
-        metavar = "<nelem_1>,<nelem_2>"
+        "--cutoff-degree"
+        help = "tuple of horizontal and vertical polynomial degrees for cutoff filter (no space before/after comma)"
+        metavar = "<horizontal>,<vertical>"
         arg_type = NTuple{2, Int}
+        default = get_setting(:cutoff_degree, defaults, global_defaults)
+        "--nelems"
+        help = "number of elements in each direction: 3 for Ocean GCM, 2 for Atmos GCM or 1 for Atmos single-stack (no space before/after comma)"
+        metavar = "<nelem_1>[,<nelem_2>[,<nelem_3>]]"
+        arg_type = NTuple{3, Int}
         default = get_setting(:nelems, defaults, global_defaults)
         "--domain-height"
         help = "domain height (in meters) for GCM or single-stack configurations"
@@ -370,6 +382,8 @@ Recognized keyword arguments are:
         interval at which to show simulation updates
 - `diagnostics::String = "never"`:
         interval at which to collect diagnostics"
+- `no_overwrite::Bool = false`:
+        throw an error if an output file would be overwritten
 - `vtk::String = "never"`:
         interval at which to write simulation vtk output
 - `vtk-number-sample-points::Int` = 0:
@@ -408,8 +422,10 @@ Recognized keyword arguments are:
         if `≥0` perform specified number of steps
 - `degree::NTuple{2, Int} = (-1, -1)`:
         tuple of horizontal and vertical polynomial degrees for spatial discretization order
-- `nelems::NTuple{2, Int} = (-1, -1)`:
-        tuple of number of elements in each direction: 2 for GCM or 1 for single-stack
+- `cutoff_degree::NTuple{2, Int} = (-1, -1)`:
+        tuple of horizontal and vertical polynomial degrees for cutoff filter
+- `nelems::NTuple{3, Int} = (-1, -1, -1)`:
+        tuple of number of elements in each direction: 3 for Ocean, 2 for GCM or 1 for single-stack
 - `domain_height::Float64 = -1`:
         domain height (in meters) for GCM or single-stack configurations
 - `resolution::NTuple{3, Float64} = (-1, -1, -1)`:
@@ -540,17 +556,6 @@ function init_runtime(settings::ClimateMachine_Settings)
         end
     end
 
-    # create the output directory if needed on delegated rank
-    if MPI.Comm_rank(MPI.COMM_WORLD) == 0
-        if settings.diagnostics != "never" || settings.vtk != "never"
-            mkpath(settings.output_dir)
-        end
-        if settings.checkpoint != "never" || settings.checkpoint_at_end
-            mkpath(settings.checkpoint_dir)
-        end
-    end
-    MPI.Barrier(MPI.COMM_WORLD)
-
     # TODO: write a better MPI logging back-end and also integrate Dlog
     # for large scale
 
@@ -653,6 +658,17 @@ function invoke!(
     init_args = solver_config.init_args
     solver = solver_config.solver
 
+    # create the output directories if needed on delegated rank
+    if MPI.Comm_rank(MPI.COMM_WORLD) == 0
+        if Settings.diagnostics != "never" || Settings.vtk != "never"
+            mkpath(Settings.output_dir)
+        end
+        if Settings.checkpoint != "never" || Settings.checkpoint_at_end
+            mkpath(Settings.checkpoint_dir)
+        end
+    end
+    MPI.Barrier(MPI.COMM_WORLD)
+
     # set up callbacks
     callbacks = ()
 
@@ -676,6 +692,7 @@ function invoke!(
             Q,
             dgn_starttime,
             Settings.output_dir,
+            Settings.no_overwrite,
         )
 
         dgncbs = Callbacks.diagnostics(

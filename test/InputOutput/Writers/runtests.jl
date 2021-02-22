@@ -1,3 +1,5 @@
+module TestWriters
+
 using Dates
 using NCDatasets
 using OrderedCollections
@@ -21,7 +23,11 @@ using ClimateMachine.Writers
     nfn, _ = mktemp()
     nfull = full_name(nc, nfn)
 
-    init_data(nc, nfn, odims, ovartypes)
+    touch(nfull)
+    @test_throws ErrorException init_data(nc, nfn, true, odims, ovartypes)
+    rm(nfull)
+
+    init_data(nc, nfn, false, odims, ovartypes)
     append_data(nc, OrderedDict("v1" => vals1, "v2" => vals2), 2.0)
 
     NCDataset(nfull, "r") do nds
@@ -47,3 +53,5 @@ using ClimateMachine.Writers
         @test v2[:, :, :, 1] == vals2
     end
 end
+
+end #module TestWriters

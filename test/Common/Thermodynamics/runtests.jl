@@ -1,3 +1,5 @@
+module TestThermodynamics
+
 using Test
 using ClimateMachine.Thermodynamics
 using ClimateMachine.TemperatureProfiles
@@ -664,6 +666,17 @@ end
         FT(1e-10),
     )
 
+    @test_throws ErrorException TD.saturation_adjustment_given_peq.(
+        SecantMethod,
+        param_set,
+        p,
+        e_int,
+        q_tot,
+        Ref(phase_type),
+        2,
+        FT(1e-10),
+    )
+
     T_virt = T # should not matter: testing for non-convergence
     @test_throws ErrorException TD.temperature_and_humidity_given_TᵥρRH.(
         param_set,
@@ -743,6 +756,11 @@ end
         @test all(internal_energy.(ts_pθ) .≈ internal_energy.(param_set, T))
         @test all(air_density.(ts_pθ) .≈ ρ)
 
+        p_dry = air_pressure.(param_set, T, ρ)
+        ts_pe = PhaseDry_pe.(param_set, p, e_int)
+        @test all(internal_energy.(ts_pe) .≈ internal_energy.(param_set, T))
+        @test all(air_pressure.(ts_pe) .≈ p_dry)
+
         ts_ρθ = PhaseDry_ρθ.(param_set, ρ, θ_dry)
         @test all(internal_energy.(ts_ρθ) .≈ internal_energy.(param_set, T))
         @test all(air_density.(ts_ρθ) .≈ ρ)
@@ -775,6 +793,13 @@ end
         @test all(getproperty.(PhasePartition.(ts), :tot) .≈ q_tot)
         @test all(air_density.(ts) .≈ ρ)
 
+        ts_peq = PhaseEquil_peq.(param_set, p, e_int, q_tot)
+        @test all(internal_energy.(ts_peq) .≈ e_int)
+        @test all(getproperty.(PhasePartition.(ts_peq), :tot) .≈ q_tot)
+        @test all(isapprox.(air_pressure.(ts_peq), p; rtol = rtol_pressure))
+        # TODO: investigate why increasing iterations does not decrease error:
+        # @show max(abs.(air_pressure.(ts_peq) .- p)...) # ~ 531
+
         ts = PhaseEquil_ρpq.(param_set, ρ, p, q_tot, true)
         @test all(air_density.(ts) .≈ ρ)
         @test all(air_pressure.(ts) .≈ p)
@@ -798,6 +823,11 @@ end
         @test all(internal_energy.(ts) .≈ e_int)
         @test all(compare_moisture.(ts, q_pt))
         @test all(air_density.(ts) .≈ ρ)
+
+        ts = PhaseNonEquil_peq.(param_set, p, e_int, q_pt)
+        @test all(internal_energy.(ts) .≈ e_int)
+        @test all(compare_moisture.(ts, q_pt))
+        @test all(air_pressure.(ts) .≈ p)
 
         # TD.air_temperature_given_θpq-liquid_ice_pottemp inverse
         θ_liq_ice_ =
@@ -1216,5 +1246,7 @@ end
         sat_adjust_method = SecantMethod,
         maxiter = 50,
     )
+
+end
 
 end

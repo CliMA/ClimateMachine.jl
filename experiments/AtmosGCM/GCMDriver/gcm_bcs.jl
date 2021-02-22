@@ -73,7 +73,7 @@ function (st::Varying_SST_TJ16)(state, aux, t)
     q_tot = state.moisture.ρq_tot / ρ
     q = PhasePartition(q_tot)
 
-    e_int = internal_energy(st.moisture, st.orientation, state, aux)
+    e_int = internal_energy(st.orientation, state, aux)
     T = air_temperature(st.param_set, e_int, q)
     p = air_pressure(st.param_set, T, ρ, q)
 

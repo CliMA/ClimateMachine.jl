@@ -45,15 +45,16 @@ MPI.Initialized() || MPI.Init()
         (zmax - zmin) / (polynomialorder * Ne[3]),
     )
     Savg = cbrt(prod(S))
+    Shoriavg = (S[1] + S[2]) / 2
     M = SDiagonal(S .^ -2)
 
-    N = polynomialorder
-    Np = (N + 1)^3
+    N = (polynomialorder, polynomialorder)
+    Np = (polynomialorder + 1)^3
     for e in 1:size(grid.vgeo, 3)
         for n in 1:size(grid.vgeo, 1)
             g = LocalGeometry{Np, N}(grid.vgeo, n, e)
             @test lengthscale(g) ≈ Savg
-            @test Geometry.resolutionmetric(g) ≈ M
+            @test lengthscale_horizontal(g) ≈ Shoriavg
         end
     end
 end

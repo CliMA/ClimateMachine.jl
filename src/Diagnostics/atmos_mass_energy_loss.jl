@@ -62,8 +62,9 @@ function atmos_mass_energy_loss_init(dgngrp, currtime)
     Q = Settings.Q
     FT = eltype(Q)
 
+    bl.energy isa EnergyModel || error("Only EnergyModel supported")
     ρ_idx = varsindices(vars_state(bl, Prognostic(), FT), "ρ")
-    ρe_idx = varsindices(vars_state(bl, Prognostic(), FT), "ρe")
+    ρe_idx = varsindices(vars_state(bl, Prognostic(), FT), :(energy.ρe))
     Σρ₀ = weightedsum(Q, ρ_idx)
     Σρe₀ = weightedsum(Q, ρe_idx)
 
@@ -81,14 +82,10 @@ function atmos_mass_energy_loss_init(dgngrp, currtime)
         )
 
         # create the output file
-        dprefix = @sprintf(
-            "%s_%s_%s",
-            dgngrp.out_prefix,
-            dgngrp.name,
-            Settings.starttime,
-        )
+        dprefix = @sprintf("%s_%s", dgngrp.out_prefix, dgngrp.name)
         dfilename = joinpath(Settings.output_dir, dprefix)
-        init_data(dgngrp.writer, dfilename, dims, vars)
+        noov = Settings.no_overwrite
+        init_data(dgngrp.writer, dfilename, noov, dims, vars)
     end
 
     return nothing
@@ -102,8 +99,9 @@ function atmos_mass_energy_loss_collect(dgngrp, currtime)
     Q = Settings.Q
     FT = eltype(Q)
 
+    bl.energy isa EnergyModel || error("Only EnergyModel supported")
     ρ_idx = varsindices(vars_state(bl, Prognostic(), FT), "ρ")
-    ρe_idx = varsindices(vars_state(bl, Prognostic(), FT), "ρe")
+    ρe_idx = varsindices(vars_state(bl, Prognostic(), FT), :(energy.ρe))
     Σρ = weightedsum(Q, ρ_idx)
     Σρe = weightedsum(Q, ρe_idx)
 

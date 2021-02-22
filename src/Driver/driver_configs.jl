@@ -6,6 +6,7 @@
 # - AtmosGCMConfiguration
 # - OceanBoxGCMConfiguration
 # - SingleStackConfiguration
+# - MultiColumnLandModel
 #
 # User-customized configurations can use these as templates.
 
@@ -18,6 +19,7 @@ struct AtmosGCMSpecificInfo{FT} <: ConfigSpecificInfo
     domain_height::FT
     nelem_vert::Int
     nelem_horz::Int
+    vert_range::Array{FT, 1}
 end
 struct OceanBoxGCMSpecificInfo <: ConfigSpecificInfo end
 struct SingleStackSpecificInfo{FT} <: ConfigSpecificInfo
@@ -31,7 +33,7 @@ include("SolverTypes/SolverTypes.jl")
 """
     ArgParse.parse_item
 
-Parses custom command line option for tuples of two integers.
+Parses custom command line option for tuples of three or fewer integers.
 """
 function ArgParse.parse_item(::Type{NTuple{2, Int}}, s::AbstractString)
 
@@ -40,6 +42,21 @@ function ArgParse.parse_item(::Type{NTuple{2, Int}}, s::AbstractString)
     int_2 = length(str_array) > 1 ? parse(Int, str_array[2]) : 0
 
     return (int_1, int_2)
+end
+
+"""
+    ArgParse.parse_item
+
+Parses custom command line option for tuples of three or fewer integers.
+"""
+function ArgParse.parse_item(::Type{NTuple{3, Int}}, s::AbstractString)
+
+    str_array = split(s, ",")
+    int_1 = length(str_array) > 0 ? parse(Int, str_array[1]) : 0
+    int_2 = length(str_array) > 1 ? parse(Int, str_array[2]) : 0
+    int_3 = length(str_array) > 2 ? parse(Int, str_array[3]) : 0
+
+    return (int_1, int_2, int_3)
 end
 
 """
@@ -63,11 +80,11 @@ end
 Utility function that gets the polynomial orders for the given configuration
 either passed from command line or as default values
 """
-function get_polyorders(N)
+function get_polyorders(N, setting = ClimateMachine.Settings.degree)
 
     # Check if polynomial degree was passed as a CL option
-    if ClimateMachine.Settings.degree != (-1, -1)
-        ClimateMachine.Settings.degree
+    if setting != (-1, -1)
+        setting
     elseif N isa Int
         (N, N)
     else
@@ -105,6 +122,8 @@ struct DriverConfiguration{FT}
     numerical_flux_gradient::NumericalFluxGradient
     # DGFVModel details, used when polyorder_vert = 0
     fv_reconstruction::Union{Nothing, AbstractReconstruction}
+    # Cutoff filter to emulate overintegration
+    filter::Any
     #
     # Configuration-specific info
     config_info::ConfigSpecificInfo
@@ -124,6 +143,7 @@ struct DriverConfiguration{FT}
         numerical_flux_second_order::NumericalFluxSecondOrder,
         numerical_flux_gradient::NumericalFluxGradient,
         fv_reconstruction::Union{Nothing, AbstractReconstruction},
+        filter,
         config_info::ConfigSpecificInfo,
     )
         return new{FT}(
@@ -140,6 +160,7 @@ struct DriverConfiguration{FT}
             numerical_flux_second_order,
             numerical_flux_gradient,
             fv_reconstruction,
+            filter,
             config_info,
         )
     end
@@ -159,7 +180,7 @@ function print_model_info(model, mpicomm)
                 )
         end
         @info msg
-        show_tendencies(model)
+        show_tendencies(model; table_complete = model isa AtmosModel)
     end
 end
 
@@ -189,14 +210,17 @@ function AtmosLESConfiguration(
     boundary = ((0, 0), (0, 0), (1, 2)),
     periodicity = (true, true, false),
     meshwarp = (x...) -> identity(x),
+    grid_stretching = (nothing, nothing, nothing),
     numerical_flux_first_order = RusanovNumericalFlux(),
     numerical_flux_second_order = CentralNumericalFluxSecondOrder(),
     numerical_flux_gradient = CentralNumericalFluxGradient(),
     fv_reconstruction = nothing,
-    grid_stretching = (nothing, nothing, nothing),
+    Ncutoff = get_polyorders(N),
 ) where {FT <: AbstractFloat}
 
     (polyorder_horz, polyorder_vert) = get_polyorders(N)
+    (cutofforder_horz, cutofforder_vert) =
+        get_polyorders(Ncutoff, ClimateMachine.Settings.cutoff_degree)
 
     # Check if the element resolution was passed as a CL option
     if ClimateMachine.Settings.resolution != (-1, -1, -1)
@@ -250,12 +274,25 @@ function AtmosLESConfiguration(
         meshwarp = meshwarp,
     )
 
+    if cutofforder_horz < polyorder_horz && cutofforder_vert < polyorder_vert
+        filter = CutoffFilter(
+            grid,
+            (cutofforder_horz + 1, cutofforder_horz + 1, cutofforder_vert + 1),
+        )
+    else
+        filter = nothing
+        cutofforder_horz = cutofforder_vert = nothing
+    end
+
+
     @info @sprintf(
         """
 Establishing Atmos LES configuration for %s
     precision               = %s
     horiz polynomial order  = %d
     vert polynomial order   = %d
+    horiz cutoff order      = %s
+    vert cutoff order       = %s
     domain_min              = %.2f m, %.2f m, %.2f m
     domain_max              = %.2f m, %.2f m, %.2f m
     resolution              = %dx%dx%d
@@ -266,6 +303,8 @@ Establishing Atmos LES configuration for %s
         FT,
         polyorder_horz,
         polyorder_vert,
+        cutofforder_horz,
+        cutofforder_vert,
         xmin,
         ymin,
         zmin,
@@ -295,6 +334,7 @@ Establishing Atmos LES configuration for %s
         numerical_flux_second_order,
         numerical_flux_gradient,
         fv_reconstruction,
+        filter,
         AtmosLESSpecificInfo(),
     )
 end
@@ -314,18 +354,21 @@ function AtmosGCMConfiguration(
         init_state_prognostic = init_GCM!,
     ),
     mpicomm = MPI.COMM_WORLD,
+    grid_stretching = (nothing,),
     meshwarp::Function = cubedshellwarp,
     numerical_flux_first_order = RusanovNumericalFlux(),
     numerical_flux_second_order = CentralNumericalFluxSecondOrder(),
     numerical_flux_gradient = CentralNumericalFluxGradient(),
     fv_reconstruction = nothing,
-    grid_stretching = nothing,
+    Ncutoff = get_polyorders(N),
 ) where {FT <: AbstractFloat}
 
     (polyorder_horz, polyorder_vert) = get_polyorders(N)
+    (cutofforder_horz, cutofforder_vert) =
+        get_polyorders(Ncutoff, ClimateMachine.Settings.cutoff_degree)
 
     # Check if the number of elements was passed as a CL option
-    if ClimateMachine.Settings.nelems != (-1, -1)
+    if ClimateMachine.Settings.nelems != (-1, -1, -1)
         (nelem_horz, nelem_vert) = ClimateMachine.Settings.nelems
     end
 
@@ -340,7 +383,7 @@ function AtmosGCMConfiguration(
     vert_range = grid1d(
         _planet_radius,
         FT(_planet_radius + domain_height),
-        grid_stretching,
+        grid_stretching[1],
         nelem = nelem_vert,
     )
 
@@ -359,12 +402,25 @@ function AtmosGCMConfiguration(
         meshwarp = meshwarp,
     )
 
+
+    if cutofforder_horz < polyorder_horz && cutofforder_vert < polyorder_vert
+        filter = CutoffFilter(
+            grid,
+            (cutofforder_horz + 1, cutofforder_horz + 1, cutofforder_vert + 1),
+        )
+    else
+        filter = nothing
+        cutofforder_horz = cutofforder_vert = nothing
+    end
+
     @info @sprintf(
         """
 Establishing Atmos GCM configuration for %s
     precision               = %s
     horiz polynomial order  = %d
     vert polynomial order   = %d
+    horiz cutoff order      = %s
+    vert cutoff order       = %s
     # horiz elem            = %d
     # vert elems            = %d
     domain height           = %.2e m
@@ -375,6 +431,8 @@ Establishing Atmos GCM configuration for %s
         FT,
         polyorder_horz,
         polyorder_vert,
+        cutofforder_horz,
+        cutofforder_vert,
         nelem_horz,
         nelem_vert,
         domain_height,
@@ -398,7 +456,13 @@ Establishing Atmos GCM configuration for %s
         numerical_flux_second_order,
         numerical_flux_gradient,
         fv_reconstruction,
-        AtmosGCMSpecificInfo(domain_height, nelem_vert, nelem_horz),
+        filter,
+        AtmosGCMSpecificInfo(
+            domain_height,
+            nelem_vert,
+            nelem_horz,
+            collect(vert_range),
+        ),
     )
 end
 
@@ -424,6 +488,11 @@ function OceanBoxGCMConfiguration(
 
     (polyorder_horz, polyorder_vert) = get_polyorders(N)
 
+    # Check if the number of elements was passed as a CL option
+    if ClimateMachine.Settings.nelems != (-1, -1, -1)
+        (Nˣ, Nʸ, Nᶻ) = ClimateMachine.Settings.nelems
+    end
+
     brickrange = (
         range(FT(0); length = Nˣ + 1, stop = model.problem.Lˣ),
         range(FT(0); length = Nʸ + 1, stop = model.problem.Lʸ),
@@ -444,6 +513,28 @@ function OceanBoxGCMConfiguration(
         polynomialorder = (polyorder_horz, polyorder_vert),
     )
 
+    @info @sprintf(
+        """
+Establishing Ocean Box GCM configuration for %s
+    precision               = %s
+    horiz polynomial order  = %d
+    vert polynomial order   = %d
+    Nˣ # elems              = %d
+    Nʸ # elems              = %d
+    Nᶻ # elems              = %d
+    domain depth            = %.2e m
+    MPI ranks               = %d""",
+        name,
+        FT,
+        polyorder_horz,
+        polyorder_vert,
+        Nˣ,
+        Nʸ,
+        Nᶻ,
+        -model.problem.H,
+        MPI.Comm_size(mpicomm)
+    )
+
     return DriverConfiguration(
         OceanBoxGCMConfigType(),
         name,
@@ -459,6 +550,7 @@ function OceanBoxGCMConfiguration(
         numerical_flux_second_order,
         numerical_flux_gradient,
         fv_reconstruction,
+        nothing, # filter
         OceanBoxGCMSpecificInfo(),
     )
 end
@@ -487,7 +579,7 @@ function SingleStackConfiguration(
     (polyorder_horz, polyorder_vert) = get_polyorders(N)
 
     # Check if the number of elements was passed as a CL option
-    if ClimateMachine.Settings.nelems != (-1, -1)
+    if ClimateMachine.Settings.nelems != (-1, -1, -1)
         nE = ClimateMachine.Settings.nelems
         nelem_vert = nE[1]
     end
@@ -564,6 +656,7 @@ Establishing single stack configuration for %s
         numerical_flux_second_order,
         numerical_flux_gradient,
         fv_reconstruction,
+        nothing, # filter
         SingleStackSpecificInfo(zmax, hmax),
     )
 end
@@ -677,6 +770,7 @@ Establishing MultiColumnLandModel configuration for %s
         numerical_flux_second_order,
         numerical_flux_gradient,
         fv_reconstruction,
+        nothing, # filter
         MultiColumnLandSpecificInfo(),
     )
 end
@@ -696,16 +790,18 @@ DGModel(driver_config; kwargs...) = DGModel(
     driver_config.numerical_flux_first_order,
     driver_config.numerical_flux_second_order,
     driver_config.numerical_flux_gradient;
+    gradient_filter = driver_config.filter,
+    tendency_filter = driver_config.filter,
     kwargs...,
 )
 
 """
--SpaceDiscretization(driver_config; kwargs...)
--
--Initialize a [`SpaceDiscretization`](@ref) given a
--[`DriverConfiguration`](@ref) and keyword
--arguments supported by [`SpaceDiscretization`](@ref).
--"""
+    SpaceDiscretization(driver_config; kwargs...)
+
+Initialize a [`SpaceDiscretization`](@ref) given a
+[`DriverConfiguration`](@ref) and keyword
+arguments supported by [`SpaceDiscretization`](@ref).
+"""
 SpaceDiscretization(driver_config; kwargs...) =
     (driver_config.polyorders[2] == 0) ?
     DGFVModel(
@@ -715,6 +811,8 @@ SpaceDiscretization(driver_config; kwargs...) =
         driver_config.numerical_flux_first_order,
         driver_config.numerical_flux_second_order,
         driver_config.numerical_flux_gradient;
+        gradient_filter = driver_config.filter,
+        tendency_filter = driver_config.filter,
         kwargs...,
     ) :
     DGModel(
@@ -723,5 +821,7 @@ SpaceDiscretization(driver_config; kwargs...) =
         driver_config.numerical_flux_first_order,
         driver_config.numerical_flux_second_order,
         driver_config.numerical_flux_gradient;
+        gradient_filter = driver_config.filter,
+        tendency_filter = driver_config.filter,
         kwargs...,
     )

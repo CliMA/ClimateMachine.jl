@@ -6,7 +6,7 @@ flattenednames(nt::Type{NTuple{N, T}}; prefix = "") where {N, T} =
     ]) |> collect
 flattenednames(::Type{NamedTuple{(), Tuple{}}}; prefix = "") = ()
 flattenednames(::Type{T}; prefix = "") where {T <: Real} = (prefix,)
-flattenednames(::Type{T}; prefix = "") where {T <: SVector} =
+flattenednames(::Type{T}; prefix = "") where {T <: SArray} =
     ntuple(i -> "$prefix[$i]", length(T))
 function flattenednames(::Type{T}; prefix = "") where {T <: SHermitianCompact}
     N = size(T, 1)

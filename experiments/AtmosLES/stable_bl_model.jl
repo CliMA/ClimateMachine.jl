@@ -25,6 +25,7 @@ using ClimateMachine.Atmos
 using ClimateMachine.Orientations
 using ClimateMachine.ConfigTypes
 using ClimateMachine.DGMethods.NumericalFluxes
+using ClimateMachine.TemperatureProfiles
 using ClimateMachine.Diagnostics
 using ClimateMachine.GenericCallbacks
 using ClimateMachine.Mesh.Filters
@@ -39,10 +40,12 @@ import ClimateMachine.BalanceLaws: source
 
 using CLIMAParameters
 using CLIMAParameters.Planet: R_d, cp_d, cv_d, MSLP, grav, day
+using CLIMAParameters.Atmos.SubgridScale: C_smag, C_drag
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
+import CLIMAParameters
 
-using ClimateMachine.Atmos: altitude, recover_thermo_state
+using ClimateMachine.Atmos: altitude, recover_thermo_state, density
 
 """
   StableBL Geostrophic Forcing (Source)
@@ -146,14 +149,15 @@ function init_problem!(problem, bl, state, aux, localgeo, t)
         θ_liq = FT(265) + FT(0.01) * (z - z1)
     end
     θ = θ_liq
-    π_exner = FT(1) - _grav / (c_p * θ) * z # exner pressure
-    ρ = p0 / (R_gas * θ) * (π_exner)^(c_v / R_gas) # density
+    p = aux.ref_state.p
     # Establish thermodynamic state and moist phase partitioning
     if bl.moisture isa DryModel
-        TS = PhaseDry_ρθ(bl.param_set, ρ, θ_liq)
+        TS = PhaseDry_pθ(bl.param_set, p, θ)
     else
-        TS = PhaseEquil_ρθq(bl.param_set, ρ, θ_liq, q_tot)
+        TS = PhaseEquil_pθq(bl.param_set, p, θ_liq, q_tot)
     end
+
+    ρ = bl.compressibility isa Compressible ? air_density(TS) : aux.ref_state.ρ
     # Compute momentum contributions
     ρu = ρ * u
     ρv = ρ * v
@@ -167,7 +171,7 @@ function init_problem!(problem, bl, state, aux, localgeo, t)
     # Assign initial conditions for prognostic state variables
     state.ρ = ρ
     state.ρu = SVector(ρu, ρv, ρw)
-    state.ρe = ρe_tot
+    state.energy.ρe = ρe_tot
     if !(bl.moisture isa DryModel)
         state.moisture.ρq_tot = ρ * q_tot
     end
@@ -175,7 +179,7 @@ function init_problem!(problem, bl, state, aux, localgeo, t)
     init_state_prognostic!(bl.turbconv, bl, state, aux, localgeo, t)
 end
 
-function surface_temperature_variation(bl, state, t)
+function surface_temperature_variation(state, t)
     FT = eltype(state)
     return FT(265) - FT(1 / 4) * (t / 3600)
 end
@@ -187,13 +191,16 @@ function stable_bl_model(
     surface_flux;
     turbulence = ConstantKinematicViscosity(FT(0)),
     turbconv = NoTurbConv(),
+    compressibility = Compressible(),
     moisture_model = "dry",
+    ref_state = HydrostaticState(DecayingTemperatureProfile{FT}(param_set),),
 ) where {FT}
 
     ics = init_problem!     # Initial conditions
 
-    C_drag = FT(0.001)    # Momentum exchange coefficient
+    C_drag_::FT = C_drag(param_set) # FT(0.001)    # Momentum exchange coefficient
     u_star = FT(0.30)
+    z_0 = FT(0.1)          # Roughness height
 
     z_sponge = FT(300)     # Start of sponge layer
     α_max = FT(0.75)       # Strength of sponge layer (timescale)
@@ -206,9 +213,11 @@ function stable_bl_model(
 
     q_sfc = FT(0)
 
+    g = compressibility isa Compressible ? (Gravity(),) : ()
+
     # Assemble source components
     source_default = (
-        Gravity(),
+        g...,
         StableBLSponge(
             FT,
             zmax,
@@ -251,14 +260,29 @@ function stable_bl_model(
         moisture_bc = PrescribedMoistureFlux((state, aux, t) -> moisture_flux)
     elseif surface_flux == "bulk"
         energy_bc = BulkFormulaEnergy(
-            (bl, state, aux, t, normPu_int) -> C_drag,
+            (bl, state, aux, t, normPu_int) -> C_drag_,
             (bl, state, aux, t) ->
-                (surface_temperature_variation(bl, state, t), q_sfc),
+                (surface_temperature_variation(state, t), q_sfc),
         )
         moisture_bc = BulkFormulaMoisture(
-            (state, aux, t, normPu_int) -> C_drag,
+            (state, aux, t, normPu_int) -> C_drag_,
             (state, aux, t) -> q_sfc,
         )
+    elseif surface_flux == "custom_sbl"
+        energy_bc = PrescribedTemperature(
+            (state, aux, t) -> surface_temperature_variation(state, t),
+        )
+        moisture_bc = BulkFormulaMoisture(
+            (state, aux, t, normPu_int) -> C_drag_,
+            (state, aux, t) -> q_sfc,
+        )
+    elseif surface_flux == "Nishizawa2018"
+        energy_bc = NishizawaEnergyFlux(
+            (bl, state, aux, t, normPu_int) -> z_0,
+            (bl, state, aux, t) ->
+                (surface_temperature_variation(state, t), q_sfc),
+        )
+        moisture_bc = PrescribedMoistureFlux((state, aux, t) -> moisture_flux)
     else
         @warn @sprintf(
             """
@@ -307,10 +331,12 @@ function stable_bl_model(
         config_type,
         param_set;
         problem = problem,
+        ref_state = ref_state,
         turbulence = turbulence,
         moisture = moisture,
         source = source,
         turbconv = turbconv,
+        compressibility = compressibility,
     )
 
     return model

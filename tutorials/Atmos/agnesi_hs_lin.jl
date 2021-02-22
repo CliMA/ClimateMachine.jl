@@ -109,7 +109,7 @@ const param_set = EarthParameterSet()
 #md #     The following variables are assigned in the initial condition
 #md #     - `state.ρ` = Scalar quantity for initial density profile
 #md #     - `state.ρu`= 3-component vector for initial momentum profile
-#md #     - `state.ρe`= Scalar quantity for initial total-energy profile
+#md #     - `state.energy.ρe`= Scalar quantity for initial total-energy profile
 #md #       humidity
 function init_agnesi_hs_lin!(problem, bl, state, aux, localgeo, t)
     (x, y, z) = localgeo.coord
@@ -155,7 +155,7 @@ function init_agnesi_hs_lin!(problem, bl, state, aux, localgeo, t)
 
     state.ρ = ρ
     state.ρu = SVector{3, FT}(ρ * u, 0, 0)
-    state.ρe = ρe_tot
+    state.energy.ρe = ρe_tot
 end
 
 # Define a `setmax` method

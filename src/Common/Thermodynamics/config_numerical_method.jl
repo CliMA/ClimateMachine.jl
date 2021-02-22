@@ -117,3 +117,37 @@ function sa_numerical_method_ρpq(
     T_2 = air_temperature_from_ideal_gas_law(param_set, p, ρ, q_pt) + 5
     return RegulaFalsiMethod(T_1, T_2)
 end
+
+#####
+##### Thermodynamic variable inputs: p, e_int, q_tot
+#####
+
+function sa_numerical_method_peq(
+    ::Type{NM},
+    param_set::APS,
+    p::FT,
+    e_int::FT,
+    q_tot::FT,
+    phase_type::Type{<:PhaseEquil},
+) where {FT, NM <: NewtonsMethodAD}
+    _T_min::FT = T_min(param_set)
+    T_init =
+        max(_T_min, air_temperature(param_set, e_int, PhasePartition(q_tot))) # Assume all vapor
+    return NewtonsMethodAD(T_init)
+end
+
+function sa_numerical_method_peq(
+    ::Type{NM},
+    param_set::APS,
+    p::FT,
+    e_int::FT,
+    q_tot::FT,
+    phase_type::Type{<:PhaseEquil},
+) where {FT, NM <: SecantMethod}
+    _T_min::FT = T_min(param_set)
+    q_pt = PhasePartition(q_tot, FT(0), q_tot) # Assume all ice
+    T_2 = air_temperature(param_set, e_int, q_pt)
+    T_1 = max(_T_min, air_temperature(param_set, e_int, PhasePartition(q_tot))) # Assume all vapor
+    T_2 = bound_upper_temperature(T_1, T_2)
+    return SecantMethod(T_1, T_2)
+end

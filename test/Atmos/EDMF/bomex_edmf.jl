@@ -1,9 +1,4 @@
 using ClimateMachine
-ClimateMachine.init(;
-    parse_clargs = true,
-    output_dir = get(ENV, "CLIMATEMACHINE_SETTINGS_OUTPUT_DIR", "output"),
-    fix_rng_seed = true,
-)
 using ClimateMachine.SingleStackUtils
 using ClimateMachine.Checkpoint
 using ClimateMachine.DGMethods
@@ -88,21 +83,7 @@ function custom_filter!(::ZeroVerticalVelocityFilter, bl, state, aux)
     state.ρu = SVector(state.ρu[1], state.ρu[2], 0)
 end
 
-function main(::Type{FT}) where {FT}
-    # add a command line argument to specify the kind of surface flux
-    # TODO: this will move to the future namelist functionality
-    bomex_args = ArgParseSettings(autofix_names = true)
-    add_arg_group!(bomex_args, "BOMEX")
-    @add_arg_table! bomex_args begin
-        "--surface-flux"
-        help = "specify surface flux for energy and moisture"
-        metavar = "prescribed|bulk"
-        arg_type = String
-        default = "prescribed"
-    end
-
-    cl_args =
-        ClimateMachine.init(parse_clargs = true, custom_clargs = bomex_args)
+function main(::Type{FT}, cl_args) where {FT}
 
     surface_flux = cl_args["surface_flux"]
 
@@ -166,7 +147,7 @@ function main(::Type{FT}) where {FT}
     horizontally_average!(
         driver_config.grid,
         solver_config.Q,
-        varsindex(vsp, :ρe),
+        varsindex(vsp, :energy, :ρe),
     )
     horizontally_average!(
         driver_config.grid,
@@ -224,7 +205,7 @@ function main(::Type{FT}) where {FT}
 
     check_cons = (
         ClimateMachine.ConservationCheck("ρ", "3000steps", FT(0.001)),
-        ClimateMachine.ConservationCheck("ρe", "3000steps", FT(0.0025)),
+        ClimateMachine.ConservationCheck("energy.ρe", "3000steps", FT(0.0025)),
     )
 
     cb_print_step = GenericCallbacks.EveryXSimulationSteps(100) do
@@ -267,17 +248,41 @@ function config_diagnostics(driver_config, timeend)
         boundaries;
         axes = axes,
     )
-    dgngrp = setup_dump_state_diagnostics(
+    ds_dgngrp = setup_dump_state_diagnostics(
         SingleStackConfigType(),
         interval,
         driver_config.name,
         interpol = interpol,
     )
-    return ClimateMachine.DiagnosticsConfiguration([dgngrp])
+    dt_dgngrp = setup_dump_tendencies_diagnostics(
+        SingleStackConfigType(),
+        interval,
+        driver_config.name,
+        interpol = interpol,
+    )
+    return ClimateMachine.DiagnosticsConfiguration([ds_dgngrp, dt_dgngrp])
 end
 
+# add a command line argument to specify the kind of surface flux
+# TODO: this will move to the future namelist functionality
+bomex_args = ArgParseSettings(autofix_names = true)
+add_arg_group!(bomex_args, "BOMEX")
+@add_arg_table! bomex_args begin
+    "--surface-flux"
+    help = "specify surface flux for energy and moisture"
+    metavar = "prescribed|bulk"
+    arg_type = String
+    default = "prescribed"
+end
 
-solver_config, diag_arr, time_data = main(Float64)
+cl_args = ClimateMachine.init(
+    parse_clargs = true,
+    custom_clargs = bomex_args,
+    output_dir = get(ENV, "CLIMATEMACHINE_SETTINGS_OUTPUT_DIR", "output"),
+    fix_rng_seed = true,
+)
+
+solver_config, diag_arr, time_data = main(Float64, cl_args)
 
 include(joinpath(@__DIR__, "report_mse_bomex.jl"))
 

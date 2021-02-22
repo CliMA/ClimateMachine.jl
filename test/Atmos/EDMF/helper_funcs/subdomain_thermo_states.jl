@@ -23,10 +23,6 @@ Updraft thermodynamic states given:
 !!! note
     This method calls saturation adjustment for
     EquilMoist models.
-
-# TODO:
- We need to determine a strategy for when we call
- `recover_thermo_state` vs. `new_thermo_state`.
 """
 new_thermo_state_up(
     bl::AtmosModel,
@@ -46,10 +42,6 @@ Environment thermodynamic state given:
 !!! note
     This method calls saturation adjustment for
     EquilMoist models.
-
-# TODO:
- We need to determine a strategy for when we call
- `recover_thermo_state` vs. `new_thermo_state`.
 """
 new_thermo_state_en(
     bl::AtmosModel,
@@ -62,6 +54,9 @@ new_thermo_state_en(
     recover_thermo_state_all(bl, state, aux)
 
 Recover NamedTuple of all thermo states
+
+# TODO: Define/call `recover_thermo_state` when it's safely implemented
+  (see https://github.com/CliMA/ClimateMachine.jl/issues/1648)
 """
 function recover_thermo_state_all(bl, state, aux)
     ts = new_thermo_state(bl, state, aux)
@@ -80,19 +75,13 @@ Recover the updraft thermodynamic states given:
  - `state`, state variables
  - `aux`, auxiliary variables
 
-!!! note
-    This method does _not_ call saturation adjustment for
-    EquilMoist models. Instead, it uses the temperature
-    in the aux state to construct the thermodynamic state.
-    This method assumes that the temperature has been
-    previously computed from a new thermodynamic state
-    and stored in `aux`.
-
 !!! warn
-    While recover_thermo_state_up is an ideal long-term solution,
-    right now we are directly calling new_thermo_state_up to avoid
+    Right now we are directly calling new_thermo_state_up to avoid
     inconsistent aux states in kernels where the aux states are
     out of sync with the boundary state.
+
+# TODO: Define/call `recover_thermo_state` when it's safely implemented
+  (see https://github.com/CliMA/ClimateMachine.jl/issues/1648)
 """
 function recover_thermo_state_up(
     bl,
@@ -111,19 +100,13 @@ Recover the environment thermodynamic state given:
  - `state`, state variables
  - `aux`, auxiliary variables
 
-!!! note
-    This method does _not_ call saturation adjustment for
-    EquilMoist models. Instead, it uses the temperature
-    in the aux state to construct the thermodynamic state.
-    This method assumes that the temperature has been
-    previously computed from a new thermodynamic state
-    and stored in `aux`.
-
 !!! warn
-    While recover_thermo_state_up is an ideal long-term solution,
-    right now we are directly calling new_thermo_state_up to avoid
+    Right now we are directly calling new_thermo_state_up to avoid
     inconsistent aux states in kernels where the aux states are
     out of sync with the boundary state.
+
+# TODO: Define/call `recover_thermo_state` when it's safely implemented
+  (see https://github.com/CliMA/ClimateMachine.jl/issues/1648)
 """
 function recover_thermo_state_en(
     bl,
@@ -247,79 +230,4 @@ function new_thermo_state_en(
     end
     ts_en = PhaseEquil_pθq(m.param_set, p, θ_liq_en, q_tot_en)
     return ts_en
-end
-
-function recover_thermo_state_up(
-    m::AtmosModel,
-    moist::Union{DryModel, EquilMoist},
-    state::Vars,
-    aux::Vars,
-    ts::ThermodynamicState = recover_thermo_state(m, state, aux),
-)
-    N_up = n_updrafts(m.turbconv)
-    ts_up = vuntuple(N_up) do i
-        recover_thermo_state_up_i(m, state, aux, i, ts)
-    end
-    return ts_up
-end
-
-recover_thermo_state_up_i(m, state, aux, i_up, ts) =
-    recover_thermo_state_up_i(m, m.moisture, state, aux, i_up, ts)
-
-function recover_thermo_state_up_i(
-    m::AtmosModel,
-    moist::EquilMoist,
-    state::Vars,
-    aux::Vars,
-    i_up,
-    ts::ThermodynamicState = recover_thermo_state(m, state, aux),
-)
-    FT = eltype(state)
-    param_set = m.param_set
-    up = state.turbconv.updraft
-
-    p = air_pressure(ts)
-    T_up_i = aux.turbconv.updraft[i_up].T
-    q_tot_up_i = up[i_up].ρaq_tot / up[i_up].ρa
-    ρ_up_i = air_density(param_set, T_up_i, p, PhasePartition(q_tot_up_i))
-    q_up_i =
-        PhasePartition_equil(param_set, T_up_i, ρ_up_i, q_tot_up_i, PhaseEquil)
-    e_int_up_i = internal_energy(param_set, T_up_i, q_up_i)
-    return PhaseEquil{FT, typeof(param_set)}(
-        param_set,
-        e_int_up_i,
-        ρ_up_i,
-        q_up_i.tot,
-        T_up_i,
-    )
-end
-
-function recover_thermo_state_en(
-    m::AtmosModel,
-    moist::EquilMoist,
-    state::Vars,
-    aux::Vars,
-    ts::ThermodynamicState = recover_thermo_state(m, state, aux),
-)
-    FT = eltype(state)
-    param_set = m.param_set
-    N_up = n_updrafts(m.turbconv)
-    up = state.turbconv.updraft
-
-    p = air_pressure(ts)
-    T_en = aux.turbconv.environment.T
-    ρ_inv = 1 / state.ρ
-    q_tot = total_specific_humidity(ts)
-    a_en = environment_area(state, N_up)
-    q_tot_en = (q_tot - sum(vuntuple(i -> up[i].ρaq_tot, N_up)) * ρ_inv) / a_en
-    ρ_en = air_density(param_set, T_en, p, PhasePartition(q_tot_en))
-    q_en = PhasePartition_equil(param_set, T_en, ρ_en, q_tot_en, PhaseEquil)
-    e_int_en = internal_energy(param_set, T_en, q_en)
-    return PhaseEquil{FT, typeof(param_set)}(
-        param_set,
-        e_int_en,
-        ρ_en,
-        q_en.tot,
-        T_en,
-    )
 end

@@ -66,6 +66,10 @@ VT = VariableTemplates
     @test v.vector_model.x == SVector{Nv, FT}(collect(1:Nv) .+ offset)
     @test v.scalar_model.x == FT(1 + Nv) + offset
 
+    # Make sure we bounds error for NTupleModel's:
+    @test_throws BoundsError m.ntuple_model[0]
+    @test_throws BoundsError m.ntuple_model[N + 1]
+
     unval(::Val{i}) where {i} = i
     @unroll_map(N) do i
         @test m.ntuple_model[i] isa NTupleModel
@@ -75,6 +79,8 @@ VT = VariableTemplates
         @test v.vector_model.x == SVector{Nv, FT}(1:Nv) .+ offset
         @test v.scalar_model.x == FT(Nv + 1) + offset
     end
+
+    @test vuntuple(x -> x, 5) == ntuple(i -> Val(i), Val(5))
 
     # test flattenednames
     fn = flattenednames(st)
@@ -98,6 +104,16 @@ VT = VariableTemplates
     @test flattened_tup_chain(NamedTuple{(), Tuple{}}) == ()
     @test flattened_tup_chain(Foo, RetainArr()) == ((Symbol(),),)
     @test flattened_tup_chain(Foo, FlattenArr()) == ((Symbol(),),)
+
+    # flattened_tup_chain - SHermitianCompact
+    Nv, M = 3, 6
+    A = SHermitianCompact{Nv, FT, M}(collect(1:(1 + M - 1)))
+
+    ftc = flattened_tup_chain(typeof(A), FlattenArr())
+    @test ftc == ntuple(i -> (Symbol(), i), M)
+
+    ftc = flattened_tup_chain(typeof(A), RetainArr())
+    @test ftc == ((Symbol(),),)
 
     # flattened_tup_chain - Retain arrays
 
@@ -211,6 +227,39 @@ VT = VariableTemplates
         @test v.vector_model.x[k] == getproperty(v, (:vector_model, :x, Val(k)))
     end
 
+    # test getindex with Val
+    @test getindex((1, 2), Val(1)) == 1
+    @test getindex((1, 2), Val(2)) == 2
+    @test getindex(SVector(1, 2), Val(1)) == 1
+    @test getindex(SVector(1, 2), Val(2)) == 2
+
+    nt = (; a = ((; x = 1), (; x = 2)))
+    fnt = VT.flattened_tuple(FlattenArr(), nt)
+    vg = Grad{typeof(nt)}(zeros(MMatrix{3, length(fnt), FT}))
+    parent(vg)[1, :] .= fnt
+    parent(vg)[2, :] .= fnt
+    parent(vg)[3, :] .= fnt
+    for i in 1:2
+        @test getindex(vg.a, Val(i)).x[1] == i
+        @test getindex(vg.a, Val(i)).x[2] == i
+        @test getindex(vg.a, Val(i)).x[3] == i
+    end
+
+    # getpropertyorindex
+    @test VT.getpropertyorindex((1, 2), Val(1)) == 1
+    @test VT.getpropertyorindex((1, 2), Val(2)) == 2
+    @test VT.getpropertyorindex([1, 2], Val(1)) == 1
+    @test VT.getpropertyorindex([1, 2], Val(2)) == 2
+    @test VT.getpropertyorindex(v, :scalar_model) == v.scalar_model
+    for i in 1:N
+        @test VT.getpropertyorindex(v.ntuple_model, Val(i)) ==
+              v.ntuple_model[Val(i)]
+        @test VT.getpropertyorindex(v.ntuple_model, (Val(i),)) ==
+              v.ntuple_model[Val(i)]
+        @test getindex(v.ntuple_model, (Val(i),)) ==
+              VT.getpropertyorindex(v.ntuple_model, (Val(i),))
+    end
+
     # Test converting to flattened NamedTuple
     fnt = flattened_named_tuple(v, FlattenArr())
     @test fnt.ntuple_model_1_scalar_model_x == 1.0f0
@@ -251,29 +300,28 @@ VT = VariableTemplates
             t = Foo(),
         ),
     )
-    # Test flattened_nt_vals:
+    # Test flattened_tuple:
 
-    @test VT.flattened_nt_vals(RetainArr(), NamedTuple()) == ()
-    @test VT.flattened_nt_vals(FlattenArr(), NamedTuple()) == ()
-    @test VT.flattened_nt_vals(RetainArr(), Tuple(NamedTuple())) == ()
-    @test VT.flattened_nt_vals(FlattenArr(), Tuple(NamedTuple())) == ()
+    @test VT.flattened_tuple(RetainArr(), NamedTuple()) == ()
+    @test VT.flattened_tuple(FlattenArr(), NamedTuple()) == ()
+    @test VT.flattened_tuple(RetainArr(), Tuple(NamedTuple())) == ()
+    @test VT.flattened_tuple(FlattenArr(), Tuple(NamedTuple())) == ()
 
     ft = FlattenArr()
-    @test VT.flattened_nt_vals(ft, nt.nest.nt.f) == (1.0f0,)
-    @test VT.flattened_nt_vals(ft, nt.nest.nt) ==
+    @test VT.flattened_tuple(ft, nt.nest.nt.f) == (1.0f0,)
+    @test VT.flattened_tuple(ft, nt.nest.nt) ==
           (1.0f0, 2.0f0, 3.0f0, 4.0f0, 5.0f0, 6.0f0, 1.0f0)
-    @test VT.flattened_nt_vals(ft, nt.nest.d) == (1, 2, 3)
-    @test VT.flattened_nt_vals(ft, nt.nest.t) == (Foo(),)
-    @test VT.flattened_nt_vals(ft, nt.nest.tt) == (Foo(), Foo())
+    @test VT.flattened_tuple(ft, nt.nest.d) == (1, 2, 3)
+    @test VT.flattened_tuple(ft, nt.nest.t) == (Foo(),)
+    @test VT.flattened_tuple(ft, nt.nest.tt) == (Foo(), Foo())
 
     ft = RetainArr()
-    @test VT.flattened_nt_vals(ft, nt.nest.nt.f) == (1.0f0,)
-    @test VT.flattened_nt_vals(ft, nt.nest.nt)[1] ==
-          nt.nest.nt.shc.lowertriangle
-    @test VT.flattened_nt_vals(ft, nt.nest.nt)[2] == 1.0f0
-    @test VT.flattened_nt_vals(ft, nt.nest.d) == (nt.nest.d.diag,)
-    @test VT.flattened_nt_vals(ft, nt.nest.t) == (Foo(),)
-    @test VT.flattened_nt_vals(ft, nt.nest.tt) == (Foo(), Foo())
+    @test VT.flattened_tuple(ft, nt.nest.nt.f) == (1.0f0,)
+    @test VT.flattened_tuple(ft, nt.nest.nt)[1] == nt.nest.nt.shc.lowertriangle
+    @test VT.flattened_tuple(ft, nt.nest.nt)[2] == 1.0f0
+    @test VT.flattened_tuple(ft, nt.nest.d) == (nt.nest.d.diag,)
+    @test VT.flattened_tuple(ft, nt.nest.t) == (Foo(),)
+    @test VT.flattened_tuple(ft, nt.nest.tt) == (Foo(), Foo())
 
     # Test flattened_named_tuple for NamedTuples
     fnt = flattened_named_tuple(nt, FlattenArr())

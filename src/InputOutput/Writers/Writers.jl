@@ -26,6 +26,7 @@ function full_name end
     init_data(
         writer,
         filename,
+        no_overwrite,
         dims,
         vars,
     )
@@ -38,6 +39,8 @@ specified variables are also defined. This function must be called before
 # Arguments:
 # - `writer`: instance of a subtype of `AbstractWriter`.
 # - `filename`: into which to write data (without extension).
+# - `no_overwrite`: if `true`, throw an error if `filename` exists and
+#   would be overwritten.
 # - `dims`: Dict of dimension name to 2-tuple of dimension values and Dict
 #   of attributes.
 # - `vars`: Dict of variable name to 3-tuple of a k-tuple of dimension

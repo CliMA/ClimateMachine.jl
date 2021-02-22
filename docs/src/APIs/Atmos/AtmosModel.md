@@ -26,6 +26,13 @@ ClimateMachine.BalanceLaws.source!(m::AtmosModel, source::Vars, state::Vars, dif
 ClimateMachine.BalanceLaws.init_state_prognostic!(m::AtmosModel, state::Vars, aux::Vars, localgeo, t, args...)
 ```
 
+## Compressibility
+
+```@docs
+ClimateMachine.Atmos.Compressible
+ClimateMachine.Atmos.Anelastic1D
+```
+
 ## Reference states
 
 ```@docs
@@ -40,6 +47,8 @@ ClimateMachine.Atmos.NoReferenceState
 ```@docs
 ClimateMachine.Atmos.recover_thermo_state
 ClimateMachine.Atmos.new_thermo_state
+ClimateMachine.Atmos.recover_thermo_state_anelastic
+ClimateMachine.Atmos.new_thermo_state_anelastic
 ```
 
 ## Moisture and Precipitation
@@ -70,6 +79,8 @@ ClimateMachine.Atmos.BulkFormulaMoisture
 ClimateMachine.Atmos.FreeSlip
 ClimateMachine.Atmos.PrescribedTemperature
 ClimateMachine.Atmos.PrescribedEnergyFlux
+ClimateMachine.Atmos.NishizawaEnergyFlux
+ClimateMachine.Atmos.Adiabaticθ
 ClimateMachine.Atmos.BulkFormulaEnergy
 ClimateMachine.Atmos.OutflowPrecipitation
 ClimateMachine.Atmos.ImpermeableTracer

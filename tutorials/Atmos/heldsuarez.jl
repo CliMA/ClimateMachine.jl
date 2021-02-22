@@ -100,6 +100,7 @@ end
 
 function source(s::HeldSuarezForcingTutorial{Energy}, m, args)
     @unpack state = args
+    FT = eltype(state)
     @unpack ts = args.precomputed
     nt = held_suarez_forcing_coefficients(m, args)
     _cv_d = FT(cv_d(m.param_set))
@@ -127,7 +128,7 @@ function init_heldsuarez!(problem, balance_law, state, aux, localgeo, time)
     rnd = FT(1 + rand(Uniform(-1e-3, 1e-3)))
     state.ρ = aux.ref_state.ρ
     state.ρu = SVector{3, FT}(0, 0, 0)
-    state.ρe = rnd * aux.ref_state.ρe
+    state.energy.ρe = rnd * aux.ref_state.ρe
 end;
 
 
@@ -142,7 +143,7 @@ ClimateMachine.init();
 # precisions, with lower precision we get our results faster, and with higher
 # precision, we may get more accurate results, depending on the questions we
 # are after.
-const FT = Float32;
+const FT = Float64;
 
 
 # ## Setup model configuration

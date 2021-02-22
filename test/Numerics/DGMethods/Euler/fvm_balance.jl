@@ -203,7 +203,7 @@ end
 function initialcondition!(problem, bl, state, aux, coords, t, args...)
     state.ρ = aux.ref_state.ρ
     state.ρu = SVector(0, 0, 0)
-    state.ρe = aux.ref_state.ρe
+    state.energy.ρe = aux.ref_state.ρe
 end
 
 main()

@@ -103,7 +103,7 @@ const param_set = EarthParameterSet();
 #md #     The following variables are assigned in the initial condition
 #md #     - `state.ρ` = Scalar quantity for initial density profile
 #md #     - `state.ρu`= 3-component vector for initial momentum profile
-#md #     - `state.ρe`= Scalar quantity for initial total-energy profile
+#md #     - `state.energy.ρe`= Scalar quantity for initial total-energy profile
 #md #       humidity
 #md #     - `state.tracers.ρχ` = Vector of four tracers (here, for demonstration
 #md #       only; we can interpret these as dye injections for visualization
@@ -168,7 +168,7 @@ function init_risingbubble!(problem, bl, state, aux, localgeo, t)
     ## Assign State Variables
     state.ρ = ρ
     state.ρu = ρu
-    state.ρe = ρe_tot
+    state.energy.ρe = ρe_tot
     state.tracers.ρχ = ρχ
 end
 

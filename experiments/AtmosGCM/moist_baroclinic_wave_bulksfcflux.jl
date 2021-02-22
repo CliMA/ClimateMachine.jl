@@ -160,7 +160,7 @@ function init_baroclinic_wave!(problem, bl, state, aux, localgeo, t)
     ## Assign state variables
     state.ρ = ρ
     state.ρu = ρ * u_cart
-    state.ρe = ρ * e_tot
+    state.energy.ρe = ρ * e_tot
 
     if bl.moisture isa EquilMoist
         state.moisture.ρq_tot = ρ * q_tot
@@ -196,7 +196,7 @@ function (st::Varying_SST_TJ16)(state, aux, t)
     q_tot = state.moisture.ρq_tot / ρ
     q = PhasePartition(q_tot)
 
-    e_int = internal_energy(st.moisture, st.orientation, state, aux)
+    e_int = internal_energy(st.orientation, state, aux)
     T = air_temperature(st.param_set, e_int, q)
     p = air_pressure(st.param_set, T, ρ, q)
 
@@ -231,9 +231,11 @@ function config_baroclinic_wave(
     if with_moisture
         hyperdiffusion = EquilMoistBiharmonic(FT(8 * 3600))
         moisture = EquilMoist{FT}()
+        source = (Gravity(), Coriolis(), RemovePrecipitation(true)...) # precipitation is default to NoPrecipitation() as 0M microphysics
     else
         hyperdiffusion = DryBiharmonic(FT(8 * 3600))
         moisture = DryModel()
+        source = (Gravity(), Coriolis())
     end
 
     _C_drag = C_drag(param_set)::FT
@@ -266,7 +268,7 @@ function config_baroclinic_wave(
         turbulence = ConstantKinematicViscosity(FT(0)),
         hyperdiffusion = hyperdiffusion,
         moisture = moisture,
-        source = (Gravity(), Coriolis()),
+        source = source,
     )
 
     config = ClimateMachine.AtmosGCMConfiguration(

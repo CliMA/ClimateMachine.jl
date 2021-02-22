@@ -102,7 +102,7 @@ function init_nonhydrostatic_gravity_wave!(problem, bl, state, aux, localgeo, t)
 
     state.ρ = ρ
     state.ρu = ρ * u_init
-    state.ρe = ρ * total_energy(bl.param_set, e_kin, e_pot, T)
+    state.energy.ρe = ρ * total_energy(bl.param_set, e_kin, e_pot, T)
 
     nothing
 end

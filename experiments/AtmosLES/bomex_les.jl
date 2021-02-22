@@ -5,7 +5,7 @@ function add_perturbations!(state, localgeo)
     FT = eltype(state)
     z = localgeo.coord[3]
     if z <= FT(400) # Add random perturbations to bottom 400m of model
-        state.ρe += (rand() - 0.5) * state.ρe / 100
+        state.energy.ρe += (rand() - 0.5) * state.energy.ρe / 100
         state.moisture.ρq_tot += (rand() - 0.5) * state.moisture.ρq_tot / 100
     end
 end
@@ -92,7 +92,8 @@ function main()
         Courant_number = CFLmax,
         CFL_direction = HorizontalDirection(),
     )
-    dgn_config = config_diagnostics(driver_config, timeend)
+    dgn_config =
+        config_diagnostics(driver_config, timeend, xmax, ymax, zmax, resolution)
 
     if moisture_model == "equilibrium"
         filter_vars = ("moisture.ρq_tot",)
@@ -112,7 +113,7 @@ function main()
 
     check_cons = (
         ClimateMachine.ConservationCheck("ρ", "3000steps", FT(0.0001)),
-        ClimateMachine.ConservationCheck("ρe", "3000steps", FT(0.0025)),
+        ClimateMachine.ConservationCheck("energy.ρe", "3000steps", FT(0.0025)),
     )
 
     result = ClimateMachine.invoke!(
@@ -124,7 +125,14 @@ function main()
     )
 end
 
-function config_diagnostics(driver_config, timeend)
+function config_diagnostics(
+    driver_config,
+    timeend,
+    xmax::FT,
+    ymax::FT,
+    zmax::FT,
+    resolution,
+) where {FT}
     default_interval = "$(cld(timeend, 2) + 10)ssecs"
     default_dgngrp = setup_atmos_default_diagnostics(
         AtmosLESConfigType(),
@@ -137,9 +145,25 @@ function config_diagnostics(driver_config, timeend)
         core_interval,
         driver_config.name,
     )
+    boundaries = [
+        FT(0) FT(0) FT(0)
+        xmax ymax zmax
+    ]
+    interpol = ClimateMachine.InterpolationConfiguration(
+        driver_config,
+        boundaries,
+        resolution,
+    )
+    dt_dgngrp = setup_dump_tendencies_diagnostics(
+        AtmosLESConfigType(),
+        default_interval,
+        driver_config.name,
+        interpol = interpol,
+    )
     return ClimateMachine.DiagnosticsConfiguration([
         default_dgngrp,
         core_dgngrp,
+        dt_dgngrp,
     ])
 end
 

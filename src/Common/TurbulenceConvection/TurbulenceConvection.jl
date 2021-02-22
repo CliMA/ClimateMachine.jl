@@ -17,14 +17,13 @@ export init_state_prognostic!,
 import ..BalanceLaws:
     vars_state,
     eq_tends,
-    source!,
+    prognostic_to_primitive!,
+    primitive_to_prognostic!,
     precompute,
     prognostic_vars,
     init_state_prognostic!,
     init_state_auxiliary!,
     update_auxiliary_state!,
-    flux_first_order!,
-    flux_second_order!,
     boundary_state!,
     compute_gradient_argument!,
     compute_gradient_flux!,
@@ -81,17 +80,6 @@ function turbconv_nodal_update_auxiliary_state!(
     return nothing
 end
 
-function flux_first_order!(
-    m::TurbulenceConvectionModel,
-    bl::BalanceLaw,
-    flux::Grad,
-    args,
-)
-    return nothing
-end
-
-source!(m::TurbulenceConvectionModel, _...) = nothing
-
 function compute_gradient_argument!(
     m::TurbulenceConvectionModel,
     bl::BalanceLaw,
@@ -111,15 +99,6 @@ function compute_gradient_flux!(
     state::Vars,
     aux::Vars,
     t::Real,
-)
-    return nothing
-end
-
-function flux_second_order!(
-    m::TurbulenceConvectionModel,
-    flux::Grad,
-    bl::BalanceLaw,
-    args,
 )
     return nothing
 end
@@ -151,6 +130,9 @@ function init_state_prognostic!(
     localgeo,
     t,
 ) end
+
+prognostic_to_primitive!(::NoTurbConv, _...) = nothing
+primitive_to_prognostic!(::NoTurbConv, _...) = nothing
 
 include("boundary_conditions.jl")
 include("source.jl")

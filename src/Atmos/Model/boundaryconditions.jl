@@ -10,13 +10,15 @@ export AtmosBC,
     Insulating,
     PrescribedTemperature,
     PrescribedEnergyFlux,
+    Adiabaticθ,
     BulkFormulaEnergy,
     Impermeable,
     OutflowPrecipitation,
     ImpermeableTracer,
     PrescribedMoistureFlux,
     BulkFormulaMoisture,
-    PrescribedTracerFlux
+    PrescribedTracerFlux,
+    NishizawaEnergyFlux
 
 export average_density_sfc_int
 

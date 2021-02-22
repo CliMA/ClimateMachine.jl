@@ -87,7 +87,7 @@ function atmos_les_default_perturbations_sums!(
     sums.temp += thermo.temp * state.ρ
     sums.pres += thermo.pres * state.ρ
     sums.thd += thermo.θ_dry * state.ρ
-    sums.et += state.ρe
+    sums.et += state.energy.ρe
     sums.ei += thermo.e_int * state.ρ
     sums.ht += thermo.h_tot * state.ρ
     sums.hi += thermo.h_int * state.ρ
@@ -170,7 +170,7 @@ function atmos_les_default_perturbations!(
     vars.temp_prime = thermo.temp - ha.temp
     vars.pres_prime = thermo.pres - ha.pres
     vars.thd_prime = thermo.θ_dry - ha.thd
-    et = state.ρe / state.ρ
+    et = state.energy.ρe / state.ρ
     vars.et_prime = et - ha.et
     vars.ei_prime = thermo.e_int - ha.ei
     vars.ht_prime = thermo.h_tot - ha.ht
@@ -246,15 +246,10 @@ function atmos_les_default_perturbations_init(
         end
 
         # create the output file
-        dprefix = @sprintf(
-            "%s_%s_%s_rank%04d",
-            dgngrp.out_prefix,
-            dgngrp.name,
-            Settings.starttime,
-            mpirank,
-        )
+        dprefix = @sprintf("%s_%s", dgngrp.out_prefix, dgngrp.name)
         dfilename = joinpath(Settings.output_dir, dprefix)
-        init_data(dgngrp.writer, dfilename, dims, vars)
+        noov = Settings.no_overwrite
+        init_data(dgngrp.writer, dfilename, noov, dims, vars)
     end
 
     return nothing

@@ -14,7 +14,7 @@ using ClimateMachine.DGMethods
 using ClimateMachine.BalanceLaws:
     BalanceLaw, Prognostic, Auxiliary, Gradient, GradientFlux
 
-import ClimateMachine.DGMethods:
+import ClimateMachine.BalanceLaws:
     vars_state,
     flux_first_order!,
     flux_second_order!,
