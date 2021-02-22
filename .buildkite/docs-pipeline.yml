@@ -28,6 +28,9 @@ steps:
       - "if [ $$BUILDKITE_BRANCH == \"trying\" ]; then \
             export BUILDKITE_PULL_REQUEST=\"$${BUILDKITE_MESSAGE//[!0-9]/}\"; \
          fi"
+      - "if [[ ! -z \"$${PULL_REQUEST}\" ]]; then \
+            export BUILDKITE_PULL_REQUEST=\"$${PULL_REQUEST}\"; \
+         fi"
       - "julia --project=docs/ --color=yes --procs=8 docs/make.jl"
     env:
       JULIA_PROJECT: "docs/"
