@@ -490,8 +490,8 @@ function compute_gradient_flux!(
 
     z = altitude(m, aux)
 
-    gm_dif.S² = ∇transform.u[3, 1]^2 + ∇transform.u[3, 2]^2 + en_dif.∇w[3]^2 # ∇transform.u is Jacobian.T
-    # gm_dif.S² = FT(1/400)
+    # gm_dif.S² = ∇transform.u[3, 1]^2 + ∇transform.u[3, 2]^2 + en_dif.∇w[3]^2 # ∇transform.u is Jacobian.T
+    gm_dif.S² = FT(1/400)
 
     # if z ≈ 0
     #     # @show(aux.coord, state.ρu[1], ∇transform.u[3, 1]^2, gm_dif.S²)
