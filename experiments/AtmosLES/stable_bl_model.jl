@@ -135,7 +135,7 @@ function init_problem!(problem, bl, state, aux, localgeo, t)
     _grav::FT = grav(bl.param_set)
     γ::FT = c_p / c_v
     # Initialise speeds [u = Eastward, v = Northward, w = Vertical]
-    u::FT = (1 - z / 400.0)+8
+    u::FT = 8 #+(1 - z / 400.0)
     v::FT = 0
     w::FT = 0
     # Assign piecewise quantities to θ_liq and q_tot
