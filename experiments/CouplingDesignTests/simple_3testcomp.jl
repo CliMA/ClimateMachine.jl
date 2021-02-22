@@ -5,6 +5,7 @@ using ClimateMachine
 
 # To test coupling
 using ClimateMachine.Coupling
+using ClimateMachine.Coupling: put!, get
 
 # To create meshes (borrowed from Ocean for now!)
 using ClimateMachine.Ocean.Domains
@@ -15,8 +16,6 @@ using ClimateMachine.GenericCallbacks
 # To invoke timestepper
 using ClimateMachine.ODESolvers
 using ClimateMachine.MPIStateArrays
-
-import ClimateMachine.Mesh.Grids: _x3
 
 import ClimateMachine.DGMethods.NumericalFluxes: NumericalFluxSecondOrder
 
@@ -177,18 +176,14 @@ mO = Coupling.CplTestModel(;
 
 # Create a Coupler State object for holding imort/export fields.
 # Try using Dict here - not sure if that will be OK with GPU
-cState = CplState(Dict(:Atmos_MeanAirSeaθFlux => [], :Ocean_SST => []))
+cState = CplState(:Atmos_MeanAirSeaθFlux, :Ocean_SST)
 
 # I think each BL can have a pre- and post- couple function?
-
-const boundaryA = mA.discretization.grid.vgeo[:, _x3:_x3, :] .== 0
-const boundaryO = mO.discretization.grid.vgeo[:, _x3:_x3, :] .== 0
 
 function preatmos(csolver)
 
     # Set boundary SST used in atmos to SST of ocean surface at start of coupling cycle.
-    mA.discretization.state_auxiliary.θ_secondary[boundaryA] .=
-        cState.CplStateBlob[:Ocean_SST]
+    mA.discretization.state_auxiliary.θ_secondary[mA.boundary] .= get(cState, :Ocean_SST)
     # Set atmos boundary flux accumulator to 0.
     mA.state.F_accum .= 0
 
@@ -198,8 +193,8 @@ function preatmos(csolver)
         total_θ_atmos = weightedsum(mA.state, 1),
         total_θ_ocean = weightedsum(mO.state, 1),
         total_θ = weightedsum(mA.state, 1) + weightedsum(mO.state, 1),
-        atmos_θ_surface_max = maximum(mA.state.θ[boundaryA]),
-        ocean_θ_surface_max = maximum(mO.state.θ[boundaryO]),
+        atmos_θ_surface_max = maximum(mA.state.θ[mA.boundary]),
+        ocean_θ_surface_max = maximum(mO.state.θ[mO.boundary]),
     )
 
 end
@@ -207,26 +202,23 @@ end
 function postatmos(csolver)
 
     # Pass atmos exports to "coupler" namespace
-    # For now we use deepcopy here.
     # 1. Save mean θ flux at the Atmos boundary during the coupling period
-    cState.CplStateBlob[:Atmos_MeanAirSeaθFlux] =
-        mA.state.F_accum[boundaryA] ./ csolver.dt
-
+    put!(cState, :Atmos_MeanAirSeaθFlux, mA.state.F_accum[mA.boundary] ./ csolver.dt)
 
     @info(
         "postatmos",
         time = time = csolver.t + csolver.dt,
         total_θ_atmos = weightedsum(mA.state, 1),
         total_θ_ocean = weightedsum(mO.state, 1),
-        total_F_accum = mean(mA.state.F_accum[boundaryA]) * 1e6 * 1e6,
+        total_F_accum = mean(mA.state.F_accum[mA.boundary]) * 1e6 * 1e6,
         total_θ =
             weightedsum(mA.state, 1) +
             weightedsum(mO.state, 1) +
-            mean(mA.state.F_accum[boundaryA]) * 1e6 * 1e6,
-        F_accum_max = maximum(mA.state.F_accum[boundaryA]),
-        F_avg_max = maximum(mA.state.F_accum[boundaryA] ./ csolver.dt),
-        atmos_θ_surface_max = maximum(mA.state.θ[boundaryA]),
-        ocean_θ_surface_max = maximum(mO.state.θ[boundaryO]),
+            mean(mA.state.F_accum[mA.boundary]) * 1e6 * 1e6,
+        F_accum_max = maximum(mA.state.F_accum[mA.boundary]),
+        F_avg_max = maximum(mA.state.F_accum[mA.boundary] ./ csolver.dt),
+        atmos_θ_surface_max = maximum(mA.state.θ[mA.boundary]),
+        ocean_θ_surface_max = maximum(mO.state.θ[mO.boundary]),
     )
 
 end
@@ -235,8 +227,8 @@ end
 function preocean(csolver)
 
     # Set mean air-sea theta flux
-    mO.discretization.state_auxiliary.F_prescribed[boundaryO] .=
-        cState.CplStateBlob[:Atmos_MeanAirSeaθFlux]
+    mO.discretization.state_auxiliary.F_prescribed[mO.boundary] .= 
+        get(cState, :Atmos_MeanAirSeaθFlux)
     # Set ocean boundary flux accumulator to 0. (this isn't used)
     mO.state.F_accum .= 0
 
@@ -244,25 +236,26 @@ function preocean(csolver)
         "preocean",
         time = csolver.t,
         F_prescribed_max =
-            maximum(mO.discretization.state_auxiliary.F_prescribed[boundaryO]),
+            maximum(mO.discretization.state_auxiliary.F_prescribed[mO.boundary]),
         F_prescribed_min =
-            maximum(mO.discretization.state_auxiliary.F_prescribed[boundaryO]),
-        ocean_θ_surface_max = maximum(mO.state.θ[boundaryO]),
-        ocean_θ_surface_min = maximum(mO.state.θ[boundaryO]),
+            maximum(mO.discretization.state_auxiliary.F_prescribed[mO.boundary]),
+        ocean_θ_surface_max = maximum(mO.state.θ[mO.boundary]),
+        ocean_θ_surface_min = maximum(mO.state.θ[mO.boundary]),
     )
 
 end
+
 function postocean(csolver)
     @info(
         "postocean",
         time = csolver.t + csolver.dt,
-        ocean_θ_surface_max = maximum(mO.state.θ[boundaryO]),
-        ocean_θ_surface_min = maximum(mO.state.θ[boundaryO]),
+        ocean_θ_surface_max = maximum(mO.state.θ[mO.boundary]),
+        ocean_θ_surface_min = maximum(mO.state.θ[mO.boundary]),
     )
 
     # Pass ocean exports to "coupler" namespace
     #  1. Ocean SST (value of θ at z=0)
-    cState.CplStateBlob[:Ocean_SST] = deepcopy(mO.state.θ[boundaryO])
+    put!(cState, :Ocean_SST, mO.state.θ[mO.boundary])
 end
 
 
@@ -281,9 +274,8 @@ cC = Coupling.CplSolver(
 
 # If this is run from t=0 we also need to initialize the imports so they can be read
 # (for restart we need to add logic to JLD2 save/restore cState.CplStateBlob ).
-cState.CplStateBlob[:Ocean_SST] = deepcopy(mO.state.θ[boundaryO])
-cState.CplStateBlob[:Atmos_MeanAirSeaθFlux] =
-    deepcopy(mA.state.F_accum[boundaryA])
+put!(cState, :Ocean_SST, deepcopy(mO.state.θ[mO.boundary]))
+put!(cState, :Atmos_MeanAirSeaθFlux, deepcopy(mA.state.F_accum[mA.boundary]))
 
 # Invoke solve! with coupled timestepper and callback list.
 solve!(nothing, cC; numberofsteps = 1940)

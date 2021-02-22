@@ -1,6 +1,9 @@
-struct CplTestModel{G, D, S, TS}
+import ClimateMachine.Mesh.Grids: _x3
+
+struct CplTestModel{G, D, B, S, TS}
     grid::G
     discretization::D
+    boundary::B
     state::S
     stepper::TS
     nsteps::Int
@@ -69,6 +72,8 @@ function CplTestModel(;
         # direction = VerticalDirection(),
     )
 
+    # Specify the coupling boundary
+    boundary = discretization.grid.vgeo[:, _x3:_x3, :] .== 0
 
     ###
     ### Invoke the spatial ODE initialization functions
@@ -85,5 +90,5 @@ function CplTestModel(;
     ### Return a CplTestModel entity that holds all the information
     ### for a component that can be driver from a coupled stepping layer.
     ###
-    return CplTestModel(grid, discretization, state, stepper, nsteps)
+    return CplTestModel(grid, discretization, boundary, state, stepper, nsteps)
 end

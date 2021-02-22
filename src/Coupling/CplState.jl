@@ -14,9 +14,24 @@ To start with we can just use a dictionary key and value table that holds labell
 A field is exported by one component and imported by one or more other components. Components
 can select which fields are needed by using the Dict symbols.
 """
-function CplState(; CplStateBlob)
-
-    return CplState(CplStateBlob)
+function CplState(coupler_fields...; CplStateBlob = Dict{Symbol, Array}())
+    coupler = CplState(CplStateBlob)
+    for field in coupler_fields
+        register_cpl_field!(coupler, field)
+    end
+    return coupler
 end
 
-function cpl_register(coupler::CplState, coupler_field_info) end
+function register_cpl_field!(coupler::CplState, coupler_field_info)
+    push!(coupler.CplStateBlob, coupler_field_info => [])
+end
+
+# Write to coupler
+function put!(cplstate::CplState, key::Symbol, value)
+    cplstate.CplStateBlob[key] = value
+end
+
+# Read from coupler
+function get(cplstate::CplState, key::Symbol)
+    return cplstate.CplStateBlob[key]
+end
