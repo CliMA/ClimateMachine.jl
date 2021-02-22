@@ -497,4 +497,4 @@ function do_output(mpicomm, vtkdir, vtkstep, esdg, Q, model, testname = "RTB")
     end
 end
 
-main()
+#main()
