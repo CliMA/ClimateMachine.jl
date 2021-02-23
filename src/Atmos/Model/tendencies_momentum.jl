@@ -17,9 +17,9 @@ function flux(::PressureGradient{Momentum}, atmos, args)
     s = state.ρu * state.ρu'
     pad = SArray{Tuple{size(s)...}}(ntuple(i -> 0, length(s)))
     if atmos.ref_state isa HydrostaticState && atmos.ref_state.subtract_off
-        return pad + (air_pressure(ts) - aux.ref_state.p) * I
+        return pad + 0*(air_pressure(ts) - aux.ref_state.p) * I
     else
-        return pad + air_pressure(ts) * I
+        return pad + 0*air_pressure(ts) * I
     end
 end
 
@@ -88,6 +88,17 @@ function source(s::GeostrophicForcing{Momentum}, m, args)
     ẑ = vertical_unit_vector(m, aux)
     fkvector = s.f_coriolis * ẑ
     return -fkvector × (state.ρu .- state.ρ * u_geo)
+end
+
+export PressureGrad
+struct PressureGrad{PV <: Momentum} <: TendencyDef{Source, PV}
+end
+PressureGrad() =
+    PressureGrad{Momentum}()
+function source(s::PressureGrad{Momentum}, m, args)
+    @unpack state, aux, diffusive = args
+   #@info diffusive.energy.∇p 
+   return  - diffusive.energy.∇p
 end
 
 

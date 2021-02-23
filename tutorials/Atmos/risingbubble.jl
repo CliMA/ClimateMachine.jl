@@ -65,7 +65,7 @@
 # specific to atmospheric and ocean flow modeling.
 
 using ClimateMachine
-ClimateMachine.init()
+ClimateMachine.init(parse_clargs=true)
 using ClimateMachine.Atmos
 using ClimateMachine.Orientations
 using ClimateMachine.ConfigTypes
@@ -231,7 +231,7 @@ function config_risingbubble(
         ref_state = ref_state,                         ## Reference state
         turbulence = SmagorinskyLilly(_C_smag),        ## Turbulence closure model
         moisture = DryModel(),                         ## Exclude moisture variables
-        source = (Gravity(),),                         ## Gravity is the only source term here
+        source = (Gravity(),PressureGrad(),),                         ## Gravity is the only source term here
         tracers = NTracers{ntracers, FT}(δ_χ),         ## Tracer model with diffusivity coefficients
     )
 
@@ -289,7 +289,7 @@ function main()
     ymax = FT(500)
     zmax = FT(10000)
     t0 = FT(0)
-    timeend = FT(100)
+    timeend = FT(1000)
     ## For full simulation set `timeend = 1000`
 
     ## Use up to 1.7 if ode_solver is the single rate LSRK144.
