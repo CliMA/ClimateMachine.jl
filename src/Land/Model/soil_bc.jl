@@ -169,6 +169,11 @@ function soil_boundary_flux!(
     # The minus sign is because the condition is applied on minus the flux.
     # the same argument applies for the other directions.
     diff⁺.soil.water.K∇h = abs.(n̂) * (-bc_function(aux⁻, t))
+
+    FT = typeof(t)
+    @info FT(-1) * FT(-3.0 * sin(pi * 2.0 * t / 300.0)),
+    diff⁺.soil.water.K∇h,
+    aux⁻.soil.water.K
 end
 
 
