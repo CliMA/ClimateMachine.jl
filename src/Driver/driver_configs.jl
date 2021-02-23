@@ -616,12 +616,24 @@ function SingleStackConfiguration(
         meshwarp = meshwarp,
     )
 
+    if cutofforder_horz < polyorder_horz && cutofforder_vert < polyorder_vert
+        filter = CutoffFilter(
+            grid,
+            (cutofforder_horz + 1, cutofforder_horz + 1, cutofforder_vert + 1),
+        )
+    else
+        filter = nothing
+        cutofforder_horz = cutofforder_vert = nothing
+    end
+
     @info @sprintf(
         """
 Establishing single stack configuration for %s
     precision               = %s
     horiz polynomial order  = %d
     vert polynomial order   = %d
+    horiz cutoff order      = %s
+    vert cutoff order       = %s
     domain_min              = %.2f m, %.2f m, %.2f m
     domain_max              = %.2f m, %.2f m, %.2f m
     # vert elems            = %d
@@ -632,6 +644,8 @@ Establishing single stack configuration for %s
         FT,
         polyorder_horz,
         polyorder_vert,
+        cutofforder_horz,
+        cutofforder_vert,
         xmin,
         ymin,
         zmin,
@@ -659,7 +673,7 @@ Establishing single stack configuration for %s
         numerical_flux_second_order,
         numerical_flux_gradient,
         fv_reconstruction,
-        nothing, # filter
+        filter, # filter
         SingleStackSpecificInfo(zmax, hmax),
     )
 end

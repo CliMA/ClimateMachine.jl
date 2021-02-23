@@ -151,7 +151,7 @@ function main(::Type{FT}) where {FT}
         config_type,
         zmax,
         surface_flux;
-        turbulence = ConstantKinematicViscosity(FT(0)),
+        turbulence = ConstantKinematicViscosity(FT(0.1)),
         # turbulence = SmagorinskyLilly{FT}(0.21),
         turbconv = turbconv,
         compressibility = compressibility,
@@ -168,7 +168,6 @@ function main(::Type{FT}) where {FT}
         hmax = FT(40),
         solver_type = ode_solver_type,
         # Ncutoff = 3,
-        # numerical_flux_first_order = RoeNumericalFlux(),
     )
 
     solver_config = ClimateMachine.SolverConfiguration(

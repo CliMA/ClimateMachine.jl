@@ -140,6 +140,7 @@ function init_problem!(problem, bl, state, aux, localgeo, t)
     else
         u = FT(8)# ∂u/∂z = 0
     end
+    # u::FT = 8
     v::FT = 0
     w::FT = 0
     # Assign piecewise quantities to θ_liq and q_tot
@@ -294,6 +295,7 @@ function stable_bl_model(
     if moisture_model == "dry"
         boundary_conditions = (
             AtmosBC(
+                # momentum = Impenetrable(NoSlip()),
                 momentum = Impenetrable(DragLaw(
                     # normPu_int is the internal horizontal speed
                     # P represents the projection onto the horizontal
