@@ -574,9 +574,12 @@ function SingleStackConfiguration(
     numerical_flux_second_order = CentralNumericalFluxSecondOrder(),
     numerical_flux_gradient = CentralNumericalFluxGradient(),
     fv_reconstruction = nothing,
+    Ncutoff = get_polyorders(N),
 ) where {FT <: AbstractFloat}
 
     (polyorder_horz, polyorder_vert) = get_polyorders(N)
+    (cutofforder_horz, cutofforder_vert) =
+        get_polyorders(Ncutoff, ClimateMachine.Settings.cutoff_degree)
 
     # Check if the number of elements was passed as a CL option
     if ClimateMachine.Settings.nelems != (-1, -1, -1)

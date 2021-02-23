@@ -146,6 +146,7 @@ function vars_state(::Environment, ::GradientFlux, FT)
         ∇e::SVector{3, FT},
         K_m::FT,
         l_mix::FT,
+        shear::FT,
         shear_prod::FT,
         buoy_prod::FT,
         tke_diss::FT
@@ -248,9 +249,9 @@ eq_tends(pv::PV, m::EDMF, ::Source) where {PV <: EDMFPrognosticVariable} = ()
 
 eq_tends(pv::PV, m::EDMF, ::Source) where {PV <: en_ρatke} = (
     # EntrDetr{PV}(),
-    PressSource{PV}(),
+    # PressSource{PV}(),
     ShearSource{PV}(),
-    BuoySource{PV}(),
+    # BuoySource{PV}(),
     DissSource{PV}(),
 )
 
@@ -490,8 +491,9 @@ function compute_gradient_flux!(
 
     z = altitude(m, aux)
 
-    # gm_dif.S² = ∇transform.u[3, 1]^2 + ∇transform.u[3, 2]^2 + en_dif.∇w[3]^2 # ∇transform.u is Jacobian.T
-    gm_dif.S² = FT(1/400)
+    gm_dif.S² = ∇transform.u[3, 1]^2 + ∇transform.u[3, 2]^2 + en_dif.∇w[3]^2 # ∇transform.u is Jacobian.T
+    # @show(gm_dif.S² - FT((1/400)^2))
+    # gm_dif.S² = FT((-1/400)^2)
 
     # if z ≈ 0
     #     # @show(aux.coord, state.ρu[1], ∇transform.u[3, 1]^2, gm_dif.S²)
@@ -523,6 +525,7 @@ function compute_gradient_flux!(
     ρa₀ = gm.ρ * env.a
     Diss₀ = m.turbconv.mix_len.c_d * sqrt(tke_en) / en_dif.l_mix
 
+    en_dif.shear = gm_dif.S² # tke Shear
     en_dif.shear_prod = ρa₀ * en_dif.K_m * gm_dif.S² # tke Shear source
     en_dif.buoy_prod = -ρa₀ * K_h * ∂b∂z_env   # tke Buoyancy source
     en_dif.tke_diss = -ρa₀ * Diss₀ * tke_en  # tke Dissipation

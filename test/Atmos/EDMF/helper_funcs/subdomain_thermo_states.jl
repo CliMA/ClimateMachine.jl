@@ -186,6 +186,7 @@ function new_thermo_state_en(
     # check if 1D_anelastic
     ρ = density(m, state, aux)
     p = pressure(m, state, aux)
+    z = altitude(m, aux)
 
     # diagnose environment thermo state
     ρ_inv = 1 / ρ
@@ -202,6 +203,7 @@ function new_thermo_state_en(
         @print("ρaθ_liq_up = ", ρaθ_liq_up[Val(1)], "\n")
         @print("θ_liq = ", θ_liq, "\n")
         @print("θ_liq_en = ", θ_liq_en, "\n")
+        @print("z = ", z, "\n")
         @print("ρ = ", ρ, "\n")
         @print("p = ", p, "\n")
         @print("ρa_up = ", up[Val(1)].ρa, "\n")

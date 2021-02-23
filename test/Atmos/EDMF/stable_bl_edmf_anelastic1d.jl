@@ -167,6 +167,7 @@ function main(::Type{FT}) where {FT}
         model;
         hmax = FT(40),
         solver_type = ode_solver_type,
+        # Ncutoff = 3,
         # numerical_flux_first_order = RoeNumericalFlux(),
     )
 
