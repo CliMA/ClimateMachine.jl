@@ -117,6 +117,7 @@ default values for each field.
         turbulence,
         hyperdiffusion,
         spongelayer,
+        divergencedamping,
         moisture,
         precipitation,
         radiation,
@@ -165,6 +166,8 @@ struct AtmosModel{
     turbconv::TC
     "Hyperdiffusion Model (Equations for dynamics of high-order spatial wave attenuation)"
     hyperdiffusion::HD
+    "divergencedamping"
+    divergencedamping::DD
     "Viscous sponge layers"
     viscoussponge::VS
     "Moisture Model (Equations for dynamics of moist variables)"
@@ -318,6 +321,7 @@ function AtmosModel{FT}(
     T,
     TC,
     HD,
+    DD,
     VS,
     M,
     P,
@@ -340,6 +344,7 @@ function AtmosModel{FT}(
         turbulence,
         turbconv,
         hyperdiffusion,
+        divergencedamping,
         viscoussponge,
         moisture,
         precipitation,
@@ -404,6 +409,7 @@ function vars_state(m::AtmosModel, st::Gradient, FT)
         turbulence::vars_state(m.turbulence, st, FT)
         turbconv::vars_state(m.turbconv, st, FT)
         hyperdiffusion::vars_state(m.hyperdiffusion, st, FT)
+        divergencedamping::vars_state(m.divergencedamping, st, FT)
         moisture::vars_state(m.moisture, st, FT)
         lsforcing::vars_state(m.lsforcing, st, FT)
         precipitation::vars_state(m.precipitation, st, FT)
@@ -422,6 +428,7 @@ function vars_state(m::AtmosModel, st::GradientFlux, FT)
         turbulence::vars_state(m.turbulence, st, FT)
         turbconv::vars_state(m.turbconv, st, FT)
         hyperdiffusion::vars_state(m.hyperdiffusion, st, FT)
+        divergencedamping::vars_state(m.divergencedamping, st, FT)
         moisture::vars_state(m.moisture, st, FT)
         lsforcing::vars_state(m.lsforcing, st, FT)
         precipitation::vars_state(m.precipitation, st, FT)
@@ -468,6 +475,7 @@ function vars_state(m::AtmosModel, st::Auxiliary, FT)
         turbulence::vars_state(m.turbulence, st, FT)
         turbconv::vars_state(m.turbconv, st, FT)
         hyperdiffusion::vars_state(m.hyperdiffusion, st, FT)
+        divergencedamping::vars_state(m.divergencedamping, st, FT)
         moisture::vars_state(m.moisture, st, FT)
         precipitation::vars_state(m.precipitation, st, FT)
         tracers::vars_state(m.tracers, st, FT)
@@ -626,6 +634,7 @@ function compute_gradient_argument!(
     compute_gradient_argument!(atmos.tracers, transform, state, aux, t)
     compute_gradient_argument!(atmos.lsforcing, transform, state, aux, t)
     compute_gradient_argument!(atmos.turbconv, atmos, transform, state, aux, t)
+    compute_gradient_argument!(atmos.divergencedamping, atmos, transform, state, aux, t)
 end
 
 function compute_gradient_flux!(
@@ -667,6 +676,7 @@ function compute_gradient_flux!(
         t,
     )
     compute_gradient_flux!(atmos.tracers, diffusive, ∇transform, state, aux, t)
+    compute_gradient_flux!(atmos.divergencedamping, atmos, diffusive, ∇transform, state, aux, t)
     compute_gradient_flux!(
         atmos.turbconv,
         atmos,
