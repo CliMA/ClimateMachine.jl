@@ -408,13 +408,12 @@ function config_cfsites(
 ) where {FT}
     # Boundary Conditions
     u_star = FT(0.28)
-
+    drag_law = DragLaw((state, aux, t, normPu_int) -> (u_star / normPu_int)^2)
     problem = AtmosProblem(
         boundaryconditions = (
             AtmosBC(
-                momentum = Impenetrable(DragLaw(
-                    (state, aux, t, normPu_int) -> (u_star / normPu_int)^2,
-                )),
+                tup = (Impenetrable(drag_law)...,),
+                momentum = Impenetrable{Momentum}(drag_law),
                 energy = PrescribedEnergyFlux((state, aux, t) -> hfls + hfss),
                 moisture = PrescribedMoistureFlux(
                     (state, aux, t) ->

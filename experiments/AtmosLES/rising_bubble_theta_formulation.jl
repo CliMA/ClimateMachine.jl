@@ -225,12 +225,14 @@ function config_risingbubble(
 
     problem = AtmosProblem(
         boundaryconditions = (
-            AtmosBC(
-                momentum = Impenetrable(FreeSlip()),
+            AtmosBC(;
+                tup = (Impenetrable{Momentum}(FreeSlip()),),
+                momentum = Impenetrable{Momentum}(FreeSlip()),
                 energy = Adiabaticθ((state, aux, t) -> FT(0)),
             ),
             AtmosBC(
-                momentum = Impenetrable(FreeSlip()),
+                tup = (Impenetrable{Momentum}(FreeSlip()),),
+                momentum = Impenetrable{Momentum}(FreeSlip()),
                 energy = Adiabaticθ((state, aux, t) -> FT(0)),
             ),
         ),
