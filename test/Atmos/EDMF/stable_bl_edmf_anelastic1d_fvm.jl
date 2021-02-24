@@ -32,6 +32,7 @@ projection(::AtmosModel, ::TendencyDef{Source, PV}, x) where {PV <: Momentum} =
 # CLIMAParameters.Planet.T_surf_ref(::EarthParameterSet) = 290.0 # default
 CLIMAParameters.Planet.T_surf_ref(::EarthParameterSet) = 265
 
+
 """
     init_state_prognostic!(
             turbconv::EDMF{FT},
@@ -112,7 +113,8 @@ function main(::Type{FT}) where {FT}
         help = "specify surface flux for energy and moisture"
         metavar = "prescribed|bulk|custom_sbl"
         arg_type = String
-        default = "custom_sbl"
+        # default = "custom_sbl"
+        default = "prescribed"
     end
 
     cl_args = ClimateMachine.init(parse_clargs = true, custom_clargs = sbl_args)
@@ -120,8 +122,8 @@ function main(::Type{FT}) where {FT}
     surface_flux = cl_args["surface_flux"]
 
     # DG polynomial order
-    N = 4
-    nelem_vert = 20
+    N = (1,0)
+    nelem_vert = 80
 
     # Prescribe domain parameters
     zmax = FT(400)
@@ -141,8 +143,8 @@ function main(::Type{FT}) where {FT}
 
     N_updrafts = 1
     N_quad = 3
-    # turbconv = NoTurbConv()
-    turbconv = EDMF(FT, N_updrafts, N_quad)
+    turbconv = NoTurbConv()
+    # turbconv = EDMF(FT, N_updrafts, N_quad)
     # compressibility = Compressible()
     compressibility = Anelastic1D()
 
@@ -151,7 +153,7 @@ function main(::Type{FT}) where {FT}
         config_type,
         zmax,
         surface_flux;
-        turbulence = ConstantKinematicViscosity(FT(0)),
+        turbulence = ConstantKinematicViscosity(FT(0.1)),
         # turbulence = SmagorinskyLilly{FT}(0.21),
         turbconv = turbconv,
         compressibility = compressibility,
