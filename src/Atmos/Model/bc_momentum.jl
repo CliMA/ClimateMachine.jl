@@ -130,6 +130,7 @@ function compute_τn(bc, args)
     # NOTE: difference from design docs since normal points outwards
     C = bc.drag.fn(state, aux, t, normu_int_tan)
     τn = C * normu_int_tan * u_int_tan
+    return τn
 end
 
 function bc_val(

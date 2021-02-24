@@ -49,7 +49,7 @@ function set_bcs!(state⁺, bl, nf, bc, ntargs, prog_vars = prognostic_vars(bl))
         var⁺, name = get_prog_state(state⁺, prog)
         var⁻, name = get_prog_state(state⁻, prog)
         var_bcs = bcs_per_prog_var(bc.tup, prog)
-        bcvals = map(bcs_per_prog_var(bc.tup, prog)) do bc_pv
+        bcvals = map(var_bcs) do bc_pv
             bc_val(bc_pv, bl, nf, ntargs)
         end
         set_bc!(var⁺, name, bcvals)

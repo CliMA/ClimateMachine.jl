@@ -28,7 +28,9 @@ export AtmosBC,
 export average_density_sfc_int
 
 """
-    AtmosBC(momentum = Impenetrable(FreeSlip())
+    AtmosBC(;
+            tup      = (Impenetrable{Momentum}(FreeSlip()),)
+            momentum = Impenetrable{Momentum}(FreeSlip())
             energy   = Insulating()
             moisture = Impermeable()
             precipitation = OutflowPrecipitation()
