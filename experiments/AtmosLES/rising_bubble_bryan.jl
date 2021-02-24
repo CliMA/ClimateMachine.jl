@@ -29,7 +29,7 @@ const param_set = EarthParameterSet()
 
 # ------------------------ Description ------------------------- #
 # 1) Dry Rising Bubble (circular potential temperature perturbation)
-# 2) Boundaries - `All Walls` : Impenetrable(FreeSlip())
+# 2) Boundaries - `All Walls` : ImpenetrableFreeSlip()
 #                               Laterally periodic
 # 3) Domain - 20000m[horizontal] x 10000m[vertical] (2-dimensional)
 # 4) Timeend - 1000s

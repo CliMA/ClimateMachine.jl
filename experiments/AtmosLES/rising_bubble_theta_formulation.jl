@@ -13,7 +13,7 @@
 # 1) Dry Rising Bubble (circular potential temperature perturbation)
 # 2) Boundaries
 #    Top and Bottom boundaries:
-#    - `Impenetrable(FreeSlip())` - Top and bottom: no momentum flux, no mass flux through
+#    - `ImpenetrableFreeSlip()` - Top and bottom: no momentum flux, no mass flux through
 #      walls.
 #    - `Impermeable()` - non-porous walls, i.e. no diffusive fluxes through
 #       walls.
@@ -226,13 +226,13 @@ function config_risingbubble(
     problem = AtmosProblem(
         boundaryconditions = (
             AtmosBC(;
-                tup = (Impenetrable{Momentum}(FreeSlip()),),
-                momentum = Impenetrable{Momentum}(FreeSlip()),
+                tup = (ImpenetrableFreeSlip{Momentum}(),),
+                momentum = ImpenetrableFreeSlip{Momentum}(),
                 energy = Adiabaticθ((state, aux, t) -> FT(0)),
             ),
             AtmosBC(
-                tup = (Impenetrable{Momentum}(FreeSlip()),),
-                momentum = Impenetrable{Momentum}(FreeSlip()),
+                tup = (ImpenetrableFreeSlip{Momentum}(),),
+                momentum = ImpenetrableFreeSlip{Momentum}(),
                 energy = Adiabaticθ((state, aux, t) -> FT(0)),
             ),
         ),

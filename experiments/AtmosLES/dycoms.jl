@@ -347,13 +347,13 @@ function config_dycoms(
         precipitation = NoPrecipitation()
     end
 
-    drag_law = DragLaw((state, aux, t, normPu) -> C_drag)
+    drag_law = (state, aux, t, normPu) -> C_drag
 
     problem = AtmosProblem(
         boundaryconditions = (
             AtmosBC(;
-                tup = (Impenetrable(drag_law)...,),
-                momentum = Impenetrable{Momentum}(drag_law),
+                tup = (ImpenetrableDragLaw(drag_law)...,),
+                momentum = ImpenetrableDragLaw{Momentum}(drag_law),
                 energy = PrescribedEnergyFlux((state, aux, t) -> LHF + SHF),
                 moisture = PrescribedMoistureFlux(
                     (state, aux, t) -> moisture_flux,

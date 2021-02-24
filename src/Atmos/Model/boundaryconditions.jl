@@ -8,10 +8,9 @@ const NF2 = NumericalFluxSecondOrder
 const NF∇ = NumericalFluxGradient
 
 export AtmosBC,
-    Impenetrable,
-    FreeSlip,
-    NoSlip,
-    DragLaw,
+    ImpenetrableFreeSlip,
+    ImpenetrableNoSlip,
+    ImpenetrableDragLaw,
     Insulating,
     PrescribedTemperature,
     PrescribedEnergyFlux,
@@ -29,8 +28,8 @@ export average_density_sfc_int
 
 """
     AtmosBC(;
-            tup      = (Impenetrable{Momentum}(FreeSlip()),)
-            momentum = Impenetrable{Momentum}(FreeSlip())
+            tup      = (ImpenetrableFreeSlip{Momentum}(),)
+            momentum = ImpenetrableFreeSlip{Momentum}()
             energy   = Insulating()
             moisture = Impermeable()
             precipitation = OutflowPrecipitation()
@@ -39,13 +38,13 @@ export average_density_sfc_int
 The standard boundary condition for [`AtmosModel`](@ref). The default options imply a "no flux" boundary condition.
 """
 Base.@kwdef struct AtmosBC{M, E, Q, P, TR, TC, T}
-    momentum::M = Impenetrable{Momentum}(FreeSlip())
+    momentum::M = ImpenetrableFreeSlip{Momentum}()
     energy::E = Insulating()
     moisture::Q = Impermeable()
     precipitation::P = OutflowPrecipitation()
     tracer::TR = ImpermeableTracer()
     turbconv::TC = NoTurbConvBC()
-    tup::T = (Impenetrable(FreeSlip())...,)
+    tup::T = (ImpenetrableFreeSlip()...,)
 end
 
 boundary_conditions(atmos::AtmosModel) = atmos.problem.boundaryconditions

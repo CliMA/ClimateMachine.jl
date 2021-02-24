@@ -273,15 +273,15 @@ function convective_bl_model(
     end
 
     moisture_bcs = moisture_model == "dry" ? () : (; moisture = moisture_bc)
-    drag_law = DragLaw(
-        # normPu_int is the internal horizontal speed
-        # P represents the projection onto the horizontal
-        (state, aux, t, normPu_int) -> (u_star / normPu_int)^2,
-    )
+
+    # normPu_int is the internal horizontal speed
+    # P represents the projection onto the horizontal
+    drag_law = (state, aux, t, normPu_int) -> (u_star / normPu_int)^2
+
     boundary_conditions = (
         AtmosBC(;
-            tup = (Impenetrable(drag_law)...,),
-            momentum = Impenetrable{Momentum}(drag_law),
+            tup = (ImpenetrableDragLaw(drag_law)...,),
+            momentum = ImpenetrableDragLaw{Momentum}(drag_law),
             energy = energy_bc,
             moisture_bcs...,
             turbconv = turbconv_bcs(turbconv)[1],
