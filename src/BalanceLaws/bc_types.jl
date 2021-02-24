@@ -1,6 +1,6 @@
 ##### Boundary condition types
 
-export DefaultBC, set_bcs!
+export BCDef, DefaultBC, set_bcs!
 
 """
     BCDef
@@ -31,10 +31,7 @@ bc_val(::BCDef{PV}, bl, nf, args) where {PV} = DefaultBC{PV}()
 """
     set_bcs!(state⁺, bl, nf, bc, ntargs, prog_vars = prognostic_vars(bl))
 
-A convenience method for setting `state⁺` such that numerical fluxes,
-computed in `flux_first_order!`, enforces boundary conditions.
-
-This method is to be called in `boundary_state!`.
+A convenience method for setting `state⁺` inside `boundary_state!`.
 
 Arguments:
  - `state⁺` the exterior state

@@ -15,6 +15,7 @@ function show_bcs(
     bl::BalanceLaw;
     include_params = false,
     include_module = false,
+    table_complete = false,
 )
 
     prog_vars = prognostic_vars(bl)
@@ -36,6 +37,8 @@ function show_bcs(
                 end)
             end
         end
+
+        table_complete || @warn "This BC table is temporarily incomplete"
 
         data = hcat(eqs, collect.(bcs_entries)...)
         pretty_table(

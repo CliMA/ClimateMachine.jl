@@ -40,7 +40,7 @@ struct ImpenetrableNoSlip{PV <: Union{Momentum, Energy}} <: BCDef{PV} end
 ImpenetrableNoSlip() = (ImpenetrableNoSlip{Momentum}(),)
 
 function bc_val(::ImpenetrableNoSlip{Momentum}, ::AtmosModel, ::NF1, args)
-    return -args.state⁻.ρu
+    return -args.state.ρu
 end
 
 function bc_val(::ImpenetrableNoSlip{Momentum}, ::AtmosModel, ::NF2, args)

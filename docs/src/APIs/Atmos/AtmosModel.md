@@ -85,7 +85,6 @@ ClimateMachine.Atmos.Adiabaticθ
 ClimateMachine.Atmos.BulkFormulaEnergy
 ClimateMachine.Atmos.OutflowPrecipitation
 ClimateMachine.Atmos.ImpermeableTracer
-ClimateMachine.Atmos.Impenetrable
 ClimateMachine.Atmos.Insulating
 ClimateMachine.Atmos.average_density
 ```
