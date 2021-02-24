@@ -291,9 +291,9 @@ function IterativeSolver(
 )
     check_krylov_args(Q, rhs)
     if !isnothing(algorithm.dims)
-        @assert(prod(dims) == length(Q), string(
+        @assert(prod(algorithm.dims) == length(Q), string(
             "dims must contain the dimensions of an array with the same ",
-            "length as Q, $(length(Q)), but it was set to $dims",
+            "length as Q, $(length(Q)), but it was set to $(algorithm.dims)",
         ))
     end
     FT = eltype(Q)
