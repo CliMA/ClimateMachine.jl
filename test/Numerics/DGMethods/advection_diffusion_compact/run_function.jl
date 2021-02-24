@@ -13,6 +13,7 @@ function run(
     N,
     FT,
     direction,
+    diff_direction,
     τ,
     l,
     m,
@@ -20,9 +21,10 @@ function run(
 
     dx = min_node_distance(grid, HorizontalDirection())
     dz = min_node_distance(grid, VerticalDirection())
-
+    @info "Δ(horz) Δ(vert)" (dx, dz)
+    
     D = (dx/2)^4/2/τ
-
+    
     model = HyperDiffusion{dim}(ConstantHyperDiffusion{dim, direction(), FT}(D, l, m))
     dg = DGModel(
             model,
@@ -31,11 +33,11 @@ function run(
             CentralNumericalFluxSecondOrder(),
             CentralNumericalFluxGradient(),
             direction = direction(),
-            diffusion_direction = EveryDirection()
+            diffusion_direction = diff_direction()
         )
 
     Q0 = init_ode_state(dg, FT(0))
-    @info "Δ(horz) Δ(vert)" (dx, dz)
+    
 
     ϵ = 1e-3
 
@@ -53,10 +55,11 @@ function run(
     dt = dx^4 / 25 / sum(D)
     @info dt
 
-    Q_anal = init_ode_state(dg1, dt)
+    Q_anal = init_ode_state(dg1, dt*1)
 
+    #lsrk = LSRKEulerMethod(dg1, Q_DGlsrk; dt = dt, t0 = 0)
     lsrk = LSRK54CarpenterKennedy(dg1, Q_DGlsrk; dt = dt, t0 = 0)
-    solve!(Q_DGlsrk, lsrk; timeend = dt)
+    solve!(Q_DGlsrk, lsrk; timeend = dt*1)
     @info "DG stepper vs rhs: " norm(Q_anal-Q_DGlsrk)/norm(Q_anal) 
 
     # ana ρ(t) + finite diff in time

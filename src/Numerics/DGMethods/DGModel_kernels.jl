@@ -871,6 +871,7 @@ fluxes, respectively.
             # TODO: there is probably a better way to unroll this loop
             Base.Cartesian.@nif 7 d -> bctag == d <= length(bcs) d -> begin
                 bc = bcs[d]
+                
                 numerical_boundary_flux_first_order!(
                     numerical_flux_first_order,
                     bc,
@@ -939,6 +940,7 @@ fluxes, respectively.
                         local_state_auxiliary_bottom1,
                     ),
                 )
+                
             end d -> throw(BoundsError(bcs, bctag))
         end
 
@@ -1745,9 +1747,12 @@ auxiliary gradient flux, and G* is the associated numerical flux.
             end
             bcs = boundary_conditions(balance_law)
             # TODO: there is probably a better way to unroll this loop
+            
+            
             Base.Cartesian.@nif 7 d -> bctag == d <= length(bcs) d -> begin
                 bc = bcs[d]
                 # Computes G* incorporating boundary conditions
+                
                 numerical_boundary_flux_gradient!(
                     numerical_flux_gradient,
                     bc,
@@ -1780,6 +1785,8 @@ auxiliary gradient flux, and G* is the associated numerical flux.
                         local_state_auxiliary_bottom1,
                     ),
                 )
+                
+
                 if num_state_gradient_flux > 0
                     # Applies linear transformation of gradients to the diffusive variables
                     # on the minus side
@@ -1819,6 +1826,7 @@ auxiliary gradient flux, and G* is the associated numerical flux.
                         t,
                     )
                 end
+                
             end d -> throw(BoundsError(bcs, bctag))
         end
 
@@ -1831,6 +1839,7 @@ auxiliary gradient flux, and G* is the associated numerical flux.
 
         # Applies linear transformation of gradients to the diffusive variables
         # on the minus side
+        #if num_state_gradient_flux > 0
         compute_gradient_flux!(
             balance_law,
             Vars{vars_state(balance_law, GradientFlux(), FT)}(
@@ -1845,7 +1854,7 @@ auxiliary gradient flux, and G* is the associated numerical flux.
             ),
             t,
         )
-
+        #end
         if num_state_gradient_hyperflux > 0
             compute_gradient_hyperflux!(
                 balance_law,
@@ -2725,6 +2734,7 @@ from volume to face, and (∇G)⋆ is the numerical fluxes for the gradients.
             # TODO: there is probably a better way to unroll this loop
             Base.Cartesian.@nif 7 d -> bctag == d <= length(bcs) d -> begin
                 bc = bcs[d]
+                
                 numerical_boundary_flux_divergence!(
                     divgradnumpenalty,
                     bc,
@@ -2740,6 +2750,7 @@ from volume to face, and (∇G)⋆ is the numerical fluxes for the gradients.
                         l_grad⁺,
                     ),
                 )
+                
             end d -> throw(BoundsError(bcs, bctag))
         end
 
@@ -2752,7 +2763,7 @@ from volume to face, and (∇G)⋆ is the numerical fluxes for the gradients.
 end
 
 """
-    function volume_gradients_of_laplacians!(
+function volume_gradients_of_laplacians!(
         balance_law::BalanceLaw,
         ::Val{info},
         direction,
@@ -3264,9 +3275,11 @@ the associated numerical flux.
             )
         else
             bcs = boundary_conditions(balance_law)
+            
             # TODO: there is probably a better way to unroll this loop
             Base.Cartesian.@nif 7 d -> bctag == d <= length(bcs) d -> begin
                 bc = bcs[d]
+                
                 numerical_boundary_flux_higher_order!(
                     hyperviscnumflux,
                     bc,
@@ -3295,6 +3308,7 @@ the associated numerical flux.
                     ),
                     t,
                 )
+                
             end d -> throw(BoundsError(bcs, bctag))
         end
 

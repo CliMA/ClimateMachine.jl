@@ -48,10 +48,11 @@ ClimateMachine.init()
 ArrayType = ClimateMachine.array_type()
 mpicomm = MPI.COMM_WORLD
 
-output_dir = "output_hyper"
+output_dir = "output_hyper_EveryDir_LSRKEuler_projection_D1_diffdir_hack_ultimate_all_vert_kernels_1dt_Dfncx_tstdel_comment_all_indiv_knls"
 
 # Set global model parameters
-direction = EveryDirection      # direction for diffusion kernels
+direction = EveryDirection      # direction model kernels 
+diff_direction = EveryDirection # direction for diffusion kernels
 dim = 3                         # no dimensions
 _a = planet_radius(param_set)   # planet radius (m)
 
@@ -80,7 +81,7 @@ grid = DiscontinuousSpectralElementGrid(
 )
 
 # run model
-dg, model, rhs_DGsource, rhs_anal, rel_error = run(mpicomm, ArrayType, dim, topl, grid, polynomialorder, FT, direction, τ*3600, 7, 4 )
+dg, model, rhs_DGsource, rhs_anal, rel_error = run(mpicomm, ArrayType, dim, topl, grid, polynomialorder, FT, direction, diff_direction, τ*3600, 7, 4 )
 
 # get vtk output- plot with paraview
 do_output_vtk(mpicomm, output_dir, dg, rhs_DGsource, rhs_anal, model)

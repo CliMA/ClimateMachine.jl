@@ -164,7 +164,7 @@ end
 boundary_conditions(::HyperDiffusion) = ( AtmosBC(), AtmosBC() )
 #boundary_state!(nf, ::HyperDiffusion, _...) = nothing
 boundary_state!(
-    ::Union{CentralNumericalFluxDivergence, CentralNumericalFluxHigherOrder},
+    ::Union{CentralNumericalFluxDivergence, CentralNumericalFluxGradient,CentralNumericalFluxFirstOrder, CentralNumericalFluxHigherOrder, CentralNumericalFluxSecondOrder},
     bc,
     cm::HyperDiffusion,
     _...,
@@ -186,11 +186,17 @@ function nodal_init_state_auxiliary!(
 
     k = aux.coord / norm(aux.coord)
     # horizontal hyperdiffusion tensor
+    #aux.H = balance_law.problem.D * SMatrix{3,3,Float64}(I) #balance_law.problem.D * SMatrix{3,3,Float64}(I) #balance_law.problem.D * (I - k * k')
     aux.H = balance_law.problem.D * (I - k * k')
+
     # horizontal hyperdiffusion projection of gradients
-    aux.P = I - k * k'
+    #aux.P = SMatrix{3,3,Float64}(I)
+    aux.P = I - k * k'  #I - k * k' #I - k * k' #SMatrix{3,3,Float64}(I) #I - k * k'
+    
     # vertical diffusion tensor
     #aux.D = vert_diff_ν * k * k'
+    #aux.D = balance_law.problem.D * SMatrix{3,3,Float64}(I)
+    
 
 end
 

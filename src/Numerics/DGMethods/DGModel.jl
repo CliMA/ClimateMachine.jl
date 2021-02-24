@@ -111,6 +111,7 @@ function DGModel(
     diffusion_direction = direction,
     modeldata = nothing,
 )
+
     state_auxiliary =
         init_state(state_auxiliary, balance_law, grid, direction, Auxiliary())
     DGModel(
@@ -1297,8 +1298,9 @@ function launch_volume_gradients!(spacedisc, state_prognostic, t; dependencies)
             dependencies = comp_stream,
         )
     end
-
+    
     # Now we call the kernel corresponding to the vertical direction
+    # #=
     if spacedisc isa DGModel && (
         spacedisc.diffusion_direction isa EveryDirection ||
         spacedisc.diffusion_direction isa VerticalDirection
@@ -1328,6 +1330,7 @@ function launch_volume_gradients!(spacedisc, state_prognostic, t; dependencies)
             dependencies = comp_stream,
         )
     end
+    # =#
     return comp_stream
 end
 
@@ -1401,6 +1404,7 @@ function launch_interface_gradients!(
     end
 
     # Vertical interface kernel call
+    # #=
     if spacedisc.diffusion_direction isa EveryDirection ||
        spacedisc.diffusion_direction isa VerticalDirection
 
@@ -1471,6 +1475,7 @@ function launch_interface_gradients!(
             error("unknown spatial discretization: $(typeof(spacedisc))")
         end
     end
+    # =#
     return comp_stream
 end
 
@@ -1517,6 +1522,7 @@ function launch_volume_divergence_of_gradients!(
     end
 
     # And now the vertical kernel call
+    # #=
     if dg.diffusion_direction isa EveryDirection ||
        dg.diffusion_direction isa VerticalDirection
 
@@ -1541,6 +1547,7 @@ function launch_volume_divergence_of_gradients!(
             dependencies = comp_stream,
         )
     end
+    # =#
     return comp_stream
 end
 
@@ -1603,6 +1610,8 @@ function launch_interface_divergence_of_gradients!(
     end
 
     # Vertical kernel call
+    
+    # #=
     if dg.diffusion_direction isa EveryDirection ||
        dg.diffusion_direction isa VerticalDirection
 
@@ -1636,7 +1645,8 @@ function launch_interface_divergence_of_gradients!(
                 dependencies = comp_stream,
             )
     end
-
+    # =#
+    
     return comp_stream
 end
 
@@ -1690,6 +1700,7 @@ function launch_volume_gradients_of_laplacians!(
     end
 
     # Vertical kernel call
+    # #=
     if dg.diffusion_direction isa EveryDirection ||
        dg.diffusion_direction isa VerticalDirection
 
@@ -1720,7 +1731,7 @@ function launch_volume_gradients_of_laplacians!(
             dependencies = comp_stream,
         )
     end
-
+    # =#
     return comp_stream
 end
 
@@ -1785,6 +1796,7 @@ function launch_interface_gradients_of_laplacians!(
     end
 
     # Vertical kernel call
+    # #=
     if dg.diffusion_direction isa EveryDirection ||
        dg.diffusion_direction isa VerticalDirection
 
@@ -1821,7 +1833,7 @@ function launch_interface_gradients_of_laplacians!(
                 dependencies = comp_stream,
             )
     end
-
+    # =#
     return comp_stream
 end
 
@@ -1902,6 +1914,7 @@ function launch_volume_tendency!(
     end
 
     # Vertical kernel
+    
     if spacedisc isa DGModel && (
         spacedisc.direction isa EveryDirection ||
         spacedisc.direction isa VerticalDirection
@@ -1941,7 +1954,7 @@ function launch_volume_tendency!(
             dependencies = comp_stream,
         )
     end
-
+    
     return comp_stream
 end
 
@@ -2021,6 +2034,7 @@ function launch_interface_tendency!(
     end
 
     # Vertical kernel call
+    
     if spacedisc.direction isa EveryDirection ||
        spacedisc.direction isa VerticalDirection
         elems =
@@ -2106,6 +2120,7 @@ function launch_interface_tendency!(
             error("unknown spatial discretization: $(typeof(spacedisc))")
         end
     end
+    
 
     return comp_stream
 end
