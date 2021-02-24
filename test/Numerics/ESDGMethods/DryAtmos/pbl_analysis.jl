@@ -1,16 +1,13 @@
-include("DryAtmos.jl")
-include("pbl.jl")
+include("pbl_def.jl")
 
 using FileIO
+using FFTW
+using Printf
+using Statistics
 using PGFPlotsX
 using ClimateMachine.Mesh.Elements: interpolationmatrix, lglpoints
 using ClimateMachine.VariableTemplates
-using ClimateMachine.Mesh.Grids: _x3, _MH
-
-function main()
-  datadir = ARGS[1]
-  analyze_pbl(ARGS[1])
-end
+using ClimateMachine.Mesh.Grids: _x1, _x2, _x3, _MH
 
 function analyze_pbl(datadir)
   # get reference profiles
@@ -59,38 +56,40 @@ function analyze_pbl(datadir)
       data = load(joinpath(root, datafile))
       state_diagnostic = nodal_diagnostics(data)
 
-      spectra = get_spectra(data)
       
-      #variance_pairs = ((:θ, :θ), (:w, :θ), (:w, :w))
-      #if m == 1
-      #  z, profs, variances = profiles(variance_pairs, state_diagnostic, data)
-      #else
-      #  _, p, v = profiles(variance_pairs, state_diagnostic, data)
-      #  for k in keys(profs)
-      #    profs[k] .+= p[k]
-      #  end
-      #  for k in keys(variances)
-      #    variances[k] .+= v[k]
-      #  end
-      #end
+      variance_pairs = ((:θ, :θ), (:w, :θ), (:w, :w))
+      if m == 1
+        z, profs, variances = profiles(variance_pairs, state_diagnostic, data)
+      else
+        _, p, v = profiles(variance_pairs, state_diagnostic, data)
+        for k in keys(profs)
+          profs[k] .+= p[k]
+        end
+        for k in keys(variances)
+          variances[k] .+= v[k]
+        end
+      end
+      
+      spectra = get_spectra(joinpath(root, "spectra.pdf"),
+                            state_diagnostic, data)
     end
-    #for k in keys(profs)
-    #  profs[k] ./= nfiles
-    #end
-    #for k in keys(variances)
-    #  variances[k] ./= nfiles
-    #end
+    for k in keys(profs)
+      profs[k] ./= nfiles
+    end
+    for k in keys(variances)
+      variances[k] ./= nfiles
+    end
 
     #write_profiles("test.txt", profile_data)
     println("finished $root")
-    #plot_profiles(joinpath(root, "profiles.pdf"),
-    #              (z, profs, variances),
-    #              labdata,
-    #              ssdata)
+    plot_profiles(joinpath(root, "profiles.pdf"),
+                  (z, profs, variances),
+                  labdata,
+                  ssdata)
   end
 end
 
-pbl_diagnostic_vars(FT) = @vars(θ::FT, u::FT, w::FT, ρ::FT)
+pbl_diagnostic_vars(FT) = @vars(θ::FT, u::FT, v::FT, w::FT, ρ::FT)
 function pbl_nodal_diagnostics!(atmos, diag::Vars, state::Vars, aux::Vars)
   FT = eltype(state)
   _MSLP::FT = MSLP(param_set)
@@ -105,7 +104,8 @@ function pbl_nodal_diagnostics!(atmos, diag::Vars, state::Vars, aux::Vars)
   p = pressure(ρ, ρu, ρe, Φ)
   T = p / (_R_d * ρ)
   diag.θ = T * (_MSLP / p) ^ (_R_d / _cp_d)
-  diag.u = ρu[2] / ρ
+  diag.u = ρu[1] / ρ
+  diag.v = ρu[2] / ρ
   diag.w = ρu[3] / ρ
   diag.ρ = ρ
 end
@@ -173,6 +173,8 @@ function profiles(variance_pairs, state_diagnostic, data; num_sample_points= (4 
     scaling = zeros(FT, Nqk, nvertelem) 
     z = zeros(FT, Nqk, nvertelem) 
     profs = zeros(FT, Nqk, nvertelem, num_state_diagnostic)
+    
+    _ρ = varsindex(diagnostic_vars, :ρ)[1]
 
     for ev in 1:nvertelem
         for eh in 1:nhorzelem
@@ -182,10 +184,11 @@ function profiles(variance_pairs, state_diagnostic, data; num_sample_points= (4 
                     for k in 1:Nqk
                         ijk = i + Nq * ((j - 1) + Nqk * (k - 1))
                         z[k, ev] = vgeo[ijk, _x3, e]
-                        scaling[k, ev] += vgeo[ijk, _MH, e]
+                        ρ = state_diagnostic[ijk, _ρ, e] 
+                        scaling[k, ev] += ρ * vgeo[ijk, _MH, e]
                         for var in fieldnames(diagnostic_vars)
                           s = varsindex(diagnostic_vars, var)
-                          profs[k, ev, s] += state_diagnostic[ijk, s, e] * vgeo[ijk, _MH, e]
+                          profs[k, ev, s] += ρ * state_diagnostic[ijk, s, e] * vgeo[ijk, _MH, e]
                         end
                     end
                 end
@@ -210,12 +213,13 @@ function profiles(variance_pairs, state_diagnostic, data; num_sample_points= (4 
                 for j in 1:Nq
                     for k in 1:Nqk
                         ijk = i + Nq * ((j - 1) + Nqk * (k - 1))
+                        ρ = state_diagnostic[ijk, _ρ, e] 
                         for (v, (var1, var2)) in enumerate(variance_pairs)
                           s1 = varsindex(diagnostic_vars, var1)[1]
                           s2 = varsindex(diagnostic_vars, var2)[1]
                           dv1 = state_diagnostic[ijk, s1, e] - profs[k, ev, s1]
                           dv2 = state_diagnostic[ijk, s2, e] - profs[k, ev, s2]
-                          variances[k, ev, v] += dv1 * dv2 * vgeo[ijk, _MH, e]
+                          variances[k, ev, v] += ρ * dv1 * dv2 * vgeo[ijk, _MH, e]
                         end
                     end
                 end
@@ -266,6 +270,7 @@ end
 function plot_profiles(name, profile_data, labdata, ssdata)
   z, profs, variances = profile_data
 
+  # TODO: do not hardcode this values !
   g = 10.0
   tht_ref = 300.0
   H0 = 0.01
@@ -316,31 +321,85 @@ function plot_profiles(name, profile_data, labdata, ssdata)
   pgfsave(name, axis)
 end
 
-function get_spectra(data)
+function get_spectra(name, state_diagnostic, data)
     N = data["N"]
     KH = data["KH"]
     KV = data["KV"]
     vgeo = data["vgeo"]
     FT = eltype(vgeo)
 
+    Ne = KH ^ 2 * KV
     Nq = N + 1
+    Np = Nq ^ 3
     # interpolate to an equidistant grid with the same number of DOFs
     # do not include interfaces
     ξsrc, _ = lglpoints(FT, N)
     dx = 2 / Nq
-    ξdst = [(j - 1 / 2) * dx for j in 1:Nq]
+    ξdst = [-1 + (j - 1 / 2) * dx for j in 1:Nq]
+    #@show ξsrc, ξdst
     I1d = interpolationmatrix(ξsrc, ξdst)
     I = kron(I1d, I1d, I1d)
     
-    Ekin = Array{FT}(undef, Nq * KH, Nq * KH, Nq * KV)
-    fill!(Ekin, NaN)
+    S = Array{FT}(undef, Nq * KH, Nq * KH, Nq * KV)
+    fill!(S, NaN)
+    
+    diagnostic_vars = pbl_diagnostic_vars(FT)
+    _u, _v, _w = varsindices(diagnostic_vars, (:u, :v, :w))
 
+    dx1 = FT(-1)
+    dx2 = FT(-2)
+    dx3 = FT(-3)
     @views for e in 1:Ne
       x1i = I * vgeo[:, _x1, e]
       x2i = I * vgeo[:, _x2, e]
       x3i = I * vgeo[:, _x3, e]
-      @show x3i[:, e]
+
+      dx1 = x1i[2] - x1i[1]
+      dx2 = x2i[Nq + 1] - x2i[1]
+      dx3 = x3i[Nq ^ 2 + 1] - x3i[1]
+
+      i1 = round.(Int, (x1i .+ dx1 / 2) ./ dx1)
+      i2 = round.(Int, (x2i .+ dx2 / 2) ./ dx2)
+      i3 = round.(Int, (x3i .+ dx3 / 2) ./ dx3)
+
+      x1i = I * vgeo[:, _x1, e]
+      x2i = I * vgeo[:, _x2, e]
+      x3i = I * vgeo[:, _x3, e]
+      
+      ui = I * state_diagnostic[:, _u, e]
+      vi = I * state_diagnostic[:, _v, e]
+      wi = I * state_diagnostic[:, _w, e]
+
+      C = CartesianIndex.(i1, i2, i3)
+      for ijk in 1:Np
+        S[C[ijk]] = wi[ijk]
+      end
+    end
+
+    spectrum_lev = round(Int, 660 / dx3)
+    @show spectrum_lev
+    S = @view S[:, :, spectrum_lev]
+
+    N1d = Nq * KH
+    @show div(N1d, 2) + 1
+
+    Skx = rfft(S, (1,))
+    Skx = abs.(Skx) .^ 2 ./ 2
+    Skx = mean(Skx, dims=(2,))[:]
+
+    Sky = rfft(S, (2,))
+    Sky = abs.(Sky) .^ 2 ./ 2
+    Sky = mean(Sky, dims=(1,))[:]
+
+    k = rfftfreq(N1d)
+    Sk = (Skx + Sky) / 2
+    @pgf begin 
+      plot = Plot({}, Coordinates(k, Sk))
+      plot53 = Plot({color="blue"}, Coordinates(k, 0.05 * k .^ (-5 / 3)))
+      axis = LogLogAxis({width="10cm",
+                         height="10cm",
+                         ymax = maximum(Sk)+1},
+                        plot, plot53)
+      pgfsave(name, axis)
     end
 end
-
-#main()
