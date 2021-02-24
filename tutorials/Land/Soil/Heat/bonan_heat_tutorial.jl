@@ -238,7 +238,8 @@ porosity = porosity_array[soil_type_index];
 # Finally, we store the soil-specific parameters and functions
 # in a place where they will be accessible to the model
 # during integration.
-soil_param_functions = SoilParamFunctions{FT}(
+soil_param_functions = SoilParamFunctions(
+    FT;
     porosity = porosity,
     ν_ss_gravel = ν_ss_gravel,
     ν_ss_om = ν_ss_om,

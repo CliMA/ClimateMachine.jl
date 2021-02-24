@@ -1,53 +1,150 @@
 #### Soil model
 
-export SoilModel, SoilParamFunctions
+export SoilModel, SoilParamFunctions, WaterParamFunctions
 
 """
     AbstractSoilParameterFunctions{FT <: AbstractFloat}
 """
 abstract type AbstractSoilParameterFunctions{FT <: AbstractFloat} end
 
-"""
-    SoilParamFunctions{FT} <: AbstractSoilParameterFunctions{FT}
 
-Necessary parameters for the soil model. These will eventually be prescribed
-functions of space (and time).
+"""
+    WaterParamFunctions{FT, TK, TS, TR} <: AbstractSoilParameterFunctions{FT}
+
+Necessary parameters for the soil water model. These can be floating point
+ parameters or functions of space (via the auxiliary variable `aux`). Internally,
+they will be converted to type FT or altered so that the functions return type FT.
+
+This is not a complete list - the hydraulic parameters necessary for specifying
+the van Genuchten or Brooks and Corey functions are stored in the hydraulics model.
 # Fields
 $(DocStringExtensions.FIELDS)
 """
-Base.@kwdef struct SoilParamFunctions{FT} <: AbstractSoilParameterFunctions{FT}
-    "Aggregate porosity of the soil"
-    porosity::FT = FT(NaN)
-    "Hydraulic conductivity at saturation. Units of m s-1."
-    Ksat::FT = FT(NaN)
-    "Specific storage of the soil. Units of m s-1."
-    S_s::FT = FT(NaN)
+struct WaterParamFunctions{FT, TK, TS, TR} <: AbstractSoilParameterFunctions{FT}
+    "Saturated conductivity. Units of m s-1."
+    Ksat::TK
+    "Specific storage. Units of m s-1."
+    S_s::TS
     "Residual Water Fraction - default is zero; unitless."
-    θ_r::FT = FT(0.0)
-    "Volume fraction of gravels, relative to soil solids only; unitless."
-    ν_ss_gravel::FT = FT(NaN)
-    "Volume fraction of SOM, relative to soil solids only; unitless."
-    ν_ss_om::FT = FT(NaN)
-    "Volume fraction of quartz, relative to soil solids only; unitless."
-    ν_ss_quartz::FT = FT(NaN)
-    "Bulk volumetric heat capacity of dry soil. Units of J m-3 K-1."
-    ρc_ds::FT = FT(NaN)
-    "Particle density for soil solids. Units of kg m-3"
-    ρp::FT = FT(NaN)
-    "Thermal conductivity of the soil solids. Units of W m-1 K-1."
-    κ_solid::FT = FT(NaN)
-    "Saturated thermal conductivity for unfrozen soil. Units of W m-1 K-1."
-    κ_sat_unfrozen::FT = FT(NaN)
-    "Saturated thermal conductivity for frozen soil. Units of W m-1 K-1."
-    κ_sat_frozen::FT = FT(NaN)
-    "Adjustable scale parameter for determining Kersten number in the Balland and Arp formulation; unitless."
-    a::FT = FT(0.24)
-    "Adjustable scale parameter for determining Kersten number in the Balland and Arp formulation; unitless."
-    b::FT = FT(18.1)
-    "Parameter used in the Balland and Arp formulation for κ_dry; unitless"
-    κ_dry_parameter::FT = FT(0.053)
-
+    θ_r::TR
 end
+
+
+"""
+    HeatParamFunctions{FT, TK, TS, TR} <: AbstractSoilParameterFunctions{FT}
+
+Necessary parameters for the soil water model. These can be floating point
+ parameters or functions of space (via the auxiliary variable `aux`). Internally,
+they will be converted to type FT or altered so that the functions return type FT.
+
+This is not a complete list - the hydraulic parameters necessary for specifying
+the van Genuchten or Brooks and Corey functions are stored in the hydraulics model.
+# Fields
+$(DocStringExtensions.FIELDS)
+"""
+
+function WaterParamFunctions(
+    ::Type{FT};
+    Ksat::Union{Function, AbstractFloat} = (aux) -> eltype(aux)(0.0),
+    S_s::Union{Function, AbstractFloat} = (aux) -> eltype(aux)(1e-3),
+    θ_r::Union{Function, AbstractFloat} = (aux) -> eltype(aux)(0.0),
+) where {FT}
+    fKsat = Ksat isa AbstractFloat ? (aux) -> FT(Ksat) : (aux) -> FT(Ksat(aux))
+    fS_s = S_s isa AbstractFloat ? (aux) -> FT(S_s) : (aux) -> FT(S_s(aux))
+    fθ = θ_r isa AbstractFloat ? (aux) -> FT(θ_r) : (aux) -> FT(θ_r(aux))
+    args = (fKsat, fS_s, fθ)
+    return WaterParamFunctions{FT, typeof.(args)...}(args...)
+end
+
+
+"""
+    SoilParamFunctions{FT, F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12, WP}
+               <: AbstractSoilParameterFunctions{FT}
+
+Necessary parameters for the soil model. Heat parameters to be moved to their 
+own structure in next iteration.
+# Fields
+$(DocStringExtensions.FIELDS)
+"""
+struct SoilParamFunctions{
+    FT,
+    F1,
+    F2,
+    F3,
+    F4,
+    F5,
+    F6,
+    F7,
+    F8,
+    F9,
+    F10,
+    F11,
+    F12,
+    WP,
+} <: AbstractSoilParameterFunctions{FT}
+    "Aggregate porosity of the soil"
+    porosity::F1
+    "Volume fraction of gravels, relative to soil solids only; unitless."
+    ν_ss_gravel::F2
+    "Volume fraction of SOM, relative to soil solids only; unitless."
+    ν_ss_om::F3
+    "Volume fraction of quartz, relative to soil solids only; unitless."
+    ν_ss_quartz::F4
+    "Bulk volumetric heat capacity of dry soil. Units of J m-3 K-1."
+    ρc_ds::F5
+    "Particle density for soil solids. Units of kg m-3"
+    ρp::F6
+    "Thermal conductivity of the soil solids. Units of W m-1 K-1."
+    κ_solid::F7
+    "Saturated thermal conductivity for unfrozen soil. Units of W m-1 K-1."
+    κ_sat_unfrozen::F8
+    "Saturated thermal conductivity for frozen soil. Units of W m-1 K-1."
+    κ_sat_frozen::F9
+    "Adjustable scale parameter for determining Kersten number in the Balland and Arp formulation; unitless."
+    a::F10
+    "Adjustable scale parameter for determining Kersten number in the Balland and Arp formulation; unitless."
+    b::F11
+    "Parameter used in the Balland and Arp formulation for κ_dry; unitless"
+    κ_dry_parameter::F12
+    "Hydrology parameter functions"
+    water::WP
+end
+
+function SoilParamFunctions(
+    ::Type{FT};
+    porosity::FT = FT(NaN),
+    ν_ss_gravel::FT = FT(NaN),
+    ν_ss_om::FT = FT(NaN),
+    ν_ss_quartz::FT = FT(NaN),
+    ρc_ds::FT = FT(NaN),
+    ρp::FT = FT(NaN),
+    κ_solid::FT = FT(NaN),
+    κ_sat_unfrozen::FT = FT(NaN),
+    κ_sat_frozen::FT = FT(NaN),
+    a::FT = FT(0.24),
+    b::FT = FT(18.1),
+    κ_dry_parameter::FT = FT(0.053),
+    water::AbstractSoilParameterFunctions{FT} = WaterParamFunctions(FT;),
+) where {FT}
+    args = (
+        porosity,
+        ν_ss_gravel,
+        ν_ss_om,
+        ν_ss_quartz,
+        ρc_ds,
+        ρp,
+        κ_solid,
+        κ_sat_unfrozen,
+        κ_sat_frozen,
+        a,
+        b,
+        κ_dry_parameter,
+        water,
+    )
+
+    return SoilParamFunctions{FT, typeof.(args)...}(args...)
+end
+
 
 
 """
