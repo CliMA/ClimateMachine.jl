@@ -249,10 +249,10 @@ eq_tends(pv::PV, m::EDMF, ::Source) where {PV <: EDMFPrognosticVariable} = ()
 
 eq_tends(pv::PV, m::EDMF, ::Source) where {PV <: en_ρatke} = (
     # EntrDetr{PV}(),
-    # PressSource{PV}(),
-    # ShearSource{PV}(),
-    # BuoySource{PV}(),
-    # DissSource{PV}(),
+    PressSource{PV}(),
+    ShearSource{PV}(),
+    BuoySource{PV}(),
+    DissSource{PV}(),
 )
 
 eq_tends(
@@ -434,7 +434,6 @@ function compute_gradient_argument!(
 
     gm_tf.u = gm.ρu[1] * ρ_inv
     gm_tf.v = gm.ρu[2] * ρ_inv
-    en_tf.e = gm.energy.ρe * ρ_inv # YAIR 
 end;
 
 function compute_gradient_flux!(
@@ -497,7 +496,7 @@ function compute_gradient_flux!(
 
     E_dyn, Δ_dyn, E_trb = entr_detr(m, state, aux, ts.up, ts.en, env, buoy)
 
-    en_dif.l_mix, ∂b∂z_env, Pr_t = mixing_length(
+    en_dif.l_mix, ∂b∂z_env, Pr_t, L_Nˢ, L_W, L_tke = mixing_length(
         m,
         m.turbconv.mix_len,
         args,
@@ -508,8 +507,8 @@ function compute_gradient_flux!(
         env,
     )
 
-    en_dif.K_m = 0.1 #m.turbconv.mix_len.c_m * en_dif.l_mix * sqrt(tke_en)
-    K_h = 0.1 #en_dif.K_m / Pr_t
+    en_dif.K_m = m.turbconv.mix_len.c_m #* en_dif.l_mix * sqrt(tke_en)
+    K_h = en_dif.K_m / Pr_t
     ρa₀ = gm.ρ * env.a
     Diss₀ = m.turbconv.mix_len.c_d * sqrt(tke_en) / en_dif.l_mix
 
@@ -960,7 +959,7 @@ function precompute(::EDMF, bl, args, ts, ::Flux{SecondOrder})
 
     E_dyn, Δ_dyn, E_trb = entr_detr(bl, state, aux, ts_up, ts_en, env, buoy)
 
-    l_mix, ∂b∂z_env, Pr_t = mixing_length(
+    l_mix, ∂b∂z_env, Pr_t , L_Nˢ, L_W, L_tke = mixing_length(
         bl,
         bl.turbconv.mix_len,
         args,
@@ -974,8 +973,8 @@ function precompute(::EDMF, bl, args, ts, ::Flux{SecondOrder})
 
     en = state.turbconv.environment
     tke_en = enforce_positivity(en.ρatke) / env.a / state.ρ
-    K_m = 0.1 #bl.turbconv.mix_len.c_m * l_mix * sqrt(tke_en)
-    K_h = 0.1 #K_m / Pr_t
+    K_m = bl.turbconv.mix_len.c_m #* l_mix * sqrt(tke_en)
+    K_h = K_m / Pr_t
     ρaw_up = vuntuple(i -> up[i].ρaw, N_up)
 
     return (;
@@ -1059,7 +1058,7 @@ function precompute(::EDMF, bl, args, ts, ::Source)
 
     dpdz = perturbation_pressure(bl, args, env, buoy)
 
-    l_mix, ∂b∂z_env, Pr_t = mixing_length(
+    l_mix, ∂b∂z_env, Pr_t, L_Nˢ, L_W, L_tke = mixing_length(
         bl,
         bl.turbconv.mix_len,
         args,
@@ -1077,8 +1076,8 @@ function precompute(::EDMF, bl, args, ts, ::Source)
     en = state.turbconv.environment
     tke_en = enforce_positivity(en.ρatke) / env.a / state.ρ
 
-    K_m = 0.1 # bl.turbconv.mix_len.c_m * l_mix * sqrt(tke_en)
-    K_h = 0.1 #K_m / Pr_t
+    K_m = bl.turbconv.mix_len.c_m #* l_mix * sqrt(tke_en)
+    K_h = K_m / Pr_t
     Diss₀ = bl.turbconv.mix_len.c_d * sqrt(tke_en) / l_mix
 
     return (;
@@ -1130,7 +1129,7 @@ function flux(::SGSFlux{Energy}, atmos, args)
             )
         end,
     )
-    ρe_sgs_flux = -gm.ρ *  K_h * en_dif.∇e[3] + massflux_e # env.a * YAIR 
+    ρe_sgs_flux = -gm.ρ * env.a * K_h * en_dif.∇e[3] + massflux_e
     return SVector{3, FT}(0, 0, ρe_sgs_flux)
 end
 
@@ -1186,8 +1185,8 @@ function flux(::SGSFlux{Momentum}, atmos, args)
         end,
     )
     ρw_sgs_flux = -gm.ρ * env.a * K_m * en_dif.∇w[3] + massflux_w
-    ρu_sgs_flux = -gm.ρ * K_m * gm_dif.∇u[3] # * env.a 
-    ρv_sgs_flux = -gm.ρ * K_m * gm_dif.∇v[3] # * env.a 
+    ρu_sgs_flux = -gm.ρ * env.a * K_m * gm_dif.∇u[3]
+    ρv_sgs_flux = -gm.ρ * env.a * K_m * gm_dif.∇v[3]
     return SMatrix{3, 3, FT, 9}(
         0,
         0,
@@ -1231,11 +1230,6 @@ function flux(::Diffusion{en_ρatke}, atmos, args)
     gm = state
     en_dif = diffusive.turbconv.environment
     ẑ = vertical_unit_vector(atmos, aux)
-    # tot = -gm.ρ * env.a * K_m * en_dif.∇tke[3]
-    # z = altitude(atmos, aux)
-    # if z ≈ 0
-    #     tot = 0
-    # end
     return -gm.ρ * env.a * K_m * en_dif.∇tke[3] * ẑ
 end
 

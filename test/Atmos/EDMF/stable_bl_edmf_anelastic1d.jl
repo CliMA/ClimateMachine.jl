@@ -96,6 +96,7 @@ function init_state_prognostic!(
         en.ρatke = FT(0)
         en.ρaθ_liq_cv = FT(0)
     end
+
     en.ρaq_tot_cv = FT(0)
     en.ρaθ_liq_q_tot_cv = FT(0)
     return nothing
@@ -111,8 +112,8 @@ function main(::Type{FT}) where {FT}
         help = "specify surface flux for energy and moisture"
         metavar = "prescribed|bulk|custom_sbl"
         arg_type = String
-        default = "custom_sbl"
-        # default = "prescribed"
+        # default = "custom_sbl"
+        default = "prescribed"
     end
 
     cl_args = ClimateMachine.init(parse_clargs = true, custom_clargs = sbl_args)
@@ -151,7 +152,8 @@ function main(::Type{FT}) where {FT}
         config_type,
         zmax,
         surface_flux;
-        turbulence = ConstantKinematicViscosity(FT(0.1)),
+        turbulence = ConstantKinematicViscosity(FT(0)),
+        # turbulence = ConstantKinematicViscosity(FT(0.14)),
         # turbulence = SmagorinskyLilly{FT}(0.21),
         turbconv = turbconv,
         compressibility = compressibility,
