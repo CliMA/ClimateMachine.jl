@@ -312,6 +312,7 @@ struct DiscontinuousSpectralElementGrid{
         # Create arrays on the device
         vgeo = DeviceArray(FloatType.(vgeo))
         sgeo = DeviceArray(FloatType.(sgeo))
+        x_vtk = DeviceArray.(map(x_vtk_i -> FloatType.(x_vtk_i), x_vtk))
         elemtobndy = DeviceArray(topology.elemtobndy)
         vmap⁻ = DeviceArray(vmap⁻)
         vmap⁺ = DeviceArray(vmap⁺)
