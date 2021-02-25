@@ -46,8 +46,8 @@ end
     sources = ()
     m = LandModel(
         param_set,
-        m_soil,
-        m_river;
+        m_soil;
+        river = m_river,
         source = sources,
         init_state_prognostic = init_land_model!,
     )
@@ -149,8 +149,8 @@ end
 
     m = LandModel(
         param_set,
-        m_soil,
-        m_river;
+        m_soil;
+        river = m_river,
         boundary_conditions = bc,
         source = sources,
         init_state_prognostic = init_land_model!,
@@ -353,8 +353,8 @@ end
     
     m = LandModel(
         param_set,
-        m_soil,
-        m_river;
+        m_soil;
+        river = m_river,
         boundary_conditions = bc,
         source = sources,
         init_state_prognostic = init_land_model!,

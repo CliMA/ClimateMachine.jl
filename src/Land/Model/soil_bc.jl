@@ -254,11 +254,11 @@ function soil_boundary_flux!(
     _...,
 )
 
-    diff⁺.soil.water.K∇h = compute_surface_grad_bc(
+    diff⁺.soil.water.K∇h = n̂* compute_surface_grad_bc(
         land.soil,
         bc.runoff_model,
         bc.precip_model,
-        n̂,
+        #n̂,
         state⁻,
         diff⁻,
         aux⁻,

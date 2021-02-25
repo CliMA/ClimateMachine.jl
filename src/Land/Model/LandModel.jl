@@ -75,8 +75,8 @@ Constructor for the LandModel structure.
 """
 function LandModel(
     param_set::AbstractParameterSet,
-    soil::BalanceLaw, 
-    river::BalanceLaw;
+    soil::BalanceLaw;
+    river::BalanceLaw = NoRiverModel(),
     boundary_conditions::LBC = LandDomainBC(),
     source::SRC = (),
     init_state_prognostic::IS = nothing,
@@ -153,7 +153,7 @@ function compute_gradient_argument!(
 )
 
     compute_gradient_argument!(land, land.soil, transform, state, aux, t)
-    compute_gradient_argument!(land, land.river, transform, state, aux, t)
+    #compute_gradient_argument!(land, land.river, transform, state, aux, t)
 end
 
 function compute_gradient_flux!(
@@ -234,9 +234,7 @@ function init_state_prognostic!(
     land.init_state_prognostic(land, state, aux, coords, t, args...)
 end
 
-include("Runoff.jl")
-using .Runoff
-include("land_bc.jl")
+
 include("SoilWaterParameterizations.jl")
 using .SoilWaterParameterizations
 include("SoilHeatParameterizations.jl")
@@ -244,6 +242,9 @@ using .SoilHeatParameterizations
 include("soil_model.jl")
 include("soil_water.jl")
 include("soil_heat.jl")
+include("Runoff.jl")
+using .Runoff
+include("land_bc.jl")
 include("soil_bc.jl")
 include("source.jl")
 include("River.jl")

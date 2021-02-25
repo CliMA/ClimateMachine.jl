@@ -52,6 +52,33 @@ function (p::Precip{FT})(x, y, t)  where {FT}
     FT(p.precip(x, y, t))
 end
 
+struct SoilRunoff{FT} <: LandSource{FT}
+end
+
+function land_source!(
+    source_type::SoilRunoff{FT},
+    land::LandModel,
+    source::Vars,
+    state::Vars,
+    diffusive::Vars,
+    aux::Vars,
+    t::Real,
+    direction,
+) where {FT}
+    bc = land.boundary_conditions.surface_bc.water
+    infiltration = compute_surface_grad_bc(
+        land.soil,
+        bc.runoff_model,
+        bc.precip_model,
+        state,
+        diffusive,
+        aux,
+        t,
+    )
+    precip = bc.runoff_model(t)
+    source.river.area  = -(precip - infiltration)
+end
+
 function land_source!(
     source_type::Precip,
     land::LandModel,

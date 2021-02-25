@@ -84,7 +84,7 @@ function compute_surface_grad_bc(
     soil::SoilModel,
     runoff_model::CoarseGridRunoff,
     precip_model::AbstractPrecipModel,
-    n̂,
+    #n̂,
     state⁻::Vars,
     diff⁻::Vars,
     aux⁻::Vars,
@@ -125,15 +125,15 @@ function compute_surface_grad_bc(
             ϑ_bc / ν,# when ice is present, K still measured with ν, not νeff.
         )
 
-    i_c = n̂ * (K * ∂h∂z)
-    if incident_water_flux < -norm(i_c) # More negative if both are negative,
+    i_c = (K * ∂h∂z)
+    if incident_water_flux < -i_c # More negative if both are negative,
         #ponding BC
         K∇h⁺ = i_c
     else
-
-        K∇h⁺ = n̂ * (-FT(2) * incident_water_flux) - diff⁻.soil.water.K∇h
+        #K∇h⁺ = n̂ * (-FT(2) * incident_water_flux) - diff⁻.soil.water.K∇h
+        K∇h⁺ = - incident_water_flux
     end
-    return K∇h⁺
+    return K∇h⁺ # now a scalar
 end
 
 
@@ -156,7 +156,7 @@ function compute_surface_grad_bc(
     soil::SoilModel,
     runoff_model::NoRunoff,
     precip_model::AbstractPrecipModel,
-    n̂,
+    #n̂,
     state⁻::Vars,
     diff⁻::Vars,
     aux⁻::Vars,
@@ -164,7 +164,8 @@ function compute_surface_grad_bc(
 )
     FT = eltype(state⁻)
     incident_water_flux = precip_model(t)
-    K∇h⁺ = n̂ * (-FT(2) * incident_water_flux) - diff⁻.soil.water.K∇h
+    #K∇h⁺ = n̂ * (-FT(2) * incident_water_flux) - diff⁻.soil.water.K∇h
+    K∇h⁺ = -incident_water_flux
     return K∇h⁺
 end
 
