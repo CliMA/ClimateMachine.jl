@@ -67,6 +67,9 @@ import ..BalanceLaws:
     reverse_integral_set_auxiliary_state!
 
 export TurbulenceClosureModel,
+    DivergenceDampingModel,
+    NoDivergenceDamping,
+    HorizontalDivergenceDamping,
     ConstantViscosity,
     ConstantDynamicViscosity,
     ConstantKinematicViscosity,
@@ -82,10 +85,10 @@ export TurbulenceClosureModel,
     turbulence_tensors,
     init_aux_turbulence!,
     init_aux_hyperdiffusion!,
+    init_aux_divdamping!,
     sponge_viscosity_modifier,
     HyperdiffEnthalpyFlux,
-    HyperdiffViscousFlux
-    init_aux_divdamping!,
+    HyperdiffViscousFlux,
     turbulence_nodal_update_auxiliary_state!
 
 # ### Abstract Type
@@ -117,6 +120,8 @@ abstract type HyperDiffusion end
 Modifier for viscosity computed from existing turbulence closures.
 """
 abstract type ViscousSponge end
+
+abstract type DivergenceDampingModel end
 
 
 """
@@ -1104,6 +1109,14 @@ eq_tends(
     ::Flux{SecondOrder},
 ) where {PV <: AbstractMomentum} = (HyperdiffViscousFlux{PV}(),)
 
+struct DivergenceDamping{PV} <: TendencyDef{Flux{SecondOrder}, PV} end
+eq_tends(pv::PV, ::DivergenceDamping, ::AbstractTendencyType) where {PV} = ()
+
+eq_tends(
+    pv::PV,
+    ::DivergenceDamping,
+    ::Flux{SecondOrder}) where {PV <: AbstractMomentum} = (DivergenceDamping{PV}(),)
+
 struct HorizontalDivergenceDamping{FT} <: DivergenceDampingModel
     "Divergence Damping Timescale [hours]"
     νd::FT
@@ -1119,7 +1132,6 @@ function init_aux_divdamping!(
     aux::Vars,
     geom::LocalGeometry,
 )
-    nothing
 end
 function compute_gradient_argument!(
     m::HorizontalDivergenceDamping,
@@ -1129,7 +1141,6 @@ function compute_gradient_argument!(
     aux::Vars,
     t::Real,
 )
-    k̂ = vertical_unit_vector(bl, aux)
     # Compute horizontal velocity component
     transform.divergencedamping.ρu = state.ρu 
 end
@@ -1145,10 +1156,10 @@ function compute_gradient_flux!(
 )
     FT = eltype(state)
     ∇ρu = ∇transform.divergencedamping.ρu
-    k̂ = vertical_unit_vector(bl.orientation, bl.param_set, aux)
     divergence = tr(∇ρu)
-    νd = SVector{3,FT}(m.νd, m.νd, m.νd)
-    diffusive.divergencedamping.νd∇D = Diagonal(SVector(divergence, divergence, divergence))
+    #νd = SVector{3,FT}(m.νd, m.νd, m.νd)
+    νd = m.νd
+    diffusive.divergencedamping.νd∇D = νd .* Diagonal(SVector(divergence, divergence, divergence))
 end
 
 function flux_second_order!(
