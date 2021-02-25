@@ -11,7 +11,6 @@ No energy flux across the boundary.
 struct Insulating{PV <: Energy} <: BCDef{PV} end
 Insulating() = Insulating{Energy}()
 
-function atmos_energy_boundary_state!(nf, bc_energy::Insulating, atmos, args...) end
 function atmos_energy_normal_boundary_flux_second_order!(
     nf,
     bc_energy::Insulating,
@@ -25,32 +24,27 @@ function atmos_energy_normal_boundary_flux_second_order!(
 Prescribe the temperature at the boundary by `fn`, a function with signature
 `fn(state, aux, t)` returning the temperature (in K).
 """
-struct PrescribedTemperature{FN, PV <: Energy} <: BCDef{PV}
+struct PrescribedTemperature{PV <: Energy, FN} <: BCDef{PV}
     fn::FN
 end
-PrescribedTemperature(fn::FN) where {FN} = PrescribedTemperature{FN, Energy}(fn)
+PrescribedTemperature(fn::FN) where {FN} = PrescribedTemperature{Energy, FN}(fn)
 
-function atmos_energy_boundary_state!(
-    nf,
-    bc_energy::PrescribedTemperature,
-    atmos,
-    state⁺,
-    aux⁺,
-    n,
-    state⁻,
-    aux⁻,
-    t,
-    args...,
+function bc_val(
+    ::PrescribedTemperature{Energy},
+    atmos::AtmosModel,
+    ::Union{NF1, NF∇},
+    args,
 )
-    FT = eltype(aux⁻)
+    @unpack state, aux, n = args
+    FT = eltype(aux)
     _T_0::FT = T_0(atmos.param_set)
     _cv_d::FT = cv_d(atmos.param_set)
 
-    T = bc_energy.fn(state⁻, aux⁻, t)
-    E_int⁺ = state⁺.ρ * _cv_d * (T - _T_0)
-    state⁺.energy.ρe =
-        E_int⁺ + state⁺.ρ * gravitational_potential(atmos.orientation, aux⁻)
+    T = bc_energy.fn(state, aux, t)
+    return state.ρ * _cv_d * (T - _T_0) +
+           state.ρ * gravitational_potential(atmos.orientation, aux)
 end
+
 function atmos_energy_normal_boundary_flux_second_order!(
     nf,
     bc_energy::PrescribedTemperature,
@@ -89,12 +83,6 @@ struct PrescribedEnergyFlux{FN, PV <: Energy} <: BCDef{PV}
 end
 PrescribedEnergyFlux(fn::FN) where {FN} = PrescribedEnergyFlux{FN, Energy}(fn)
 
-function atmos_energy_boundary_state!(
-    nf,
-    bc_energy::PrescribedEnergyFlux,
-    atmos,
-    args...,
-) end
 function atmos_energy_normal_boundary_flux_second_order!(
     nf,
     bc_energy::PrescribedEnergyFlux,
@@ -129,7 +117,6 @@ struct Adiabaticθ{FN, PV <: ρθ_liq_ice} <: BCDef{PV}
 end
 Adiabaticθ(fn::FN) where {FN} = Adiabaticθ{FN, ρθ_liq_ice}(fn)
 
-function atmos_energy_boundary_state!(nf, bc_energy::Adiabaticθ, atmos, args...) end
 function atmos_energy_normal_boundary_flux_second_order!(
     nf,
     bc_energy::Adiabaticθ,
@@ -167,12 +154,6 @@ end
 BulkFormulaEnergy(fn_C_h::FNX, fn_T_and_q_tot::FNTM) where {FNX, FNTM} =
     BulkFormulaEnergy{FNX, FNTM, Energy}(fn_C_h, fn_T_and_q_tot)
 
-function atmos_energy_boundary_state!(
-    nf,
-    bc_energy::BulkFormulaEnergy,
-    atmos,
-    args...,
-) end
 function atmos_energy_normal_boundary_flux_second_order!(
     nf,
     bc_energy::BulkFormulaEnergy,
@@ -222,12 +203,6 @@ struct NishizawaEnergyFlux{FNTM, FNX} <: EnergyBC
     fn_z0::FNX
     fn_T_and_q_tot::FNTM
 end
-function atmos_energy_boundary_state!(
-    nf,
-    bc_energy::NishizawaEnergyFlux,
-    atmos,
-    args...,
-) end
 function atmos_energy_normal_boundary_flux_second_order!(
     nf,
     bc_energy::NishizawaEnergyFlux,

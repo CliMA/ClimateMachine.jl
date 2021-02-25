@@ -1,17 +1,10 @@
-abstract type MoistureBC end
-
 """
     Impermeable() :: MoistureBC
 
 No moisture flux.
 """
-struct Impermeable <: MoistureBC end
-function atmos_moisture_boundary_state!(
-    nf,
-    bc_moisture::Impermeable,
-    atmos,
-    args...,
-) end
+struct Impermeable{PV <: TotalMoisture} <: BCDef{PV} end
+Impermeable() = Impermeable{TotalMoisture}(),
 function atmos_moisture_normal_boundary_flux_second_order!(
     nf,
     bc_moisture::Impermeable,
@@ -26,15 +19,12 @@ function atmos_moisture_normal_boundary_flux_second_order!(
 Prescribe the net inward moisture flux across the boundary by `fn`, a function
 with signature `fn(state, aux, t)`, returning the flux (in kg/m^2).
 """
-struct PrescribedMoistureFlux{FN} <: MoistureBC
+struct PrescribedMoistureFlux{PV <: TotalMoisture, FN} <: BCDef{PV}
     fn::FN
 end
-function atmos_moisture_boundary_state!(
-    nf,
-    bc_moisture::PrescribedMoistureFlux,
-    atmos,
-    args...,
-) end
+PrescribedMoistureFlux(fn::FN) where {FN} =
+    PrescribedMoistureFlux{TotalMoisture, FN}(fn)
+
 function atmos_moisture_normal_boundary_flux_second_order!(
     nf,
     bc_moisture::PrescribedMoistureFlux,
@@ -70,16 +60,13 @@ fn_q_tot(state, aux, t)`.
 
 Return the flux (in kg m^-2 s^-1).
 """
-struct BulkFormulaMoisture{FNX, FNM} <: MoistureBC
+struct BulkFormulaMoisture{PV <: TotalMoisture, FNX, FNM} <: BCDef{PV}
     fn_C_q::FNX
     fn_q_tot::FNM
 end
-function atmos_moisture_boundary_state!(
-    nf,
-    bc_moisture::BulkFormulaMoisture,
-    atmos,
-    args...,
-) end
+BulkFormulaMoisture(fn_C_q::FNX, fn_q_tot::FNM) where {FNX, FNM} =
+    BulkFormulaMoisture{TotalMoisture, FNX, FNM}(fn_C_q, fn_q_tot)
+
 function atmos_moisture_normal_boundary_flux_second_order!(
     nf,
     bc_moisture::BulkFormulaMoisture,

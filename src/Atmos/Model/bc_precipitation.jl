@@ -1,17 +1,11 @@
-abstract type PrecipitationBC end
-
 """
-    OutflowPrecipitation() :: PrecipitationBC
+    OutflowPrecipitation()
 
 Free flux out of the domain.
 """
-struct OutflowPrecipitation <: PrecipitationBC end
-function atmos_precipitation_boundary_state!(
-    nf,
-    bc_precipitation::OutflowPrecipitation,
-    atmos,
-    args...,
-) end
+struct OutflowPrecipitation{PV <: Union{Rain, Snow}} <: BCDef{PV} end
+OutflowPrecipitation() = OutflowPrecipitation{Rain}()
+
 function atmos_precipitation_normal_boundary_flux_second_order!(
     nf,
     bc_precipitation::OutflowPrecipitation,
