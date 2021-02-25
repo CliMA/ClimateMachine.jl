@@ -59,6 +59,7 @@ Geometry.lengthscale_horizontal
 BrickMesh.partition
 BrickMesh.brickmesh
 BrickMesh.connectmesh
+BrickMesh.connectmeshfull
 BrickMesh.centroidtocode
 ```
 
