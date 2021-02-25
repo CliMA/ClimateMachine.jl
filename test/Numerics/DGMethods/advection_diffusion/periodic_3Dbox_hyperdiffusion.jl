@@ -78,10 +78,15 @@ function run(
             DeviceArray = ArrayType,
             polynomialorder = N,
         )
-    dx = min_node_distance(grid, direction())
+    
 
     # D = (dx/2)^4/2/τ
     D = 1
+
+    dx = min_node_distance(grid, direction())
+    dt = dx^4 / 25 / sum(D)
+    @info "Δ(horz)" dx
+    @info dt
 
     model = HyperDiffusion{dim}(ConstantHyperDiffusion{dim, direction(), FT}(D, k))
     dg = DGModel(
@@ -93,92 +98,31 @@ function run(
             direction = direction(),
         )
 
-    dg1 = dg
     Q0 = init_ode_state(dg, FT(0))
-    Q_DGlsrk = init_ode_state(dg, FT(0))
-    rhs_DGlsrk = init_ode_state(dg, FT(0))
-    rhs_Qanal = init_ode_state(dg, FT(0))
-    @info "Δ(horz)" dx
 
-    # ϵ = 1e-3 
-
-    # Model vs Model
     # collect rhs from DG
     rhs_DGsource = similar(Q0)
     dg(rhs_DGsource, Q0, nothing, 0)
 
-    # Q_frhs = Q0 .+ ϵ*rhs_DGsource
-
-    # timestepper for 1 step
-    # Q_DGlsrk = Q0
-    
-    dt = dx^4 / 25 / sum(D)
-    @info dt
-
-    timeend = dt
-
-    Q_anal = init_ode_state(dg1, timeend)
-
-    lsrk = LSRK54CarpenterKennedy(dg1, Q_DGlsrk; dt = dt, t0 = 0)
-
-    # Set up the information callback
-    starttime = Ref(now())
-    cbinfo = EveryXWallTimeSeconds(60, mpicomm) do (s = false)
-        if s
-            starttime[] = now()
-        else
-            energy = norm(Q_DGlsrk)
-            @info @sprintf(
-                """Update
-                simtime = %.16e
-                runtime = %s
-                norm(Q) = %.16e""",
-                gettime(lsrk),
-                Dates.format(
-                    convert(Dates.DateTime, Dates.now() - starttime[]),
-                    Dates.dateformat"HH:MM:SS",
-                ),
-                energy
-            )
-        end
-    end
-    callbacks = (cbinfo,)
-    solve!(Q_DGlsrk, lsrk; timeend = dt, callbacks=callbacks)
-    solve!(Q_DGlsrk, lsrk; timeend = timeend)
-    @info "time-integrate DG vs anal -- Q: " norm(Q_anal-Q_DGlsrk)/norm(Q_anal)
-    
-    rhs_DGlsrk = Q0 - Q_DGlsrk
-    # @info rhs_DGlsrk 
-    rhs_Qanal = Q0 - Q_anal
-    
-    @info "time-integrate DG vs anal -- rhs: " norm(rhs_Qanal-rhs_DGlsrk)/norm(rhs_Qanal)
-
-    # @info rhs_DGlsrk 
-    # analytical vs analytical
-    # ana rhs
+    # rhs tdc: analytical solution
     c = get_eigenvalue(k, direction(), dim)
     rhs_anal = -c*D*Q0 
-    # rhs_analXdt = rhs_anal * dt
-    # rhs_dgXdt = rhs_DGsource * dt 
 
-    # ana ρ(t) + finite diff in time
-    # rhs_FD = (init_ode_state(dg, FT(ϵ)) .- Q0) ./ ϵ 
-    # @info "ANA vs FD" norm(rhs_anal .- rhs_FD.ρ)/norm(rhs_FD.ρ)
+    # timestepper for 1 step
+    Q_DGlsrk = Q0
+    
+    
+    # time integration
+    timeend = dt
+    Q_anal = init_ode_state(dg, timeend)
+    lsrk = LSRK54CarpenterKennedy(dg, Q_DGlsrk; dt = dt, t0 = 0)
+    solve!(Q_DGlsrk, lsrk; timeend = timeend)
+    @info "time-integrate DG vs anal -- Q: " norm(Q_anal-Q_DGlsrk)/norm(Q_anal)
 
-    # Model vs analytical
-    # @info "DG vs FD" norm(rhs_DGsource.ρ .- rhs_FD.ρ)/norm(rhs_FD.ρ)
-    # @info "DG vs ANA" norm(rhs_DGsource.ρ .- rhs_anal)/norm(rhs_anal)
+    do_output(mpicomm, "output", dg, rhs_DGsource, rhs_anal, model)
 
-    # do_output(mpicomm, "output", dg, rhs_DGsource, rhs_anal, model)
-    # do_output(mpicomm, "output", dg, Q0, rhs_anal, model)
-    # do_output(mpicomm, "output", dg, Q0, rhs_analXdt, model)
-    # do_output(mpicomm, "output", dg, Q0, rhs_dgXdt, model)
-    # do_output(mpicomm, "output", dg, Q_DGlsrk, Q_anal, model)
-    do_output(mpicomm, "output", dg, rhs_DGlsrk, rhs_Qanal, model)
-
-    # return norm(rhs_DGsource.ρ .- rhs_anal)/norm(rhs_anal)
-    # return norm(Q_anal-Q_DGlsrk)/norm(Q_anal) 
-    return norm(rhs_Qanal-rhs_DGlsrk)/norm(rhs_Qanal) 
+    return norm(rhs_DGsource .- rhs_anal)/norm(rhs_anal)
+    # return norm(Q_anal .- Q_DGlsrk)/norm(Q_anal) 
 end
 
 get_eigenvalue(k, dir::HorizontalDirection, dim) = 
@@ -247,8 +191,8 @@ let
 
     @testset "$(@__FILE__)" begin
         for FT in (Float64, )# Float32,)
-            for base_num_elem in (16, )# 8,16,) 
-                for polynomialorder in (3, )#4,5,6,7,8,12)
+            for base_num_elem in (8,16,) 
+                for polynomialorder in (3,4,5,6,7,8,12)
 
                     for τ in (1, )#4,8,) # time scale for hyperdiffusion
                         xrange = range(FT(0); length = base_num_elem + 1, stop = FT(2pi))

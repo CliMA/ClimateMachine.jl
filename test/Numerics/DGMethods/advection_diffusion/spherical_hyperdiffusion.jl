@@ -22,7 +22,7 @@ using CLIMAParameters.Planet
 
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
-CLIMAParameters.Planet.planet_radius(::EarthParameterSet) = 60e3
+# CLIMAParameters.Planet.planet_radius(::EarthParameterSet) = 60e3
 
 const output = parse(Bool, lowercase(get(ENV, "JULIA_CLIMA_OUTPUT", "false")))
 
@@ -82,9 +82,9 @@ function initial_condition!(
         m = Int64(problem.m)
 
         c = get_c(l, r)
-        # state.ρ = calc_Ylm(φ, λ, l, m) * exp(-problem.D*c*t)
+        state.ρ = calc_Ylm(φ, λ, l, m) * exp(-problem.D*c*t)
         # state.ρ = calc_Ylm(φ, λ, l, m) * exp(-problem.D*c*t) * exp(-z/30.0e3)
-        state.ρ = cos(z/30.0e3)
+        # state.ρ = cos(z/30.0e3)
     end
 end
 
@@ -126,45 +126,31 @@ function run(
     Q0 = init_ode_state(dg, FT(0))
     @info "Δ(horz) Δ(vert)" (dx, dz)
 
-    ϵ = 1e-3
-
-    rhs_DGsource = similar(Q0)
-    dg(rhs_DGsource, Q0, nothing, 0)
+    ∂Q∂t_DG = similar(Q0)
+    # update ∂Q∂t_DG at t0 using the DGModel
+    dg(∂Q∂t_DG, Q0, nothing, 0)
 
     # analycal vs analycal
     # analytical solution for Y_{l,m}
-    rhs_anal = .- dg.state_auxiliary.c * D .* Q0
+    ∂Q∂t_anal = .- dg.state_auxiliary.c * D .* Q0
 
     # timestepper for 1 step
     Q_DGlsrk = Q0
-    dg1 = dg
     
     dt = dx^4 / 25 / sum(D)
     @info dt
 
-    Q_anal = init_ode_state(dg1, dt)
+    Q_anal = init_ode_state(dg, dt)
 
-    lsrk = LSRK54CarpenterKennedy(dg1, Q_DGlsrk; dt = dt, t0 = 0)
+    lsrk = LSRK54CarpenterKennedy(dg, Q_DGlsrk; dt = dt, t0 = 0)
     solve!(Q_DGlsrk, lsrk; timeend = dt)
     @info "DG stepper vs rhs: " norm(Q_anal-Q_DGlsrk)/norm(Q_anal)
-    @show norm(rhs_DGsource) 
-    @show norm(rhs_anal.ρ) 
+    @show norm(∂Q∂t_DG) 
+    @show norm(∂Q∂t_anal) 
 
-    # ana ρ(t) + finite diff in time
-    # rhs_FD = (init_ode_state(dg, FT(ϵ)) .- Q0) ./ ϵ
-
-    # @show "ANA" norm(rhs_anal)
-    # @show "FD" norm(rhs_FD)
-    # @show "DG" norm(rhs_DGsource)
-    # @show "ANA vs FD" norm(rhs_anal .- rhs_FD)/norm(rhs_anal)
-    # @show "ANA vs DG" norm(rhs_anal .- rhs_DGsource) / norm(rhs_anal)
-    # @show "FD vs DG" norm(rhs_FD .- rhs_DGsource) / norm(rhs_FD)
-
-    do_output(mpicomm, "output", dg, rhs_DGsource, rhs_anal, model)
-    # do_output(mpicomm, "output", dg, Q0, rhs_anal, model)
-    # do_output(mpicomm, "output", dg, Q_DGlsrk, Q_anal, model)
-
-    return norm(rhs_anal .- rhs_DGsource) / norm(rhs_anal)
+    # do_output(mpicomm, "output", dg, ∂Q∂t_DG, ∂Q∂t_anal, model)
+    
+    return norm(∂Q∂t_anal .- ∂Q∂t_DG) / norm(∂Q∂t_anal)
     # return norm(Q_anal-Q_DGlsrk)/norm(Q_anal)
 end
 
@@ -220,13 +206,6 @@ function calc_Ylm(φ, λ, l, m)
     return real(qnm .* exp(im*m*λ))
 end
 
-# function altitude(orientation::Orientation, param_set::APS, aux::Vars)
-#     FT = eltype(aux)
-#     return gravitational_potential(orientation, aux) / FT(grav(param_set))
-# end
-
-# gravitational_potential(::Orientation, aux::Vars) = aux.orientation.Φ
-
 using Test
 let
     ClimateMachine.init()
@@ -243,14 +222,14 @@ let
     _a = planet_radius(param_set)
     @info _a
 
-    # height = _a * 0.01
     height = 30.0e3
-
+    
     @testset "$(@__FILE__)" begin
         for FT in (Float64, )# Float32,)
-		    for base_num_elem in (8, )# 12, 15,)
-                # for polynomialorder in (6, )#(3,4,5,6,)#4,5,6,)
-		        for (polynomialorder, vert_num_elem) in ((5,8), )#(4,5), (5,3), (6,2), )
+		    for base_num_elem in (8, 12, 15,)
+                # vert_num_elem = 3
+                # for polynomialorder in (3,4,5,6,)#4,5,6,)
+		        for (polynomialorder, vert_num_elem) in ((3,8), (4,5), (5,3), (6,2), )
 
                     for τ in (1,)#4,8,) # time scale for hyperdiffusion
 
