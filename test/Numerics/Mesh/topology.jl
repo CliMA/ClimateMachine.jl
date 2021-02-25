@@ -107,6 +107,109 @@ end
     end
 end
 
+@testset "equidistant_cubed_shell_warp tests" begin
+    import ClimateMachine.Mesh.Topologies: equidistant_cubed_shell_warp
+
+    @testset "check radius" begin
+        @test hypot(equidistant_cubed_shell_warp(3.0, -2.2, 1.3)...) ≈ 3.0 rtol =
+            eps()
+        @test hypot(equidistant_cubed_shell_warp(-3.0, -2.2, 1.3)...) ≈ 3.0 rtol =
+            eps()
+        @test hypot(equidistant_cubed_shell_warp(1.1, -2.2, 3.0)...) ≈ 3.0 rtol =
+            eps()
+        @test hypot(equidistant_cubed_shell_warp(1.1, -2.2, -3.0)...) ≈ 3.0 rtol =
+            eps()
+        @test hypot(equidistant_cubed_shell_warp(1.1, 3.0, 0.0)...) ≈ 3.0 rtol =
+            eps()
+        @test hypot(equidistant_cubed_shell_warp(1.1, -3.0, 0.0)...) ≈ 3.0 rtol =
+            eps()
+    end
+
+    @testset "check sign" begin
+        @test sign.(equidistant_cubed_shell_warp(3.0, -2.2, 1.3)) ==
+              sign.((3.0, -2.2, 1.3))
+        @test sign.(equidistant_cubed_shell_warp(-3.0, -2.2, 1.3)) ==
+              sign.((-3.0, -2.2, 1.3))
+        @test sign.(equidistant_cubed_shell_warp(1.1, -2.2, 3.0)) ==
+              sign.((1.1, -2.2, 3.0))
+        @test sign.(equidistant_cubed_shell_warp(1.1, -2.2, -3.0)) ==
+              sign.((1.1, -2.2, -3.0))
+        @test sign.(equidistant_cubed_shell_warp(1.1, 3.0, 0.0)) ==
+              sign.((1.1, 3.0, 0.0))
+        @test sign.(equidistant_cubed_shell_warp(1.1, -3.0, 0.0)) ==
+              sign.((1.1, -3.0, 0.0))
+    end
+
+    @testset "check continuity" begin
+        for (u, v) in zip(
+            permutations([3.0, 2.999999999, 1.3]),
+            permutations([2.999999999, 3.0, 1.3]),
+        )
+            @test all(
+                equidistant_cubed_shell_warp(u...) .≈
+                equidistant_cubed_shell_warp(v...),
+            )
+        end
+        for (u, v) in zip(
+            permutations([3.0, -2.999999999, 1.3]),
+            permutations([2.999999999, -3.0, 1.3]),
+        )
+            @test all(
+                equidistant_cubed_shell_warp(u...) .≈
+                equidistant_cubed_shell_warp(v...),
+            )
+        end
+        for (u, v) in zip(
+            permutations([-3.0, 2.999999999, 1.3]),
+            permutations([-2.999999999, 3.0, 1.3]),
+        )
+            @test all(
+                equidistant_cubed_shell_warp(u...) .≈
+                equidistant_cubed_shell_warp(v...),
+            )
+        end
+        for (u, v) in zip(
+            permutations([-3.0, -2.999999999, 1.3]),
+            permutations([-2.999999999, -3.0, 1.3]),
+        )
+            @test all(
+                equidistant_cubed_shell_warp(u...) .≈
+                equidistant_cubed_shell_warp(v...),
+            )
+        end
+    end
+end
+
+@testset "equidistant_cubed_shell_unwarp" begin
+    import ClimateMachine.Mesh.Topologies:
+        equidistant_cubed_shell_warp, equidistant_cubed_shell_unwarp
+
+    for u in permutations([3.0, 2.999999999, 1.3])
+        @test all(
+            equidistant_cubed_shell_unwarp(equidistant_cubed_shell_warp(u...)...) .≈
+            u,
+        )
+    end
+    for u in permutations([3.0, -2.999999999, 1.3])
+        @test all(
+            equidistant_cubed_shell_unwarp(equidistant_cubed_shell_warp(u...)...) .≈
+            u,
+        )
+    end
+    for u in permutations([-3.0, 2.999999999, 1.3])
+        @test all(
+            equidistant_cubed_shell_unwarp(equidistant_cubed_shell_warp(u...)...) .≈
+            u,
+        )
+    end
+    for u in permutations([-3.0, -2.999999999, 1.3])
+        @test all(
+            equidistant_cubed_shell_unwarp(equidistant_cubed_shell_warp(u...)...) .≈
+            u,
+        )
+    end
+end
+
 @testset "grid1d" begin
     g = grid1d(0, 10, nelem = 10)
     @test eltype(g) == Float64

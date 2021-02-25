@@ -16,7 +16,9 @@ export AbstractTopology,
     cubedshelltopowarp,
     compute_lat_long,
     compute_analytical_topography,
-    equiangular_cubed_shell_unwarp
+    equiangular_cubed_shell_unwarp,
+    equidistant_cubed_shell_warp,
+    equidistant_cubed_shell_unwarp
 
 export grid1d, SingleExponentialStretching, InteriorStretching
 
@@ -760,9 +762,9 @@ end
     CubedShellTopology(mpicomm, Nelem, T) <: AbstractTopology{dim,T,nb}
 
 Generate a cubed shell mesh with the number of elements along each dimension of
-the cubes being `Nelem`. This topology actual creates a cube mesh, and the
+the cubes being `Nelem`. This topology actually creates a cube mesh, and the
 warping should be done after the grid is created using the `equiangular_cubed_shell_warp`
-function. The coordinates of the points will be of type `T`.
+function or the `equidistant_cubed_shell_warp`. The coordinates of the points will be of type `T`.
 
 The elements of the shell are partitioned equally across the MPI ranks based
 on a space-filling curve.
@@ -771,7 +773,8 @@ Note that this topology is logically 2-D but embedded in a 3-D space
 
 # Examples
 
-We can build a cubed shell mesh with 10 elements on each cube, total elements is
+We can build a cubed shell mesh with 10*10 elements on each cube face, i.e., the
+total number of elements is
 `10 * 10 * 6 = 600`, with
 ```jldoctest brickmesh
 using ClimateMachine.Topologies
@@ -972,9 +975,9 @@ end
 """
     equiangular_cubed_shell_warp(a, b, c, R = max(abs(a), abs(b), abs(c)))
 
-Given points `(a, b, c)` on the surface of a cube (whose vertices have coordinates `[-1,1]^3`),
-warp the points out to a spherical shell of radius `R` based on the equiangular
-gnomonic grid proposed by [Ronchi1996](@cite)
+Given points `(a, b, c)` on the surface of a cube, warp the points out to a
+spherical shell of radius `R` based on the equiangular gnomonic grid proposed by
+[Ronchi1996](@cite)
 """
 function equiangular_cubed_shell_warp(a, b, c, R = max(abs(a), abs(b), abs(c)))
 
@@ -1021,8 +1024,7 @@ end
     equiangular_cubed_shell_unwarp(x1, x2, x3)
 
 The inverse of [`equiangular_cubed_shell_warp`](@ref). This function projects
-points back from the surface of a sphere onto a cube (whose vertices have
-coordinates `[-1,1]^3`)
+points back from the surface of a sphere onto a cube
 """
 function equiangular_cubed_shell_unwarp(x1, x2, x3)
 
@@ -1085,22 +1087,23 @@ function equidistant_cubed_shell_warp(a, b, c, R = max(abs(a), abs(b), abs(c)))
 end
 
 """
-equidistant_cubed_shell_unwarp(x1, x2, x3)
+    equidistant_cubed_shell_unwarp(x1, x2, x3)
 
 The inverse of [`equidistant_cubed_shell_warp`](@ref). This function projects
-points back from the surface of a sphere onto a cube (whose vertices have
-coordinates `[-1,1]^3`)
+a given point `(x_1, x_2, x_3)` from the surface of a sphere onto a cube
 """
 function equidistant_cubed_shell_unwarp(x1, x2, x3)
 
     r = hypot(1, x2 / x1, x3 / x1)
     R = hypot(x1, x2, x3)
 
-    a = r * x1 / R
-    b = r * x2 / R
-    c = r * x3 / R
+    a = r * x1
+    b = r * x2
+    c = r * x3
 
-    return a, b, c
+    m = max(abs(a), abs(b), abs(c))
+
+    return a * R / m, b * R / m, c * R / m
 end
 
 """
@@ -1108,7 +1111,7 @@ end
                               boundary=(1,1)) <: AbstractTopology{3}
 
 Generate a stacked cubed sphere topology with `Nhorz` by `Nhorz` cells for each
-horizontal face and `Rrange` is the radius edges of the stacked elements.  This
+horizontal face and `Rrange` is the radius edges of the stacked elements. This
 topology actual creates a cube mesh, and the warping should be done after the
 grid is created using the `equiangular_cubed_shell_warp` or
 `equidistant_cubed_shell_warp` functions. The coordinates of the
@@ -1123,8 +1126,8 @@ on a space-filling curve. Further, stacks are not split at MPI boundaries.
 
 # Examples
 
-We can build a cubed sphere mesh with 10 x 10 x 5 elements on each cube, total
-elements is `10 * 10 * 5 * 6 = 3000`, with
+We can build a cubed sphere mesh with 10 x 10 x 5 elements on each cube face,
+i.e., the total number of elements is `10 * 10 * 5 * 6 = 3000`, with
 ```jldoctest brickmesh
 using ClimateMachine.Topologies
 using MPI
