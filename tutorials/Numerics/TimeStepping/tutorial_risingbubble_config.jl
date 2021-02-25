@@ -96,7 +96,7 @@ const param_set = EarthParameterSet();
 
 # ## [Initial Conditions](@id init-rtb)
 # This example demonstrates the use of functions defined
-# in the [`Thermodynamics`](@ref ClimateMachine.Thermodynamics) package to
+# in the [`Thermodynamics`](@ref ClimateMachine.Thermodynamics) module to
 # generate the appropriate initial state for our problem.
 
 #md # !!! note
@@ -268,11 +268,8 @@ function config_diagnostics(driver_config)
     return ClimateMachine.DiagnosticsConfiguration([dgngrp])
 end
 
-function run_simulation(ode_solver, CFL, timeend)
-    ## These are essentially arguments passed to the
-    ## [`config_risingbubble`](@ref config-helper) function.  For type
-    ## consistency we explicitly define the problem floating-precision.
-    FT = Float64
+function run_simulation(ode_solver, CFL::FT, timeend::FT) where {FT}
+
     ## We need to specify the polynomial order for the DG discretization,
     ## effective resolution, simulation end-time, the domain bounds, and the
     ## courant-number for the time-integrator. Note how the time-integration

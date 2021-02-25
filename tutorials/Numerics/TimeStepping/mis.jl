@@ -1,11 +1,11 @@
 # # [Multirate Infinitesimal Step (MIS) Timestepping](@id MIS-Timestepping)
 
-# In this tutorial, we shall explore the use of explicit Runge-Kutta
-# methods for the solution of nonautonomous (or non time-invariant) equations.
+# In this tutorial, we shall explore the use of Multirate Infinitesimal Step
+# (MIS) methods for the solution of nonautonomous (or non time-invariant) equations.
 # For our model problem, we shall reuse the rising thermal bubble
 # tutorial. See its [tutorial page](@ref Rising-Thermal-Bubble-Configuration)
 # for details on the model and parameters. For the purposes of this tutorial,
-# we will only run the experiment for a total of 100 simulation seconds.
+# we will only run the experiment for a total of 500 simulation seconds.
 
 using ClimateMachine
 const clima_dir = dirname(dirname(pathof(ClimateMachine)));
@@ -18,14 +18,6 @@ include(joinpath(
 ))
 
 FT = Float64;
-
-# In this tutorial, we shall explore the use of Multirate Infinitesimal Step
-# (MIS) methods for the solution of nonautonomous (or non time-invariant) equations.
-# For our model problem, we shall reuse the acoustic wave test in the GCM
-# configuration. See its [code](@ref Acoustic-Wave-Configuration)
-# for details on the model and parameters. For the purposes of this tutorial,
-# we will only run the experiment for a total of 1800 simulation seconds.
-# Details on this test case can be found in Sec. 4.3 of [Giraldo2013](@cite).
 
 # Referencing the formulation introduced in the previous
 # [Multirate RK methods tutorial](@ref Multirate-RK-Timestepping), we can
@@ -48,6 +40,12 @@ FT = Float64;
 # solution to the _inner_ ODE problem, ``{\mathcal{T}_{s}}``
 # for the slow component, and ``{\mathcal{T}_{f}}` for the fast
 # one, as in the [Multirate RK methods tutorial](@ref Multirate-RK-Timestepping).
+
+# Referencing the canonical form introduced in [Time integration](@ref
+# Time-integration), both ``{\mathcal{T}_{f}}`` and ``{\mathcal{T}_{s}}``
+# could be discretized either explicitly or implicitly, hence, they could
+# belong to either ``\mathcal{F}(t, \boldsymbol{q})`` or ``\mathcal{G}(t, \boldsymbol{q})``
+# term.
 #
 # The method is defined in terms of the lower-triangular matrices ``\alpha``,
 # ``\beta`` and ``\gamma``, with ``d_i = \sum_j \beta_{ij}``,
@@ -62,11 +60,11 @@ ode_solver = ClimateMachine.MISSolverType(;
 )
 
 timeend = FT(500)
-C = FT(20)
-run_simulation(ode_solver, C, timeend);
+CFL = FT(20)
+run_simulation(ode_solver, CFL, timeend);
 
-# The reader can compare the Courant number used in this example, with the
-# adopted in the
+# The reader can compare the Courant number (denoted by `CFL` in the code snippet)
+# used in this example, with the adopted in the
 # [single-rate explicit timestepping tutorial page](@ref Single-rate-Explicit-Timestepping)
 # in which we use the same scheme as the fast method employed in this case,
 # and notice that with this MIS method we are able to take a much larger

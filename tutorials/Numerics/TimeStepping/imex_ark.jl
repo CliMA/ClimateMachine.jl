@@ -33,7 +33,7 @@ include(joinpath(
 # schemes, we start here by going over a simple, fully explicit scheme. The
 # reader can refer to the [Single-rate Explicit Timestepping tutorial](@ref Single-rate-Explicit-Timestepping)
 # for detailes on such schemes. Here we use the the 14-stage LSRK method
-# `LSRK144NiegemannDiehlBusch`, which contains the largest stability region of
+# [`LSRK144NiegemannDiehlBusch`]((@ref ClimateMachine.ODESolvers.LSRK144NiegemannDiehlBusch)), which contains the largest stability region of
 # the low-storage methods available in `ClimateMachine.jl`.
 
 FT = Float64
@@ -44,12 +44,13 @@ ode_solver = ClimateMachine.ExplicitSolverType(
 );
 
 # In the following example, the timestep calculation is based on the CFL condition
-# for horizontally-propogating acoustic waves. We use, ``C = 0.002`` in the
-# horizontal, which corresponds to a timestep size of approximately ``1`` second.
+# for horizontally-propogating acoustic waves. We use a Courant number ``C = 0.002``
+# (denoted by `CFL` in the code bellow) in the horizontal, which corresponds
+# to a timestep size of approximately ``1`` second.
 
-C = FT(0.002)
+CFL = FT(0.002)
 cfl_direction = HorizontalDirection()
-run_acousticwave(ode_solver, C, cfl_direction, timeend);
+run_acousticwave(ode_solver, CFL, cfl_direction, timeend);
 
 # However, as it is imaginable, for real-world climate processes a time step
 # of 1 second would lead to extemely long time-to-solution simulations.
@@ -122,7 +123,7 @@ run_acousticwave(ode_solver, C, cfl_direction, timeend);
 # where the right-hand side has been split into a "stiff" component ``{\mathcal{T}}_{s}``,
 # to be treated implicitly, and a non-stiff part ``{\mathcal{T}}_{ns}`` to be treated explicitly.
 
-# Referencing the canonical form introduced in [`Time integration`](@ref
+# Referencing the canonical form introduced in [Time integration](@ref
 # Time-integration) we have that in this particular forumlation
 # ``\mathcal{T}_{ns}(t, \boldsymbol{q}) \equiv \mathcal{G}(t, \boldsymbol{q})`` and
 # ``\mathcal{T}_{s}(t, \boldsymbol{q}) \equiv \mathcal{F}(t, \boldsymbol{q})``.
@@ -157,7 +158,7 @@ run_acousticwave(ode_solver, C, cfl_direction, timeend);
 # For the acoustic wave example used here, we use 4th order polynomials in
 # our discontinuous Galerkin approximation, with 6 elements in each horizontal
 # direction and 4 elements in the vertical direction, on the cubed-sphere.
-# This gives an effective minimanl node-distance (distance between LGL nodes)
+# This gives an effective minimal node-distance (distance between LGL nodes)
 # of roughly 203000 m.
 # As in the [previous tutorial](@ref Single-rate-Explicit-Timestepping),
 # we can determine our ``\Delta t`` by specifying our desired horizontal
@@ -171,9 +172,9 @@ timeend = FT(3600)
 ode_solver = ClimateMachine.IMEXSolverType(
     solver_method = ARK2GiraldoKellyConstantinescu,
 )
-C = FT(0.5)
+CFL = FT(0.5)
 cfl_direction = HorizontalDirection()
-run_acousticwave(ode_solver, C, cfl_direction, timeend);
+run_acousticwave(ode_solver, CFL, cfl_direction, timeend);
 
 # ## References
 # - [Giraldo2013](@cite)

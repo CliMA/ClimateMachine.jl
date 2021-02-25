@@ -30,6 +30,6 @@
 # ```
 
 # where we have used ``\dot {\boldsymbol{q}} = d \boldsymbol{q} / dt``.
-# In both explicit/implicit cases, we refer to the term ``\mathcal{G}``
+# We refer to the term ``\mathcal{G}``
 # as the right-hand-side (RHS) or explicit term, and to the spatial terms of
-# ``\mathcal{F}`` as the left-hand-side or implicit term.
+# ``\mathcal{F}`` as the left-hand-side (LHS) or implicit term.

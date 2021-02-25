@@ -58,8 +58,12 @@ function (setup::AcousticWaveSetup)(problem, bl, state, aux, localgeo, t)
     return nothing
 end
 
-function run_acousticwave(ode_solver, CFL, CFL_direction, timeend)
-    FT = Float64
+function run_acousticwave(
+    ode_solver,
+    CFL::FT,
+    CFL_direction,
+    timeend::FT,
+) where {FT}
 
     ## DG polynomial orders
     N = (4, 4)

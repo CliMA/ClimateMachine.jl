@@ -30,7 +30,7 @@ FT = Float64;
 # \end{aligned}
 # ``
 
-# Referencing the canonical form introduced in [`Time integration`](@ref
+# Referencing the canonical form introduced in [Time integration](@ref
 # Time-integration) we have that in any explicit
 # formulation ``\mathcal{F}(t, \boldsymbol{q}) \equiv 0`` and, in this particular
 # forumlation, ``\mathcal{T}(t, \boldsymbol{q}) \equiv \mathcal{G}(t, \boldsymbol{q})``.
@@ -72,12 +72,12 @@ FT = Float64;
 # \begin{align}
 # 	\boldsymbol{Q}^i = \boldsymbol{q}^{n} +
 #     \Delta t \sum_{j=1}^{s} a_{i,j}
-#     \mathcal{T}(\boldsymbol{Q^j}).
+#     \mathcal{T}(\boldsymbol{Q}^j).
 # \end{align}
 # ```
 #
 # The first stage is initialized using the field at the previous time step:
-# ``\boldsymbol{Q}^{1} = \boldsymbol{q}^n``.
+# ``\boldsymbol{Q}^{1} \leftarrow \boldsymbol{q}^n``.
 #
 # In the above expressions, we define
 # ``\boldsymbol{A} = \lbrace a_{i,j} \rbrace \in \mathbb{R}^{s\times s}``,
@@ -115,11 +115,11 @@ FT = Float64;
 # For more information on general RK methods, we refer the interested reader
 # to Ch. 5.2 of [Atkinson2011](@cite).
 #
-# ### [Low-storage Runge-Kutta methods](@id lsrk)
+# ### [Low-storage Runge-Kutta (LSRK) methods](@id lsrk)
 # `ClimateMachine.jl` contains the following low-storage methods:
-#   - Forward Euler (`LSRKEulerMethod`)
-#   - A 5-stage 4th-order Runge-Kutta method of Carpenter and Kennedy (`LSRK54CarpenterKennedy`)
-#   - A 14-stage 4th-order Runge-Kutta method developed by Niegemann, Diehl, and Busch (`LSRK144NiegemannDiehlBusch`).
+#   - Forward Euler [`LowStorageRungeKutta2N`](@ref ClimateMachine.ODESolvers.LowStorageRungeKutta2N),
+#   - A 5-stage 4th-order Runge-Kutta method of Carpenter and Kennedy [`LSRK54CarpenterKennedy`](@ref ClimateMachine.ODESolvers.LSRK54CarpenterKennedy)
+#   - A 14-stage 4th-order Runge-Kutta method developed by Niegemann, Diehl, and Busch [`LSRK144NiegemannDiehlBusch`](@ref ClimateMachine.ODESolvers.LSRK144NiegemannDiehlBusch).
 #
 # To start, let's try using the 5-stage method: `LSRK54CarpenterKennedy`.
 
@@ -130,16 +130,17 @@ FT = Float64;
 # For the rising bubble example used here, we use 4th order polynomials in
 # a discontinuous Galerkin approximation, with a domain resolution of
 # 125 meters in each spatial direction. This gives an effective
-# minimanl node-distance (distance between LGL nodes) of 86 meters
+# minimanl nodal distance (distance between LGL nodes) of 86 meters
 # over the entire mesh. Using the equation for the explcit time-step above,
-# we can determine the ``\Delta t`` by specifying the desired Courant number ``C``.
+# we can determine the ``\Delta t`` by specifying the desired Courant number
+# ``C`` (denoted `CFL` in the code below).
 # In our case, a heuristically determined value of 0.4 is used.
 
 timeend = FT(100)
 ode_solver =
     ClimateMachine.ExplicitSolverType(solver_method = LSRK54CarpenterKennedy)
-C = FT(0.4)
-run_simulation(ode_solver, C, timeend);
+CFL = FT(0.4)
+run_simulation(ode_solver, CFL, timeend);
 
 # What if we wish to take a larger timestep size?  We could
 # try to increase the target Courant number, say ``C = 1.7``, and
@@ -155,14 +156,14 @@ run_simulation(ode_solver, C, timeend);
 ode_solver = ClimateMachine.ExplicitSolverType(
     solver_method = LSRK144NiegemannDiehlBusch,
 )
-C = FT(1.7)
-run_simulation(ode_solver, C, timeend);
+CFL = FT(1.7)
+run_simulation(ode_solver, CFL, timeend);
 
 # And it successfully completes. Currently, the 14-stage LSRK method
 # `LSRK144NiegemannDiehlBusch` contains the largest stability region of the
 # low-storage methods available in `ClimateMachine.jl`.
 
-# ### [Strong Stability Preserving Runge--Kutta methods](@id ssprk)
+# ### [Strong Stability Preserving Runge--Kutta (SSPRK) methods](@id ssprk)
 
 # Just as with the LSRK methods, the SSPRK methods are self-starting,
 # with ``\boldsymbol{Q}^{1} = \boldsymbol{q}^n``, and stage-values are of the form
@@ -179,11 +180,11 @@ run_simulation(ode_solver, C, timeend);
 # ``\boldsymbol{q}^{n+1} = \boldsymbol{Q}^{(N+1)}``. This allows the updates
 # to be performed with only three copies of the state vector
 # (storing ``\boldsymbol{q}^n``, ``\boldsymbol{Q}^{i}`` and ``\mathcal{T}(\boldsymbol{Q}^{i})``).
-# We illustrate here the use of a `SSPRK33ShuOsher` method.
+# We illustrate here the use of a [`SSPRK33ShuOsher`](@ref ClimateMachine.ODESolvers.SSPRK33ShuOsher) method.
 
 ode_solver = ClimateMachine.ExplicitSolverType(solver_method = SSPRK33ShuOsher)
-C = FT(0.2)
-run_simulation(ode_solver, C, timeend);
+CFL = FT(0.2)
+run_simulation(ode_solver, CFL, timeend);
 
 # ## References
 # - [Shu1988](@cite)

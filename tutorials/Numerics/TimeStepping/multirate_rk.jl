@@ -34,12 +34,13 @@ FT = Float64;
 # and a "slow" component ``{\mathcal{T}_{s}}``.
 
 # Referencing the canonical form introduced in [Time integration](@ref
-# Time-integration) we have that in any explicit
-# formulation ``\mathcal{F}(t, \boldsymbol{q}) \equiv 0`` and, in this particular
-# frumlation, ``\mathcal{T}(t, \boldsymbol{q}) \equiv \mathcal{G}(t, \boldsymbol{q})``.
+# Time-integration), both ``{\mathcal{T}_{f}}`` and ``{\mathcal{T}_{s}}``
+# could be discretized either explicitly or implicitly, hence, they could
+# belong to either ``\mathcal{F}(t, \boldsymbol{q})`` or ``\mathcal{G}(t, \boldsymbol{q})``
+# term.
 #
-# For a given time-step size ``\Delta t``, the two-rate method in \cite{Schlegel_2009} is summarized
-# as the following:
+# For a given time-step size ``\Delta t``, the two-rate method in [Schlegel2009](@cite)
+# is summarized as the following:
 #
 # ```math
 # \begin{align}
@@ -69,7 +70,7 @@ FT = Float64;
 # ```
 #
 # where the coefficients ``a``, ``b``, and ``c`` correspond to the Butcher
-# tableau for a given RK method. The superscripts O`` and I`` denote the
+# tableau for a given RK method. The superscripts ``O`` and ``I`` denote the
 # *outer* (slow) and *inner* (fast) components of the multirate method
 # respectively. Thus, tilde coefficients should be associated with the RK
 # method indicated by the superscripts. In other words, the RK methods
@@ -116,9 +117,9 @@ ode_solver = ClimateMachine.MultirateSolverType(
 )
 
 timeend = FT(3600)
-C = FT(5)
+CFL = FT(5)
 cfl_direction = HorizontalDirection()
-run_acousticwave(ode_solver, C, cfl_direction, timeend)
+run_acousticwave(ode_solver, CFL, cfl_direction, timeend);
 
 # The interested reader can explore the combination of different slow and
 # fast methods for Multirate solvers, consulting the ones available in
@@ -129,4 +130,5 @@ run_acousticwave(ode_solver, C, cfl_direction, timeend)
 
 # ## References
 # - [Giraldo2013](@cite)
+# - [Schlegel2009](@cite)
 # - [Schlegel2012](@cite)
