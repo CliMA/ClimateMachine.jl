@@ -1,6 +1,6 @@
 ### Soil heat model
 
-export SoilHeatModel, PrescribedTemperatureModel
+export SoilHeatModel, PrescribedTemperatureModel, get_temperature
 
 abstract type AbstractHeatModel <: AbstractSoilComponentModel end
 
