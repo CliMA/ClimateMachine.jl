@@ -43,11 +43,11 @@ function init_state_prognostic!(bl::DryAtmosModel,
     γ::FT = c_p / c_v
 
     ## Define bubble center and background potential temperature
-    xc::FT = 5000
-    zc::FT = 2000
+    rc::FT = 250
+    xc::FT = 1000
+    zc::FT = rc + 10
     r = sqrt((x - xc)^2 + (z - zc)^2)
-    rc::FT = 2000
-    θamplitude::FT = 2
+    θamplitude::FT = 0.5
 
     ## Reference temperature
     θ_ref::FT = 300
@@ -55,7 +55,7 @@ function init_state_prognostic!(bl::DryAtmosModel,
     ## Add the thermal perturbation:
     Δθ::FT = 0
     if r <= rc
-        Δθ = θamplitude * (1.0 - r / rc)
+        Δθ = θamplitude# * (1.0 - r / rc)
     end
 
     ## Compute perturbed thermodynamic state:
@@ -88,12 +88,12 @@ function main()
 
     mpicomm = MPI.COMM_WORLD
     polynomialorder = 4
-    Ne = (10, 10)
+    Ne = (40, 40)
 
-    xmax = FT(10000)
-    zmax = FT(10000)
+    xmax = FT(2000)
+    zmax = FT(2000)
 
-    timeend = 5000
+    timeend = 1000
     result = run(
         mpicomm,
         polynomialorder,
@@ -151,8 +151,8 @@ function run(
         model,
         grid;
         volume_numerical_flux_first_order = EntropyConservative(),
-        surface_numerical_flux_first_order = EntropyConservative(),
-        #surface_numerical_flux_first_order = MatrixFlux(),
+        #surface_numerical_flux_first_order = EntropyConservative(),
+        surface_numerical_flux_first_order = MatrixFlux(),
     )
 
     # determine the time step
@@ -173,8 +173,8 @@ function run(
       entropy_product(dg, η, Q1, Q2)
     end
 
-    #odesolver = LSRK144NiegemannDiehlBusch(esdg, Q; dt = dt, t0 = 0)
-    odesolver = RLSRK144NiegemannDiehlBusch(esdg, η_int, η_prod, Q; dt = dt, t0 = 0)
+    odesolver = LSRK144NiegemannDiehlBusch(esdg, Q; dt = dt, t0 = 0)
+    #odesolver = RLSRK144NiegemannDiehlBusch(esdg, η_int, η_prod, Q; dt = dt, t0 = 0)
 
     eng0 = norm(Q)
     @info @sprintf """Starting
@@ -222,13 +222,13 @@ function run(
 
         vtkstep = 0
         # output initial step
-        do_output(mpicomm, vtkdir, vtkstep, esdg, Q, model)
+        do_output(mpicomm, vtkdir, vtkstep, esdg, Q, model, polynomialorder)
 
         # setup the output callback
-        outputtime = 50
+        outputtime = timeend / 100
         cbvtk = EveryXSimulationSteps(floor(outputtime / dt)) do
             vtkstep += 1
-            do_output(mpicomm, vtkdir, vtkstep, esdg, Q, model)
+            do_output(mpicomm, vtkdir, vtkstep, esdg, Q, model, polynomialorder)
         end
         callbacks = (callbacks..., cbvtk)
     end
@@ -249,7 +249,7 @@ function run(
     engf
 end
 
-function do_output(mpicomm, vtkdir, vtkstep, esdg, Q, model, testname = "RTB")
+function do_output(mpicomm, vtkdir, vtkstep, esdg, Q, model, N, testname = "RTB")
     ## name of the file that this MPI rank will write
     filename = @sprintf(
         "%s/%s_mpirank%04d_step%04d",
@@ -262,7 +262,8 @@ function do_output(mpicomm, vtkdir, vtkstep, esdg, Q, model, testname = "RTB")
     statenames = flattenednames(vars_state(model, Prognostic(), eltype(Q)))
     auxnames = flattenednames(vars_state(model, Auxiliary(), eltype(Q)))
 
-    writevtk(filename, Q, esdg, statenames, esdg.state_auxiliary, auxnames)#; number_sample_points = 10)
+    writevtk(filename, Q, esdg, statenames, esdg.state_auxiliary, auxnames;
+             number_sample_points = 2 * (N + 1))
 
     ## Generate the pvtu file for these vtk files
     if MPI.Comm_rank(mpicomm) == 0
