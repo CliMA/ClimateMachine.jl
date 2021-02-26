@@ -459,14 +459,18 @@ function bomex_model(
 
     problem = AtmosProblem(
         boundaryconditions = (
-            AtmosBC(
-                tup = (ImpenetrableDragLaw(drag_law)...,),
+            AtmosBC(;
+                tup = (
+                    ImpenetrableDragLaw(drag_law)...,
+                    energy_bc,
+                    moisture_bc,
+                ),
                 momentum = ImpenetrableDragLaw{Momentum}(drag_law),
                 energy = energy_bc,
                 moisture = moisture_bc,
                 turbconv = turbconv_bcs(turbconv)[1],
             ),
-            AtmosBC(turbconv = turbconv_bcs(turbconv)[2]),
+            AtmosBC(; turbconv = turbconv_bcs(turbconv)[2]),
         ),
         init_state_prognostic = ics,
     )

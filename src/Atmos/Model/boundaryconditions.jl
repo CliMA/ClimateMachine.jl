@@ -1,6 +1,6 @@
 using CLIMAParameters.Planet: cv_d, T_0
 using ..BalanceLaws: BCDef
-import ..BalanceLaws: bc_val
+import ..BalanceLaws: bc_val, default_bcs
 export InitStateBC
 
 const NF1 = NumericalFluxFirstOrder
@@ -37,23 +37,57 @@ export average_density_sfc_int
 
 The standard boundary condition for [`AtmosModel`](@ref). The default options imply a "no flux" boundary condition.
 """
-Base.@kwdef struct AtmosBC{NT, M, E, Q, P, TR, TC, T}
-    momentum::M = ImpenetrableFreeSlip{Momentum}()
-    energy::E = Insulating()
-    moisture::Q = Impermeable()
-    precipitation::P = OutflowPrecipitation()
-    tracer::TR = ImpermeableTracer()
-    turbconv::TC = NoTurbConvBC()
-    tup::T = (
-        ImpenetrableFreeSlip()...,
-        Insulating(),
-        Impermeable(),
-        OutflowPrecipitation(),
-        ImpermeableTracer(),
+struct AtmosBC{M, E, Q, P, TR, TC, T}
+    momentum::M
+    energy::E
+    moisture::Q
+    precipitation::P
+    tracer::TR
+    turbconv::TC
+    tup::T
+end
+
+function AtmosBC(;
+    momentum = ImpenetrableFreeSlip{Momentum}(),
+    energy = Insulating(),
+    moisture = Impermeable(),
+    precipitation = OutflowPrecipitation(),
+    tracer = ImpermeableTracer(),
+    turbconv = NoTurbConvBC(),
+    tup = (),
+)
+    args = (
+        momentum,
+        energy,
+        moisture,
+        precipitation,
+        tracer,
+        turbconv,
+        dispatched_tuple(tup),
     )
+    return AtmosBC{typeof.(args)...}(args...)
 end
-function AtmosBC(;)
-end
+
+default_bcs(atmos::AtmosModel) = (
+    DefaultBC{Mass}(),
+    ImpenetrableFreeSlip{Momentum}(),
+    default_bcs(atmos.energy)...,
+    default_bcs(atmos.moisture)...,
+    default_bcs(atmos.precipitation)...,
+    default_bcs(atmos.turbconv)...,
+    default_bcs(atmos.tracers)...,
+)
+
+default_bcs(::DryModel) = ()
+default_bcs(::EquilMoist) = (Impermeable(),)
+default_bcs(::NonEquilMoist) = (Impermeable(),)
+default_bcs(::EnergyModel) = (Insulating(), ImpenetrableFreeSlip{Energy}())
+default_bcs(::NoPrecipitation) = ()
+default_bcs(::RainModel) = (OutflowPrecipitation(),)
+default_bcs(::RainSnowModel) = (OutflowPrecipitation(),)
+default_bcs(::NoTracers) = ()
+default_bcs(::NTracers{N}) where {N} = (ImpermeableTracer{N}(),)
+default_bcs(::NoTurbConv) = ()
 
 
 boundary_conditions(atmos::AtmosModel) = atmos.problem.boundaryconditions

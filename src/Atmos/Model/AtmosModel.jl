@@ -539,7 +539,6 @@ include("tendencies_moisture.jl")     # specify moisture tendencies
 include("tendencies_precipitation.jl")# specify precipitation tendencies
 include("tendencies_tracers.jl")      # specify tracer tendencies
 
-include("problem.jl")
 include("ref_state.jl")
 include("moisture.jl")
 include("energy.jl")
@@ -555,6 +554,7 @@ include("filters.jl")
 include("prog_prim_conversion.jl")   # prognostic<->primitive conversion
 include("reconstructions.jl")   # finite-volume method reconstructions
 include("projections.jl")            # include term-by-term projectinos
+include("problem.jl")
 
 include("linear_tendencies.jl")
 include("linear_atmos_tendencies.jl")

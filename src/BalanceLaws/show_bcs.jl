@@ -30,9 +30,11 @@ function show_bcs(
         else
             eqs = collect(last.(split.(string.(typeof.(prog_vars)), ".")))
         end
+        bcs_default = dispatched_tuple(default_bcs(bl))
         bcs_entries = map(all_bcs) do bc
             map(prognostic_vars(bl)) do prog
-                fmt_bcs(map(bcs_per_prog_var(bc.tup, prog)) do bc_pv
+                tup = used_bcs(bl, prog, bc, bcs_default)
+                fmt_bcs(map(tup) do bc_pv
                     fmt_bc(bc_pv, include_params)
                 end)
             end

@@ -1,11 +1,9 @@
-abstract type EnergyBC end
-
 using ..TurbulenceClosures
 using ClimateMachine.SurfaceFluxes:
     get_energy_flux, surface_conditions, DGScheme
 
 """
-    Insulating() :: EnergyBC
+    Insulating()
 No energy flux across the boundary.
 """
 struct Insulating{PV <: Energy} <: BCDef{PV} end
@@ -20,7 +18,7 @@ function atmos_energy_normal_boundary_flux_second_order!(
 
 
 """
-    PrescribedTemperature(fn) :: EnergyBC
+    PrescribedTemperature(fn)
 Prescribe the temperature at the boundary by `fn`, a function with signature
 `fn(state, aux, t)` returning the temperature (in K).
 """
@@ -74,14 +72,14 @@ end
 
 # TODO: Rename to PrescribedFlux
 """
-    PrescribedEnergyFlux(fn) :: EnergyBC
+    PrescribedEnergyFlux(fn)
 Prescribe the net inward energy flux across the boundary by `fn`, a function
 with signature `fn(state, aux, t)`, returning the flux (in W/m^2).
 """
-struct PrescribedEnergyFlux{FN, PV <: Energy} <: BCDef{PV}
+struct PrescribedEnergyFlux{PV <: Energy, FN} <: BCDef{PV}
     fn::FN
 end
-PrescribedEnergyFlux(fn::FN) where {FN} = PrescribedEnergyFlux{FN, Energy}(fn)
+PrescribedEnergyFlux(fn::FN) where {FN} = PrescribedEnergyFlux{Energy, FN}(fn)
 
 function atmos_energy_normal_boundary_flux_second_order!(
     nf,
@@ -107,15 +105,15 @@ function atmos_energy_normal_boundary_flux_second_order!(
 end
 
 """
-    Adiabaticθ(fn) :: EnergyBC
+    Adiabaticθ(fn)
 Prescribe the net inward potential temperature flux
 across the boundary by `fn`, a function with signature
 `fn(state, aux, t)`, returning the flux (in kgK/m^2).
 """
-struct Adiabaticθ{FN, PV <: ρθ_liq_ice} <: BCDef{PV}
+struct Adiabaticθ{PV <: ρθ_liq_ice, FN} <: BCDef{PV}
     fn::FN
 end
-Adiabaticθ(fn::FN) where {FN} = Adiabaticθ{FN, ρθ_liq_ice}(fn)
+Adiabaticθ(fn::FN) where {FN} = Adiabaticθ{ρθ_liq_ice, FN}(fn)
 
 function atmos_energy_normal_boundary_flux_second_order!(
     nf,
@@ -141,18 +139,18 @@ end
 
 # TODO: rename to BulkFormula
 """
-    BulkFormulaEnergy(fn) :: EnergyBC
+    BulkFormulaEnergy(fn)
 Calculate the net inward energy flux across the boundary. The drag
 coefficient is `C_h = fn_C_h(atmos, state, aux, t, normu_int_tan)`. The surface
 temperature and q_tot are `T, q_tot = fn_T_and_q_tot(atmos, state, aux, t)`.
 Return the flux (in W m^-2).
 """
-struct BulkFormulaEnergy{FNX, FNTM, PV <: Energy} <: BCDef{PV}
+struct BulkFormulaEnergy{PV <: Energy, FNX, FNTM} <: BCDef{PV}
     fn_C_h::FNX
     fn_T_and_q_tot::FNTM
 end
 BulkFormulaEnergy(fn_C_h::FNX, fn_T_and_q_tot::FNTM) where {FNX, FNTM} =
-    BulkFormulaEnergy{FNX, FNTM, Energy}(fn_C_h, fn_T_and_q_tot)
+    BulkFormulaEnergy{Energy, FNX, FNTM}(fn_C_h, fn_T_and_q_tot)
 
 function atmos_energy_normal_boundary_flux_second_order!(
     nf,
@@ -195,14 +193,17 @@ function atmos_energy_normal_boundary_flux_second_order!(
 end
 
 """
-    NishizawaEnergyFlux(fn) :: EnergyBC
+    NishizawaEnergyFlux(fn)
 Calculate the net inward energy flux across the boundary following Nishizawa and Kitamura (2018).
 Return the flux (in W m^-2).
 """
-struct NishizawaEnergyFlux{FNTM, FNX} <: EnergyBC
+struct NishizawaEnergyFlux{PV <: Energy, FNX, FNTM} <: BCDef{PV}
     fn_z0::FNX
     fn_T_and_q_tot::FNTM
 end
+NishizawaEnergyFlux(fn_z0::FNX, fn_T_and_q_tot::FNTM) where {FNX, FNTM} =
+    NishizawaEnergyFlux{Energy, FNX, FNTM}(fn_z0, fn_T_and_q_tot)
+
 function atmos_energy_normal_boundary_flux_second_order!(
     nf,
     bc_energy::NishizawaEnergyFlux,

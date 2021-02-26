@@ -4,7 +4,9 @@
 No moisture flux.
 """
 struct Impermeable{PV <: TotalMoisture} <: BCDef{PV} end
-Impermeable() = Impermeable{TotalMoisture}(),
+
+Impermeable() = Impermeable{TotalMoisture}()
+
 function atmos_moisture_normal_boundary_flux_second_order!(
     nf,
     bc_moisture::Impermeable,

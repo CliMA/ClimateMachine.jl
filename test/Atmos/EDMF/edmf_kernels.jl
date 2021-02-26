@@ -16,6 +16,7 @@ import ClimateMachine.BalanceLaws:
     primitive_to_prognostic!,
     get_prog_state,
     flux,
+    default_bcs,
     precompute,
     source,
     eq_tends,
@@ -203,6 +204,25 @@ get_prog_state(state, ::up_ρaθ_liq{i}) where {i} =
     (state.turbconv.updraft[i], :ρaθ_liq)
 get_prog_state(state, ::up_ρaq_tot{i}) where {i} =
     (state.turbconv.updraft[i], :ρaq_tot)
+
+default_bcs(::NoTurbConv) = ()
+
+default_bcs(m::EDMF) = (
+    DefaultBC{en_ρatke}(),
+    DefaultBC{en_ρaθ_liq_cv}(),
+    DefaultBC{en_ρaq_tot_cv}(),
+    DefaultBC{en_ρaθ_liq_q_tot_cv}(),
+    ntuple(
+        i -> DefaultBC{up_ρa{i}}(),
+        n_updrafts(m),
+    )ntuple(
+        i -> DefaultBC{up_ρaw{i}}(),
+        n_updrafts(m),
+    )ntuple(
+        i -> DefaultBC{up_ρaθ_liq{i}}(),
+        n_updrafts(m),
+    )ntuple(i -> DefaultBC{up_ρaq_tot{i}}(), n_updrafts(m)),
+)
 
 struct EntrDetr{PV} <: TendencyDef{Source, PV} end
 struct PressSource{PV} <: TendencyDef{Source, PV} end

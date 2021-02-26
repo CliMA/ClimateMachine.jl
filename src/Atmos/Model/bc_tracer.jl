@@ -6,6 +6,9 @@ No tracer diffusion across boundary
 struct ImpermeableTracer{PV <: Tracers{N} where {N}} <: BCDef{PV} end
 
 # No tracers by default:
+ImpermeableTracer{N}() where {N} = ImpermeableTracer{Tracers{N}}()
+
+# TODO: remove
 ImpermeableTracer() = ImpermeableTracer{Tracers{0}}()
 
 function atmos_tracer_normal_boundary_flux_second_order!(

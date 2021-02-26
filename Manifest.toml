@@ -202,6 +202,13 @@ git-tree-sha1 = "214c3fcac57755cfda163d91c58893a8723f93e9"
 uuid = "b552c78f-8df3-52c6-915a-8e097449b14b"
 version = "1.0.2"
 
+[[DispatchedTuples]]
+git-tree-sha1 = "c65ca35fc37aa113f6648d794b56ac0c9b70d68b"
+repo-rev = "main"
+repo-url = "https://github.com/charleskawczynski/DispatchedTuples.jl"
+uuid = "508c55e1-51b4-41fd-a5ca-7eb0327d070d"
+version = "0.1.0"
+
 [[Distances]]
 deps = ["LinearAlgebra", "Statistics"]
 git-tree-sha1 = "366715149014943abd71aa647a07a43314158b2d"
