@@ -22,9 +22,68 @@ export AtmosBC,
 
 export average_density_sfc_int
 
+
+# numerical_boundary_flux_first_order() => n * numerical_flux_first_order(state⁻,boundary_state(...))
+# numerical_boundary_flux_second_order() => sum(tendency -> boundary_flux(tendency))
+
+
+
+function boundary_flux(td::TendencyDef{PV}, bc::BCDef{PV}, bl, args) where {PV}
+    # implying a central flux? need numericalflux arg?
+    @unpack n = args
+    (dot(n, flux(td, bl, args⁺)) + dot(n, flux(td, bl, args⁻)) ./ 2
+end
+
+function boundary_flux(td::TendencyDef{PV}, bc::AtmosBC, bl::Atmos, args) where {PV<:Energy}
+    boundary_flux(td, bc.energy, bl, args)
+end
+
+boundary_eq_tends(pv::PrognosticVariable, bl, tt::AbstractTendencyType) = eq_tends(pv, bl, tt)
+
+abstract type TendencyDef{PV <: Union{PrognosticVariable, BC}} end
+
+# these would be better handled by just removing the terms, or adding new ones
+function boundary_flux(::DiffEnthalpyFlux{Energy}, bc::PrescribedFlux{Energy}, atmos, args)
+    bc.fn(atmos,args)
+end
+function boundary_flux(::DiffEnthalpyFlux{Energy}, bc::Insulating, atmos, args)
+    0
+end
+
+
+# by default, you will get the central-fluxed flux tendencies at the boundary
+# BUT we can either add/remove/replace certain terms with "boundary-specific" tendencies
+# e.g. ViscousStress{Momentum} => Bou
+
+function boundary_flux(::BoundaryDragViscousStress{Momentum},bl,args)
+    # define C/τ as required at the boundary, e.g.
+    u1⁻ = state_int⁻.ρu / state_int⁻.ρ
+    u_int⁻_tan = u1⁻ - dot(u1⁻, n) .* SVector(n)
+    normu_int⁻_tan = norm(u_int⁻_tan)
+    # NOTE: difference from design docs since normal points outwards
+    C = bc_momentum.drag.fn(state⁻, aux⁻, t, normu_int⁻_tan)
+    τn = C * normu_int⁻_tan * u_int⁻_tan
+    # both sides involve projections of normals, so signs are consistent
+    state⁻.ρ * τn
+end
+function boundary_flux(::ViscousFlux{Energy}, bc::DragLaw,bl,args)
+    @unpack state = args
+    @unpack τ = args.precomputed.turbulence
+    return τ * state.ρu
+end
+
+function flux(::ViscousFlux{ρθ_liq_ice}, atmos, args)
+    @unpack state, diffusive = args
+    @unpack D_t = args.precomputed.turbulence
+    return state.ρ * (-D_t) .* diffusive.energy.∇θ_liq_ice
+end
+    fluxᵀn.energy.ρe += state⁻.ρu' * τn
+
+
+
+
+
 """
-    AtmosBC(momentum = Impenetrable(FreeSlip())
-            energy   = Insulating()
             moisture = Impermeable()
             precipitation = OutflowPrecipitation()
             tracer  = ImpermeableTracer())
