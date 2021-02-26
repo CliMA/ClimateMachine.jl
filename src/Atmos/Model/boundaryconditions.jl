@@ -86,7 +86,7 @@ default_bcs(::NoPrecipitation) = ()
 default_bcs(::RainModel) = (OutflowPrecipitation(),)
 default_bcs(::RainSnowModel) = (OutflowPrecipitation(),)
 default_bcs(::NoTracers) = ()
-default_bcs(::NTracers{N}) where {N} = (ImpermeableTracer{N}(),)
+default_bcs(::NTracers{N}) where {N} = (ImpermeableTracer{NTracers{N}}(),)
 default_bcs(::NoTurbConv) = ()
 
 
