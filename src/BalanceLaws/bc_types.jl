@@ -95,9 +95,9 @@ function used_bcs(bl::BalanceLaw, prog::PrognosticVariable, bc, bcs_default)
     end
 
     # Error checking:
-    isa_prog(pv::Type{PV}) where {PV <: PrognosticVariable} = true
-    isa_prog(pv::Type{PV}) where {PV} = false
-    @assert all(isa_prog.(type_param.(tup)))
+    # isa_prog(pv::Type{PV}) where {PV <: PrognosticVariable} = true
+    # isa_prog(pv::Type{PV}) where {PV} = false
+    # @assert all(isa_prog.(type_param.(tup)))
     return tup
 end
 
