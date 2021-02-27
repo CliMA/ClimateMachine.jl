@@ -483,8 +483,6 @@ function compute_gradient_flux!(
     z = altitude(m, aux)
 
     gm_dif.S² = ∇transform.u[3, 1]^2 + ∇transform.u[3, 2]^2 + en_dif.∇w[3]^2 # ∇transform.u is Jacobian.T
-    # @show(gm_dif.S² - FT((1/400)^2))
-    # gm_dif.S² = FT((-1/400)^2)
 
     # Recompute l_mix, K_m and tke budget terms for output.
     ts = recover_thermo_state_all(m, state, aux)
@@ -507,10 +505,10 @@ function compute_gradient_flux!(
         env,
     )
 
-    en_dif.K_m = m.turbconv.mix_len.c_m * en_dif.l_mix * sqrt(tke_en)
+    en_dif.K_m = m.turbconv.mix_len.c_m #* en_dif.l_mix * sqrt(tke_en)
     K_h = en_dif.K_m / Pr_t
     ρa₀ = gm.ρ * env.a
-    Diss₀ = m.turbconv.mix_len.c_d * sqrt(tke_en) / en_dif.l_mix
+    Diss₀ = m.turbconv.mix_len.c_d / en_dif.l_mix #* sqrt(max(en.ρatke,0))# # Yair
 
     en_dif.shear = gm_dif.S² # tke Shear
     en_dif.shear_prod = ρa₀ * en_dif.K_m * gm_dif.S² - ρa₀ *Diss₀* tke_en  # tke Shear source
@@ -699,8 +697,8 @@ function source(::DissSource{en_ρatke}, atmos, args)
     en = args.state.turbconv.environment
     ρa₀ = gm.ρ * env.a
     tke_en = enforce_positivity(en.ρatke) / gm.ρ / env.a
-    return -en.ρatke * Diss₀  # tke Dissipation
-    # return -ρa₀ * Diss₀#* tke_en  # tke Dissipation
+    return -en.ρatke * Diss₀  # tke Dissipation -- YAIR
+    # return -ρa₀ * Diss₀* tke_en  # tke Dissipation -- Original
 end
 
 function source(::DissSource{en_ρaθ_liq_cv}, atmos, args)
@@ -973,7 +971,7 @@ function precompute(::EDMF, bl, args, ts, ::Flux{SecondOrder})
 
     en = state.turbconv.environment
     tke_en = enforce_positivity(en.ρatke) / env.a / state.ρ
-    K_m = 0.1#bl.turbconv.mix_len.c_m * l_mix * sqrt(tke_en)
+    K_m = bl.turbconv.mix_len.c_m #* l_mix * sqrt(tke_en)
     K_h = K_m / Pr_t
     ρaw_up = vuntuple(i -> up[i].ρaw, N_up)
 
@@ -1076,9 +1074,9 @@ function precompute(::EDMF, bl, args, ts, ::Source)
     en = state.turbconv.environment
     tke_en = enforce_positivity(en.ρatke) / env.a / state.ρ
 
-    K_m = 0.1#bl.turbconv.mix_len.c_m * l_mix * sqrt(tke_en)
+    K_m = bl.turbconv.mix_len.c_m #* l_mix * sqrt(tke_en)
     K_h = K_m / Pr_t
-    Diss₀ = bl.turbconv.mix_len.c_d #* sqrt(tke_en) / l_mix
+    Diss₀ = bl.turbconv.mix_len.c_d/ l_mix  # * sqrt(max(en.ρatke,0)) ## Yair
 
     return (;
         env,
