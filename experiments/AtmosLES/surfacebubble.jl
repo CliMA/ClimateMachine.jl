@@ -95,10 +95,10 @@ function config_surfacebubble(FT, N, resolution, xmax, ymax, zmax)
     ode_solver = ClimateMachine.ExplicitSolverType(
         solver_method = LSRK144NiegemannDiehlBusch,
     )
-
+    bc_energy = PrescribedEnergyFlux(energyflux)
     problem = AtmosProblem(
         boundaryconditions = (
-            AtmosBC(energy = PrescribedEnergyFlux(energyflux)),
+            AtmosBC(; tup = (bc_energy,)energy = bc_energy),
             AtmosBC(),
         ),
         init_state_prognostic = init_surfacebubble!,

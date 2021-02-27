@@ -299,6 +299,11 @@ function stable_bl_model(
 
     boundary_conditions = (
         AtmosBC(;
+            tup = (
+                ImpenetrableDragLaw(drag_law)...,
+                energy_bc,
+                moisture_bcs...,
+            ),
             momentum = ImpenetrableDragLaw{Momentum}(drag_law),
             energy = energy_bc,
             moisture_bcs...,

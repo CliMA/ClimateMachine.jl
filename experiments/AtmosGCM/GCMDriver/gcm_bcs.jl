@@ -18,19 +18,23 @@ function parse_surface_flux_arg(
         _C_drag = C_drag(param_set)::FT
         bulk_flux = Varying_SST_TJ16(param_set, orientation, moisture) # GCM-specific function for T_sfc, q_sfc = f(latitude, height)
         #bulk_flux = (T_sfc, q_sfc) # prescribed constant T_sfc, q_sfc
+        bc_energy = BulkFormulaEnergy(
+            (bl, state, aux, t, normPu_int) -> _C_drag,
+            (bl, state, aux, t) -> bulk_flux(state, aux, t),
+        )
+        bc_moisture = BulkFormulaMoisture(
+            (state, aux, t, normPu_int) -> _C_drag,
+            (state, aux, t) -> begin
+                _, q_tot = bulk_flux(state, aux, t)
+                q_tot
+            end,
+        )
+
         boundaryconditions = (
-            AtmosBC(
-                energy = BulkFormulaEnergy(
-                    (bl, state, aux, t, normPu_int) -> _C_drag,
-                    (bl, state, aux, t) -> bulk_flux(state, aux, t),
-                ),
-                moisture = BulkFormulaMoisture(
-                    (state, aux, t, normPu_int) -> _C_drag,
-                    (state, aux, t) -> begin
-                        _, q_tot = bulk_flux(state, aux, t)
-                        q_tot
-                    end,
-                ),
+            AtmosBC(;
+                tup = (bc_energy, bc_moisture),
+                energy = bc_energy,
+                moisture = bc_moisture,
             ),
             AtmosBC(),
         )

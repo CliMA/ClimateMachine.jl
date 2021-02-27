@@ -240,20 +240,23 @@ function config_baroclinic_wave(
 
     _C_drag = C_drag(param_set)::FT
     bulk_flux = Varying_SST_TJ16(param_set, SphericalOrientation(), moisture)
+    bc_energy = BulkFormulaEnergy(
+        (bl, state, aux, t, normPu_int) -> _C_drag,
+        (bl, state, aux, t) -> bulk_flux(state, aux, t),
+    )
+    bc_moisture = BulkFormulaMoisture(
+        (state, aux, t, normPu_int) -> _C_drag,
+        (state, aux, t) -> begin
+            _, q_tot = bulk_flux(state, aux, t)
+            q_tot
+        end,
+    )
     problem = AtmosProblem(
         boundaryconditions = (
-            AtmosBC(
-                energy = BulkFormulaEnergy(
-                    (bl, state, aux, t, normPu_int) -> _C_drag,
-                    (bl, state, aux, t) -> bulk_flux(state, aux, t),
-                ),
-                moisture = BulkFormulaMoisture(
-                    (state, aux, t, normPu_int) -> _C_drag,
-                    (state, aux, t) -> begin
-                        _, q_tot = bulk_flux(state, aux, t)
-                        q_tot
-                    end,
-                ),
+            AtmosBC(;
+                tup = (bc_energy, bc_moisture),
+                energy = bc_energy,
+                moisture = bc_moisture,
             ),
             AtmosBC(),
         ),

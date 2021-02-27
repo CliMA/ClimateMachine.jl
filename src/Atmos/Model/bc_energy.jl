@@ -28,17 +28,17 @@ end
 PrescribedTemperature(fn::FN) where {FN} = PrescribedTemperature{Energy, FN}(fn)
 
 function bc_val(
-    ::PrescribedTemperature{Energy},
+    bc::PrescribedTemperature{Energy},
     atmos::AtmosModel,
     ::Union{NF1, NF∇},
     args,
 )
-    @unpack state, aux, n = args
+    @unpack state, aux, t, n = args
     FT = eltype(aux)
     _T_0::FT = T_0(atmos.param_set)
     _cv_d::FT = cv_d(atmos.param_set)
 
-    T = bc_energy.fn(state, aux, t)
+    T = bc.fn(state, aux, t)
     return state.ρ * _cv_d * (T - _T_0) +
            state.ρ * gravitational_potential(atmos.orientation, aux)
 end
