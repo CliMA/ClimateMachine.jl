@@ -32,7 +32,7 @@ export average_density_sfc_int
             momentum = ImpenetrableFreeSlip{Momentum}()
             energy   = Insulating()
             moisture = Impermeable()
-            precipitation = OutflowPrecipitation()
+            precipitation = OutflowPrecipitation{Rain}()
             tracer  = ImpermeableTracer())
 
 The standard boundary condition for [`AtmosModel`](@ref). The default options imply a "no flux" boundary condition.
@@ -50,8 +50,8 @@ end
 function AtmosBC(;
     momentum = ImpenetrableFreeSlip{Momentum}(),
     energy = Insulating(),
-    moisture = Impermeable(),
-    precipitation = OutflowPrecipitation(),
+    moisture = Impermeable{TotalMoisture}(),
+    precipitation = OutflowPrecipitation{Rain}(),
     tracer = ImpermeableTracer(),
     turbconv = NoTurbConvBC(),
     tup = (),
@@ -79,12 +79,12 @@ default_bcs(atmos::AtmosModel) = (
 )
 
 default_bcs(::DryModel) = ()
-default_bcs(::EquilMoist) = (Impermeable(),)
-default_bcs(::NonEquilMoist) = (Impermeable(),)
+default_bcs(::EquilMoist) = (Impermeable{TotalMoisture}(),)
+default_bcs(::NonEquilMoist) = (Impermeable{TotalMoisture}(),Impermeable{LiquidMoisture}(),Impermeable{IceMoisture}(),)
 default_bcs(::EnergyModel) = (Insulating(), ImpenetrableFreeSlip{Energy}())
 default_bcs(::NoPrecipitation) = ()
-default_bcs(::RainModel) = (OutflowPrecipitation(),)
-default_bcs(::RainSnowModel) = (OutflowPrecipitation(),)
+default_bcs(::RainModel) = (OutflowPrecipitation{Rain}(),)
+default_bcs(::RainSnowModel) = (OutflowPrecipitation{Rain}(),OutflowPrecipitation{Snow}())
 default_bcs(::NoTracers) = ()
 default_bcs(::NTracers{N}) where {N} = (ImpermeableTracer{Tracers{N}}(),)
 default_bcs(::NoTurbConv) = ()

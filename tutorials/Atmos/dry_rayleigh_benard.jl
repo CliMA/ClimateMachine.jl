@@ -139,12 +139,18 @@ function config_problem(::Type{FT}, N, resolution, xmax, ymax, zmax) where {FT}
     problem = AtmosProblem(
         boundaryconditions = (
             AtmosBC(;
-                tup = (ImpenetrableNoSlip{Momentum}(),),
+                tup = (
+                    ImpenetrableNoSlip{Momentum}(),
+                    PrescribedTemperature((state, aux, t) -> T_bot),
+                ),
                 momentum = ImpenetrableNoSlip{Momentum}(),
                 energy = PrescribedTemperature((state, aux, t) -> T_bot),
             ),
             AtmosBC(;
-                tup = (ImpenetrableNoSlip{Momentum}(),),
+                tup = (
+                    ImpenetrableNoSlip{Momentum}(),
+                    PrescribedTemperature((state, aux, t) -> T_top),
+                ),
                 momentum = ImpenetrableNoSlip{Momentum}(),
                 energy = PrescribedTemperature((state, aux, t) -> T_top),
             ),

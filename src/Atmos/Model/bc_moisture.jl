@@ -1,10 +1,12 @@
 """
-    Impermeable() :: MoistureBC
+    Impermeable{PV <: Moisture} <: BCDef{PV}
 
 No moisture flux.
 """
-struct Impermeable{PV <: TotalMoisture} <: BCDef{PV} end
+struct Impermeable{PV <: Moisture} <: BCDef{PV} end
 
+# TODO: Remove this definition, since it's unclear which prognostic
+# variable this is defined for.
 Impermeable() = Impermeable{TotalMoisture}()
 
 function atmos_moisture_normal_boundary_flux_second_order!(
