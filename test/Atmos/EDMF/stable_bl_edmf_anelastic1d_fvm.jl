@@ -32,7 +32,6 @@ projection(::AtmosModel, ::TendencyDef{Source, PV}, x) where {PV <: Momentum} =
 # CLIMAParameters.Planet.T_surf_ref(::EarthParameterSet) = 290.0 # default
 CLIMAParameters.Planet.T_surf_ref(::EarthParameterSet) = 265
 
-
 """
     init_state_prognostic!(
             turbconv::EDMF{FT},
@@ -98,6 +97,7 @@ function init_state_prognostic!(
         en.ρatke = FT(0)
         en.ρaθ_liq_cv = FT(0)
     end
+
     en.ρaq_tot_cv = FT(0)
     en.ρaθ_liq_q_tot_cv = FT(0)
     return nothing
@@ -121,9 +121,12 @@ function main(::Type{FT}) where {FT}
 
     surface_flux = cl_args["surface_flux"]
 
-    # DG polynomial order
+    # FV-DG polynomial order
     N = (1,0)
     nelem_vert = 80
+    # DG polynomial order
+    # N = 4
+    # nelem_vert = 20
 
     # Prescribe domain parameters
     zmax = FT(400)
@@ -154,6 +157,7 @@ function main(::Type{FT}) where {FT}
         zmax,
         surface_flux;
         turbulence = ConstantKinematicViscosity(FT(0.1)),
+        # turbulence = ConstantKinematicViscosity(FT(0.14)),
         # turbulence = SmagorinskyLilly{FT}(0.21),
         turbconv = turbconv,
         compressibility = compressibility,
@@ -173,8 +177,9 @@ function main(::Type{FT}) where {FT}
         model;
         hmax = FT(40),
         solver_type = ode_solver_type,
-        numerical_flux_first_order = RoeNumericalFlux(),
+        # numerical_flux_first_order = RoeNumericalFlux(),
         fv_reconstruction = HBFVReconstruction(model, FVLinear()),
+        # Ncutoff = 3,
     )
 
     solver_config = ClimateMachine.SolverConfiguration(
@@ -183,7 +188,7 @@ function main(::Type{FT}) where {FT}
         driver_config,
         init_on_cpu = true,
         Courant_number = CFLmax,
-        # fixed_number_of_steps = 120
+        # fixed_number_of_steps = 25
     )
 
     # --- Zero-out horizontal variations:
@@ -208,10 +213,22 @@ function main(::Type{FT}) where {FT}
 
     dgn_config = config_diagnostics(driver_config)
 
+    # TMAR filter
+    cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(1) do
+        Filters.apply!(
+            solver_config.Q,
+            (turbconv_filters(turbconv)...,),
+            solver_config.dg.grid,
+            TMARFilter(),
+        )
+        nothing
+    end
+
     # boyd vandeven filter
     cb_boyd = GenericCallbacks.EveryXSimulationSteps(1) do
         Filters.apply!(
             solver_config.Q,
+            # ("energy.ρe",turbconv_filters(turbconv)...,),
             ("energy.ρe",),
             solver_config.dg.grid,
             BoydVandevenFilter(
@@ -247,7 +264,7 @@ function main(::Type{FT}) where {FT}
     check_cons =
         (ClimateMachine.ConservationCheck("ρ", "3000steps", FT(0.00000001)),)
 
-    cb_print_step = GenericCallbacks.EveryXSimulationSteps(1) do
+    cb_print_step = GenericCallbacks.EveryXSimulationSteps(100) do
         @show getsteps(solver_config.solver)
         nothing
     end
@@ -267,6 +284,41 @@ function main(::Type{FT}) where {FT}
 
     return solver_config, diag_arr, time_data
 end
+
+# function config_diagnostics(driver_config, timeend)
+#     FT = eltype(driver_config.grid)
+#     info = driver_config.config_info
+#     interval = "$(cld(timeend, 2) + 10)ssecs"
+#     interval = "10steps"
+
+#     boundaries = [
+#         FT(0) FT(0) FT(0)
+#         FT(info.hmax) FT(info.hmax) FT(info.zmax)
+#     ]
+#     axes = (
+#         [FT(1)],
+#         [FT(1)],
+#         collect(range(boundaries[1, 3], boundaries[2, 3], step = FT(50)),),
+#     )
+#     interpol = ClimateMachine.InterpolationConfiguration(
+#         driver_config,
+#         boundaries;
+#         axes = axes,
+#     )
+#     ds_dgngrp = setup_dump_state_diagnostics(
+#         SingleStackConfigType(),
+#         interval,
+#         driver_config.name,
+#         interpol = interpol,
+#     )
+#     dt_dgngrp = setup_dump_tendencies_diagnostics(
+#         SingleStackConfigType(),
+#         interval,
+#         driver_config.name,
+#         interpol = interpol,
+#     )
+#     return ClimateMachine.DiagnosticsConfiguration([ds_dgngrp, dt_dgngrp])
+# end
 
 solver_config, diag_arr, time_data = main(Float64)
 

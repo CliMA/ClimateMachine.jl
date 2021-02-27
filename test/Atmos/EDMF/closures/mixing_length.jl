@@ -118,7 +118,7 @@ function mixing_length(
     l_mix =
         lamb_smooth_minimum(SVector(L_Nˢ, L_W, L_tke), ml.smin_ub, ml.smin_rm)
 
+    # l_mix = min(L_W,FT(50))
     l_mix = min(L_W,FT(50))
-    # l_mix = FT(10)
-    return l_mix, ∂b∂z, Pr_t, L_Nˢ, L_W, L_tke
+    return l_mix, ∂b∂z, Pr_t
 end;

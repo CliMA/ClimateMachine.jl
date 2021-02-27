@@ -266,6 +266,8 @@ function stable_bl_model(
     if surface_flux == "prescribed"
         energy_bc = PrescribedEnergyFlux((state, aux, t) -> LHF + SHF)
         moisture_bc = PrescribedMoistureFlux((state, aux, t) -> moisture_flux)
+        # energy_bc = PrescribedEnergyFlux((state, aux, t) -> FT(0))
+        # moisture_bc = PrescribedMoistureFlux((state, aux, t) -> FT(0))
     elseif surface_flux == "bulk"
         energy_bc = BulkFormulaEnergy(
             (bl, state, aux, t, normPu_int) -> C_drag_,
