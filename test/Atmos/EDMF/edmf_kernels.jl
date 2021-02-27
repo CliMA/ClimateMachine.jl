@@ -212,16 +212,10 @@ default_bcs(m::EDMF) = (
     DefaultBC{en_ρaθ_liq_cv}(),
     DefaultBC{en_ρaq_tot_cv}(),
     DefaultBC{en_ρaθ_liq_q_tot_cv}(),
-    ntuple(
-        i -> DefaultBC{up_ρa{i}}(),
-        n_updrafts(m),
-    )ntuple(
-        i -> DefaultBC{up_ρaw{i}}(),
-        n_updrafts(m),
-    )ntuple(
-        i -> DefaultBC{up_ρaθ_liq{i}}(),
-        n_updrafts(m),
-    )ntuple(i -> DefaultBC{up_ρaq_tot{i}}(), n_updrafts(m)),
+    vuntuple(i -> DefaultBC{up_ρa{i}}(), n_updrafts(m))...,
+    vuntuple(i -> DefaultBC{up_ρaw{i}}(), n_updrafts(m))...,
+    vuntuple(i -> DefaultBC{up_ρaθ_liq{i}}(), n_updrafts(m))...,
+    vuntuple(i -> DefaultBC{up_ρaq_tot{i}}(), n_updrafts(m))...,
 )
 
 struct EntrDetr{PV} <: TendencyDef{Source, PV} end
