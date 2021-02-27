@@ -510,7 +510,7 @@ function compute_gradient_flux!(
     en_dif.K_m = 0.1#m.turbconv.mix_len.c_m * en_dif.l_mix * sqrt(tke_en)
     K_h = en_dif.K_m / Pr_t
     ρa₀ = gm.ρ * env.a
-    Diss₀ = m.turbconv.mix_len.c_d # * sqrt(tke_en) /(z+FT(1))# en_dif.l_mix
+    Diss₀ = m.turbconv.mix_len.c_d * sqrt(tke_en) / en_dif.l_mix
 
     en_dif.shear = gm_dif.S² # tke Shear
     en_dif.shear_prod = ρa₀ * en_dif.K_m * gm_dif.S² - ρa₀ *Diss₀* tke_en  # tke Shear source
