@@ -507,7 +507,7 @@ function compute_gradient_flux!(
         env,
     )
 
-    en_dif.K_m = 0.1#m.turbconv.mix_len.c_m * en_dif.l_mix * sqrt(tke_en)
+    en_dif.K_m = m.turbconv.mix_len.c_m * en_dif.l_mix * sqrt(tke_en)
     K_h = en_dif.K_m / Pr_t
     ρa₀ = gm.ρ * env.a
     Diss₀ = m.turbconv.mix_len.c_d * sqrt(tke_en) / en_dif.l_mix
