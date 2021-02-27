@@ -139,7 +139,8 @@ const param_set = EarthParameterSet()
 
     end
 end
-
+onfail(body, _::Test.Pass) = nothing
+onfail(body, _::Tuple{Test.Fail,T}) where {T} = body()
 # Shuffing disabled in GPU, Tuple for scalar indexing
 cpu_shuffle(array::ArrayType) =
     array_device(array) isa CPU ? shuffle(array) : Tuple(array)
@@ -148,23 +149,23 @@ cpu_shuffle(array::ArrayType) =
     FT = Float32
 
     # Stochastic sampling of parameter space
-    for j in 1:20
+    for j in 1:20#20
         # Define MO parameters to be recovered
-        u_star = cpu_shuffle(ArrayType(FT[0.05, 0.1, 0.2, 0.3, 0.4]))
-        θ_star = cpu_shuffle(ArrayType(FT[0, 50, 100, 200, 300])) # Functions not robust to θ_star < 0
+        u_star = cpu_shuffle(ArrayType(FT[0.2, 0.1, 0.2, 0.3, 0.4]))
+        θ_star = cpu_shuffle(ArrayType(FT[-20, 50, -500, 200, 300])) #cpu_shuffle(ArrayType(FT[0, 50, 100, 200, 300])) # Functions not robust to θ_star < 0
 
         # Define temperature parameters
-        θ_scale = cpu_shuffle(ArrayType(FT[290, 280, 270, 260, 250]))
-        θ_s = cpu_shuffle(ArrayType(FT[290, 280, 270, 260, 250]))
+        θ_scale = cpu_shuffle(ArrayType(FT[300, 290, 280, 270, 260]))
+        θ_s = cpu_shuffle(ArrayType(FT[300, 290, 280, 270, 260]))
 
         # Define a set of heights
         z = cpu_shuffle(ArrayType(FT[5, 10, 15, 20, 50]))
-        z_rough = cpu_shuffle(ArrayType(FT[0.001, 0.01, 0.1, 0.5, 1])) # Must be smaller than z
+        z_rough = cpu_shuffle(ArrayType(FT[0.1, 0.2, 0.5, 1, 2])) # Must be smaller than z
 
         # Relative initialization of MO parameters
-        LMO_init = cpu_shuffle(ArrayType(FT[-1.0, 0.2, 0.5, 1.0, 2.0]))
-        u_star_init = cpu_shuffle(ArrayType(FT[0.2, 0.5, 1.0, 1.5, 2.0])) # Must be positive
-        θ_star_init = cpu_shuffle(ArrayType(FT[-1e-6, 1e-6, -1e-6, 1e-6, 1e-6]))
+        LMO_init = cpu_shuffle(ArrayType(FT[0.9, 0.9, 0.9, 0.9, 0.9])) #cpu_shuffle(ArrayType(FT[1e3, 1e3, 1e3, 1e3, 1e3])) #cpu_shuffle(ArrayType(FT[-1.0, 0.2, 0.5, 1.0, 2.0]))
+        u_star_init = cpu_shuffle(ArrayType(FT[0.9, 0.9, 0.9, 0.9, 0.9])) #cpu_shuffle(ArrayType(FT[1e3, 1e3, 1e3, 1e3, 1e3])) # Must be positive
+        θ_star_init = cpu_shuffle(ArrayType(FT[0.9, 0.9, 0.9, 0.9, 0.9])) #cpu_shuffle(ArrayType(FT[eps(FT), eps(FT), eps(FT), eps(FT), eps(FT)])) #cpu_shuffle(ArrayType(FT[-1e-6, 1e-6, -1e-6, 1e-6, 1e-6]))
 
         for ii in 1:length(u_star)
             x_star_given = Tuple(ArrayType(FT[u_star[ii], θ_star[ii]]))
@@ -217,10 +218,20 @@ cpu_shuffle(array::ArrayType) =
 
             # Test is recovery under 5% error for all variables
             x_star_recovered = Tuple(recovered.x_star)
-            @test abs(x_star_recovered[1] - x_star_given[1]) /
-                  (abs(x_star_given[1]) + FT(1e-3)) < FT(0.05)
-            @test abs(x_star_recovered[2] - x_star_given[2]) /
-                  (abs(x_star_given[2]) + FT(1e-3)) < FT(0.05)
+            onfail(@test abs(x_star_recovered[1] - x_star_given[1]) /
+                  (abs(x_star_given[1]) + FT(1e-3)) < FT(0.05)) do
+                @show L, u_in, θ_in
+                @show x_star_given[1], x_star_given[2]
+                @show LMO_init[ii], u_star_init[ii], θ_star_init[ii]
+                @show z[ii]/z_rough[ii]
+            end
+            onfail(@test abs(x_star_recovered[2] - x_star_given[2]) /
+                  (abs(x_star_given[2]) + FT(1e-3)) < FT(0.05)) do
+                @show L, u_in, θ_in
+                @show x_star_given[1], x_star_given[2]
+                @show LMO_init[ii], u_star_init[ii], θ_star_init[ii]
+                @show z[ii]/z_rough[ii]
+            end
         end
     end
 end

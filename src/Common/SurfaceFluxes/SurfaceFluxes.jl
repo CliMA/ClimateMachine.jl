@@ -24,6 +24,7 @@ using CLIMAParameters: AbstractEarthParameterSet
 using CLIMAParameters.Planet: molmass_ratio, grav
 using CLIMAParameters.SubgridScale: von_karman_const
 using StaticArrays
+# using Test
 
 include("UniversalFunctions.jl")
 using .UniversalFunctions
@@ -77,8 +78,10 @@ function surface_fluxes_f!(F, x, nt)
     θ_scale = nt.θ_scale
 
     x_tup = Tuple(x)
-
+    # println(x_tup)
     u_star, θ_star = x_tup[2], x_tup[3]
+    # @test !isnan(u_star)
+    # @test !isnan(θ_star)
     if wθ_flux_star == nothing
         wθ_surf_flux = -u_star * θ_star
     else
@@ -429,8 +432,8 @@ function get_flux_coefficients(
     z0_tup = Tuple(z0)
     C = similar(x_star)
     C .= ntuple(Val(length(x_star))) do i
-        logζ_ψ_m = log(z / (length(z0) > 1 ? z0_tup[i] : z0) - psi_m)
-        logζ_ψ_h = log(z / (length(z0) > 1 ? z0_tup[i] : z0) - psi_h)
+        logζ_ψ_m = 1.0 #log(z / (length(z0) > 1 ? z0_tup[i] : z0) - psi_m)
+        logζ_ψ_h = 1.0 #log(z / (length(z0) > 1 ? z0_tup[i] : z0) - psi_h)
         if i == 1
             C_i = _von_karman_const^2 / logζ_ψ_m^2
         else
