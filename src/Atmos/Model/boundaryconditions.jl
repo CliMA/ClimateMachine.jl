@@ -80,11 +80,16 @@ default_bcs(atmos::AtmosModel) = (
 
 default_bcs(::DryModel) = ()
 default_bcs(::EquilMoist) = (Impermeable{TotalMoisture}(),)
-default_bcs(::NonEquilMoist) = (Impermeable{TotalMoisture}(),Impermeable{LiquidMoisture}(),Impermeable{IceMoisture}(),)
+default_bcs(::NonEquilMoist) = (
+    Impermeable{TotalMoisture}(),
+    Impermeable{LiquidMoisture}(),
+    Impermeable{IceMoisture}(),
+)
 default_bcs(::EnergyModel) = (Insulating(), ImpenetrableFreeSlip{Energy}())
 default_bcs(::NoPrecipitation) = ()
 default_bcs(::RainModel) = (OutflowPrecipitation{Rain}(),)
-default_bcs(::RainSnowModel) = (OutflowPrecipitation{Rain}(),OutflowPrecipitation{Snow}())
+default_bcs(::RainSnowModel) =
+    (OutflowPrecipitation{Rain}(), OutflowPrecipitation{Snow}())
 default_bcs(::NoTracers) = ()
 default_bcs(::NTracers{N}) where {N} = (ImpermeableTracer{Tracers{N}}(),)
 default_bcs(::NoTurbConv) = ()
