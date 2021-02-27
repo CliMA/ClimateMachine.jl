@@ -5,6 +5,7 @@ using FFTW
 using Printf
 using Statistics
 using PGFPlotsX
+using LaTeXStrings
 using ClimateMachine.Mesh.Elements: interpolationmatrix, lglpoints
 using ClimateMachine.VariableTemplates
 using ClimateMachine.Mesh.Grids: _x1, _x2, _x3, _MH
@@ -295,24 +296,31 @@ function plot_profiles(name, profile_data, labdata, ssdata)
   header = "zi = $zi, w_scale = $w_scale, tht_scale = $tht_scale, t_scale = $t_scale"
   println(header)
 
-  axis = @pgf GroupPlot({group_style= {group_size="3 by 1"}, ymax=2})
+  axis = @pgf GroupPlot({group_style= {group_size="3 by 1",
+                                       y_descriptions_at="edge left",
+                                      },
+                         ymin=0.0,
+                         ymax=1.3,
+                         width="6cm",
+                         height="10cm",
+                        })
   @pgf push!(
     axis,
-    {xmin=-0.5, xmax=1.5},
+    {xmin=-0.5, xmax=1.5, title=L"\langle \theta' w' \rangle / H_0"},
     Plot({}, Coordinates(hflux, z)),
     Plot({only_marks, mark="*", color="red"}, Coordinates(labdata.wxθ[2], labdata.wxθ[1])),
     Plot({only_marks, mark="x", color="blue"}, Coordinates(ssdata.wxθ[2], ssdata.wxθ[1]))
   )
   @pgf push!(
     axis,
-    {xmin=0, xmax=32},
+    {xmin=0, xmax=32, title=L"\langle \theta' \theta' \rangle / T_*^2"},
     Plot({}, Coordinates(var_tht, z)),
     Plot({only_marks, mark="*", color="red"}, Coordinates(labdata.θxθ[2], labdata.θxθ[1])),
     Plot({only_marks, mark="x", color="blue"}, Coordinates(ssdata.θxθ[2], ssdata.θxθ[1]))
   )
   @pgf push!(
     axis,
-    {xmin=0, xmax=0.5},
+    {xmin=0, xmax=0.5,title=L"\langle w' w' \rangle / w_*^2"},
     Plot({}, Coordinates(var_w, z)),
     Plot({only_marks, mark="*", color="red"}, Coordinates(labdata.wxw[2], labdata.wxw[1])),
     Plot({only_marks, mark="x", color="blue"}, Coordinates(ssdata.wxw[2], ssdata.wxw[1]))
@@ -376,7 +384,7 @@ function get_spectra(name, state_diagnostic, data)
       end
     end
 
-    spectrum_lev = round(Int, 660 / dx3)
+    spectrum_lev = round(Int, 673.3333333333333 / dx3)
     @show spectrum_lev
     S = @view S[:, :, spectrum_lev]
 
@@ -395,11 +403,15 @@ function get_spectra(name, state_diagnostic, data)
     Sk = (Skx + Sky) / 2
     @pgf begin 
       plot = Plot({}, Coordinates(k, Sk))
-      plot53 = Plot({color="blue"}, Coordinates(k, 0.05 * k .^ (-5 / 3)))
+      plot53 = Plot({color="red", dashed}, Coordinates(k, 0.05 * k .^ (-5 / 3)))
       axis = LogLogAxis({width="10cm",
                          height="10cm",
+                         xlabel="k",
+                         ylabel=L"E_w(k)",
                          ymax = maximum(Sk)+1},
-                        plot, plot53)
+                        plot,
+                        plot53,
+                        L"\node[] at (4e-1,0.4) {-5/3};")
       pgfsave(name, axis)
     end
 end
