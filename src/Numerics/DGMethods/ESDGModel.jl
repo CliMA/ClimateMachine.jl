@@ -156,21 +156,40 @@ function (esdg::ESDGModel)(
     end
 
     # volume tendency
-    comp_stream = esdg_volume_tendency!(device, (Nq, Nq))(
-        balance_law,
-        Val(dim),
-        Val(N),
-        esdg.volume_numerical_flux_first_order,
-        tendency.data,
-        state_prognostic.data,
-        state_auxiliary.data,
-        grid.vgeo,
-        grid.D[1],
-        α,
-        β,
-        ndrange = (nrealelem * Nq, Nq),
-        dependencies = (comp_stream,),
-    )
+    volume_tendency_kernel = :naive
+    if volume_tendency_kernel == :orig
+      comp_stream = esdg_volume_tendency!(device, (Nq, Nq))(
+          balance_law,
+          Val(dim),
+          Val(N),
+          esdg.volume_numerical_flux_first_order,
+          tendency.data,
+          state_prognostic.data,
+          state_auxiliary.data,
+          grid.vgeo,
+          grid.D[1],
+          α,
+          β,
+          ndrange = (nrealelem * Nq, Nq),
+          dependencies = (comp_stream,),
+      )
+    elseif volume_tendency_kernel == :naive
+      comp_stream = esdg_volume_tendency_naive!(device, (Nq, Nq, Nqk))(
+          balance_law,
+          Val(dim),
+          Val(N),
+          esdg.volume_numerical_flux_first_order,
+          tendency.data,
+          state_prognostic.data,
+          state_auxiliary.data,
+          grid.vgeo,
+          grid.D[1],
+          α,
+          β,
+          ndrange = (nrealelem * Nq, Nq, Nqk),
+          dependencies = (comp_stream,),
+      )
+    end
 
     # non-mirror surface tendency
     comp_stream = interface_tendency!(device, (Nfp,))(
