@@ -1,5 +1,5 @@
 #### Land sources
-export PhaseChange, Precip
+export PhaseChange, Precip, SoilRunoff
 
 function heaviside(x::FT) where {FT}
     if x >= FT(0)
@@ -65,8 +65,9 @@ function land_source!(
     t::Real,
     direction,
 ) where {FT}
-    bc = land.boundary_conditions.surface_bc.water
-    infiltration = compute_surface_grad_bc(
+    bc = land.boundary_conditions.surface_bc.soil_water
+    #this returns |K∇h|, so add minus sign
+    infiltration = -compute_surface_grad_bc(
         land.soil,
         bc.runoff_model,
         bc.precip_model,
@@ -75,7 +76,7 @@ function land_source!(
         aux,
         t,
     )
-    precip = bc.runoff_model(t)
+    precip = bc.precip_model(t)
     source.river.area  = -(precip - infiltration)
 end
 
