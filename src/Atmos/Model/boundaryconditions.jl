@@ -1,11 +1,12 @@
 using CLIMAParameters.Planet: cv_d, T_0
-using ..BalanceLaws: BCDef
+using ..BalanceLaws: BCDef, DefaultBCValue
 import ..BalanceLaws: bc_val, default_bcs
 export InitStateBC
 
 const NF1 = NumericalFluxFirstOrder
 const NF2 = NumericalFluxSecondOrder
 const NF∇ = NumericalFluxGradient
+const NF12∇ = Union{NF1, NF2, NF∇}
 
 export AtmosBC,
     ImpenetrableFreeSlip,

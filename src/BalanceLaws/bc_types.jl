@@ -1,8 +1,10 @@
 ##### Boundary condition types
 
+import Base
 using DispatchedTuples
 
 export BCDef, DefaultBC, set_bcs!, dispatched_tuple
+export DefaultBCValue
 
 """
     BCDef
@@ -19,6 +21,14 @@ The default boundary condition
 """
 struct DefaultBC{PV} <: BCDef{PV} end
 
+# Internal type
+struct DefaultBCValue end
+
+# If DefaultBCValue's are mixed with real values,
+# then let DefaultBCValue's be zero:
+Base.:+(::DefaultBCValue, x::FT) where {FT <: AbstractFloat} = x
+Base.:+(x::FT, ::DefaultBCValue) where {FT <: AbstractFloat} = x
+
 """
     bc_val(::BCDef{PV}, bl, nf, args)
 
@@ -28,7 +38,7 @@ Return the value of the boundary condition, given
  - `nf` the numerical flux
  - `args` top-level arguments, packed into a NamedTuple
 """
-bc_val(::BCDef{PV}, bl, nf, args) where {PV} = DefaultBC{PV}()
+bc_val(::DefaultBC{PV}, bl, nf, args) where {PV} = DefaultBCValue()
 
 """
     default_bcs(::BalanceLaw)
@@ -101,20 +111,10 @@ function used_bcs(bl::BalanceLaw, prog::PrognosticVariable, bc, bcs_default)
     return tup
 end
 
-diag_bc(::PVA, ::BCDef{PVB}) where {PVA, PVB} = nothing
-diag_bc(::PV, bcd::BCDef{PV}) where {PV} = bcd
-
-filter_bcs(t::Tuple) = filter(x -> !(x == nothing), t)
-diag_bc(tup, pv) = filter_bcs(map(bc -> diag_bc(pv, bc), tup))
-
-prog_var_bcs(::Tuple{}, ::PV) where {PV} = (DefaultBC{PV}(),)
-prog_var_bcs(t::Tuple, ::PV) where {PV} = t
-
-bcs_per_prog_var(tup, pv::PrognosticVariable) =
-    prog_var_bcs(diag_bc(tup, pv), pv)
-
-set_bc!(var⁺, name, bcvals::Tuple{DefaultBC}) = nothing
-set_bc!(var⁺, name, bcvals::NTuple{N, DefaultBC}) where {N} = nothing
+# TODO: remove Tuple{DefaultBC} method:
+# TODO: why is NTuple{N, DefaultBC}) where {N} needed?
+set_bc!(var⁺, name, bcvals::Tuple{DefaultBCValue}) = nothing
+set_bc!(var⁺, name, bcvals::NTuple{N, DefaultBCValue}) where {N} = nothing
 set_bc!(var⁺, name, bcvals) = setproperty!(var⁺, name, sum(bcvals))
 
 prog_var_instance(bc::BCDef{PV}) where {PV} = PV()

@@ -9,6 +9,8 @@ No energy flux across the boundary.
 struct Insulating{PV <: Energy} <: BCDef{PV} end
 Insulating() = Insulating{Energy}()
 
+bc_val(bc::Insulating, atmos::AtmosModel, ::NF12∇, args) = DefaultBCValue()
+
 function atmos_energy_normal_boundary_flux_second_order!(
     nf,
     bc_energy::Insulating,

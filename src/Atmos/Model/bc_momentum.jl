@@ -20,6 +20,12 @@ function bc_val(::ImpenetrableFreeSlip{Momentum}, ::AtmosModel, ::NF∇, args)
     return state.ρu - dot(state.ρu, n) .* SVector(n)
 end
 
+bc_val(::ImpenetrableFreeSlip{Momentum}, ::AtmosModel, ::NF2, args) =
+    DefaultBCValue()
+
+bc_val(::ImpenetrableFreeSlip{Energy}, ::AtmosModel, ::NF12∇, args) =
+    DefaultBCValue()
+
 function atmos_momentum_normal_boundary_flux_second_order!(
     nf,
     bc_momentum::ImpenetrableFreeSlip,
@@ -141,6 +147,13 @@ function bc_val(bc::ImpenetrableDragLaw{Momentum}, ::AtmosModel, ::NF2, args)
     # both sides involve projections of normals, so signs are consistent
     return state.ρ + state.ρ * τn
 end
+
+bc_val(
+    ::ImpenetrableDragLaw{PV},
+    ::AtmosModel,
+    ::Union{NF1, NF∇},
+    args,
+) where {PV <: Union{Momentum, Energy}} = DefaultBCValue()
 
 function bc_val(::ImpenetrableDragLaw{Energy}, ::AtmosModel, ::NF2, args)
     @unpack state = args

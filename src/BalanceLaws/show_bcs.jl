@@ -39,7 +39,6 @@ function show_bcs(
                 end)
             end
         end
-
         table_complete || @warn "This BC table is temporarily incomplete"
 
         data = hcat(eqs, collect.(bcs_entries)...)
@@ -52,7 +51,7 @@ function show_bcs(
         )
     else
         msg = "Defining `prognostic_vars` and\n"
-        msg *= "`bcs_per_prog_var` for $(nameof(typeof(bl))) will\n"
+        msg *= "`default_bcs` for $(nameof(typeof(bl))) will\n"
         msg *= "enable printing a table of boundary conditions."
         @info msg
     end
