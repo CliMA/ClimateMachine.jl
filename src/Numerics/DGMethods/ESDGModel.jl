@@ -156,7 +156,7 @@ function (esdg::ESDGModel)(
     end
 
     # volume tendency
-    volume_tendency_kernel = :naive
+    volume_tendency_kernel = :naive_split
     if volume_tendency_kernel == :orig
       comp_stream = esdg_volume_tendency!(device, (Nq, Nq))(
           balance_law,
@@ -175,6 +175,37 @@ function (esdg::ESDGModel)(
       )
     elseif volume_tendency_kernel == :naive
       comp_stream = esdg_volume_tendency_naive!(device, (Nq, Nq, Nqk))(
+          balance_law,
+          Val(dim),
+          Val(N),
+          esdg.volume_numerical_flux_first_order,
+          tendency.data,
+          state_prognostic.data,
+          state_auxiliary.data,
+          grid.vgeo,
+          grid.D[1],
+          α,
+          β,
+          ndrange = (nrealelem * Nq, Nq, Nqk),
+          dependencies = (comp_stream,),
+      )
+    elseif volume_tendency_kernel == :naive_split
+      comp_stream = esdg_volume_tendency_naive_ξ1ξ2!(device, (Nq, Nq, Nqk))(
+          balance_law,
+          Val(dim),
+          Val(N),
+          esdg.volume_numerical_flux_first_order,
+          tendency.data,
+          state_prognostic.data,
+          state_auxiliary.data,
+          grid.vgeo,
+          grid.D[1],
+          α,
+          β,
+          ndrange = (nrealelem * Nq, Nq, Nqk),
+          dependencies = (comp_stream,),
+      )
+      comp_stream = esdg_volume_tendency_naive_ξ3!(device, (Nq, Nq, Nqk))(
           balance_law,
           Val(dim),
           Val(N),
