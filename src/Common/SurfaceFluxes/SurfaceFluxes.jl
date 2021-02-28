@@ -190,9 +190,10 @@ function surface_conditions(
         param_set,
         z_in,
         x_star,
-        θ_scale,
+        x_s,
         L_MO,
         z_0,
+        scheme,
         universal_func,
     )
 
@@ -409,32 +410,54 @@ end
         universal_func,
     )
 
-
+Returns the exchange coefficients for bulk transfer formulas associated
+with the frictional parameters `x_star` and the surface layer similarity
+profiles. Taken from equations (36) and (37) of Byun (1990).
 """
 function get_flux_coefficients(
     param_set,
-    z,
+    z_in,
     x_star::VFT,
-    θ_scale,
+    x_s,
     L_MO,
-    z0,
+    z0::Union{AbstractVector, FT},
+    scheme,
     universal_func,
-) where {VFT}
+) where {VFT, FT}
     N = length(x_star)
-    FT = typeof(z)
-    _von_karman_const::FT = von_karman_const(param_set)
-    uf = universal_func(param_set, L_MO)
-    psi_m = psi(uf, z / L_MO, MomentumTransport())
-    psi_h = psi(uf, z / L_MO, HeatTransport())
     z0_tup = Tuple(z0)
+    x_star_tup = Tuple(x_star)
+    x_s_tup = Tuple(x_s)
+    u_in = recover_profile(
+        param_set,
+        z_in,
+        x_star_tup[1],
+        x_s_tup[1],
+        (length(z0) > 1 ? z0_tup[1] : z0),
+        L_MO,
+        MomentumTransport(),
+        scheme,
+        universal_func,
+    )
     C = similar(x_star)
     C .= ntuple(Val(length(x_star))) do i
-        logζ_ψ_m = log(z / (length(z0) > 1 ? z0_tup[i] : z0) - psi_m)
-        logζ_ψ_h = log(z / (length(z0) > 1 ? z0_tup[i] : z0) - psi_h)
         if i == 1
-            C_i = _von_karman_const^2 / logζ_ψ_m^2
+            C_i = x_star[i]^2 / (u_in - x_s_tup[i])^2
         else
-            C_i = _von_karman_const^2 / logζ_ψ_m / logζ_ψ_h
+            ϕ_in = recover_profile(
+                param_set,
+                z_in,
+                x_star_tup[i],
+                x_s_tup[i],
+                (length(z0) > 1 ? z0_tup[i] : z0),
+                L_MO,
+                HeatTransport(),
+                scheme,
+                universal_func,
+            )
+            C_i =
+                x_star[1] * x_star[i] / (u_in - x_s_tup[1]) /
+                (ϕ_in - x_s_tup[i])
         end
         C_i
     end
