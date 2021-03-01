@@ -45,7 +45,7 @@ struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 import CLIMAParameters
 
-using ClimateMachine.Atmos: altitude, recover_thermo_state, density
+using ClimateMachine.Atmos: altitude, recover_thermo_state, density, pressure
 
 """
   StableBL Geostrophic Forcing (Source)
@@ -158,7 +158,9 @@ function init_problem!(problem, bl, state, aux, localgeo, t)
     end
 
     ρ = bl.compressibility isa Compressible ? air_density(TS) : aux.ref_state.ρ
+
     # Compute momentum contributions
+
     ρu = ρ * u
     ρv = ρ * v
     ρw = ρ * w
@@ -214,6 +216,8 @@ function stable_bl_model(
     q_sfc = FT(0)
 
     g = compressibility isa Compressible ? (Gravity(),) : ()
+    LHF = FT(0) # Latent heat flux `[W/m²]`
+    SHF = FT(0) # Sensible heat flux `[W/m²]`
 
     # Assemble source components
     source_default = (

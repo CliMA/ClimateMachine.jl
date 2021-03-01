@@ -130,7 +130,8 @@ function new_thermo_state_up(
 ) where {FT}
     N_up = n_updrafts(m.turbconv)
     up = state.turbconv.updraft
-    p = air_pressure(ts)
+    # check if 1D_anelastic
+    p = pressure(m, state, aux)
 
     # compute thermo state for updrafts
     ts_up = vuntuple(N_up) do i
@@ -153,7 +154,8 @@ function new_thermo_state_up(
 
     N_up = n_updrafts(m.turbconv)
     up = state.turbconv.updraft
-    p = air_pressure(ts)
+    # check if 1D_anelastic
+    p = pressure(m, state, aux)
 
     # compute thermo state for updrafts
     ts_up = vuntuple(N_up) do i
@@ -181,19 +183,31 @@ function new_thermo_state_en(
 )
     N_up = n_updrafts(m.turbconv)
     up = state.turbconv.updraft
+    # check if 1D_anelastic
+    ρ = density(m, state, aux)
+    p = pressure(m, state, aux)
 
     # diagnose environment thermo state
-    ρ_inv = 1 / state.ρ
-    p = air_pressure(ts)
+    ρ_inv = 1 / ρ
     θ_liq = liquid_ice_pottemp(ts)
     a_en = environment_area(state, N_up)
-    θ_liq_en = (θ_liq - sum(vuntuple(j -> up[j].ρaθ_liq * ρ_inv, N_up))) / a_en
+    ρaθ_liq_up = vuntuple(N_up) do i
+        fix_void_up(up[i].ρa, up[i].ρaθ_liq, up[i].ρa*θ_liq)
+    end
+    θ_liq_en = (θ_liq - sum(vuntuple(j -> ρaθ_liq_up[j] * ρ_inv, N_up))) / a_en
     a_min = m.turbconv.subdomains.a_min
     a_max = m.turbconv.subdomains.a_max
     if !(0 <= θ_liq_en)
-        @print("ρaθ_liq_up = ", up[Val(1)].ρaθ_liq, "\n")
+        @show(ts)
+        @print("ρaθ_liq_up = ", ρaθ_liq_up[Val(1)], "\n")
         @print("θ_liq = ", θ_liq, "\n")
         @print("θ_liq_en = ", θ_liq_en, "\n")
+        @print("ρ = ", ρ, "\n")
+        @print("p = ", p, "\n")
+        @print("ρa_up = ", up[Val(1)].ρa, "\n")
+        @print("a_en = ", a_en, "\n")
+        @print("a_min = ", a_min, "\n")
+        @print("a_max = ", a_max, "\n")
         error("Environment θ_liq_en out-of-bounds in new_thermo_state_en")
     end
     ts_en = PhaseDry_pθ(m.param_set, p, θ_liq_en)
@@ -210,9 +224,12 @@ function new_thermo_state_en(
     N_up = n_updrafts(m.turbconv)
     up = state.turbconv.updraft
 
+    # check if 1D_anelastic
+    ρ = density(m, state, aux)
+    p = pressure(m, state, aux)
+
     # diagnose environment thermo state
-    ρ_inv = 1 / state.ρ
-    p = air_pressure(ts)
+    ρ_inv = 1 / ρ
     θ_liq = liquid_ice_pottemp(ts)
     q_tot = total_specific_humidity(ts)
     a_en = environment_area(state, N_up)

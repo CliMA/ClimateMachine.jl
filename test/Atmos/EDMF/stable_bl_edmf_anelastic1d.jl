@@ -18,6 +18,16 @@ include(joinpath(clima_dir, "experiments", "AtmosLES", "stable_bl_model.jl"))
 include("edmf_model.jl")
 include("edmf_kernels.jl")
 
+projection(
+    ::AtmosModel,
+    ::TendencyDef{Flux{O}, PV},
+    x,
+) where {O, PV <: Momentum} =
+    x .* SArray{Tuple{3, 3}}(1, 1, 1, 1, 1, 1, 0, 0, 0)
+
+projection(::AtmosModel, ::TendencyDef{Source, PV}, x) where {PV <: Momentum} =
+    x .* SVector(1, 1, 0)
+
 # CLIMAParameters.Planet.T_surf_ref(::EarthParameterSet) = 290.0 # default
 CLIMAParameters.Planet.T_surf_ref(::EarthParameterSet) = 265
 
@@ -101,7 +111,7 @@ function main(::Type{FT}) where {FT}
         help = "specify surface flux for energy and moisture"
         metavar = "prescribed|bulk|custom_sbl"
         arg_type = String
-        default = "prescribed"
+        default = "custom_sbl"
     end
 
     cl_args = ClimateMachine.init(parse_clargs = true, custom_clargs = sbl_args)
@@ -119,7 +129,7 @@ function main(::Type{FT}) where {FT}
 
     # Simulation time
     timeend = FT(1800 * 1)
-    CFLmax = FT(1000)
+    CFLmax = FT(100)
 
     config_type = SingleStackConfigType
 
@@ -129,8 +139,8 @@ function main(::Type{FT}) where {FT}
 
     N_updrafts = 1
     N_quad = 3
-    turbconv = NoTurbConv()
-    # turbconv = EDMF(FT, N_updrafts, N_quad)
+    # turbconv = NoTurbConv()
+    turbconv = EDMF(FT, N_updrafts, N_quad)
     # compressibility = Compressible()
     compressibility = Anelastic1D()
 
@@ -139,7 +149,7 @@ function main(::Type{FT}) where {FT}
         config_type,
         zmax,
         surface_flux;
-        turbulence = SmagorinskyLilly{FT}(0.21),
+        turbulence = ConstantKinematicViscosity(FT(0)),
         turbconv = turbconv,
         compressibility = compressibility,
     )
@@ -154,6 +164,7 @@ function main(::Type{FT}) where {FT}
         model;
         hmax = FT(40),
         solver_type = ode_solver_type,
+        # numerical_flux_first_order = RoeNumericalFlux(),
     )
 
     solver_config = ClimateMachine.SolverConfiguration(
@@ -185,6 +196,17 @@ function main(::Type{FT}) where {FT}
     # ---
 
     dgn_config = config_diagnostics(driver_config)
+
+    # TMAR filter
+    cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(1) do
+        Filters.apply!(
+            solver_config.Q,
+            (turbconv_filters(turbconv)...,),
+            solver_config.dg.grid,
+            TMARFilter(),
+        )
+        nothing
+    end
 
     # boyd vandeven filter
     cb_boyd = GenericCallbacks.EveryXSimulationSteps(1) do
@@ -224,6 +246,8 @@ function main(::Type{FT}) where {FT}
     # so mass should be completely conserved:
     check_cons =
         (ClimateMachine.ConservationCheck("ρ", "3000steps", FT(0.00000001)),)
+    check_cons =
+        (ClimateMachine.ConservationCheck("ρ", "3000steps", FT(0.00000001)),)
 
     cb_print_step = GenericCallbacks.EveryXSimulationSteps(100) do
         @show getsteps(solver_config.solver)
@@ -234,7 +258,7 @@ function main(::Type{FT}) where {FT}
         solver_config;
         diagnostics_config = dgn_config,
         check_cons = check_cons,
-        user_callbacks = (cb_boyd, cb_data_vs_time, cb_print_step),
+        user_callbacks = (cb_boyd, cb_data_vs_time, cb_print_step), #  
         check_euclidean_distance = true,
     )
 
@@ -243,6 +267,41 @@ function main(::Type{FT}) where {FT}
     push!(time_data, gettime(solver_config.solver))
 
     return solver_config, diag_arr, time_data
+end
+
+function config_diagnostics(driver_config, timeend)
+    FT = eltype(driver_config.grid)
+    info = driver_config.config_info
+    interval = "$(cld(timeend, 2) + 10)ssecs"
+    interval = "10steps"
+
+    boundaries = [
+        FT(0) FT(0) FT(0)
+        FT(info.hmax) FT(info.hmax) FT(info.zmax)
+    ]
+    axes = (
+        [FT(1)],
+        [FT(1)],
+        collect(range(boundaries[1, 3], boundaries[2, 3], step = FT(50)),),
+    )
+    interpol = ClimateMachine.InterpolationConfiguration(
+        driver_config,
+        boundaries;
+        axes = axes,
+    )
+    ds_dgngrp = setup_dump_state_diagnostics(
+        SingleStackConfigType(),
+        interval,
+        driver_config.name,
+        interpol = interpol,
+    )
+    dt_dgngrp = setup_dump_tendencies_diagnostics(
+        SingleStackConfigType(),
+        interval,
+        driver_config.name,
+        interpol = interpol,
+    )
+    return ClimateMachine.DiagnosticsConfiguration([ds_dgngrp, dt_dgngrp])
 end
 
 solver_config, diag_arr, time_data = main(Float64)

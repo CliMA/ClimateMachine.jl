@@ -1,7 +1,7 @@
 #### Surface model kernels
 
 using Statistics
-
+# include(joinpath(clima_dir, "test", "Atmos", "EDMF", "helper_funcs", "utility_funcs.jl"));
 """
     subdomain_surface_values(
         surf::SurfaceModel,
@@ -74,7 +74,6 @@ function subdomain_surface_values(
     q_tot_up_surf = ntuple(N_up) do i
         ρq_tot * ρ_inv + surface_scalar_coeff[i] * sqrt(max(q_tot_cv, 0))
     end
-
     return (
         a_up_surf = a_up_surf,
         upd_θ_liq_surf = upd_θ_liq_surf,
