@@ -787,7 +787,8 @@ struct InterpolationCubedSphere{
                         rad * cosd(lat_grd[j]) * sind(long_grd[k]) # inclination -> latitude; azimuthal -> longitude.
 
                     uw_grd[1], uw_grd[2], uw_grd[3] =
-                        Topologies.equiangular_cubed_shell_unwarp(
+                        Topologies.cubed_sphere_unwarp(
+                            EquiangularCubedSphere(),
                             x1_grd,
                             x2_grd,
                             x3_grd,

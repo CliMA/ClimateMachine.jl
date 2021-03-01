@@ -86,7 +86,7 @@ function test_run(
             nelem = numelem_vert,
         )
         topology = StackedCubedSphereTopology(mpicomm, numelem_horz, vert_range)
-        meshwarp = equiangular_cubed_shell_warp
+        meshwarp = equiangular_cubed_sphere_warp
     end
 
     grid = DiscontinuousSpectralElementGrid(

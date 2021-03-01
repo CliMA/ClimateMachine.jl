@@ -77,7 +77,7 @@ function test_run(
         FloatType = FT,
         DeviceArray = ArrayType,
         polynomialorder = polynomialorder,
-        meshwarp = equiangular_cubed_shell_warp,
+        meshwarp = equiangular_cubed_sphere_warp,
     )
     T_profile = IsothermalProfile(param_set, setup.T_ref)
 

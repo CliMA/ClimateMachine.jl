@@ -110,7 +110,7 @@ function test_run(
         FloatType = FT,
         DeviceArray = ArrayType,
         polynomialorder = polynomialorder,
-        meshwarp = topo == Sphere ? equiangular_cubed_shell_warp :
+        meshwarp = topo == Sphere ? equiangular_cubed_sphere_warp :
                    (x...) -> identity(x),
     )
 

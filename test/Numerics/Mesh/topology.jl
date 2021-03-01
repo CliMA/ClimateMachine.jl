@@ -4,37 +4,28 @@ using Combinatorics, MPI
 
 MPI.Initialized() || MPI.Init()
 
-@testset "equiangular_cubed_shell_warp tests" begin
-    import ClimateMachine.Mesh.Topologies: equiangular_cubed_shell_warp
+@testset "Equiangular cubed_sphere_warp tests" begin
+    import ClimateMachine.Mesh.Topologies: equiangular_cubed_sphere_warp
+
+    # Create function alias for shorter formatting
+    eacsw = equiangular_cubed_sphere_warp
 
     @testset "check radius" begin
-        @test hypot(equiangular_cubed_shell_warp(3.0, -2.2, 1.3)...) ≈ 3.0 rtol =
-            eps()
-        @test hypot(equiangular_cubed_shell_warp(-3.0, -2.2, 1.3)...) ≈ 3.0 rtol =
-            eps()
-        @test hypot(equiangular_cubed_shell_warp(1.1, -2.2, 3.0)...) ≈ 3.0 rtol =
-            eps()
-        @test hypot(equiangular_cubed_shell_warp(1.1, -2.2, -3.0)...) ≈ 3.0 rtol =
-            eps()
-        @test hypot(equiangular_cubed_shell_warp(1.1, 3.0, 0.0)...) ≈ 3.0 rtol =
-            eps()
-        @test hypot(equiangular_cubed_shell_warp(1.1, -3.0, 0.0)...) ≈ 3.0 rtol =
-            eps()
+        @test hypot(eacsw(3.0, -2.2, 1.3)...) ≈ 3.0 rtol = eps()
+        @test hypot(eacsw(-3.0, -2.2, 1.3)...) ≈ 3.0 rtol = eps()
+        @test hypot(eacsw(1.1, -2.2, 3.0)...) ≈ 3.0 rtol = eps()
+        @test hypot(eacsw(1.1, -2.2, -3.0)...) ≈ 3.0 rtol = eps()
+        @test hypot(eacsw(1.1, 3.0, 0.0)...) ≈ 3.0 rtol = eps()
+        @test hypot(eacsw(1.1, -3.0, 0.0)...) ≈ 3.0 rtol = eps()
     end
 
     @testset "check sign" begin
-        @test sign.(equiangular_cubed_shell_warp(3.0, -2.2, 1.3)) ==
-              sign.((3.0, -2.2, 1.3))
-        @test sign.(equiangular_cubed_shell_warp(-3.0, -2.2, 1.3)) ==
-              sign.((-3.0, -2.2, 1.3))
-        @test sign.(equiangular_cubed_shell_warp(1.1, -2.2, 3.0)) ==
-              sign.((1.1, -2.2, 3.0))
-        @test sign.(equiangular_cubed_shell_warp(1.1, -2.2, -3.0)) ==
-              sign.((1.1, -2.2, -3.0))
-        @test sign.(equiangular_cubed_shell_warp(1.1, 3.0, 0.0)) ==
-              sign.((1.1, 3.0, 0.0))
-        @test sign.(equiangular_cubed_shell_warp(1.1, -3.0, 0.0)) ==
-              sign.((1.1, -3.0, 0.0))
+        @test sign.(eacsw(3.0, -2.2, 1.3)) == sign.((3.0, -2.2, 1.3))
+        @test sign.(eacsw(-3.0, -2.2, 1.3)) == sign.((-3.0, -2.2, 1.3))
+        @test sign.(eacsw(1.1, -2.2, 3.0)) == sign.((1.1, -2.2, 3.0))
+        @test sign.(eacsw(1.1, -2.2, -3.0)) == sign.((1.1, -2.2, -3.0))
+        @test sign.(eacsw(1.1, 3.0, 0.0)) == sign.((1.1, 3.0, 0.0))
+        @test sign.(eacsw(1.1, -3.0, 0.0)) == sign.((1.1, -3.0, 0.0))
     end
 
     @testset "check continuity" begin
@@ -42,102 +33,73 @@ MPI.Initialized() || MPI.Init()
             permutations([3.0, 2.999999999, 1.3]),
             permutations([2.999999999, 3.0, 1.3]),
         )
-            @test all(
-                equiangular_cubed_shell_warp(u...) .≈
-                equiangular_cubed_shell_warp(v...),
-            )
+            @test all(eacsw(u...) .≈ eacsw(v...))
         end
         for (u, v) in zip(
             permutations([3.0, -2.999999999, 1.3]),
             permutations([2.999999999, -3.0, 1.3]),
         )
-            @test all(
-                equiangular_cubed_shell_warp(u...) .≈
-                equiangular_cubed_shell_warp(v...),
-            )
+            @test all(eacsw(u...) .≈ eacsw(v...))
         end
         for (u, v) in zip(
             permutations([-3.0, 2.999999999, 1.3]),
             permutations([-2.999999999, 3.0, 1.3]),
         )
-            @test all(
-                equiangular_cubed_shell_warp(u...) .≈
-                equiangular_cubed_shell_warp(v...),
-            )
+            @test all(eacsw(u...) .≈ eacsw(v...))
         end
         for (u, v) in zip(
             permutations([-3.0, -2.999999999, 1.3]),
             permutations([-2.999999999, -3.0, 1.3]),
         )
-            @test all(
-                equiangular_cubed_shell_warp(u...) .≈
-                equiangular_cubed_shell_warp(v...),
-            )
+            @test all(eacsw(u...) .≈ eacsw(v...))
         end
     end
 end
 
-@testset "equiangular_cubed_shell_unwarp" begin
+@testset "Equiangular cubed_sphere_unwarp tests" begin
     import ClimateMachine.Mesh.Topologies:
-        equiangular_cubed_shell_warp, equiangular_cubed_shell_unwarp
+        cubed_sphere_warp, equiangular_cubed_sphere_unwarp
+
+    # Create function aliases for shorter formatting
+    eacsw = equiangular_cubed_sphere_warp
+    eacsu = equiangular_cubed_sphere_unwarp
 
     for u in permutations([3.0, 2.999999999, 1.3])
-        @test all(
-            equiangular_cubed_shell_unwarp(equiangular_cubed_shell_warp(u...)...) .≈
-            u,
-        )
+        @test all(eacsu(eacsw(u...)...) .≈ u)
     end
     for u in permutations([3.0, -2.999999999, 1.3])
-        @test all(
-            equiangular_cubed_shell_unwarp(equiangular_cubed_shell_warp(u...)...) .≈
-            u,
-        )
+        @test all(eacsu(eacsw(u...)...) .≈ u)
     end
     for u in permutations([-3.0, 2.999999999, 1.3])
-        @test all(
-            equiangular_cubed_shell_unwarp(equiangular_cubed_shell_warp(u...)...) .≈
-            u,
-        )
+        @test all(eacsu(eacsw(u...)...) .≈ u)
     end
     for u in permutations([-3.0, -2.999999999, 1.3])
-        @test all(
-            equiangular_cubed_shell_unwarp(equiangular_cubed_shell_warp(u...)...) .≈
-            u,
-        )
+        @test all(eacsu(eacsw(u...)...) .≈ u)
     end
 end
 
-@testset "equidistant_cubed_shell_warp tests" begin
-    import ClimateMachine.Mesh.Topologies: equidistant_cubed_shell_warp
+@testset "Equidistant cubed_sphere_warp tests" begin
+    import ClimateMachine.Mesh.Topologies: equidistant_cubed_sphere_warp
+
+    # Create function alias for shorter formatting
+    edcsw = equidistant_cubed_sphere_warp
 
     @testset "check radius" begin
-        @test hypot(equidistant_cubed_shell_warp(3.0, -2.2, 1.3)...) ≈ 3.0 rtol =
-            eps()
-        @test hypot(equidistant_cubed_shell_warp(-3.0, -2.2, 1.3)...) ≈ 3.0 rtol =
-            eps()
-        @test hypot(equidistant_cubed_shell_warp(1.1, -2.2, 3.0)...) ≈ 3.0 rtol =
-            eps()
-        @test hypot(equidistant_cubed_shell_warp(1.1, -2.2, -3.0)...) ≈ 3.0 rtol =
-            eps()
-        @test hypot(equidistant_cubed_shell_warp(1.1, 3.0, 0.0)...) ≈ 3.0 rtol =
-            eps()
-        @test hypot(equidistant_cubed_shell_warp(1.1, -3.0, 0.0)...) ≈ 3.0 rtol =
-            eps()
+        @test hypot(edcsw(3.0, -2.2, 1.3)...) ≈ 3.0 rtol = eps()
+        @test hypot(edcsw(-3.0, -2.2, 1.3)...) ≈ 3.0 rtol = eps()
+        @test hypot(edcsw(1.1, -2.2, 3.0)...) ≈ 3.0 rtol = eps()
+        @test hypot(edcsw(1.1, -2.2, -3.0)...) ≈ 3.0 rtol = eps()
+        @test hypot(edcsw(1.1, 3.0, 0.0)...) ≈ 3.0 rtol = eps()
+        @test hypot(edcsw(1.1, -3.0, 0.0)...) ≈ 3.0 rtol = eps()
     end
 
     @testset "check sign" begin
-        @test sign.(equidistant_cubed_shell_warp(3.0, -2.2, 1.3)) ==
-              sign.((3.0, -2.2, 1.3))
-        @test sign.(equidistant_cubed_shell_warp(-3.0, -2.2, 1.3)) ==
-              sign.((-3.0, -2.2, 1.3))
-        @test sign.(equidistant_cubed_shell_warp(1.1, -2.2, 3.0)) ==
-              sign.((1.1, -2.2, 3.0))
-        @test sign.(equidistant_cubed_shell_warp(1.1, -2.2, -3.0)) ==
-              sign.((1.1, -2.2, -3.0))
-        @test sign.(equidistant_cubed_shell_warp(1.1, 3.0, 0.0)) ==
-              sign.((1.1, 3.0, 0.0))
-        @test sign.(equidistant_cubed_shell_warp(1.1, -3.0, 0.0)) ==
-              sign.((1.1, -3.0, 0.0))
+        @test sign.(edcsw(3.0, -2.2, 1.3)) == sign.((3.0, -2.2, 1.3))
+        @test sign.(edcsw(-3.0, -2.2, 1.3)) == sign.((-3.0, -2.2, 1.3))
+        @test sign.(edcsw(1.1, -2.2, 3.0)) == sign.((1.1, -2.2, 3.0))
+        @test sign.(edcsw(1.1, -2.2, -3.0)) == sign.((1.1, -2.2, -3.0))
+        @test sign.(edcsw(1.1, 3.0, 0.0)) == sign.((1.1, 3.0, 0.0))
+        @test sign.(edcsw(1.1, -3.0, 0.0)) == sign.((1.1, -3.0, 0.0))
     end
 
     @testset "check continuity" begin
@@ -145,68 +107,48 @@ end
             permutations([3.0, 2.999999999, 1.3]),
             permutations([2.999999999, 3.0, 1.3]),
         )
-            @test all(
-                equidistant_cubed_shell_warp(u...) .≈
-                equidistant_cubed_shell_warp(v...),
-            )
+            @test all(edcsw(u...) .≈ edcsw(v...))
         end
         for (u, v) in zip(
             permutations([3.0, -2.999999999, 1.3]),
             permutations([2.999999999, -3.0, 1.3]),
         )
-            @test all(
-                equidistant_cubed_shell_warp(u...) .≈
-                equidistant_cubed_shell_warp(v...),
-            )
+            @test all(edcsw(u...) .≈ edcsw(v...))
         end
         for (u, v) in zip(
             permutations([-3.0, 2.999999999, 1.3]),
             permutations([-2.999999999, 3.0, 1.3]),
         )
-            @test all(
-                equidistant_cubed_shell_warp(u...) .≈
-                equidistant_cubed_shell_warp(v...),
-            )
+            @test all(edcsw(u...) .≈ edcsw(v...))
         end
         for (u, v) in zip(
             permutations([-3.0, -2.999999999, 1.3]),
             permutations([-2.999999999, -3.0, 1.3]),
         )
-            @test all(
-                equidistant_cubed_shell_warp(u...) .≈
-                equidistant_cubed_shell_warp(v...),
-            )
+            @test all(edcsw(u...) .≈ edcsw(v...))
         end
     end
 end
 
-@testset "equidistant_cubed_shell_unwarp" begin
+@testset "Equidistant cubed_sphere_unwarp tests" begin
     import ClimateMachine.Mesh.Topologies:
-        equidistant_cubed_shell_warp, equidistant_cubed_shell_unwarp
+        equidistant_cubed_sphere_warp, equidistant_cubed_sphere_unwarp
+
+    # Create function aliases for shorter formatting
+    edcsw = equidistant_cubed_sphere_warp
+    edcsu = equidistant_cubed_sphere_unwarp
 
     for u in permutations([3.0, 2.999999999, 1.3])
-        @test all(
-            equidistant_cubed_shell_unwarp(equidistant_cubed_shell_warp(u...)...) .≈
-            u,
-        )
+        @test all(edcsu(edcsw(u...)...) .≈ u)
     end
     for u in permutations([3.0, -2.999999999, 1.3])
-        @test all(
-            equidistant_cubed_shell_unwarp(equidistant_cubed_shell_warp(u...)...) .≈
-            u,
-        )
+        @test all(edcsu(edcsw(u...)...) .≈ u)
     end
     for u in permutations([-3.0, 2.999999999, 1.3])
-        @test all(
-            equidistant_cubed_shell_unwarp(equidistant_cubed_shell_warp(u...)...) .≈
-            u,
-        )
+        @test all(edcsu(edcsw(u...)...) .≈ u)
     end
     for u in permutations([-3.0, -2.999999999, 1.3])
-        @test all(
-            equidistant_cubed_shell_unwarp(equidistant_cubed_shell_warp(u...)...) .≈
-            u,
-        )
+        @test all(edcsu(edcsw(u...)...) .≈ u)
     end
 end
 

@@ -11,14 +11,18 @@ export AbstractTopology,
     AnalyticalTopography,
     NoTopography,
     DCMIPMountain,
+    EquidistantCubedSphere,
+    EquiangularCubedSphere,
     isstacked,
-    equiangular_cubed_shell_warp,
     cubedshelltopowarp,
     compute_lat_long,
     compute_analytical_topography,
-    equiangular_cubed_shell_unwarp,
-    equidistant_cubed_shell_warp,
-    equidistant_cubed_shell_unwarp
+    cubed_sphere_warp,
+    cubed_sphere_unwarp,
+    equiangular_cubed_sphere_warp,
+    equiangular_cubed_sphere_unwarp,
+    equidistant_cubed_sphere_warp,
+    equidistant_cubed_sphere_unwarp
 
 export grid1d, SingleExponentialStretching, InteriorStretching
 
@@ -763,8 +767,8 @@ end
 
 Generate a cubed shell mesh with the number of elements along each dimension of
 the cubes being `Nelem`. This topology actually creates a cube mesh, and the
-warping should be done after the grid is created using the `equiangular_cubed_shell_warp`
-function or the `equidistant_cubed_shell_warp`. The coordinates of the points will be of type `T`.
+warping should be done after the grid is created using the `cubed_sphere_warp`
+function. The coordinates of the points will be of type `T`.
 
 The elements of the shell are partitioned equally across the MPI ranks based
 on a space-filling curve.
@@ -788,14 +792,18 @@ topology = CubedShellTopology(MPI.COMM_SELF, 10, Float64)
 # Shell radius = 1
 x1, x2, x3 = ntuple(j->topology.elemtocoord[j, :, :], 3)
 for n = 1:length(x1)
-   x1[n], x2[n], x3[n] = Topologies.equiangular_cubed_shell_warp(x1[n], x2[n], x3[n])
+   x1[n], x2[n], x3[n] = Topologies.cubed_sphere_warp(EquiangularCubedSphere(), x1[n], x2[n], x3[n])
 end
+
+# in case a unitary equiangular cubed sphere is desired, or
 
 # Shell radius = 10
 x1, x2, x3 = ntuple(j->topology.elemtocoord[j, :, :], 3)
 for n = 1:length(x1)
-  x1[n], x2[n], x3[n] = Topologies.equiangular_cubed_shell_warp(x1[n], x2[n], x3[n], 10)
+  x1[n], x2[n], x3[n] = Topologies.cubed_sphere_warp(EquidistantCubedSphere(), x1[n], x2[n], x3[n], 10)
 end
+
+# in case an equidistant cubed sphere of radius 10 is desired.
 ```
 """
 function CubedShellTopology(
@@ -972,14 +980,24 @@ function cubedshellmesh(Ne; part = 1, numparts = 1)
     (elemtovert, elemtocoord, elemtobndy, faceconnections, collect(elemlocal))
 end
 
+abstract type AbstractCubedSphere end
+struct EquiangularCubedSphere <: AbstractCubedSphere end
+struct EquidistantCubedSphere <: AbstractCubedSphere end
+
 """
-    equiangular_cubed_shell_warp(a, b, c, R = max(abs(a), abs(b), abs(c)))
+    cubed_sphere_warp(::EquiangularCubedSphere, a, b, c, R = max(abs(a), abs(b), abs(c)))
 
 Given points `(a, b, c)` on the surface of a cube, warp the points out to a
 spherical shell of radius `R` based on the equiangular gnomonic grid proposed by
 [Ronchi1996](@cite)
 """
-function equiangular_cubed_shell_warp(a, b, c, R = max(abs(a), abs(b), abs(c)))
+function cubed_sphere_warp(
+    ::EquiangularCubedSphere,
+    a,
+    b,
+    c,
+    R = max(abs(a), abs(b), abs(c)),
+)
 
     function f(sR, ξ, η)
         X, Y = tan(π * ξ / 4), tan(π * η / 4)
@@ -1014,19 +1032,28 @@ function equiangular_cubed_shell_warp(a, b, c, R = max(abs(a), abs(b), abs(c)))
         #              and the same for us on the developed net of the cube
         x3, x2, x1 = f(-R, b / c, a / c)
     else
-        error("invalid case for equiangular_cubed_shell_warp: $a, $b, $c")
+        error("invalid case for cubed_sphere_warp(::EquiangularCubedSphere): $a, $b, $c")
     end
 
     return x1, x2, x3
 end
 
 """
-    equiangular_cubed_shell_unwarp(x1, x2, x3)
+    equiangular_cubed_sphere_warp(a, b, c, R = max(abs(a), abs(b), abs(c)))
 
-The inverse of [`equiangular_cubed_shell_warp`](@ref). This function projects
-points back from the surface of a sphere onto a cube
+A wrapper function for the cubed_sphere_warp function, when called with the
+EquiangularCubedSphere type
 """
-function equiangular_cubed_shell_unwarp(x1, x2, x3)
+equiangular_cubed_sphere_warp(a, b, c, R = max(abs(a), abs(b), abs(c))) =
+    cubed_sphere_warp(EquiangularCubedSphere(), a, b, c, R)
+
+"""
+    cubed_sphere_unwarp(x1, x2, x3)
+
+The inverse of [`cubed_sphere_warp`](@ref). This function projects
+a given point `(x_1, x_2, x_3)` from the surface of a sphere onto a cube
+"""
+function cubed_sphere_unwarp(::EquiangularCubedSphere, x1, x2, x3)
 
     function g(R, X, Y)
         ξ = atan(X) * 4 / pi
@@ -1062,20 +1089,35 @@ function equiangular_cubed_shell_unwarp(x1, x2, x3)
         #              and the same for us on the developed net of the cube
         c, b, a = g(-R, x2 / x3, x1 / x3)
     else
-        error("invalid case for equiangular_cubed_shell_unwarp: $a, $b, $c")
+        error("invalid case for cubed_sphere_unwarp(::EquiangularCubedSphere): $a, $b, $c")
     end
 
     return a, b, c
 end
 
 """
-    equidistant_cubed_shell_warp(a, b, c, R = max(abs(a), abs(b), abs(c)))
+    equiangular_cubed_sphere_unwarp(x1, x2, x3)
+
+A wrapper function for the cubed_sphere_unwarp function, when called with the
+EquiangularCubedSphere type
+"""
+equiangular_cubed_sphere_unwarp(x1, x2, x3) =
+    cubed_sphere_unwarp(EquiangularCubedSphere(), x1, x2, x3)
+
+"""
+    cubed_sphere_warp(a, b, c, R = max(abs(a), abs(b), abs(c)))
 
 Given points `(a, b, c)` on the surface of a cube, warp the points out to a
 spherical shell of radius `R` based on the equidistant gnomonic grid outlined in
 [Rancic1996](@cite) and [Nair2005](@cite)
 """
-function equidistant_cubed_shell_warp(a, b, c, R = max(abs(a), abs(b), abs(c)))
+function cubed_sphere_warp(
+    ::EquidistantCubedSphere,
+    a,
+    b,
+    c,
+    R = max(abs(a), abs(b), abs(c)),
+)
 
     r = hypot(a, b, c)
 
@@ -1087,12 +1129,21 @@ function equidistant_cubed_shell_warp(a, b, c, R = max(abs(a), abs(b), abs(c)))
 end
 
 """
-    equidistant_cubed_shell_unwarp(x1, x2, x3)
+    equidistant_cubed_sphere_warp(a, b, c, R = max(abs(a), abs(b), abs(c)))
 
-The inverse of [`equidistant_cubed_shell_warp`](@ref). This function projects
+A wrapper function for the cubed_sphere_warp function, when called with the
+EquidistantCubedSphere type
+"""
+equidistant_cubed_sphere_warp(a, b, c, R = max(abs(a), abs(b), abs(c))) =
+    cubed_sphere_warp(EquidistantCubedSphere(), a, b, c, R)
+
+"""
+    cubed_sphere_unwarp(x1, x2, x3)
+
+The inverse of [`cubed_sphere_warp`](@ref). This function projects
 a given point `(x_1, x_2, x_3)` from the surface of a sphere onto a cube
 """
-function equidistant_cubed_shell_unwarp(x1, x2, x3)
+function cubed_sphere_unwarp(::EquidistantCubedSphere, x1, x2, x3)
 
     r = hypot(1, x2 / x1, x3 / x1)
     R = hypot(x1, x2, x3)
@@ -1107,14 +1158,22 @@ function equidistant_cubed_shell_unwarp(x1, x2, x3)
 end
 
 """
+    equidistant_cubed_sphere_unwarp(x1, x2, x3)
+
+A wrapper function for the cubed_sphere_unwarp function, when called with the
+EquidistantCubedSphere type
+"""
+equidistant_cubed_sphere_unwarp(x1, x2, x3) =
+    cubed_sphere_unwarp(EquidistantCubedSphere(), x1, x2, x3)
+
+"""
    StackedCubedSphereTopology(mpicomm, Nhorz, Rrange;
                               boundary=(1,1)) <: AbstractTopology{3}
 
 Generate a stacked cubed sphere topology with `Nhorz` by `Nhorz` cells for each
 horizontal face and `Rrange` is the radius edges of the stacked elements. This
 topology actual creates a cube mesh, and the warping should be done after the
-grid is created using the `equiangular_cubed_shell_warp` or
-`equidistant_cubed_shell_warp` functions. The coordinates of the
+grid is created using the `cubed_sphere_warp` function. The coordinates of the
 points will be of type `eltype(Rrange)`. The inner boundary condition type is
 `boundary[1]` and the outer boundary condition type is `boundary[2]`.
 
@@ -1140,7 +1199,7 @@ topology = StackedCubedSphereTopology(MPI.COMM_SELF, Nhorz, Rrange)
 x1, x2, x3 = ntuple(j->reshape(topology.elemtocoord[j, :, :],
                             2, 2, 2, length(topology.elems)), 3)
 for n = 1:length(x1)
-   x1[n], x2[n], x3[n] = Topologies.equiangular_cubed_shell_warp(x1[n], x2[n], x3[n])
+   x1[n], x2[n], x3[n] = Topologies.cubed_sphere_warp(EquiangularCubedSphere(),x1[n], x2[n], x3[n])
 end
 ```
 Note that the faces are listed in Cartesian order.
@@ -1581,7 +1640,7 @@ function cubedshelltopowarp(
         # ( *, *,-R) : Face VI from Ronchi, Iacono, Paolucci (1996)
         x3, x2, x1 = f(-R, b / c, a / c, faceid)
     else
-        error("invalid case for equiangular_cubed_shell_warp: $a, $b, $c")
+        error("invalid case for cubed_sphere_warp(::EquiangularCubedSphere): $a, $b, $c")
     end
 
     return x1, x2, x3
