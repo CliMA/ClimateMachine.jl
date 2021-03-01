@@ -202,6 +202,7 @@ function stable_bl_model(
 
     C_drag_::FT = C_drag(param_set) # FT(0.001)    # Momentum exchange coefficient
     u_star = FT(0.30)
+    z_0 = FT(0.1)          # Roughness height
 
     z_sponge = FT(300)     # Start of sponge layer
     α_max = FT(0.75)       # Strength of sponge layer (timescale)
@@ -279,6 +280,13 @@ function stable_bl_model(
             (state, aux, t, normPu_int) -> C_drag_,
             (state, aux, t) -> q_sfc,
         )
+    elseif surface_flux == "Nishizawa2018"
+        energy_bc = NishizawaEnergyFlux(
+            (bl, state, aux, t, normPu_int) -> z_0,
+            (bl, state, aux, t) ->
+                (surface_temperature_variation(state, t), q_sfc),
+        )
+        moisture_bc = PrescribedMoistureFlux((state, aux, t) -> moisture_flux)
     else
         @warn @sprintf(
             """
@@ -287,34 +295,20 @@ function stable_bl_model(
         )
     end
 
-    if moisture_model == "dry"
-        boundary_conditions = (
-            AtmosBC(
-                momentum = Impenetrable(DragLaw(
-                    # normPu_int is the internal horizontal speed
-                    # P represents the projection onto the horizontal
-                    (state, aux, t, normPu_int) -> (u_star / normPu_int)^2,
-                )),
-                energy = energy_bc,
-                turbconv = turbconv_bcs(turbconv)[1],
-            ),
-            AtmosBC(turbconv = turbconv_bcs(turbconv)[2]),
-        )
-    else
-        boundary_conditions = (
-            AtmosBC(
-                momentum = Impenetrable(DragLaw(
-                    # normPu_int is the internal horizontal speed
-                    # P represents the projection onto the horizontal
-                    (state, aux, t, normPu_int) -> (u_star / normPu_int)^2,
-                )),
-                energy = energy_bc,
-                moisture = moisture_bc,
-                turbconv = turbconv_bcs(turbconv)[1],
-            ),
-            AtmosBC(turbconv = turbconv_bcs(turbconv)[2]),
-        )
-    end
+    moisture_bcs = moisture_model == "dry" ? () : (; moisture = moisture_bc)
+    boundary_conditions = (
+        AtmosBC(;
+            momentum = Impenetrable(DragLaw(
+                # normPu_int is the internal horizontal speed
+                # P represents the projection onto the horizontal
+                (state, aux, t, normPu_int) -> (u_star / normPu_int)^2,
+            )),
+            energy = energy_bc,
+            moisture_bcs...,
+            turbconv = turbconv_bcs(turbconv)[1],
+        ),
+        AtmosBC(; turbconv = turbconv_bcs(turbconv)[2]),
+    )
 
     moisture_flux = FT(0)
     problem = AtmosProblem(

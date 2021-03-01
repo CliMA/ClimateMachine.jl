@@ -20,6 +20,7 @@ ClimateMachine.Land.SoilWaterParameterizations
 ClimateMachine.Land.SoilHeatParameterizations
 ClimateMachine.Land.SoilParamFunctions
 ClimateMachine.Land.get_water_content
+ClimateMachine.Land.get_temperature
 ClimateMachine.Land.PhaseChange
 ```
 

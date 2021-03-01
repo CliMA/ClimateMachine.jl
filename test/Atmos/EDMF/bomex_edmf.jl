@@ -1,9 +1,4 @@
 using ClimateMachine
-ClimateMachine.init(;
-    parse_clargs = true,
-    output_dir = get(ENV, "CLIMATEMACHINE_SETTINGS_OUTPUT_DIR", "output"),
-    fix_rng_seed = true,
-)
 using ClimateMachine.SingleStackUtils
 using ClimateMachine.Checkpoint
 using ClimateMachine.DGMethods
@@ -88,21 +83,7 @@ function custom_filter!(::ZeroVerticalVelocityFilter, bl, state, aux)
     state.ρu = SVector(state.ρu[1], state.ρu[2], 0)
 end
 
-function main(::Type{FT}) where {FT}
-    # add a command line argument to specify the kind of surface flux
-    # TODO: this will move to the future namelist functionality
-    bomex_args = ArgParseSettings(autofix_names = true)
-    add_arg_group!(bomex_args, "BOMEX")
-    @add_arg_table! bomex_args begin
-        "--surface-flux"
-        help = "specify surface flux for energy and moisture"
-        metavar = "prescribed|bulk"
-        arg_type = String
-        default = "prescribed"
-    end
-
-    cl_args =
-        ClimateMachine.init(parse_clargs = true, custom_clargs = bomex_args)
+function main(::Type{FT}, cl_args) where {FT}
 
     surface_flux = cl_args["surface_flux"]
 
@@ -282,8 +263,26 @@ function config_diagnostics(driver_config, timeend)
     return ClimateMachine.DiagnosticsConfiguration([ds_dgngrp, dt_dgngrp])
 end
 
+# add a command line argument to specify the kind of surface flux
+# TODO: this will move to the future namelist functionality
+bomex_args = ArgParseSettings(autofix_names = true)
+add_arg_group!(bomex_args, "BOMEX")
+@add_arg_table! bomex_args begin
+    "--surface-flux"
+    help = "specify surface flux for energy and moisture"
+    metavar = "prescribed|bulk"
+    arg_type = String
+    default = "prescribed"
+end
 
-solver_config, diag_arr, time_data = main(Float64)
+cl_args = ClimateMachine.init(
+    parse_clargs = true,
+    custom_clargs = bomex_args,
+    output_dir = get(ENV, "CLIMATEMACHINE_SETTINGS_OUTPUT_DIR", "output"),
+    fix_rng_seed = true,
+)
+
+solver_config, diag_arr, time_data = main(Float64, cl_args)
 
 include(joinpath(@__DIR__, "report_mse_bomex.jl"))
 

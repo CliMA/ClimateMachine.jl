@@ -1,0 +1,43 @@
+name: Trigger action on PR comment
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  trigger-doc-build:
+    if: ${{ github.event.issue.pull_request &&
+            ( github.event.comment.author_association == 'OWNER' ||
+              github.event.comment.author_association == 'MEMBER' ||
+              github.event.comment.author_association == 'COLLABORATOR' ) &&
+            contains(github.event.comment.body, '@climabot build docs') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: octokit/request-action@v2.0.26
+        id: get_pr # need sha of commit
+        with:
+          route: GET /repos/{repository}/pulls/{pull_number}
+          repository: ${{ github.repository }}
+          pull_number: ${{ github.event.issue.number }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+ 
+      - name: Trigger Buildkite Pipeline
+        id: buildkite
+        uses: CliMA/buildkite-pipeline-action@master
+        with:
+          access_token: ${{ secrets.BUILDKITE }}
+          pipeline: 'clima/climatemachine-docs'
+          branch: ${{ fromJson(steps.get_pr.outputs.data).head.ref }}
+          commit: ${{ fromJson(steps.get_pr.outputs.data).head.sha }}
+          message: ":github: Triggered by comment on PR #${{ github.event.issue.number }}"
+          env: '{"PULL_REQUEST": ${{ github.event.issue.number }} }'
+          async: true
+
+      - name: Create comment
+        uses: peter-evans/create-or-update-comment@v1
+        with:
+          issue-number: ${{ github.event.issue.number }}
+          body: |
+            Docs build created: ${{ steps.buildkite.outputs.web_url }}
+            Preview link: https://clima.github.io/ClimateMachine.jl/previews/PR${{ github.event.issue.number}}
+        

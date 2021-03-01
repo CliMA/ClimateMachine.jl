@@ -404,7 +404,6 @@ function BrickTopology(
 
 
     # We cannot handle anything else right now...
-    @assert connectivity == :face
     @assert ghostsize == 1
 
     mpirank = MPI.Comm_rank(mpicomm)
@@ -418,16 +417,18 @@ function BrickTopology(
     )
     topology = BrickMesh.partition(mpicomm, topology...)
     origsendorder = topology[5]
-    topology = BrickMesh.connectmesh(mpicomm, topology[1:4]...)
-
+    topology =
+        connectivity == :face ?
+        BrickMesh.connectmesh(mpicomm, topology[1:4]...) :
+        BrickMesh.connectmeshfull(mpicomm, topology[1:4]...)
     bndytoelem, bndytoface = BrickMesh.enumerateboundaryfaces!(
         topology.elemtoelem,
         topology.elemtobndy,
         periodicity,
         boundary,
     )
-    nb = length(bndytoelem)
 
+    nb = length(bndytoelem)
     dim = length(elemrange)
     T = eltype(topology.elemtocoord)
     return BrickTopology{dim, T, nb}(BoxElementTopology{dim, T, nb}(
