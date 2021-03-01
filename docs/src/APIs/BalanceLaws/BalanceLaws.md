@@ -100,6 +100,7 @@ transform_post_gradient_laplacian!
 ```@docs
 BCDef
 dispatched_tuple
+DefaultBCValue
 DefaultBC
 set_bcs!
 boundary_conditions
