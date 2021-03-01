@@ -264,7 +264,7 @@ eq_tends(pv::PV, m::EDMF, ::Source) where {PV <: en_ρatke} = (
     # PressSource{PV}(),
     ShearSource{PV}(),
     # BuoySource{PV}(),
-    # DissSource{PV}(),
+    DissSource{PV}(),
 )
 
 eq_tends(
