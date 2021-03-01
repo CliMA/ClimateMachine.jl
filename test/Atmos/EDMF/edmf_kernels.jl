@@ -485,15 +485,6 @@ function compute_gradient_flux!(
     en_dif.∇q_tot_cv = en_∇tf.q_tot_cv
     en_dif.∇θ_liq_q_tot_cv = en_∇tf.θ_liq_q_tot_cv
 
-    # this fixes a BC problem with very large state⁻.ρatke (≈ 1e20)
-    # at the lower boundary:
-    # z = altitude(m, aux)
-    # if z ≈ FT(0)
-    #     @show(aux.coord, en_dif.∇tke[3])
-    #     # en_dif.∇tke = en_dif.∇tke*FT(0)
-    # end
-
-
     # second moment env cov
     en_dif.∇θv = en_∇tf.θv
     en_dif.∇e = en_∇tf.e
@@ -505,10 +496,6 @@ function compute_gradient_flux!(
 
     gm_dif.S² = ∇transform.u[3, 1]^2 + ∇transform.u[3, 2]^2 + en_dif.∇w[3]^2 # ∇transform.u is Jacobian.T
 
-    if z ≈ 0
-        # @show(aux.coord, state.ρu[1], ∇transform.u[3, 1]^2, gm_dif.S²)
-        # gm_dif.S² = FT(0)
-    end
     # Recompute l_mix, K_m and tke budget terms for output.
     ts = recover_thermo_state_all(m, state, aux)
 
@@ -530,20 +517,14 @@ function compute_gradient_flux!(
         env,
     )
 
-    en_dif.K_m = m.turbconv.mix_len.c_m * en_dif.l_mix * sqrt(tke_en)
+    en_dif.K_m = m.turbconv.mix_len.c_m * en_dif.l_mix #* sqrt(tke_en)
     K_h = en_dif.K_m / Pr_t
     ρa₀ = gm.ρ * env.a
-    Diss₀ = m.turbconv.mix_len.c_d * sqrt(tke_en) / en_dif.l_mix
+    Diss₀ = m.turbconv.mix_len.c_d/ en_dif.l_mix# * sqrt(tke_en)
 
     en_dif.shear_prod = ρa₀ * en_dif.K_m * gm_dif.S² # tke Shear source
     en_dif.buoy_prod = -ρa₀ * K_h * ∂b∂z_env   # tke Buoyancy source
     en_dif.tke_diss = -ρa₀ * Diss₀ * tke_en  # tke Dissipation
-    
-    # z = altitude(m, aux)
-    # if z ≈ FT(0)
-    #     @show(aux.coord, gm_dif.S²,en_dif.K_m, en_dif.l_mix)
-    #     # en_dif.shear_prod = FT(0)
-    # end
 end;
 
 function source(::EntrDetr{up_ρa{i}}, atmos, args) where {i}
@@ -727,8 +708,8 @@ function source(::DissSource{en_ρatke}, atmos, args)
     en = args.state.turbconv.environment
     ρa₀ = gm.ρ * env.a
     tke_en = enforce_positivity(en.ρatke) / gm.ρ / env.a
-    tot = -ρa₀ * Diss₀ * tke_en
-    return -ρa₀ * Diss₀ * tke_en  # tke Dissipation
+    # return -ρa₀ * Diss₀ * tke_en  # original tke Dissipation
+    return -en.ρatke * Diss₀  # tke Dissipation
 end
 
 function source(::DissSource{en_ρaθ_liq_cv}, atmos, args)
@@ -924,7 +905,7 @@ function precompute(::EDMF, bl, args, ts, ::Flux{SecondOrder})
 
     en = state.turbconv.environment
     tke_en = enforce_positivity(en.ρatke) / env.a / state.ρ
-    K_m = bl.turbconv.mix_len.c_m * l_mix * sqrt(tke_en)
+    K_m = bl.turbconv.mix_len.c_m * l_mix #* sqrt(tke_en)
     K_h = K_m / Pr_t
     ρaw_up = vuntuple(i -> up[i].ρaw, N_up)
 
@@ -1027,9 +1008,9 @@ function precompute(::EDMF, bl, args, ts, ::Source)
     en = state.turbconv.environment
     tke_en = enforce_positivity(en.ρatke) / env.a / state.ρ
 
-    K_m = bl.turbconv.mix_len.c_m * l_mix * sqrt(tke_en)
+    K_m = bl.turbconv.mix_len.c_m * l_mix #* sqrt(tke_en)
     K_h = K_m / Pr_t
-    Diss₀ = bl.turbconv.mix_len.c_d * sqrt(tke_en) / l_mix
+    Diss₀ = bl.turbconv.mix_len.c_d  / l_mix #* sqrt(tke_en)
 
     return (;
         env,
@@ -1181,11 +1162,6 @@ function flux(::Diffusion{en_ρatke}, atmos, args)
     gm = state
     en_dif = diffusive.turbconv.environment
     ẑ = vertical_unit_vector(atmos, aux)
-    # tot = -gm.ρ * env.a * K_m * en_dif.∇tke[3]
-    # z = altitude(atmos, aux)
-    # if z ≈ 0
-    #     tot = 0
-    # end
     return -gm.ρ * env.a * K_m * en_dif.∇tke[3] * ẑ
 end
 
