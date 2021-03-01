@@ -9,6 +9,8 @@ struct Impermeable{PV <: Moisture} <: BCDef{PV} end
 # variable this is defined for.
 Impermeable() = Impermeable{TotalMoisture}()
 
+bc_val(bc::Impermeable, atmos::AtmosModel, ::NF12∇, args) = DefaultBCValue()
+
 function atmos_moisture_normal_boundary_flux_second_order!(
     nf,
     bc_moisture::Impermeable,

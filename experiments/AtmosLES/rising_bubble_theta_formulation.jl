@@ -223,17 +223,20 @@ function config_risingbubble(
     T_min_ref = FT(0)
     T_profile = DryAdiabaticProfile{FT}(param_set, T_surface, T_min_ref)
 
+    bc_energy = Adiabaticθ((state, aux, t) -> FT(0))
+    bc_momentum = ImpenetrableFreeSlip{Momentum}()
+
     problem = AtmosProblem(
         boundaryconditions = (
             AtmosBC(;
-                tup = (ImpenetrableFreeSlip{Momentum}(),),
-                momentum = ImpenetrableFreeSlip{Momentum}(),
+                tup = (bc_momentum, bc_energy),
+                momentum = bc_momentum,
                 energy = Adiabaticθ((state, aux, t) -> FT(0)),
             ),
-            AtmosBC(
-                tup = (ImpenetrableFreeSlip{Momentum}(),),
-                momentum = ImpenetrableFreeSlip{Momentum}(),
-                energy = Adiabaticθ((state, aux, t) -> FT(0)),
+            AtmosBC(;
+                tup = (bc_momentum, bc_energy),
+                momentum = bc_momentum,
+                energy = bc_energy,
             ),
         ),
         init_state_prognostic = init_risingbubble!,

@@ -87,6 +87,7 @@ default_bcs(::NonEquilMoist) = (
     Impermeable{IceMoisture}(),
 )
 default_bcs(::EnergyModel) = (Insulating(), ImpenetrableFreeSlip{Energy}())
+default_bcs(::θModel) = (Insulating{ρθ_liq_ice}(),)
 default_bcs(::NoPrecipitation) = ()
 default_bcs(::RainModel) = (OutflowPrecipitation{Rain}(),)
 default_bcs(::RainSnowModel) =

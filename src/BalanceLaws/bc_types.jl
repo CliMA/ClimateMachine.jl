@@ -15,14 +15,22 @@ each boundary condition.
 abstract type BCDef{PV <: PrognosticVariable} end
 
 """
-    DefaultBC
+    DefaultBCValue
 
-The default boundary condition
+Default BC value, which results in the default
+boundary condition behavior.
+"""
+struct DefaultBCValue end
+
+"""
+    DefaultBC{PV} <: BCDef{PV}
+
+The default boundary condition definition,
+which results in yielding the default boundary
+condition value [`DefaultBCValue`](@ref).
 """
 struct DefaultBC{PV} <: BCDef{PV} end
 
-# Internal type
-struct DefaultBCValue end
 
 # If DefaultBCValue's are mixed with real values,
 # then let DefaultBCValue's be zero:
