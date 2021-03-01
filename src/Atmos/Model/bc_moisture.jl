@@ -19,6 +19,7 @@ function atmos_moisture_normal_boundary_flux_second_order!(
 ) end
 
 
+# TODO: rename PrescribedMoistureFlux to PrescribedFlux (use generic)
 """
     PrescribedMoistureFlux(fn) :: MoistureBC
 
@@ -30,6 +31,9 @@ struct PrescribedMoistureFlux{PV <: TotalMoisture, FN} <: BCDef{PV}
 end
 PrescribedMoistureFlux(fn::FN) where {FN} =
     PrescribedMoistureFlux{TotalMoisture, FN}(fn)
+
+bc_val(bc::PrescribedMoistureFlux, atmos::AtmosModel, ::NF12∇, args) =
+    DefaultBCValue()
 
 function atmos_moisture_normal_boundary_flux_second_order!(
     nf,
@@ -72,6 +76,9 @@ struct BulkFormulaMoisture{PV <: TotalMoisture, FNX, FNM} <: BCDef{PV}
 end
 BulkFormulaMoisture(fn_C_q::FNX, fn_q_tot::FNM) where {FNX, FNM} =
     BulkFormulaMoisture{TotalMoisture, FNX, FNM}(fn_C_q, fn_q_tot)
+
+bc_val(bc::BulkFormulaMoisture, atmos::AtmosModel, ::NF12∇, args) =
+    DefaultBCValue()
 
 function atmos_moisture_normal_boundary_flux_second_order!(
     nf,

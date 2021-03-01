@@ -45,6 +45,9 @@ function bc_val(
            state.ρ * gravitational_potential(atmos.orientation, aux)
 end
 
+bc_val(bc::PrescribedTemperature, atmos::AtmosModel, ::NF2, args) =
+    DefaultBCValue()
+
 function atmos_energy_normal_boundary_flux_second_order!(
     nf,
     bc_energy::PrescribedTemperature,
@@ -83,6 +86,9 @@ struct PrescribedEnergyFlux{PV <: Energy, FN} <: BCDef{PV}
 end
 PrescribedEnergyFlux(fn::FN) where {FN} = PrescribedEnergyFlux{Energy, FN}(fn)
 
+bc_val(::PrescribedEnergyFlux, atmos::AtmosModel, ::NF12∇, args) =
+    DefaultBCValue()
+
 function atmos_energy_normal_boundary_flux_second_order!(
     nf,
     bc_energy::PrescribedEnergyFlux,
@@ -116,6 +122,8 @@ struct Adiabaticθ{PV <: ρθ_liq_ice, FN} <: BCDef{PV}
     fn::FN
 end
 Adiabaticθ(fn::FN) where {FN} = Adiabaticθ{ρθ_liq_ice, FN}(fn)
+
+bc_val(bc::Adiabaticθ, atmos::AtmosModel, ::NF12∇, args) = DefaultBCValue()
 
 function atmos_energy_normal_boundary_flux_second_order!(
     nf,
@@ -153,6 +161,9 @@ struct BulkFormulaEnergy{PV <: Energy, FNX, FNTM} <: BCDef{PV}
 end
 BulkFormulaEnergy(fn_C_h::FNX, fn_T_and_q_tot::FNTM) where {FNX, FNTM} =
     BulkFormulaEnergy{Energy, FNX, FNTM}(fn_C_h, fn_T_and_q_tot)
+
+bc_val(bc::BulkFormulaEnergy, atmos::AtmosModel, ::NF12∇, args) =
+    DefaultBCValue()
 
 function atmos_energy_normal_boundary_flux_second_order!(
     nf,
@@ -205,6 +216,9 @@ struct NishizawaEnergyFlux{PV <: Energy, FNX, FNTM} <: BCDef{PV}
 end
 NishizawaEnergyFlux(fn_z0::FNX, fn_T_and_q_tot::FNTM) where {FNX, FNTM} =
     NishizawaEnergyFlux{Energy, FNX, FNTM}(fn_z0, fn_T_and_q_tot)
+
+bc_val(bc::NishizawaEnergyFlux, atmos::AtmosModel, ::NF12∇, args) =
+    DefaultBCValue()
 
 function atmos_energy_normal_boundary_flux_second_order!(
     nf,
