@@ -49,10 +49,6 @@ function mixing_length(
     tke_en = max(en.ρatke, 0) * ρinv / env.a
 
     # buoyancy related functions
-    # compute obukhov_length and ustar from SurfaceFlux.jl here
-    ustar = m.turbconv.surface.ustar
-    obukhov_length = m.turbconv.surface.obukhov_length
-
     ∂b∂z, Nˢ_eff = compute_buoyancy_gradients(m, args, ts_gm, ts_en)
     Grad_Ri = ∇Richardson_number(∂b∂z, Shear², 1 / ml.max_length, ml.Ri_c)
     Pr_t = turbulent_Prandtl_number(ml.Pr_n, Grad_Ri, ml.ω_pr)
@@ -63,14 +59,8 @@ function mixing_length(
     L_Nˢ = coeff * Nˢ_fact + ml.max_length * (FT(1) - Nˢ_fact)
 
     # compute L2 - law of the wall
-    surf_vals = subdomain_surface_values(
-        m.turbconv.surface,
-        m.turbconv,
-        m,
-        gm,
-        gm_aux,
-        m.turbconv.surface.zLL,
-    )
+    # compute obukhov_length from SurfaceFlux.jl here
+    obukhov_length = FT(0)
 
     L_W = ml.κ * max(z, 5) / (sqrt(m.turbconv.surface.κ_star²) * ml.c_m)
     if obukhov_length < -eps(FT)
