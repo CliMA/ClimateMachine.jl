@@ -505,10 +505,10 @@ function compute_gradient_flux!(
         env,
     )
 
-    en_dif.K_m = m.turbconv.mix_len.c_m * en_dif.l_mix #* sqrt(tke_en)
+    en_dif.K_m = m.turbconv.mix_len.c_m * en_dif.l_mix *0.1 #* sqrt(tke_en)
     K_h = en_dif.K_m / Pr_t
     ρa₀ = gm.ρ * env.a
-    Diss₀ = m.turbconv.mix_len.c_d / en_dif.l_mix#en_dif.l_mix #* sqrt(max(en.ρatke,0))# # Yair
+    Diss₀ = m.turbconv.mix_len.c_d *sqrt(tke_en)/ en_dif.l_mix #en_dif.l_mix #* sqrt(max(en.ρatke,0))# # Yair
 
     en_dif.shear = gm_dif.S² # tke Shear
     en_dif.shear_prod = ρa₀ * en_dif.K_m * gm_dif.S² - ρa₀ *Diss₀* tke_en  # tke Shear source
@@ -971,7 +971,7 @@ function precompute(::EDMF, bl, args, ts, ::Flux{SecondOrder})
 
     en = state.turbconv.environment
     tke_en = enforce_positivity(en.ρatke) / env.a / state.ρ
-    K_m = bl.turbconv.mix_len.c_m * l_mix #* sqrt(tke_en)
+    K_m = bl.turbconv.mix_len.c_m * l_mix *0.1 #* sqrt(tke_en)
     K_h = K_m / Pr_t
     ρaw_up = vuntuple(i -> up[i].ρaw, N_up)
 
@@ -1074,9 +1074,9 @@ function precompute(::EDMF, bl, args, ts, ::Source)
     en = state.turbconv.environment
     tke_en = enforce_positivity(en.ρatke) / env.a / state.ρ
 
-    K_m = bl.turbconv.mix_len.c_m * l_mix# * sqrt(tke_en)
+    K_m = bl.turbconv.mix_len.c_m * l_mix *0.1# * sqrt(tke_en)
     K_h = K_m / Pr_t
-    Diss₀ = bl.turbconv.mix_len.c_d/ l_mix#l_mix  # * sqrt(max(en.ρatke,0)) ## Yair
+    Diss₀ = bl.turbconv.mix_len.c_d *sqrt(tke_en)/ l_mix#l_mix  # * sqrt(max(en.ρatke,0)) ## Yair
 
     return (;
         env,
