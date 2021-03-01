@@ -15,6 +15,7 @@ function main()
         (2:5, 4:6),
         periodicity = (false, true),
         boundary = ((1, 2), (3, 4)),
+        connectivity = :face,
     )
 
 

@@ -113,6 +113,7 @@ let
                         mpicomm,
                         brickrange,
                         periodicity = (false, false),
+                        connectivity = :face,
                     )
                     warpfun =
                         (x1, x2, _) -> begin
@@ -129,6 +130,7 @@ let
                         mpicomm,
                         brickrange,
                         periodicity = (false, false, false),
+                        connectivity = :face,
                     )
                     warpfun =
                         (x1, x2, x3) -> begin
