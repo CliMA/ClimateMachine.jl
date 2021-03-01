@@ -55,7 +55,7 @@ function atmos_moisture_normal_boundary_flux_second_order!(
 
     nρd_q_tot = -bc_moisture.fn(state⁻, aux⁻, t)
     fluxᵀn.ρ += nρd_q_tot
-    fluxᵀn.ρu += nρd_q_tot / state⁻.ρ .* state⁻.ρu
+    fluxᵀn.ρu += ρnd_q_tot / state⁻.ρ .* state⁻.ρu
     # assumes EquilMoist
     fluxᵀn.moisture.ρq_tot += nρd_q_tot
 end
