@@ -229,7 +229,7 @@ eq_tends(
     pv::PV,
     m::EDMF,
     ::Flux{SecondOrder},
-) where {PV <: Union{Momentum, Energy, TotalMoisture}} = () #(SGSFlux{PV}(),)   # do _not_ add SGSFlux back to grid-mean
+) where {PV <: Union{Momentum, Energy, TotalMoisture}} = (SGSFlux{PV}(),)   # do _not_ add SGSFlux back to grid-mean
 # (SGSFlux{PV}(),) # add SGSFlux back to grid-mean
 
 # Turbconv tendencies
