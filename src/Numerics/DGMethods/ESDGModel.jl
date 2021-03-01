@@ -156,7 +156,7 @@ function (esdg::ESDGModel)(
     end
 
     # volume tendency
-    volume_tendency_kernel = :naive_split
+    volume_tendency_kernel = :new
     if volume_tendency_kernel == :orig
       comp_stream = esdg_volume_tendency!(device, (Nq, Nq))(
           balance_law,
@@ -173,9 +173,10 @@ function (esdg::ESDGModel)(
           ndrange = (nrealelem * Nq, Nq),
           dependencies = (comp_stream,),
       )
-    elseif volume_tendency_kernel == :naive
-      comp_stream = esdg_volume_tendency_naive!(device, (Nq, Nq, Nqk))(
+    elseif volume_tendency_kernel == :new
+      comp_stream = esdg_volume_tendency_dir!(device, (Nq, Nq, Nqk))(
           balance_law,
+          Val(1),
           Val(dim),
           Val(N),
           esdg.volume_numerical_flux_first_order,
@@ -186,12 +187,13 @@ function (esdg::ESDGModel)(
           grid.D[1],
           α,
           β,
+          true, # add_source
           ndrange = (nrealelem * Nq, Nq, Nqk),
           dependencies = (comp_stream,),
       )
-    elseif volume_tendency_kernel == :naive_split
-      comp_stream = esdg_volume_tendency_naive_ξ1ξ2!(device, (Nq, Nq, Nqk))(
+      comp_stream = esdg_volume_tendency_dir!(device, (Nq, Nq, Nqk))(
           balance_law,
+          Val(2),
           Val(dim),
           Val(N),
           esdg.volume_numerical_flux_first_order,
@@ -201,25 +203,28 @@ function (esdg::ESDGModel)(
           grid.vgeo,
           grid.D[1],
           α,
-          β,
+          true,
           ndrange = (nrealelem * Nq, Nq, Nqk),
           dependencies = (comp_stream,),
       )
-      comp_stream = esdg_volume_tendency_naive_ξ3!(device, (Nq, Nq, Nqk))(
-          balance_law,
-          Val(dim),
-          Val(N),
-          esdg.volume_numerical_flux_first_order,
-          tendency.data,
-          state_prognostic.data,
-          state_auxiliary.data,
-          grid.vgeo,
-          grid.D[1],
-          α,
-          β,
-          ndrange = (nrealelem * Nq, Nq, Nqk),
-          dependencies = (comp_stream,),
-      )
+      if dim == 3
+        comp_stream = esdg_volume_tendency_dir!(device, (Nq, Nq, Nqk))(
+            balance_law,
+            Val(3),
+            Val(dim),
+            Val(N),
+            esdg.volume_numerical_flux_first_order,
+            tendency.data,
+            state_prognostic.data,
+            state_auxiliary.data,
+            grid.vgeo,
+            grid.D[1],
+            α,
+            true,
+            ndrange = (nrealelem * Nq, Nq, Nqk),
+            dependencies = (comp_stream,),
+        )
+      end
     end
 
     # non-mirror surface tendency
