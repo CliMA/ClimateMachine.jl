@@ -708,8 +708,8 @@ function source(::DissSource{en_ρatke}, atmos, args)
     en = args.state.turbconv.environment
     ρa₀ = gm.ρ * env.a
     tke_en = enforce_positivity(en.ρatke) / gm.ρ / env.a
-    # return -ρa₀ * Diss₀ * tke_en  # original tke Dissipation
-    return -en.ρatke * Diss₀  # tke Dissipation
+    return -ρa₀ * Diss₀ * tke_en  # original tke Dissipation
+    # return -en.ρatke * Diss₀  # tke Dissipation
 end
 
 function source(::DissSource{en_ρaθ_liq_cv}, atmos, args)
