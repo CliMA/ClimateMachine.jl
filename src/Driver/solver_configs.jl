@@ -132,6 +132,7 @@ function SolverConfiguration(
                 direction = direction,
                 diffusion_direction = diffdir,
                 modeldata = modeldata,
+                check_for_crashes = Settings.checkpoint_on_crash,
             )
         end
 
@@ -151,6 +152,7 @@ function SolverConfiguration(
                 direction = direction,
                 diffusion_direction = diffdir,
                 modeldata = modeldata,
+                check_for_crashes = Settings.checkpoint_on_crash,
             )
         end
 
