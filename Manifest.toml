@@ -203,9 +203,7 @@ uuid = "b552c78f-8df3-52c6-915a-8e097449b14b"
 version = "1.0.2"
 
 [[DispatchedTuples]]
-git-tree-sha1 = "c65ca35fc37aa113f6648d794b56ac0c9b70d68b"
-repo-rev = "main"
-repo-url = "https://github.com/charleskawczynski/DispatchedTuples.jl"
+git-tree-sha1 = "3d6be6f19a630bb0e0ccf23c123a74d4c3445025"
 uuid = "508c55e1-51b4-41fd-a5ca-7eb0327d070d"
 version = "0.1.0"
 
