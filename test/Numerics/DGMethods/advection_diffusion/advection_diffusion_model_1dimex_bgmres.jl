@@ -307,7 +307,7 @@ let
                     β = FT(1 // 100)
                     μ = FT(-1 // 2)
                     δ = FT(1 // 10)
-
+                    connectivity = dim == 2 ? :face : :full
                     linearsolvertype = "Batched GMRES"
                     for l in 1:numlevels
                         Ne = 2^(l - 1) * base_num_elem
@@ -328,6 +328,7 @@ let
                                 ntuple(j -> (1, 2), dim - 1)...,
                                 (3, 4),
                             ),
+                            connectivity = connectivity,
                         )
                         dt = (α / 4) / (Ne * polynomialorder^2)
 

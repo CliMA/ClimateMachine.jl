@@ -284,6 +284,7 @@ let
                 (FT == Float64 ? 4 : 3) : 1
             result = zeros(FT, numlevels)
             for dim in 2:3
+                connectivity = dim == 2 ? :face : :full
                 for direction in
                     (EveryDirection, HorizontalDirection, VerticalDirection)
                     for fluxBC in (true, false)
@@ -322,6 +323,7 @@ let
                                 brickrange;
                                 periodicity = periodicity,
                                 boundary = bc,
+                                connectivity = connectivity,
                             )
                             dt = (α / 4) / (Ne * polynomialorder^2)
                             @info "time step" dt

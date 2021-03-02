@@ -394,7 +394,7 @@ function BrickTopology(
     elemrange;
     boundary = ntuple(j -> (1, 1), length(elemrange)),
     periodicity = ntuple(j -> false, length(elemrange)),
-    connectivity = :full,
+    connectivity = :face,
     ghostsize = 1,
 )
 
