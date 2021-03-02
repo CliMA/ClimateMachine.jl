@@ -1,4 +1,4 @@
-export BatchedGeneralizedMinimalResidualAlgorithm
+export BatchedGeneralizedMinimalResidualAlgorithm, BatchedGeneralizedMinimalResidualSolver # TODO: Remove solver export.
 
 # TODO: Determine whether we should use PermutedDimsArray. Since permutedims!()
 #       internally creates a PermutedDimsArray and calls _copy!() on it,
@@ -394,6 +394,8 @@ function initialize!(
     return residual!(solver, threshold, iters, args...)
 end
 
+function bginnercount(solver::BatchedGeneralizedMinimalResidualSolver, threshold, iters, oters) return nothing end
+
 function doiteration!(
     solver::BatchedGeneralizedMinimalResidualSolver,
     threshold,
@@ -419,7 +421,7 @@ function doiteration!(
     m = 0
     while !has_converged && m < solver.M
         m += 1
-
+bginnercount(solver, threshold, iters, iters)
         # Unbatch the final value of the last Krylov basis vector, and apply the
         # right preconditioner to it.
         unbatch!(realview(Ψ), Ψs, batcher)

@@ -1,4 +1,4 @@
-export GeneralizedMinimalResidualAlgorithm
+export GeneralizedMinimalResidualAlgorithm, GeneralizedMinimalResidualSolver # TODO: Remove solver export.
 
 """
     GeneralizedMinimalResidualAlgorithm(;
@@ -146,6 +146,8 @@ function initialize!(
     return residual!(solver, threshold, iters, args...)
 end
 
+function innercount(solver::GeneralizedMinimalResidualSolver, threshold, iters, oters) return nothing end
+
 function doiteration!(
     solver::GeneralizedMinimalResidualSolver,
     threshold,
@@ -168,6 +170,7 @@ function doiteration!(
     j = 0
     while !has_converged && j < solver.M
         j += 1
+innercount(solver, threshold, iters, iters)
 
         # Apply the right preconditioner.
         preconditioner(w)

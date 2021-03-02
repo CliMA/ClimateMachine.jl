@@ -272,6 +272,8 @@ function initialize!(
     return residual!(solver, threshold, iters, Q, f!, rhs, args...)
 end
 
+function newtoncount(solver::JaCobIanfrEEneWtONKryLovSoLVeR, threshold, iters, oters) return nothing end
+
 function doiteration!(
     solver::JaCobIanfrEEneWtONKryLovSoLVeR,
     threshold,
@@ -281,6 +283,7 @@ function doiteration!(
     rhs,
     args...;
 )
+newtoncount(solver, threshold, iters, iters)
     ΔQ = solver.ΔQ
     jvp! = solver.jvp!
     krylovsolver = solver.krylovsolver

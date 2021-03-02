@@ -93,6 +93,8 @@ function initialize!(
     return residual!(solver, threshold, iters, args...)
 end
 
+function picardcount(solver::StandardPicardSolver, bool::Bool) return nothing end
+
 function doiteration!(
     solver::StandardPicardSolver,
     threshold,
@@ -101,6 +103,7 @@ function doiteration!(
     f!,
     args...,
 )
+picardcount(solver, true)
     Q .= solver.fQ
     residual_norm, has_converged = residual!(solver, threshold, iters, Q, f!, args...)
     return has_converged, 1
