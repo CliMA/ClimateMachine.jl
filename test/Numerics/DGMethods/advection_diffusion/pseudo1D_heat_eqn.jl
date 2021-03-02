@@ -235,6 +235,7 @@ let
                 3 : 1
             result = zeros(FT, numlevels)
             for dim in 2:3
+                connectivity = dim == 2 ? :face : :full
                 for direction in
                     (EveryDirection, HorizontalDirection, VerticalDirection)
                     if direction <: EveryDirection
@@ -268,6 +269,7 @@ let
                             brickrange;
                             periodicity = periodicity,
                             boundary = bc,
+                            connectivity = connectivity,
                         )
                         dt = 1 / (Ne * polynomialorder^2)^2
 

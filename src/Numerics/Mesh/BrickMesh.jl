@@ -1173,11 +1173,12 @@ function connectmeshfull(
     dim = size(elemtocoord, 1),
 )
     @assert dim == 2
+    dim_coord = size(elemtocoord, 1)
     csize = MPI.Comm_size(comm)
     crank = MPI.Comm_rank(comm)
     root = 0
-
     I = eltype(elemtovert)
+    FT = eltype(elemtocoord)
     nvert, nelem = size(elemtovert)
     nfaces = 2 * dim
     nelemv = zeros(I, csize)
@@ -1198,10 +1199,10 @@ function connectmeshfull(
 
     nvertg = maximum(elemtovertg[1:nvert, :])
     # collecting elemtocoordg on each process
-    elemtocoordg = zeros(I, dim, nvert, nelemg)
+    elemtocoordg = Array{FT}(undef, dim_coord, nvert, nelemg)
     MPI.Allgatherv!(
         elemtocoord,
-        VBuffer(elemtocoordg, nelemv .* (dim * nvert)),
+        VBuffer(elemtocoordg, nelemv .* (dim_coord * nvert)),
         comm,
     )
     # collecting elemtobndy on each process
@@ -1337,13 +1338,14 @@ function connectmeshfull(
     ghostfaces = BitArray(zeros(nfaces, nghost))
 
     newelemtovert = similar(elemtovert, nvert, (nelem + nghost))
-    newelemtocoord = similar(elemtocoord, dim, nvert, (nelem + nghost))
+    newelemtocoord = similar(elemtocoord, dim_coord, nvert, (nelem + nghost))
     newelemtobndy = similar(elemtobndy, nfaces, (nelem + nghost))
     newelemtovert[1:nvert, 1:nelem] .= elemtovert
     newelemtocoord[:, :, 1:nelem] .= elemtocoord
     newelemtobndy[:, 1:nelem] .= elemtobndy
     vmarker = BitArray(undef, nvert)
     ctrg, ctrs = 1, 1
+
     for ipr in 0:(csize - 1)
         # building ghost faces
         for icls in recvelems[ipr + 1]
@@ -1400,6 +1402,7 @@ function connectmeshfull(
             A[nfvert + 3, j] = f # local face number for element e
         end
     end
+
     A = sortslices(A, dims = 2, by = x -> x[1:nfvert])
     elemtoelem = Array{Int}(undef, nfaces, (nelem + nghost))
     elemtoface = Array{Int}(undef, nfaces, (nelem + nghost))

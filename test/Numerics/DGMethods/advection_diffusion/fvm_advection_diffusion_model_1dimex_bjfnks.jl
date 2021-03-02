@@ -310,6 +310,7 @@ let
         for FT in (Float64,)
             result = zeros(FT, numlevels)
             for dim in 2:3
+                connectivity = dim == 3 ? :full : :face
                 for fvmethod in (FVConstant(), FVLinear())
 
 
@@ -350,6 +351,7 @@ let
                                     ntuple(j -> (1, 2), dim - 1)...,
                                     (3, 4),
                                 ),
+                                connectivity = connectivity,
                             )
                             dt = 2 * (α / 4) / (Ne * polynomialorder^2)
 
