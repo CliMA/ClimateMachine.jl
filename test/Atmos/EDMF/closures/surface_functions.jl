@@ -2,10 +2,25 @@
 
 using Statistics
 
+# Wrapper
+function subdomain_surface_values(
+    atmos::AtmosModel,
+    state::Vars,
+    aux::Vars,
+    zLL,
+)
+    subdomain_surface_values(
+        atmos.turbconv.surface,
+        atmos.turbconv,
+        atmos,
+        state,
+        aux,
+        zLL,
+    )
+end
+
 """
     subdomain_surface_values(
-        surf::SurfaceModel,
-        turbconv::EDMF{FT},
         atmos::AtmosModel{FT},
         state::Vars,
         aux::Vars,
@@ -17,8 +32,7 @@ liquid water potential temperature (`θ_liq`), updraft total
 water specific humidity (`q_tot`), environmental variances of
 `θ_liq` and `q_tot`, environmental covariance of `θ_liq` with
 `q_tot`, and environmental TKE, given:
- - `surf`, a `SurfaceModel`
- - `turbconv`, an `EDMF` model
+
  - `atmos`, an `AtmosModel`
  - `state`, state variables
  - `aux`, auxiliary variables
@@ -66,7 +80,7 @@ function subdomain_surface_values(
     ts_new = new_thermo_state(atmos, state, aux)
     θ_liq = liquid_ice_pottemp(ts_new)
 
-    upd_θ_liq_surf = ntuple(N_up) do i
+    θ_liq_up_surf = ntuple(N_up) do i
         θ_liq + surface_scalar_coeff[i] * sqrt(max(θ_liq_cv, 0))
     end
 
@@ -75,14 +89,14 @@ function subdomain_surface_values(
         ρq_tot * ρ_inv + surface_scalar_coeff[i] * sqrt(max(q_tot_cv, 0))
     end
 
-    return (
-        a_up_surf = a_up_surf,
-        upd_θ_liq_surf = upd_θ_liq_surf,
-        q_tot_up_surf = q_tot_up_surf,
-        θ_liq_cv = θ_liq_cv,
-        q_tot_cv = q_tot_cv,
-        θ_liq_q_tot_cv = θ_liq_q_tot_cv,
-        tke = tke,
+    return (;
+        a_up_surf,
+        θ_liq_up_surf,
+        q_tot_up_surf,
+        θ_liq_cv,
+        q_tot_cv,
+        θ_liq_q_tot_cv,
+        tke,
     )
 end;
 
