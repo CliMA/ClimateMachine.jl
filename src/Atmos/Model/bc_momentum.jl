@@ -1,29 +1,17 @@
 abstract type MomentumBC end
-abstract type MomentumDragBC end
 
 """
-    Impenetrable(drag::MomentumDragBC) :: MomentumBC
+    ImpenetrableFreeSlip <: MomentumBC
 
-Defines an impenetrable wall model for momentum. This implies:
+Defines an impenetrable free-slip wall model for momentum. This implies:
   - no flow in the direction normal to the boundary, and
-  - flow parallel to the boundary is subject to the `drag` condition.
+  - No surface drag on momentum parallel to the boundary.
 """
-struct Impenetrable{D <: MomentumDragBC} <: MomentumBC
-    drag::D
-end
-
-"""
-    FreeSlip() :: MomentumDragBC
-
-No surface drag on momentum parallel to the boundary.
-"""
-struct FreeSlip <: MomentumDragBC end
-
-
+struct ImpenetrableFreeSlip <: MomentumBC end
 
 function atmos_momentum_boundary_state!(
     nf::NumericalFluxFirstOrder,
-    bc_momentum::Impenetrable{FreeSlip},
+    bc_momentum::ImpenetrableFreeSlip,
     atmos,
     state⁺,
     aux⁺,
@@ -37,7 +25,7 @@ function atmos_momentum_boundary_state!(
 end
 function atmos_momentum_boundary_state!(
     nf::NumericalFluxGradient,
-    bc_momentum::Impenetrable{FreeSlip},
+    bc_momentum::ImpenetrableFreeSlip,
     atmos,
     state⁺,
     aux⁺,
@@ -51,23 +39,24 @@ function atmos_momentum_boundary_state!(
 end
 function atmos_momentum_normal_boundary_flux_second_order!(
     nf,
-    bc_momentum::Impenetrable{FreeSlip},
+    bc_momentum::ImpenetrableFreeSlip,
     atmos,
     args...,
 ) end
 
 
-
 """
-    NoSlip() :: MomentumDragBC
+    ImpenetrableNoSlip <: MomentumBC
 
-Zero momentum at the boundary.
+Defines an impenetrable no-slip wall model for momentum. This implies:
+  - no flow in the direction normal to the boundary, and
+  - Zero momentum at the boundary.
 """
-struct NoSlip <: MomentumDragBC end
+struct ImpenetrableNoSlip <: MomentumBC end
 
 function atmos_momentum_boundary_state!(
     nf::NumericalFluxFirstOrder,
-    bc_momentum::Impenetrable{NoSlip},
+    bc_momentum::ImpenetrableNoSlip,
     atmos,
     state⁺,
     aux⁺,
@@ -81,7 +70,7 @@ function atmos_momentum_boundary_state!(
 end
 function atmos_momentum_boundary_state!(
     nf::NumericalFluxGradient,
-    bc_momentum::Impenetrable{NoSlip},
+    bc_momentum::ImpenetrableNoSlip,
     atmos,
     state⁺,
     aux⁺,
@@ -95,26 +84,31 @@ function atmos_momentum_boundary_state!(
 end
 function atmos_momentum_normal_boundary_flux_second_order!(
     nf,
-    bc_momentum::Impenetrable{NoSlip},
+    bc_momentum::ImpenetrableNoSlip,
     atmos,
     args...,
 ) end
 
 
 """
-    DragLaw(fn) :: MomentumDragBC
+    ImpenetrableDragLaw(fn) :: MomentumBC
 
-Drag law for momentum parallel to the boundary. The drag coefficient is
+Defines an impenetrable drag law wall model for momentum. This implies:
+  - no flow in the direction normal to the boundary, and
+  - Drag law for momentum parallel to the boundary.
+
+The drag coefficient is
 `C = fn(state, aux, t, normu_int_tan)`, where `normu_int_tan` is the internal speed
 parallel to the boundary.
 `_int` refers to the first interior node.
 """
-struct DragLaw{FN} <: MomentumDragBC
+struct ImpenetrableDragLaw{FN} <: MomentumBC
     fn::FN
 end
+
 function atmos_momentum_boundary_state!(
     nf::Union{NumericalFluxFirstOrder, NumericalFluxGradient},
-    bc_momentum::Impenetrable{DL},
+    bc_momentum::ImpenetrableDragLaw,
     atmos,
     state⁺,
     aux⁺,
@@ -123,10 +117,10 @@ function atmos_momentum_boundary_state!(
     aux⁻,
     t,
     args...,
-) where {DL <: DragLaw}
+)
     atmos_momentum_boundary_state!(
         nf,
-        Impenetrable(FreeSlip()),
+        ImpenetrableFreeSlip(),
         atmos,
         state⁺,
         aux⁺,
@@ -139,7 +133,7 @@ function atmos_momentum_boundary_state!(
 end
 function atmos_momentum_normal_boundary_flux_second_order!(
     nf,
-    bc_momentum::Impenetrable{DL},
+    bc_momentum::ImpenetrableDragLaw,
     atmos,
     fluxᵀn,
     n,
@@ -155,13 +149,13 @@ function atmos_momentum_normal_boundary_flux_second_order!(
     state_int⁻,
     diffusive_int⁻,
     aux_int⁻,
-) where {DL <: DragLaw}
+)
 
     u1⁻ = state_int⁻.ρu / state_int⁻.ρ
     u_int⁻_tan = u1⁻ - dot(u1⁻, n) .* SVector(n)
     normu_int⁻_tan = norm(u_int⁻_tan)
     # NOTE: difference from design docs since normal points outwards
-    C = bc_momentum.drag.fn(state⁻, aux⁻, t, normu_int⁻_tan)
+    C = bc_momentum.fn(state⁻, aux⁻, t, normu_int⁻_tan)
     τn = C * normu_int⁻_tan * u_int⁻_tan
     # both sides involve projections of normals, so signs are consistent
     fluxᵀn.ρu += state⁻.ρ * τn

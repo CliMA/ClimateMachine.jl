@@ -30,7 +30,7 @@ const param_set = EarthParameterSet()
 # 1) Boundary Conditions:
 #       Laterally periodic with no flow penetration through top
 #       and bottom wall boundaries.
-#       Momentum: Impenetrable(FreeSlip())
+#       Momentum: ImpenetrableFreeSlip()
 #       Energy:   Spatially varying non-zero heat flux up to time t₁
 # 2) Domain: 1250m × 1250m × 1000m
 # Configuration defaults are in `src/Driver/Configurations.jl`

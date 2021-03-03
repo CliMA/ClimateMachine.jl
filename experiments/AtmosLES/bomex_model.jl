@@ -456,11 +456,11 @@ function bomex_model(
     problem = AtmosProblem(
         boundaryconditions = (
             AtmosBC(
-                momentum = Impenetrable(DragLaw(
+                momentum = ImpenetrableDragLaw(
                     # normPu_int is the internal horizontal speed
                     # P represents the projection onto the horizontal
                     (state, aux, t, normPu_int) -> (u_star / normPu_int)^2,
-                )),
+                ),
                 energy = energy_bc,
                 moisture = moisture_bc,
                 turbconv = turbconv_bcs(turbconv)[1],

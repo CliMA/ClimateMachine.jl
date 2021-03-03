@@ -72,11 +72,9 @@ ClimateMachine.Atmos.RayleighSponge
 
 ```@docs
 ClimateMachine.Atmos.AtmosBC
-ClimateMachine.Atmos.DragLaw
 ClimateMachine.Atmos.Impermeable
 ClimateMachine.Atmos.PrescribedMoistureFlux
 ClimateMachine.Atmos.BulkFormulaMoisture
-ClimateMachine.Atmos.FreeSlip
 ClimateMachine.Atmos.PrescribedTemperature
 ClimateMachine.Atmos.PrescribedEnergyFlux
 ClimateMachine.Atmos.NishizawaEnergyFlux
@@ -84,9 +82,10 @@ ClimateMachine.Atmos.Adiabaticθ
 ClimateMachine.Atmos.BulkFormulaEnergy
 ClimateMachine.Atmos.OutflowPrecipitation
 ClimateMachine.Atmos.ImpermeableTracer
-ClimateMachine.Atmos.Impenetrable
+ClimateMachine.Atmos.ImpenetrableFreeSlip
+ClimateMachine.Atmos.ImpenetrableNoSlip
+ClimateMachine.Atmos.ImpenetrableDragLaw
 ClimateMachine.Atmos.Insulating
-ClimateMachine.Atmos.NoSlip
 ClimateMachine.Atmos.average_density
 ```
 

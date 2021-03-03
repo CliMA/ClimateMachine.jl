@@ -3,10 +3,9 @@ using CLIMAParameters.Planet: cv_d, T_0
 export InitStateBC
 
 export AtmosBC,
-    Impenetrable,
-    FreeSlip,
-    NoSlip,
-    DragLaw,
+    ImpenetrableFreeSlip,
+    ImpenetrableNoSlip,
+    ImpenetrableDragLaw,
     Insulating,
     PrescribedTemperature,
     PrescribedEnergyFlux,
@@ -23,7 +22,7 @@ export AtmosBC,
 export average_density_sfc_int
 
 """
-    AtmosBC(momentum = Impenetrable(FreeSlip())
+    AtmosBC(momentum = ImpenetrableFreeSlip()
             energy   = Insulating()
             moisture = Impermeable()
             precipitation = OutflowPrecipitation()
@@ -32,7 +31,7 @@ export average_density_sfc_int
 The standard boundary condition for [`AtmosModel`](@ref). The default options imply a "no flux" boundary condition.
 """
 Base.@kwdef struct AtmosBC{M, E, Q, P, TR, TC}
-    momentum::M = Impenetrable(FreeSlip())
+    momentum::M = ImpenetrableFreeSlip()
     energy::E = Insulating()
     moisture::Q = Impermeable()
     precipitation::P = OutflowPrecipitation()

@@ -350,9 +350,9 @@ function config_dycoms(
     problem = AtmosProblem(
         boundaryconditions = (
             AtmosBC(
-                momentum = Impenetrable(DragLaw(
+                momentum = ImpenetrableDragLaw(
                     (state, aux, t, normPu) -> C_drag,
-                )),
+                ),
                 energy = PrescribedEnergyFlux((state, aux, t) -> LHF + SHF),
                 moisture = PrescribedMoistureFlux(
                     (state, aux, t) -> moisture_flux,

@@ -29,7 +29,7 @@ import ClimateMachine.VariableTemplates.varsindex
 
 # ------------------------ Description ------------------------- #
 # 1) Dry Rising Bubble (circular potential temperature perturbation)
-# 2) Boundaries - `All Walls` : Impenetrable(FreeSlip())
+# 2) Boundaries - `All Walls` : ImpenetrableFreeSlip()
 #                               Laterally periodic
 # 3) Domain - 2500m[horizontal] x 2500m[horizontal] x 2500m[vertical]
 # 4) Timeend - 1000s

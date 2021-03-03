@@ -14,7 +14,7 @@
 #
 # 1) Dry Density Current (circular potential temperature perturbation)
 # 2) Boundaries
-#    - `Impenetrable(FreeSlip())` - no momentum flux, no mass flux through
+#    - `ImpenetrableFreeSlip()` - no momentum flux, no mass flux through
 #      walls.
 #    - `Impermeable()` - non-porous walls, i.e. no diffusive fluxes through
 #       walls.
