@@ -99,7 +99,7 @@ function init_baroclinic_wave!(problem, bl, state, aux, localgeo, t)
     w_ref::FT = 0
 
     # velocity perturbations
-    F_z::FT = 1 - 3 * (z / z_t)^2 + 2 * (z / z_t)^3
+    F_z::FT = 0#1 - 3 * (z / z_t)^2 + 2 * (z / z_t)^3
     if z > z_t
         F_z = FT(0)
     end
@@ -177,7 +177,7 @@ function config_baroclinic_wave(FT, poly_order, resolution, with_moisture)
     else
         hyperdiffusion = DryBiharmonic(FT(8 * 3600))
         moisture = DryModel()
-        source = (Gravity(), Coriolis())
+        source = (Gravity(), Coriolis(),PressureGrad(),)
     end
     model = AtmosModel{FT}(
         AtmosGCMConfigType,
@@ -233,15 +233,17 @@ function main()
         config_baroclinic_wave(FT, poly_order, (n_horz, n_vert), with_moisture)
 
     # Set up experiment
-    ode_solver_type = ClimateMachine.IMEXSolverType(
+    #=ode_solver_type = ClimateMachine.IMEXSolverType(
         implicit_model = AtmosAcousticGravityLinearModel,
         implicit_solver = ManyColumnLU,
         solver_method = ARK2GiraldoKellyConstantinescu,
         split_explicit_implicit = true,
         discrete_splitting = false,
+    )=#
+    ode_solver_type = ClimateMachine.ExplicitSolverType(
+        solver_method = LSRK144NiegemannDiehlBusch,
     )
-
-    CFL = FT(0.1) # target acoustic CFL number
+    CFL = FT(0.9) # target acoustic CFL number
 
     # time step is computed such that the horizontal acoustic Courant number is CFL
     solver_config = ClimateMachine.SolverConfiguration(
@@ -250,7 +252,7 @@ function main()
         driver_config,
         Courant_number = CFL,
         ode_solver_type = ode_solver_type,
-        CFL_direction = HorizontalDirection(),
+        CFL_direction = VerticalDirection(),
         diffdir = HorizontalDirection(),
     )
 

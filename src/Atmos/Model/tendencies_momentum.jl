@@ -19,7 +19,7 @@ function flux(::PressureGradient{Momentum}, atmos, args)
     if atmos.ref_state isa HydrostaticState && atmos.ref_state.subtract_off
         return pad + 0*(air_pressure(ts) - aux.ref_state.p) * I
     else
-        return pad + 0*air_pressure(ts) * I
+        return pad +  0*air_pressure(ts) * I
     end
 end
 
@@ -56,7 +56,9 @@ struct Gravity{PV <: Momentum} <: TendencyDef{Source, PV} end
 Gravity() = Gravity{Momentum}()
 function source(s::Gravity{Momentum}, m, args)
     @unpack state, aux = args
+    FT = eltype(aux)
     if m.ref_state isa HydrostaticState && m.ref_state.subtract_off
+        #@info aux.orientation.∇Φ
         return -(state.ρ - aux.ref_state.ρ) * aux.orientation.∇Φ
     else
         return -state.ρ * aux.orientation.∇Φ
@@ -98,7 +100,7 @@ PressureGrad() =
 function source(s::PressureGrad{Momentum}, m, args)
     @unpack state, aux, diffusive = args
    #@info diffusive.energy.∇p 
-   return  - diffusive.energy.∇p
+   return  -diffusive.energy.∇p
 end
 
 

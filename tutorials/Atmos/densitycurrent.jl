@@ -214,7 +214,7 @@ function config_densitycurrent(
     ##md #     - [`source`](@ref atmos-sources)
     ##md #     - [`init_state`](@ref init-dc)
 
-    _C_smag = FT(0.21)
+    _C_smag = FT(0)
     model = AtmosModel{FT}(
         AtmosLESConfigType,                             # Flow in a box, requires the AtmosLESConfigType
         param_set;                                      # Parameter set corresponding to earth parameters
@@ -222,7 +222,7 @@ function config_densitycurrent(
         ref_state = ref_state,                          # Reference state
         turbulence = Vreman(_C_smag),                   # Turbulence closure model
         moisture = DryModel(),                          # Exclude moisture variables
-        source = (Gravity(),),                          # Gravity is the only source term here
+        source = (,),                          # Gravity is the only source term here
         tracers = NoTracers(),                          # Tracer model with diffusivity coefficients
     )
 

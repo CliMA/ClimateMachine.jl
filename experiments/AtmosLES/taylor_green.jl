@@ -67,7 +67,7 @@ function init_greenvortex!(problem, bl, state, aux, localgeo, t)
     #State (prognostic) variable assignment
     e_pot = FT(0)# potential energy
     Pinf = 101325
-    Uzero = FT(100)
+    Uzero = FT(0)
     p = Pinf + (ρ * Uzero^2 / 16) * (2 + cos(2 * z)) * (cos(2 * x) + cos(2 * y))
     u = Uzero * sin(x) * cos(y) * cos(z)
     v = -Uzero * cos(x) * sin(y) * cos(z)

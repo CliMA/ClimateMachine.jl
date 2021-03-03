@@ -135,9 +135,9 @@ function init_risingbubble!(problem, bl, state, aux, localgeo, t)
 
     ## Add the thermal perturbation:
     Δθ::FT = 0
-    if r <= rc
-        Δθ = θamplitude * (1.0 - r / rc)
-    end
+    #if r <= rc
+     #   Δθ = θamplitude * (1.0 - r / rc)
+    #end
 
     ## Compute perturbed thermodynamic state:
     θ = θ_ref + Δθ                                      ## potential temperature
@@ -229,7 +229,7 @@ function config_risingbubble(
         param_set;                                     ## Parameter set corresponding to earth parameters
         init_state_prognostic = init_risingbubble!,    ## Apply the initial condition
         ref_state = ref_state,                         ## Reference state
-        turbulence = SmagorinskyLilly(_C_smag),        ## Turbulence closure model
+        turbulence = SmagorinskyLilly(0.0),#_C_smag),        ## Turbulence closure model
         moisture = DryModel(),                         ## Exclude moisture variables
         source = (Gravity(),PressureGrad(),),                         ## Gravity is the only source term here
         tracers = NTracers{ntracers, FT}(δ_χ),         ## Tracer model with diffusivity coefficients
@@ -248,6 +248,7 @@ function config_risingbubble(
         init_risingbubble!,      ## Function specifying initial condition
         solver_type = ode_solver,## Time-integrator type
         model = model,           ## Model type
+	#numerical_flux_first_order = RoeNumericalFlux(),
     )
     return config
 end
@@ -285,11 +286,11 @@ function main()
     Δh = FT(125)
     Δv = FT(125)
     resolution = (Δh, Δh, Δv)
-    xmax = FT(10000)
+    xmax = FT(500)
     ymax = FT(500)
     zmax = FT(10000)
     t0 = FT(0)
-    timeend = FT(1000)
+    timeend = FT(1000000000)
     ## For full simulation set `timeend = 1000`
 
     ## Use up to 1.7 if ode_solver is the single rate LSRK144.

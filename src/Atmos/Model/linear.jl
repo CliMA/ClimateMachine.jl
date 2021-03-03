@@ -388,7 +388,7 @@ function numerical_flux_first_order!(
 
     atmos = balance_law.atmos
     param_set = atmos.param_set
-    FT = eltype(aux)
+    FT = eltype(state_auxiliary⁻)
     ρu⁻ = state_prognostic⁻.ρu
 
     ref_ρ⁻ = state_auxiliary⁻.ref_state.ρ

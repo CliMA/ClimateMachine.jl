@@ -506,8 +506,12 @@ function numerical_flux_second_order!(
         state_auxiliary⁺,
         t,
     )
-
-    fluxᵀn .+= (flux⁻ + flux⁺)' * (normal_vector⁻ / 2)
+    #if ref_state isa HydrostaticState && ref_state.subtract_off
+       #p = (state_auxiliary⁻.moisture.p - state_auxiliary⁻.ref_state.p) * I
+    #else
+     #   p =  state_auxiliary⁻.moisture.p * I
+    #end
+    fluxᵀn .+= (flux⁻ + flux⁺)' * (normal_vector⁻ / 2) #+ p' * (normal_vector⁻ / 2)
 end
 
 abstract type DivNumericalPenalty end
