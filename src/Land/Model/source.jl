@@ -1,6 +1,6 @@
 #### Land sources
 export PhaseChange, Precip, SoilRunoff
-
+using Printf
 function heaviside(x::FT) where {FT}
     if x >= FT(0)
         output = FT(1)
@@ -77,7 +77,8 @@ function land_source!(
         t,
     )
     precip = bc.precip_model(t)
-    source.river.area  = -(precip - infiltration)
+    source.river.area  += -(precip - infiltration)
+    
 end
 
 function land_source!(

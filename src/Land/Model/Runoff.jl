@@ -3,7 +3,7 @@ module Runoff
 using LinearAlgebra
 using DocStringExtensions
 
-
+using Printf
 using ...VariableTemplates
 using ...Land: SoilModel, pressure_head, hydraulic_conductivity, get_temperature
 
@@ -70,7 +70,6 @@ end
     function compute_surface_grad_bc(soil::SoilModel,
                                      runoff_model::CoarseGridRunoff,
                                      precip_model::AbstractPrecipModel,
-                                     n̂,
                                      state⁻::Vars,
                                      diff⁻::Vars,
                                      aux⁻::Vars,
@@ -84,12 +83,12 @@ function compute_surface_grad_bc(
     soil::SoilModel,
     runoff_model::CoarseGridRunoff,
     precip_model::AbstractPrecipModel,
-    #n̂,
     state⁻::Vars,
     diff⁻::Vars,
     aux⁻::Vars,
     t::Real,
 )
+    #Dirichlet test doesnt end up here
     FT = eltype(state⁻)
     incident_water_flux = precip_model(t)
     Δz = runoff_model.Δz
@@ -126,13 +125,14 @@ function compute_surface_grad_bc(
         )
 
     i_c = (K * ∂h∂z)
-    if incident_water_flux < -i_c # More negative if both are negative,
+    if incident_water_flux < -norm(diff⁻.soil.water.K∇h) #-i_c# More negative if both are negative,
         #ponding BC
-        K∇h⁺ = i_c
+        K∇h⁺ = min(i_c,-incident_water_flux) #i_c
     else
         #K∇h⁺ = n̂ * (-FT(2) * incident_water_flux) - diff⁻.soil.water.K∇h
         K∇h⁺ = - incident_water_flux
     end
+    #@printf("%lf %lf %lf %lf %le %le %le \n", t, aux⁻.x, aux⁻.y, aux⁻.z, -i_c, incident_water_flux, -norm(diff⁻.soil.water.K∇h))
     return K∇h⁺ # now a scalar
 end
 
@@ -142,7 +142,6 @@ end
     function compute_surface_grad_bc(soil::SoilModel,
                                      runoff_model::NoRunoff,
                                      precip_model::AbstractPrecipModel,
-                                     n̂,
                                      state⁻::Vars,
                                      aux⁻::Vars,
                                      diff⁻::Vars,
@@ -156,7 +155,6 @@ function compute_surface_grad_bc(
     soil::SoilModel,
     runoff_model::NoRunoff,
     precip_model::AbstractPrecipModel,
-    #n̂,
     state⁻::Vars,
     diff⁻::Vars,
     aux⁻::Vars,

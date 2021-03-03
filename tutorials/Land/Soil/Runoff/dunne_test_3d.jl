@@ -73,13 +73,15 @@ zmax = FT(0);
 zmin = FT(-5);
 xmax = FT(400)
 ymax = FT(320)
+Δz = FT(zres/2)
 
 bc =  LandDomainBC(
     bottom_bc = LandComponentBC(soil_water = Neumann((aux,t)->eltype(aux)(0.0))),
     surface_bc = LandComponentBC(soil_water = SurfaceDrivenWaterBoundaryConditions(FT;
-                                                precip_model = DrivenConstantPrecip{FT}(precip_of_t),
-                                                runoff_model = CoarseGridRunoff{FT}(zres)
-                                                                                   )),
+                                                                                   precip_model = DrivenConstantPrecip{FT}(precip_of_t),
+                                                                                   runoff_model = CoarseGridRunoff{FT}(Δz)
+                                                                                   )
+                                 ),
     miny_bc = LandComponentBC(soil_water = Neumann((aux,t)->eltype(aux)(0.0)),
                               ),
     minx_bc = LandComponentBC(soil_water = Neumann((aux,t)->eltype(aux)(0.0)),
@@ -278,7 +280,7 @@ driver_config = ClimateMachine.MultiColumnLandModel(
 
 # Choose the initial and final times, as well as a timestep.
 t0 = FT(0)
-timeend = FT(60* 300)
+timeend = FT(60)#* 300)
 dt = FT(0.3);
 
 # Create the solver configuration.
@@ -320,8 +322,16 @@ aux = solver_config.dg.state_auxiliary;
 x = aux[:,1,:]
 y = aux[:,2,:]
 z = aux[:,3,:]
-mask = ((FT.(x .== 400.0)) + FT.(z .== 0.0)) .==2
-n_outputs = length(dons)
+function inverse_warp_maxwell_slope(xin, yin, zin; topo_max = 0.2, zmin =  -5, xmax = 400)
+    FT = eltype(xin)
+    zmax = FT(xin/xmax*topo_max)
+    alpha = FT(1.0)- zmax/zmin
+    zout = (zin-zmin)/alpha+zmin
+    return zout
+end
+ztrue = inverse_warp_maxwell_slope.(x,y,z)
+mask = ((FT.(x .== 400.0)) + FT.(ztrue .== 0.0)) .==2
+n_outputs = 495
 # get prognostic variable area from nodal state (m^2)
 area = [mean(Array(dons[k]["area"])[mask[:]]) for k in 1:n_outputs]
 height = area
@@ -336,7 +346,7 @@ m = 5/3
 t_c = (L*i^(1-m)/alpha)^(1/m)
 t_r = 200*60
 
-q = height.^(m) .* alpha .* 320.0
+q = height.^(m) .* alpha 
 function g(m,y, i, t_r, L, alpha, t)
     output = L/alpha-y^(m)/i-y^(m-1)*m*(t-t_r)
     return output
@@ -374,7 +384,7 @@ end
 # also convert to be per minute
 # does paper plot only 1/4 of domain?
 plot(time_data ./ 60, analytic.(time_data, alpha, t_c, t_r, i, L, m) .* 60 .* 320.0 ./4)
-plot!(time_data ./ 60, q .* 60 ./4)
+plot!(time_data ./ 60, q .* 60 .* 320.0 ./4)
 plot!(ylim = [0,12])
 plot!(yticks = [0,2,4,6,8,10,12])
 plot!(xticks = [0,50,100,150,200,250,300])
