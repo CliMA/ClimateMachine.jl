@@ -1,97 +1,99 @@
 #!/usr/bin/env julia --project
 
-include("box.jl")
+include("../boilerplate.jl")
+include("ThreeDimensionalCompressibleNavierStokesEquations.jl")
+
 ClimateMachine.init()
 
-const FT = Float64
+########
+# Setup physical and numerical domains
+########
+Ωˣ = IntervalDomain(-2π, 2π, periodic = true)
+Ωʸ = IntervalDomain(-2π, 2π, periodic = true)
+Ωᶻ = IntervalDomain(-2π, 2π, periodic = true)
 
-#################
-# Initial State #
-#################
-import ClimateMachine.Ocean: ocean_init_state!
-
-function ocean_init_state!(
-    model::ThreeDimensionalCompressibleNavierStokes.CNSE3D,
-    state,
-    aux,
-    localgeo,
-    t,
+grid = DiscretizedDomain(
+    Ωˣ × Ωʸ × Ωᶻ;
+    elements = 16,
+    polynomial_order = 1,
+    overintegration_order = 1,
 )
-    x = aux.x
-    y = aux.y
-    z = aux.z
 
-    Uₒ = 1
+########
+# Define timestepping parameters
+########
+start_time = 0
+end_time = 200.0
+Δt = 0.01
+method = SSPRK22Heuns
 
-    u = Uₒ * sin(x) * cos(y) * cos(z)
-    v = -Uₒ * cos(x) * sin(y) * cos(z)
+timestepper = TimeStepper(method = method, timestep = Δt)
 
-    ρ = model.ρₒ
-    state.ρ = ρ
-    state.ρu = ρ * @SVector [u, v, -0]
-    state.ρθ = ρ * sin(0.5 * z)
+callbacks = (Info(), StateCheck(10))
 
-    return nothing
-end
+########
+# Define physical parameters and parameterizations
+########
+parameters = (
+    Uₒ = 1, # reference velocity
+    ρₒ = 1, # reference density
+    cₛ = sqrt(10), # sound speed
+)
 
-#################
-# RUN THE TESTS #
-#################
+physics = FluidPhysics(;
+    advection = NonLinearAdvectionTerm(),
+    dissipation = ConstantViscosity{Float64}(μ = 0, ν = 1e-3, κ = 1e-3),
+    coriolis = nothing,
+    buoyancy = nothing,
+)
 
-vtkpath =
-    abspath(joinpath(ClimateMachine.Settings.output_dir, "vtk_taylor_green"))
+########
+# Define initial conditions
+########
 
-let
-    # simulation times
-    timeend = FT(200) # s
-    dt = FT(0.01) # s
-    nout = Int(100)
+u₀(p, x, y, z) = p.Uₒ * sin(x) * cos(y) * cos(z)
+v₀(p, x, y, z) = -p.Uₒ * cos(x) * sin(y) * cos(z)
+w₀(p, x, y, z) = -0
+θ₀(p, x, y, z) = sin(0.5 * z)
 
-    # Domain Resolution
-    N = 1
-    Nˣ = 16
-    Nʸ = 16
-    Nᶻ = 16
+ρ₀(p, x, y, z) = p.ρₒ
+ρu₀(p, x...) = ρ₀(p, x...) * u₀(p, x...)
+ρv₀(p, x...) = ρ₀(p, x...) * v₀(p, x...)
+ρw₀(p, x...) = ρ₀(p, x...) * w₀(p, x...)
+ρθ₀(p, x...) = ρ₀(p, x...) * θ₀(p, x...)
 
-    # Domain size
-    Lˣ = 4 * FT(π)  # m
-    Lʸ = 4 * FT(π)  # m
-    Lᶻ = 4 * FT(π)  # m
+ρu⃗₀(p, x...) = @SVector [ρu₀(p, x...), ρv₀(p, x...), ρw₀(p, x...)]
+initial_conditions = (ρ = ρ₀, ρu = ρu⃗₀, ρθ = ρθ₀)
 
-    # model params
-    cₛ = sqrt(10) # m/s
-    ρₒ = 1 # kg/m³
-    μ = 0 # 1e-6,   # m²/s
-    ν = 1e-3   # m²/s
-    κ = 1e-3   # m²/s
-    α = 0   # 1/K
-    g = 0   # m/s²
+########
+# Create the things
+########
 
-    resolution = (; N, Nˣ, Nʸ, Nᶻ)
-    domain = (; Lˣ, Lʸ, Lᶻ)
-    timespan = (; dt, nout, timeend)
-    params = (; cₛ, ρₒ, μ, ν, κ, α, g)
+model = SpatialModel(
+    balance_law = Fluid3D(),
+    physics = physics,
+    numerics = (flux = RoeNumericalFlux(),),
+    grid = grid,
+    boundary_conditions = NamedTuple(),
+    parameters = parameters,
+)
 
-    config = Config(
-        "roeflux_overintegration",
-        resolution,
-        domain,
-        params;
-        numerical_flux_first_order = RoeNumericalFlux(),
-        Nover = 1,
-        periodicity = (true, true, true),
-        boundary = ((0, 0), (0, 0), (0, 0)),
-        boundary_conditons = (ClimateMachine.Ocean.OceanBC(
-            Impenetrable(FreeSlip()),
-            Insulating(),
-        ),),
-    )
+simulation = Simulation(
+    model = model,
+    initial_conditions = initial_conditions,
+    timestepper = timestepper,
+    callbacks = callbacks,
+    time = (; start = start_time, finish = end_time),
+)
 
-    tic = Base.time()
+########
+# Run the model
+########
 
-    run_CNSE(config, resolution, timespan; TimeStepper = SSPRK22Heuns)
+tic = Base.time()
 
-    toc = Base.time()
-    time = toc - tic
-    println(time)
-end
+evolve!(simulation, model)
+
+toc = Base.time()
+time = toc - tic
+println(time)
