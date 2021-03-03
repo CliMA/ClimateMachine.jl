@@ -71,6 +71,7 @@ function new_thermo_state_anelastic(
     aux::Vars,
 )
     e_int = internal_energy(atmos, state, aux)
+    p = aux.ref_state.p
     ρ = density(atmos, state, aux)
     q = PhasePartition(
         state.moisture.ρq_tot / ρ,
@@ -78,10 +79,5 @@ function new_thermo_state_anelastic(
         state.moisture.ρq_ice / ρ,
     )
 
-    return PhaseNonEquil_peq{eltype(state), typeof(atmos.param_set)}(
-        atmos.param_set,
-        p,
-        e_int,
-        q,
-    )
+    return PhaseNonEquil_peq(atmos.param_set, p, e_int, q)
 end
