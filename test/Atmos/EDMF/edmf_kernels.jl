@@ -1179,32 +1179,26 @@ function turbconv_boundary_state!(
     gm_a⁻ = aux⁻
 
     zLL = altitude(m, aux_int)
-    a_up_surf,
-    θ_liq_up_surf,
-    q_tot_up_surf,
-    θ_liq_cv,
-    q_tot_cv,
-    θ_liq_q_tot_cv,
-    tke =
-        subdomain_surface_values(turbconv.surface, turbconv, m, gm⁻, gm_a⁻, zLL)
+    surf_vals = subdomain_surface_values(m, gm⁻, gm_a⁻, zLL)
+    a_up_surf = surf_vals.a_up_surf
 
     @unroll_map(N_up) do i
         up⁺[i].ρaw = FT(0)
         up⁺[i].ρa = gm⁻.ρ * a_up_surf[i]
-        up⁺[i].ρaθ_liq = gm⁻.ρ * a_up_surf[i] * θ_liq_up_surf[i]
+        up⁺[i].ρaθ_liq = gm⁻.ρ * a_up_surf[i] * surf_vals.θ_liq_up_surf[i]
         if !(m.moisture isa DryModel)
-            up⁺[i].ρaq_tot = gm⁻.ρ * a_up_surf[i] * q_tot_up_surf[i]
+            up⁺[i].ρaq_tot = gm⁻.ρ * a_up_surf[i] * surf_vals.q_tot_up_surf[i]
         else
             up⁺[i].ρaq_tot = FT(0)
         end
     end
 
     a_en = environment_area(gm⁻, N_up)
-    en⁺.ρatke = gm⁻.ρ * a_en * tke
-    en⁺.ρaθ_liq_cv = gm⁻.ρ * a_en * θ_liq_cv
+    en⁺.ρatke = gm⁻.ρ * a_en * surf_vals.tke
+    en⁺.ρaθ_liq_cv = gm⁻.ρ * a_en * surf_vals.θ_liq_cv
     if !(m.moisture isa DryModel)
-        en⁺.ρaq_tot_cv = gm⁻.ρ * a_en * q_tot_cv
-        en⁺.ρaθ_liq_q_tot_cv = gm⁻.ρ * a_en * θ_liq_q_tot_cv
+        en⁺.ρaq_tot_cv = gm⁻.ρ * a_en * surf_vals.q_tot_cv
+        en⁺.ρaθ_liq_q_tot_cv = gm⁻.ρ * a_en * surf_vals.θ_liq_q_tot_cv
     else
         en⁺.ρaq_tot_cv = FT(0)
         en⁺.ρaθ_liq_q_tot_cv = FT(0)
