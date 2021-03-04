@@ -10,11 +10,11 @@ function atmos_precipitation_boundary_state!(
     nf,
     bc_precipitation::OutflowPrecipitation,
     atmos,
-    args...,
+    _...,
 ) end
 function atmos_precipitation_normal_boundary_flux_second_order!(
     nf,
     bc_precipitation::OutflowPrecipitation,
     atmos,
-    args...,
+    _...,
 ) end
