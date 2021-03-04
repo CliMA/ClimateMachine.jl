@@ -301,9 +301,13 @@ function plot_profiles(name, profile_data, labdata, ssdata)
                                       },
                          ymin=0.0,
                          ymax=1.3,
+                         ylabel=L"z/z_i",
                          width="6cm",
                          height="10cm",
+                         legend_style={at="{(0.5, -0.2)}", anchor="south"},
+                         legend_columns=3
                         })
+  legend = @pgf Legend(["ESDG~~~", "~Field data~~~", "~Reference LES"])
   @pgf push!(
     axis,
     {xmin=-0.5, xmax=1.5, title=L"\langle \theta' w' \rangle / H_0"},
@@ -316,7 +320,8 @@ function plot_profiles(name, profile_data, labdata, ssdata)
     {xmin=0, xmax=32, title=L"\langle \theta' \theta' \rangle / T_*^2"},
     Plot({}, Coordinates(var_tht, z)),
     Plot({only_marks, mark="*", color="red"}, Coordinates(labdata.θxθ[2], labdata.θxθ[1])),
-    Plot({only_marks, mark="x", color="blue"}, Coordinates(ssdata.θxθ[2], ssdata.θxθ[1]))
+    Plot({only_marks, mark="x", color="blue"}, Coordinates(ssdata.θxθ[2], ssdata.θxθ[1])),
+    legend
   )
   @pgf push!(
     axis,
