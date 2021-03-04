@@ -110,7 +110,12 @@ end
         elemrange = (0:10,)
         periodicity = (true,)
 
-        topology = BrickTopology(comm, elemrange, periodicity = periodicity)
+        topology = BrickTopology(
+            comm,
+            elemrange,
+            periodicity = periodicity,
+            connectivity = :face,
+        )
 
         nelem = length(elemrange[1]) - 1
 
@@ -140,7 +145,12 @@ end
 
     let
         comm = MPI.COMM_SELF
-        topology = BrickTopology(comm, (0:4, 5:9), periodicity = (false, true))
+        topology = BrickTopology(
+            comm,
+            (0:4, 5:9),
+            periodicity = (false, true),
+            connectivity = :face,
+        )
 
         nelem = 16
 
@@ -195,7 +205,12 @@ end
     let
         comm = MPI.COMM_SELF
         for px in (true, false)
-            topology = BrickTopology(comm, (0:10,), periodicity = (px,))
+            topology = BrickTopology(
+                comm,
+                (0:10,),
+                periodicity = (px,),
+                connectivity = :face,
+            )
             @test Topologies.hasboundary(topology) == !px
             if px
                 @test topology.bndytoelem == ()
@@ -206,7 +221,12 @@ end
             end
         end
         for py in (true, false), px in (true, false)
-            topology = BrickTopology(comm, (0:10, 0:3), periodicity = (px, py))
+            topology = BrickTopology(
+                comm,
+                (0:10, 0:3),
+                periodicity = (px, py),
+                connectivity = :face,
+            )
             @test Topologies.hasboundary(topology) == !(px && py)
             if px && py
                 @test topology.bndytoelem == ()
@@ -223,6 +243,7 @@ end
                 comm,
                 (0:10, 0:3, -1:3),
                 periodicity = (px, py, pz),
+                connectivity = :face,
             )
             @test Topologies.hasboundary(topology) == !(px && py && pz)
             if px && py && pz
@@ -247,6 +268,7 @@ end
             (2:5, 4:6),
             periodicity = (false, true),
             boundary = ((1, 2), (3, 4)),
+            connectivity = :face,
         )
 
         nelem = 6
@@ -302,8 +324,12 @@ end
     let
         comm = MPI.COMM_SELF
         for py in (true, false), px in (true, false)
-            topology =
-                StackedBrickTopology(comm, (0:10, 0:3), periodicity = (px, py))
+            topology = StackedBrickTopology(
+                comm,
+                (0:10, 0:3),
+                periodicity = (px, py),
+                connectivity = :face,
+            )
             @test Topologies.hasboundary(topology) == !(px && py)
             if px && py
                 @test topology.bndytoelem == ()
@@ -320,6 +346,7 @@ end
                 comm,
                 (0:10, 0:3, -1:3),
                 periodicity = (px, py, pz),
+                connectivity = :face,
             )
             @test Topologies.hasboundary(topology) == !(px && py && pz)
             if px && py && pz
@@ -337,13 +364,19 @@ end
 end
 
 @testset "StackedCubedSphereTopology tests" begin
-    topology =
-        StackedCubedSphereTopology(MPI.COMM_SELF, 3, 1.0:3.0, boundary = (2, 1))
+    topology = StackedCubedSphereTopology(
+        MPI.COMM_SELF,
+        3,
+        1.0:3.0,
+        boundary = (2, 1),
+        connectivity = :face,
+    )
     @test Topologies.hasboundary(topology)
     @test map(unique, topology.bndytoface) == ([6], [5])
 end
 
 @testset "CubedShellTopology tests" begin
-    topology = CubedShellTopology(MPI.COMM_SELF, 3, Float64)
+    topology =
+        CubedShellTopology(MPI.COMM_SELF, 3, Float64, connectivity = :face)
     @test !Topologies.hasboundary(topology)
 end

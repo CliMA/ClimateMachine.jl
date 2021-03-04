@@ -555,7 +555,7 @@ function StackedBrickTopology(
     elemrange;
     boundary = ntuple(j -> (1, 1), length(elemrange)),
     periodicity = ntuple(j -> false, length(elemrange)),
-    connectivity = :face,
+    connectivity = :full,
     ghostsize = 1,
 )
 
@@ -799,12 +799,11 @@ function CubedShellTopology(
     mpicomm,
     Neside,
     T;
-    connectivity = :face,
+    connectivity = :full,
     ghostsize = 1,
 )
 
     # We cannot handle anything else right now...
-    @assert connectivity == :face
     @assert ghostsize == 1
 
     mpirank = MPI.Comm_rank(mpicomm)
@@ -828,14 +827,24 @@ function CubedShellTopology(
         end
     end
 
-    topology = BrickMesh.connectmesh(
-        mpicomm,
-        topology[1],
-        elemtocoord,
-        topology[3],
-        topology[4];
-        dim = 2,
-    )
+    topology =
+        connectivity == :face ?
+        BrickMesh.connectmesh(
+            mpicomm,
+            topology[1],
+            elemtocoord,
+            topology[3],
+            topology[4],
+            dim = 2,
+        ) :
+        BrickMesh.connectmeshfull(
+            mpicomm,
+            topology[1],
+            elemtocoord,
+            topology[3],
+            topology[4],
+            dim = 2,
+        )
 
     CubedShellTopology{T}(BoxElementTopology{2, T, 0}(
         mpicomm,
@@ -1088,7 +1097,7 @@ function StackedCubedSphereTopology(
     Nhorz,
     Rrange;
     boundary = (1, 1),
-    connectivity = :face,
+    connectivity = :full,
     ghostsize = 1,
 )
     T = eltype(Rrange)

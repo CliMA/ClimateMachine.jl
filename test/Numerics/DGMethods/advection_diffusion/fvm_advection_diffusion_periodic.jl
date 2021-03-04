@@ -137,12 +137,13 @@ function test_run(
 
     periodicity = ntuple(j -> true, dim)
     bc = ntuple(j -> (1, 2), dim)
-
+    connectivity = dim == 3 ? :full : :face
     topl = StackedBrickTopology(
         mpicomm,
         brickrange;
         periodicity = periodicity,
         boundary = bc,
+        connectivity = connectivity,
     )
 
     # One period

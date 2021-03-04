@@ -69,11 +69,13 @@ function create_topology(::Box{dim}, mpicomm, Ne, FT) where {dim}
     brickrange = ntuple(j -> range(FT(0); length = Ne + 1, stop = 1), dim)
     periodicity = ntuple(j -> false, dim)
     bc = ntuple(j -> (3, 3), dim)
+    connectivity = dim == 3 ? :full : :face
     StackedBrickTopology(
         mpicomm,
         brickrange;
         periodicity = periodicity,
         boundary = bc,
+        connectivity = connectivity,
     )
 end
 

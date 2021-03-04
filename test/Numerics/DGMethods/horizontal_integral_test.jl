@@ -219,6 +219,7 @@ function run_test4(mpicomm, dim, Ne, N, FT, ArrayType)
         mpicomm,
         brickrange,
         periodicity = ntuple(j -> true, 2),
+        connectivity = :face,
     )
 
     grid = DiscontinuousSpectralElementGrid(
@@ -266,6 +267,7 @@ function run_test5(mpicomm, dim, Ne, N, FT, ArrayType)
         mpicomm,
         brickrange,
         periodicity = ntuple(j -> true, 2),
+        connectivity = :face,
     )
 
     grid = DiscontinuousSpectralElementGrid(
