@@ -154,7 +154,7 @@ function main(::Type{FT}, cl_args) where {FT}
     )
     # ---
 
-    dgn_config = config_diagnostics(driver_config)
+    dgn_config = config_diagnostics(driver_config, timeend)
 
     cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(1) do
         Filters.apply!(
@@ -210,6 +210,41 @@ function main(::Type{FT}, cl_args) where {FT}
     push!(time_data, gettime(solver_config.solver))
 
     return solver_config, diag_arr, time_data
+end
+
+function config_diagnostics(driver_config, timeend)
+    FT = eltype(driver_config.grid)
+    info = driver_config.config_info
+    interval = "$(cld(timeend, 2) + 10)ssecs"
+    #interval = "10steps"
+
+    boundaries = [
+        FT(0) FT(0) FT(0)
+        FT(info.hmax) FT(info.hmax) FT(info.zmax)
+    ]
+    axes = (
+        [FT(1)],
+        [FT(1)],
+        collect(range(boundaries[1, 3], boundaries[2, 3], step = FT(50)),),
+    )
+    interpol = ClimateMachine.InterpolationConfiguration(
+        driver_config,
+        boundaries;
+        axes = axes,
+    )
+    ds_dgngrp = setup_dump_state_diagnostics(
+        SingleStackConfigType(),
+        interval,
+        driver_config.name,
+        interpol = interpol,
+    )
+    dt_dgngrp = setup_dump_tendencies_diagnostics(
+        SingleStackConfigType(),
+        interval,
+        driver_config.name,
+        interpol = interpol,
+    )
+    return ClimateMachine.DiagnosticsConfiguration([ds_dgngrp, dt_dgngrp])
 end
 
 # add a command line argument to specify the kind of surface flux
