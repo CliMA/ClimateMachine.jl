@@ -1459,6 +1459,49 @@ function numerical_flux_first_order!(
 end
 
 function numerical_flux_first_order!(
+    ::CentralNumericalFluxFirstOrder,
+    balance_law::AtmosModel,
+    fluxᵀn::Vars{S},
+    normal_vector::SVector,
+    state_prognostic⁻::Vars{S},
+    state_auxiliary⁻::Vars{A},
+    state_prognostic⁺::Vars{S},
+    state_auxiliary⁺::Vars{A},
+    t,
+    direction,
+) where {S, A}
+
+    FT = eltype(fluxᵀn)
+    num_state_prognostic = number_states(balance_law, Prognostic())
+    fluxᵀn = parent(fluxᵀn)
+
+    flux⁻ = similar(fluxᵀn, Size(3, num_state_prognostic))
+    fill!(flux⁻, -zero(FT))
+    flux_first_order!(
+        balance_law,
+        Grad{S}(flux⁻),
+        state_prognostic⁻,
+        state_auxiliary⁻,
+        t,
+        direction,
+    )
+
+    flux⁺ = similar(fluxᵀn, Size(3, num_state_prognostic))
+    @info flux⁺
+    fill!(flux⁺, -zero(FT))
+    flux_first_order!(
+        balance_law,
+        Grad{S}(flux⁺),
+        state_prognostic⁺,
+        state_auxiliary⁺,
+        t,
+        direction,
+    )
+    p⁻ = (state_auxiliary⁻.moisture.p - state_auxiliary⁻.ref_state.p)
+    p⁺ = (state_auxiliary⁺.moisture.p - state_auxiliary⁻.ref_state.p)
+    fluxᵀn .+= (flux⁻ + flux⁺)' * (normal_vector / 2) .+ (SVector(FT(p⁻),FT(p⁻),FT(p⁻)) + SVector(FT(p⁺),FT(p⁺),FT(p⁺)))' * (normal_vector / 2)
+end
+function numerical_flux_first_order!(
     numerical_flux::LMARSNumericalFlux,
     balance_law::AtmosModel,
     fluxᵀn::Vars{S},
