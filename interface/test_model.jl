@@ -61,11 +61,8 @@ struct TestEquations{D,FT} <: AbstractEquations3D
     end
 end
 
-function vars_state(m::TestEquations, st::Prognostic, FT)
-    @vars begin
-        ρ::FT
-    end
-end
+vars_state(m::TestEquations, st::Prognostic, FT) = @vars(ρ::FT)
+
 function vars_state(m::TestEquations, aux::Auxiliary, FT)
     @vars begin
         coord::SVector{3, FT}
@@ -156,16 +153,7 @@ function compute_gradient_argument!(
 )
     compute_gradient_argument!(m.hyperdiffusion.problem, m.hyperdiffusion, grad, state, aux, t)
 end
-function compute_gradient_flux!(
-    m::TestEquations,
-    gradflux::Vars,
-    grad::Grad,
-    state::Vars,
-    aux::Vars,
-    t::Real,
-)
-    return nothing# don't need anything for hyperdiffusion here
-end
+function compute_gradient_flux!(m::TestEquations, _...) end
 function transform_post_gradient_laplacian!(
     m::TestEquations,
     auxHDG::Vars,
@@ -184,16 +172,8 @@ function transform_post_gradient_laplacian!(
     t,
     )
 end
-@inline function flux_first_order!(
-    m::TestEquations,
-    flux::Grad,
-    state::Vars,
-    aux::Vars,
-    t::Real,
-    direction,
-)
-    return nothing
-end
+function flux_first_order!(m::TestEquations, _...) end
+
 function flux_second_order!(
     m::TestEquations,
     flux::Grad,
@@ -206,27 +186,14 @@ function flux_second_order!(
     #@show t
     flux_second_order!(m.hyperdiffusion.problem, m.hyperdiffusion, flux, state, gradflux, auxMISC, aux, t)
 end
-@inline function source!(
-    m::TestEquations,
-    source::Vars,
-    state::Vars,
-    gradflux::Vars,
-    aux::Vars,
-    t::Real,
-    direction,
-)
-    #coriolis_force!(model, model.coriolis, source, state, aux, t)
-    #forcing_term!(model, model.forcing, source, state, aux, t)
-    #linear_drag!(model, model.turbulence, source, state, aux, t)
-    return nothing
-end
+@inline function source!(m::TestEquations, _...) end
 
 """
     Boundary conditions
     
 """
-boundary_conditions(::TestEquations) = ()
-boundary_state!(nf, ::TestEquations, _...) = nothing
+@inline boundary_conditions(::TestEquations) = ()
+@inline boundary_state!(nf, ::TestEquations, _...) = nothing
 
 
 """

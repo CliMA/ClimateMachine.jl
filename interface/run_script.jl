@@ -79,7 +79,7 @@ simulation = Simulation(
 )
 
 # Run the model
-solve!( 
+@time solve!( 
     simulation.state, 
     simulation.odesolver; 
     timeend = end_time,

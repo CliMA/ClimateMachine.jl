@@ -19,7 +19,7 @@ using ClimateMachine.Atmos: SphericalOrientation, latitude, longitude
 using ClimateMachine.Orientations
 using CLIMAParameters
 using CLIMAParameters.Planet
-using GLMakie
+#using GLMakie
 
 # import and update Earth parameters
 struct EarthParameterSet <: AbstractEarthParameterSet end
@@ -31,7 +31,7 @@ include("run_function.jl")
 include("initial_condition.jl")
 include("spherical_harmonics_kernels.jl")
 include("output_writer.jl")
-include("makie_gui.jl")
+#include("makie_gui.jl")
 
 # Initialise CM
 ClimateMachine.init()
@@ -73,7 +73,7 @@ grid = DiscontinuousSpectralElementGrid(
 dg, model, rhs_DGsource, rhs_anal, rel_error = run(mpicomm, ArrayType, dim, topl, grid, polynomialorder, FT, direction, τ*3600, 7, 4 )
 
 # get vtk output- plot with paraview
-do_output_vtk(mpicomm, output_dir, dg, rhs_DGsource, rhs_anal, model)
+#do_output_vtk(mpicomm, output_dir, dg, rhs_DGsource, rhs_anal, model)
 
 # plot output with makie
 
