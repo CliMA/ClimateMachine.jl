@@ -285,23 +285,14 @@ struct DiscontinuousSpectralElementGrid{
 
         Np = prod(N .+ 1)
 
-        # Create element operators for each polynomial order
-        ξω = ntuple(
-            j ->
-                N[j] == 0 ? Elements.glpoints(BigFloat, N[j]) :
-                Elements.lglpoints(BigFloat, N[j]),
-            dim,
-        )
-        ξ, ω = ntuple(j -> map(x -> ComputeType.(x[j]), ξω), 2)
 
-        Imat = ntuple(
-            j -> indefinite_integral_interpolation_matrix(ξ[j], ω[j]),
-            dim,
+        (ω, ξ, D, Imat, vgeo, sgeo, x_vtk) = compute_operators_and_metrics(
+            FloatType,
+            ComputeType,
+            N,
+            topology.elemtocoord,
+            meshwarp,
         )
-        D = ntuple(j -> Elements.spectralderivative(ξ[j]), dim)
-
-        (vgeo, sgeo, x_vtk) =
-            computegeometry(topology.elemtocoord, D, ξ, ω, meshwarp)
 
         @assert Np == size(vgeo, 1)
 
@@ -310,18 +301,18 @@ struct DiscontinuousSpectralElementGrid{
         activedofs[vmaprecv] .= true
 
         # Create arrays on the device
-        vgeo = DeviceArray(FloatType.(vgeo))
-        sgeo = DeviceArray(FloatType.(sgeo))
-        x_vtk = DeviceArray.(map(x_vtk_i -> FloatType.(x_vtk_i), x_vtk))
+        vgeo = DeviceArray(vgeo)
+        sgeo = DeviceArray(sgeo)
+        x_vtk = DeviceArray.(x_vtk)
+        ω = DeviceArray.(ω)
+        D = DeviceArray.(D)
+        Imat = DeviceArray.(Imat)
         elemtobndy = DeviceArray(topology.elemtobndy)
         vmap⁻ = DeviceArray(vmap⁻)
         vmap⁺ = DeviceArray(vmap⁺)
         vmapsend = DeviceArray(vmapsend)
         vmaprecv = DeviceArray(vmaprecv)
         activedofs = DeviceArray(activedofs)
-        ω = DeviceArray.(map(ω_i -> FloatType.(ω_i), ω))
-        D = DeviceArray.(map(D_i -> FloatType.(D_i), D))
-        Imat = DeviceArray.(map(Imat_i -> FloatType.(Imat_i), Imat))
 
         # FIXME: There has got to be a better way!
         DAT1 = typeof(ω)
@@ -378,6 +369,57 @@ struct DiscontinuousSpectralElementGrid{
             minΔ,
         )
     end
+end
+
+"""
+    function compute_operators_and_metrics(
+        FloatType,
+        ComputeType,
+        N,
+        elemtocoord,
+        meshwarp,
+    )
+
+Compute the operators, mesh, and metrics for the tuple of polynomial order 'N',
+using the `elemtocoord` and `meshwarp`. The operators and metric data are
+computed at the `ComputeType` and then cast down to `FloatType` for final
+storage.
+
+This is not intended to be a user facing function, and is mainly abstracted here
+for the purposes of testing.
+"""
+function compute_operators_and_metrics(
+    FloatType,
+    ComputeType,
+    N,
+    elemtocoord,
+    meshwarp,
+)
+    # Create element operators for each polynomial order
+    dim = length(N)
+    ξω = ntuple(
+        j ->
+            N[j] == 0 ? Elements.glpoints(BigFloat, N[j]) :
+            Elements.lglpoints(BigFloat, N[j]),
+        dim,
+    )
+    ξ, ω = ntuple(j -> map(x -> ComputeType.(x[j]), ξω), 2)
+
+    Imat =
+        ntuple(j -> indefinite_integral_interpolation_matrix(ξ[j], ω[j]), dim)
+    D = ntuple(j -> Elements.spectralderivative(ξ[j]), dim)
+
+    (vgeo, sgeo, x_vtk) = computegeometry(elemtocoord, D, ξ, ω, meshwarp)
+
+    return (
+        map(ω_i -> FloatType.(ω_i), ω),
+        map(ξ_i -> FloatType.(ξ_i), ξ),
+        map(D_i -> FloatType.(D_i), D),
+        map(Imat_i -> FloatType.(Imat_i), Imat),
+        FloatType.(vgeo),
+        FloatType.(sgeo),
+        map(x_vtk_i -> FloatType.(x_vtk_i), x_vtk),
+    )
 end
 
 """
