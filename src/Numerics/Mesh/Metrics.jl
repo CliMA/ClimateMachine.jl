@@ -1,4 +1,6 @@
 module Metrics
+import GaussQuadrature
+using LinearAlgebra
 
 """
     creategrid!(x1, elemtocoord, ξ1)
@@ -97,8 +99,22 @@ function creategrid!(x1, x2, x3, e2c, ξ1, ξ2, ξ3)
     nothing
 end
 
+
+function cutoff_matrix(T, N, N_max)
+    if N_max < N
+        ξ, _ = GaussQuadrature.legendre(T, N + 1, GaussQuadrature.both)
+        a, b = GaussQuadrature.legendre_coefs(T, N)
+        V = (N == 0 ? ones(T, 1, 1) : GaussQuadrature.orthonormal_poly(ξ, a, b))
+        Σ = ones(T, N + 1)
+        Σ[((N_max + 1):N) .+ 1] .= 0
+        V * Diagonal(Σ) / V
+    else
+        Array{T}(I, N + 1, N + 1)
+    end
+end
+
 """
-    computemetric!(x1, J, JcV, ξ1x1, sJ, n1, D)
+    computemetric!(x1, J, JcV, ξ1x1, sJ, n1, D, N_metric)
 
 Compute the 1-D metric terms from the element grid arrays `x1`. All the arrays
 are preallocated by the user and the (square) derivative matrix `D` should be
@@ -107,8 +123,11 @@ consistent with the reference grid `ξ1` used in [`creategrid!`](@ref).
 If `Nq = size(D, 1)` and `nelem = div(length(x1), Nq)` then the volume arrays
 `x1`, `J`, and `ξ1x1` should all have length `Nq * nelem`.  Similarly, the face
 arrays `sJ` and `n1` should be of length `nface * nelem` with `nface = 2`.
+
+`N_metric` is the max polynomial order to keep for polynomial representataion of
+the metric terms.
 """
-function computemetric!(x1, J, JcV, ξ1x1, sJ, n1, D)
+function computemetric!(x1, J, JcV, ξ1x1, sJ, n1, D, N_metric)
     Nq = size(D, 1)
     nelem = div(length(J), Nq)
     x1 = reshape(x1, (Nq, nelem))
@@ -119,6 +138,11 @@ function computemetric!(x1, J, JcV, ξ1x1, sJ, n1, D)
     n1 = reshape(n1, (1, nface, nelem))
     sJ = reshape(sJ, (1, nface, nelem))
 
+    if N_metric[1] < Nq - 1
+        T = eltype(x1)
+        fM = cutoff_matrix(T, Nq - 1, N_metric[1])
+        x1 .= fM * x1
+    end
     @inbounds for e in 1:nelem
         JcV[:, e] = J[:, e] = D * x1[:, e]
     end
@@ -131,7 +155,8 @@ function computemetric!(x1, J, JcV, ξ1x1, sJ, n1, D)
 end
 
 """
-    computemetric!(x1, x2, J, JcV, ξ1x1, ξ2x1, ξ1x2, ξ2x2, sJ, n1, n2, D1, D2)
+    computemetric!(x1, x2, J, JcV, ξ1x1, ξ2x1, ξ1x2, ξ2x2, sJ, n1, n2, D1, D2,
+                   N_metric)
 
 Compute the 2-D metric terms from the element grid arrays `x1` and `x2`. All the
 arrays are preallocated by the user and the (square) derivative matrice `D1` and
@@ -142,6 +167,9 @@ If `Nq = (size(D1, 1), size(D2, 1))` and `nelem = div(length(x1), prod(Nq))`
 then the volume arrays `x1`, `x2`, `J`, `ξ1x1`, `ξ2x1`, `ξ1x2`, and `ξ2x2`
 should all be of size `(Nq..., nelem)`.  Similarly, the face arrays `sJ`, `n1`,
 and `n2` should be of size `(maximum(Nq), nface, nelem)` with `nface = 4`
+
+`N_metric` is the max polynomial order to keep for polynomial representataion of
+the metric terms.
 """
 function computemetric!(
     x1,
@@ -157,9 +185,11 @@ function computemetric!(
     n2,
     D1,
     D2,
+    N_metric,
 )
     T = eltype(x1)
     Nq = (size(D1, 1), size(D2, 1))
+    N = Nq .- 1
     nelem = div(length(J), prod(Nq))
     x1 = reshape(x1, (Nq..., nelem))
     x2 = reshape(x2, (Nq..., nelem))
@@ -175,7 +205,26 @@ function computemetric!(
     n2 = reshape(n2, (maximum(Nfp), nface, nelem))
     sJ = reshape(sJ, (maximum(Nfp), nface, nelem))
 
-    for e in 1:nelem
+    fM = ntuple(2) do i
+        cutoff_matrix(T, N[i], N_metric[i])
+    end
+
+    function apply_filter!(fld, e)
+        @inbounds if N_metric[1] < N[1]
+            for j in 1:Nq[2]
+                fld[:, j, e] = fM[1] * fld[:, j, e]
+            end
+        end
+        @inbounds if N_metric[2] < N[2]
+            for i in 1:Nq[1]
+                fld[i, :, e] = fM[2] * fld[i, :, e]
+            end
+        end
+    end
+
+    @inbounds for e in 1:nelem
+        apply_filter!(x1, e)
+        apply_filter!(x2, e)
         for j in 1:Nq[2], i in 1:Nq[1]
             x1ξ1 = x1ξ2 = zero(T)
             x2ξ1 = x2ξ2 = zero(T)
@@ -228,7 +277,7 @@ end
 
 """
     computemetric!(x1, x2, x3, J, JcV, ξ1x1, ξ2x1, ξ3x1, ξ1x2, ξ2x2, ξ3x2, ξ1x3,
-                   ξ2x3, ξ3x3, sJ, n1, n2, n3, D)
+                   ξ2x3, ξ3x3, sJ, n1, n2, n3, D1, D2, D3, N_metric)
 
 Compute the 3-D metric terms from the element grid arrays `x1`, `x2`, and `x3`.
 All the arrays are preallocated by the user and the (square) derivative matrix
@@ -242,6 +291,9 @@ arrays `sJ`, `n1`, `n2`, and `n3` should be of size `Nq^2 * nface * nelem` with
 `nface = 6`.
 
 The curl invariant formulation of Kopriva (2006), equation 37, is used.
+
+`N_metric` is the max polynomial order to keep for polynomial representataion of
+the metric terms.
 
 Reference:
  - [Kopriva2006](@cite)
@@ -268,10 +320,12 @@ function computemetric!(
     D1,
     D2,
     D3,
+    N_metric,
 )
     T = eltype(x1)
 
     Nq = (size(D1, 1), size(D2, 1), size(D3, 1))
+    N = Nq .- 1
     Np = prod(Nq)
     Nfp = div.(Np, Nq)
     nelem = div(length(J), Np)
@@ -297,10 +351,9 @@ function computemetric!(
     n3 = reshape(n3, maximum(Nfp), nface, nelem)
     sJ = reshape(sJ, maximum(Nfp), nface, nelem)
 
-    JI2 = similar(J, Nq...)
-    (yzr, yzs, yzt) = (similar(JI2), similar(JI2), similar(JI2))
-    (zxr, zxs, zxt) = (similar(JI2), similar(JI2), similar(JI2))
-    (xyr, xys, xyt) = (similar(JI2), similar(JI2), similar(JI2))
+    (yzr, yzs, yzt) = (similar(J, Nq...), similar(J, Nq...), similar(J, Nq...))
+    (zxr, zxs, zxt) = (similar(J, Nq...), similar(J, Nq...), similar(J, Nq...))
+    (xyr, xys, xyt) = (similar(J, Nq...), similar(J, Nq...), similar(J, Nq...))
 
     ξ1x1 .= zero(T)
     ξ2x1 .= zero(T)
@@ -317,7 +370,32 @@ function computemetric!(
     fill!(n3, NaN)
     fill!(sJ, NaN)
 
+    fM = ntuple(3) do i
+        cutoff_matrix(T, N[i], N_metric[i])
+    end
+
+    function apply_filter!(fld)
+        @inbounds if N_metric[1] < N[1]
+            for k in Nq[3], j in 1:Nq[2]
+                fld[:, j, k] = fM[1] * fld[:, j, k]
+            end
+        end
+        @inbounds if N_metric[2] < N[2]
+            for k in Nq[3], i in 1:Nq[1]
+                fld[i, :, k] = fM[2] * fld[i, :, k]
+            end
+        end
+        @inbounds if N_metric[3] < N[3]
+            for j in 1:Nq[2], i in 1:Nq[1]
+                fld[i, j, :] = fM[3] * fld[i, j, :]
+            end
+        end
+    end
+
     @inbounds for e in 1:nelem
+        apply_filter!(@view(x1[:, :, :, e]))
+        apply_filter!(@view(x2[:, :, :, e]))
+        apply_filter!(@view(x3[:, :, :, e]))
         for k in 1:Nq[3], j in 1:Nq[2], i in 1:Nq[1]
             x1ξ1 = x1ξ2 = x1ξ3 = zero(T)
             x2ξ1 = x2ξ2 = x2ξ3 = zero(T)
@@ -338,13 +416,16 @@ function computemetric!(
                 x3ξ3 += D3[k, n] * x3[i, j, n, e]
             end
             JcV[i, j, k, e] = hypot(x1ξ3, x2ξ3, x3ξ3)
+
+            # We compute J here mainly so we can get the sign of the Jacobian
+            # right below (depending on whether we have right- or left-handed
+            # element
             J[i, j, k, e] = (
                 x1ξ1 * (x2ξ2 * x3ξ3 - x3ξ2 * x2ξ3) +
                 x2ξ1 * (x3ξ2 * x1ξ3 - x1ξ2 * x3ξ3) +
                 x3ξ1 * (x1ξ2 * x2ξ3 - x2ξ2 * x1ξ3)
             )
 
-            JI2[i, j, k] = 1 / (2 * J[i, j, k, e])
 
             yzr[i, j, k] = x2[i, j, k, e] * x3ξ1 - x3[i, j, k, e] * x2ξ1
             yzs[i, j, k] = x2[i, j, k, e] * x3ξ2 - x3[i, j, k, e] * x2ξ2
@@ -357,40 +438,68 @@ function computemetric!(
             xyt[i, j, k] = x1[i, j, k, e] * x2ξ3 - x2[i, j, k, e] * x1ξ3
         end
 
+        # By making these polynomials of degree N_metric we can ensure that
+        #    J ∂ ξ_{i} / ∂ x_{k}
+        # are polynomials of degree N_metric below. This will ensure that we
+        # have a geometric conservation law on the interpolation grid as well as
+        # on the quadrature grid. (All other quantities are derived from these
+        # so that the aliasing occurs in a consistent manner).
+        apply_filter!.((
+            @view(JcV[:, :, :, e]),
+            yzr,
+            yzs,
+            yzt,
+            zxr,
+            zxs,
+            zxt,
+            xyr,
+            xys,
+            xyt,
+        ))
+
         for k in 1:Nq[3], j in 1:Nq[2], i in 1:Nq[1]
             for n in 1:Nq[1]
-                ξ2x1[i, j, k, e] -= D1[i, n] * yzt[n, j, k]
-                ξ3x1[i, j, k, e] += D1[i, n] * yzs[n, j, k]
-                ξ2x2[i, j, k, e] -= D1[i, n] * zxt[n, j, k]
-                ξ3x2[i, j, k, e] += D1[i, n] * zxs[n, j, k]
-                ξ2x3[i, j, k, e] -= D1[i, n] * xyt[n, j, k]
-                ξ3x3[i, j, k, e] += D1[i, n] * xys[n, j, k]
+                ξ2x1[i, j, k, e] -= D1[i, n] * yzt[n, j, k] / 2
+                ξ3x1[i, j, k, e] += D1[i, n] * yzs[n, j, k] / 2
+                ξ2x2[i, j, k, e] -= D1[i, n] * zxt[n, j, k] / 2
+                ξ3x2[i, j, k, e] += D1[i, n] * zxs[n, j, k] / 2
+                ξ2x3[i, j, k, e] -= D1[i, n] * xyt[n, j, k] / 2
+                ξ3x3[i, j, k, e] += D1[i, n] * xys[n, j, k] / 2
             end
             for n in 1:Nq[2]
-                ξ1x1[i, j, k, e] += D2[j, n] * yzt[i, n, k]
-                ξ3x1[i, j, k, e] -= D2[j, n] * yzr[i, n, k]
-                ξ1x2[i, j, k, e] += D2[j, n] * zxt[i, n, k]
-                ξ3x2[i, j, k, e] -= D2[j, n] * zxr[i, n, k]
-                ξ1x3[i, j, k, e] += D2[j, n] * xyt[i, n, k]
-                ξ3x3[i, j, k, e] -= D2[j, n] * xyr[i, n, k]
+                ξ1x1[i, j, k, e] += D2[j, n] * yzt[i, n, k] / 2
+                ξ3x1[i, j, k, e] -= D2[j, n] * yzr[i, n, k] / 2
+                ξ1x2[i, j, k, e] += D2[j, n] * zxt[i, n, k] / 2
+                ξ3x2[i, j, k, e] -= D2[j, n] * zxr[i, n, k] / 2
+                ξ1x3[i, j, k, e] += D2[j, n] * xyt[i, n, k] / 2
+                ξ3x3[i, j, k, e] -= D2[j, n] * xyr[i, n, k] / 2
             end
             for n in 1:Nq[3]
-                ξ1x1[i, j, k, e] -= D3[k, n] * yzs[i, j, n]
-                ξ2x1[i, j, k, e] += D3[k, n] * yzr[i, j, n]
-                ξ1x2[i, j, k, e] -= D3[k, n] * zxs[i, j, n]
-                ξ2x2[i, j, k, e] += D3[k, n] * zxr[i, j, n]
-                ξ1x3[i, j, k, e] -= D3[k, n] * xys[i, j, n]
-                ξ2x3[i, j, k, e] += D3[k, n] * xyr[i, j, n]
+                ξ1x1[i, j, k, e] -= D3[k, n] * yzs[i, j, n] / 2
+                ξ2x1[i, j, k, e] += D3[k, n] * yzr[i, j, n] / 2
+                ξ1x2[i, j, k, e] -= D3[k, n] * zxs[i, j, n] / 2
+                ξ2x2[i, j, k, e] += D3[k, n] * zxr[i, j, n] / 2
+                ξ1x3[i, j, k, e] -= D3[k, n] * xys[i, j, n] / 2
+                ξ2x3[i, j, k, e] += D3[k, n] * xyr[i, j, n] / 2
             end
-            ξ1x1[i, j, k, e] *= JI2[i, j, k]
-            ξ2x1[i, j, k, e] *= JI2[i, j, k]
-            ξ3x1[i, j, k, e] *= JI2[i, j, k]
-            ξ1x2[i, j, k, e] *= JI2[i, j, k]
-            ξ2x2[i, j, k, e] *= JI2[i, j, k]
-            ξ3x2[i, j, k, e] *= JI2[i, j, k]
-            ξ1x3[i, j, k, e] *= JI2[i, j, k]
-            ξ2x3[i, j, k, e] *= JI2[i, j, k]
-            ξ3x3[i, j, k, e] *= JI2[i, j, k]
+
+            J_new = sqrt(abs(det([
+                ξ1x1[i, j, k, e] ξ1x2[i, j, k, e] ξ1x3[i, j, k, e]
+                ξ2x1[i, j, k, e] ξ2x2[i, j, k, e] ξ2x3[i, j, k, e]
+                ξ3x1[i, j, k, e] ξ3x2[i, j, k, e] ξ3x3[i, j, k, e]
+            ])))
+
+            J[i, j, k, e] = J[i, j, k, e] > 0 ? J_new : -J_new
+
+            ξ1x1[i, j, k, e] /= J[i, j, k, e]
+            ξ2x1[i, j, k, e] /= J[i, j, k, e]
+            ξ3x1[i, j, k, e] /= J[i, j, k, e]
+            ξ1x2[i, j, k, e] /= J[i, j, k, e]
+            ξ2x2[i, j, k, e] /= J[i, j, k, e]
+            ξ3x2[i, j, k, e] /= J[i, j, k, e]
+            ξ1x3[i, j, k, e] /= J[i, j, k, e]
+            ξ2x3[i, j, k, e] /= J[i, j, k, e]
+            ξ3x3[i, j, k, e] /= J[i, j, k, e]
         end
 
         # faces 1 & 2
