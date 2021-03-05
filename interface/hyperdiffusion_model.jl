@@ -87,7 +87,7 @@ vars_state(::HyperDiffusionProblem, ::Hyperdiffusive, FT) = @vars(D∇³ρ::SVec
     - transform_post_gradient_laplacian! - collect the gradient of the Laplacian (`D∇³ρ`) into hyperdiffusion's aux 
     - flux_second_order! - add the gradient of the Laplacian to the main BL's flux, the gradient of which will be taken after to obtain the tendency
 """
-function compute_gradient_argument!(
+@inline function compute_gradient_argument!(
     ::HyperDiffusionProblem,
     ::BalanceLaw,
     transform::Vars,
@@ -97,7 +97,7 @@ function compute_gradient_argument!(
 )
     transform.hyperdiffusion.ρ = state.ρ
 end
-function transform_post_gradient_laplacian!(
+@inline function transform_post_gradient_laplacian!(
     ::HyperDiffusionProblem,
     ::BalanceLaw,
     auxHDG::Vars,
@@ -110,7 +110,7 @@ function transform_post_gradient_laplacian!(
     D = aux.hyperdiffusion.D * SMatrix{3,3,Float64}(I)
     auxHDG.hyperdiffusion.D∇³ρ = D * ∇Δρ
 end
-function flux_second_order!(
+@inline function flux_second_order!(
     ::HyperDiffusionProblem,
     ::BalanceLaw,
     flux::Grad,
@@ -126,7 +126,7 @@ end
 """
     Initialize prognostic (whole state array at once) and auxiliary variables (per each spatial point = node)
 """
-function init_state_prognostic!(
+@inline function init_state_prognostic!(
     ::HyperDiffusionProblem,
     m::BalanceLaw,
     state::Vars,
@@ -136,13 +136,14 @@ function init_state_prognostic!(
 )
     initial_condition!(m.problem, state, aux, localgeo, t)
 end
-function nodal_init_state_auxiliary!(
+@inline function nodal_init_state_auxiliary!(
     p::HyperDiffusionCubedSphereProblem,
     m::BalanceLaw,
     aux::Vars,
     tmp::Vars,
     geom::LocalGeometry,
 )
+    
     FT = eltype(aux)
     
     r = norm(aux.coord)
@@ -152,7 +153,7 @@ function nodal_init_state_auxiliary!(
     Δ_hor = lengthscale_horizontal(geom)
     aux.hyperdiffusion.D = D(p, Δ_hor)  
 end
-function nodal_init_state_auxiliary!(
+@inline function nodal_init_state_auxiliary!(
     p::HyperDiffusionBoxProblem,
     m::BalanceLaw,
     aux::Vars,
@@ -169,15 +170,15 @@ end
     Boundary conditions 
     - nothing if diffusion_direction (or direction) = HorizotalDirection()
 """
-boundary_conditions(::HyperDiffusion, ::BalanceLaw) = ()
-boundary_state!(nf, ::HyperDiffusion, ::BalanceLaw, _...) = nothing
+@inline boundary_conditions(::HyperDiffusion, ::BalanceLaw) = ()
+@inline boundary_state!(nf, ::HyperDiffusion, ::BalanceLaw, _...) = nothing
 
 """
     Initial conditions
     - initial condition is given by ρ0 = Y{m,l}(θ, λ)
     - test: ∇^4_horz ρ0 = l^2(l+1)^2/r^4 ρ0 where r=a+z
 """
-function initial_condition!(
+@inline function initial_condition!(
     p::HyperDiffusionCubedSphereProblem{FT},
     state,
     aux,
@@ -208,8 +209,8 @@ end
     Other useful functions
 """
 # hyperdiffusion-dependent timestep (only use for hyperdiffusion unit test)
-Δt(p::HyperDiffusionProblem, Δ_min) = Δ_min^4 / 25 / sum( D(p, Δ_min) ) 
+@inline Δt(p::HyperDiffusionProblem, Δ_min) = Δ_min^4 / 25 / sum( D(p, Δ_min) ) 
 
 # lengthscale-dependent hyperdiffusion coefficient
-D(p::HyperDiffusionProblem, Δ ) = (Δ /2)^4/2/ p.τ
+@inline D(p::HyperDiffusionProblem, Δ ) = (Δ /2)^4/2/ p.τ
 
