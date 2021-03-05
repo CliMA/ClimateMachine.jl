@@ -174,6 +174,6 @@ function atmos_momentum_normal_boundary_flux_second_order!(
     # NOTE: difference from design docs since normal points outwards
     C = bc_momentum.drag.fn(state⁻, aux⁻, t, normu⁻_tan)
     τn = C * normu⁻_tan * u⁻_tan
-    fluxᵀn.ρu += state⁻.ρ * τn
-    fluxᵀn.energy.ρe += state⁻.ρu' * τn
+    # fluxᵀn.ρu += state⁻.ρ * τn
+    # fluxᵀn.energy.ρe += state⁻.ρu' * τn
 end

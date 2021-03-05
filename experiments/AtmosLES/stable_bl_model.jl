@@ -136,7 +136,7 @@ function init_problem!(problem, bl, state, aux, localgeo, t)
     γ::FT = c_p / c_v
     # Initialise speeds [u = Eastward, v = Northward, w = Vertical]
     if z <= FT(300)
-        u = FT(8 + 4*(300-z)/400.0)# ∂u/∂z = -1/400
+        u = FT(8 + 4*(300-z)/400.0)# ∂u/∂z = -1/100
     else
         u = FT(8)# ∂u/∂z = 0
     end
