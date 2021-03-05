@@ -1,9 +1,10 @@
 using ClimateMachine.Mesh.Elements
 using ClimateMachine.Mesh.Grids
 using ClimateMachine.Mesh.Metrics
-using LinearAlgebra: I
+using LinearAlgebra: I, det
 using Test
 using Random: MersenneTwister
+using DoubleFloats
 
 const _ξ1x1, _ξ2x1, _ξ3x1 = Grids._ξ1x1, Grids._ξ2x1, Grids._ξ3x1
 const _ξ1x2, _ξ2x2, _ξ3x2 = Grids._ξ1x2, Grids._ξ2x2, Grids._ξ3x2
@@ -40,20 +41,28 @@ const _nsgeo = Grids._nsgeo
             e2c[:, :, 2] = [0 10]
             nelem = size(e2c, 3)
 
-            (vgeo, sgeo, _) =
-                Grids.computegeometry(e2c, D, ξ, ω, (x...) -> identity(x))
-            vgeo = reshape(vgeo, Nq..., _nvgeo, nelem)
-            @test vgeo[:, _x1, 1] ≈ (ξ[1] .- 1) / 2
-            @test vgeo[:, _x1, 2] ≈ 5 * (ξ[1] .+ 1)
+            for N_metric in (N, N .- 1)
+                (vgeo, sgeo, _) = Grids.computegeometry(
+                    e2c,
+                    D,
+                    ξ,
+                    ω,
+                    (x...) -> identity(x),
+                    N_metric,
+                )
+                vgeo = reshape(vgeo, Nq..., _nvgeo, nelem)
+                @test vgeo[:, _x1, 1] ≈ (ξ[1] .- 1) / 2
+                @test vgeo[:, _x1, 2] ≈ 5 * (ξ[1] .+ 1)
 
-            @test vgeo[:, _M, 1] ≈ ω[1] .* ones(FT, Nq) / 2
-            @test vgeo[:, _M, 2] ≈ 5 * ω[1] .* ones(FT, Nq)
-            @test vgeo[:, _ξ1x1, 1] ≈ 2 * ones(FT, Nq)
-            @test vgeo[:, _ξ1x1, 2] ≈ ones(FT, Nq) / 5
-            @test sgeo[_n1, 1, 1, :] ≈ -ones(FT, nelem)
-            @test sgeo[_n1, 1, 2, :] ≈ ones(FT, nelem)
-            @test sgeo[_sM, 1, 1, :] ≈ ones(FT, nelem)
-            @test sgeo[_sM, 1, 2, :] ≈ ones(FT, nelem)
+                @test vgeo[:, _M, 1] ≈ ω[1] .* ones(FT, Nq) / 2
+                @test vgeo[:, _M, 2] ≈ 5 * ω[1] .* ones(FT, Nq)
+                @test vgeo[:, _ξ1x1, 1] ≈ 2 * ones(FT, Nq)
+                @test vgeo[:, _ξ1x1, 2] ≈ ones(FT, Nq) / 5
+                @test sgeo[_n1, 1, 1, :] ≈ -ones(FT, nelem)
+                @test sgeo[_n1, 1, 2, :] ≈ ones(FT, nelem)
+                @test sgeo[_sM, 1, 1, :] ≈ ones(FT, nelem)
+                @test sgeo[_sM, 1, 2, :] ≈ ones(FT, nelem)
+            end
         end
         #}}}
     end
@@ -82,7 +91,7 @@ const _nsgeo = Grids._nsgeo
             nelem = size(e2c, 3)
 
             (vgeo, sgeo, _) =
-                Grids.computegeometry(e2c, D, ξ, ω, (x...) -> identity(x))
+                Grids.computegeometry(e2c, D, ξ, ω, (x...) -> identity(x), N)
             vgeo = reshape(vgeo, Nq..., _nvgeo, nelem)
             @test vgeo[1, _x1, 1] ≈ sum(e2c[:, :, 1]) / 2
             @test vgeo[1, _x1, 2] ≈ sum(e2c[:, :, 2]) / 2
@@ -201,21 +210,29 @@ end
             ny_exact[1:Nfp[1], 1, 4] .= 1
             ny_exact[1:Nfp[1], 2, 4] .= -1
 
-            (vgeo, sgeo, _) =
-                Grids.computegeometry(e2c, D, ξ, ω, (x...) -> identity(x))
-            vgeo = reshape(vgeo, Nq..., _nvgeo, nelem)
+            for N_metric in (N, N .- 1)
+                (vgeo, sgeo, _) = Grids.computegeometry(
+                    e2c,
+                    D,
+                    ξ,
+                    ω,
+                    (x...) -> identity(x),
+                    N_metric,
+                )
+                vgeo = reshape(vgeo, Nq..., _nvgeo, nelem)
 
-            @test (@view vgeo[:, :, _x1, :]) ≈ x_exact
-            @test (@view vgeo[:, :, _x2, :]) ≈ y_exact
-            @test (@view vgeo[:, :, _M, :]) ≈ M_exact
-            @test (@view vgeo[:, :, _ξ1x1, :]) ≈ ξ1x1_exact
-            @test (@view vgeo[:, :, _ξ1x2, :]) ≈ ξ1x2_exact
-            @test (@view vgeo[:, :, _ξ2x1, :]) ≈ ξ2x1_exact
-            @test (@view vgeo[:, :, _ξ2x2, :]) ≈ ξ2x2_exact
-            msk = isfinite.(sM_exact)
-            @test sgeo[_sM, :, :, :][msk] ≈ sM_exact[msk]
-            @test sgeo[_n1, :, :, :][msk] ≈ nx_exact[msk]
-            @test sgeo[_n2, :, :, :][msk] ≈ ny_exact[msk]
+                @test (@view vgeo[:, :, _x1, :]) ≈ x_exact
+                @test (@view vgeo[:, :, _x2, :]) ≈ y_exact
+                @test (@view vgeo[:, :, _M, :]) ≈ M_exact
+                @test (@view vgeo[:, :, _ξ1x1, :]) ≈ ξ1x1_exact
+                @test (@view vgeo[:, :, _ξ1x2, :]) ≈ ξ1x2_exact
+                @test (@view vgeo[:, :, _ξ2x1, :]) ≈ ξ2x1_exact
+                @test (@view vgeo[:, :, _ξ2x2, :]) ≈ ξ2x2_exact
+                msk = isfinite.(sM_exact)
+                @test sgeo[_sM, :, :, :][msk] ≈ sM_exact[msk]
+                @test sgeo[_n1, :, :, :][msk] ≈ nx_exact[msk]
+                @test sgeo[_n2, :, :, :][msk] ≈ ny_exact[msk]
+            end
 
             nothing
         end
@@ -251,6 +268,7 @@ end
                     ξ,
                     ω,
                     (x...) -> identity(x),
+                    N,
                 )
                 vgeo = reshape(vgeo, Nq..., _nvgeo, nelem)
                 ξ1, ξ2 = vgeo[:, :, _x1, :], vgeo[:, :, _x2, :]
@@ -260,7 +278,7 @@ end
             M = J .* reshape(kron(reverse(ω)...), Nq..., 1)
 
             meshwarp(ξ1, ξ2, _) = (f(ξ1, ξ2)..., 0)
-            (vgeo, sgeo, _) = Grids.computegeometry(e2c, D, ξ, ω, meshwarp)
+            (vgeo, sgeo, _) = Grids.computegeometry(e2c, D, ξ, ω, meshwarp, N)
             vgeo = reshape(vgeo, Nq..., _nvgeo, nelem)
             x1 = @view vgeo[:, :, _x1, :]
             x2 = @view vgeo[:, :, _x2, :]
@@ -310,7 +328,7 @@ end
             nelem = size(e2c, 3)
 
             meshwarp(ξ1, ξ2, _) = (f(ξ1, ξ2)..., 0)
-            (vgeo, sgeo, _) = Grids.computegeometry(e2c, D, ξ, ω, meshwarp)
+            (vgeo, sgeo, _) = Grids.computegeometry(e2c, D, ξ, ω, meshwarp, N)
             vgeo = reshape(vgeo, Nq..., _nvgeo, nelem)
             x1 = @view vgeo[:, :, _x1, :]
             x2 = @view vgeo[:, :, _x2, :]
@@ -390,7 +408,7 @@ end
             M = J .* reshape(kron(reverse(ω)...), Nq..., 1)
 
             meshwarp(ξ1, ξ2, _) = (fx1(ξ1, ξ2), fx2(ξ1, ξ2), 0)
-            (vgeo, sgeo, _) = Grids.computegeometry(e2c, D, ξ, ω, meshwarp)
+            (vgeo, sgeo, _) = Grids.computegeometry(e2c, D, ξ, ω, meshwarp, N)
             vgeo = reshape(vgeo, Nq..., _nvgeo, nelem)
             @test x1 ≈ vgeo[:, :, _x1, :]
             @test x2 ≈ vgeo[:, :, _x2, :]
@@ -473,7 +491,7 @@ end
             nelem = size(e2c, 3)
 
             meshwarp(ξ1, ξ2, _) = (fx1(ξ1, ξ2), fx2(ξ1, ξ2), 0)
-            (vgeo, sgeo, _) = Grids.computegeometry(e2c, D, ξ, ω, meshwarp)
+            (vgeo, sgeo, _) = Grids.computegeometry(e2c, D, ξ, ω, meshwarp, N)
 
             M = vgeo[:, _M, :]
             ξ1x1 = vgeo[:, _ξ1x1, :]
@@ -585,7 +603,7 @@ end
         nz_exact[:, 6, 1:2] .= 1
 
         (vgeo, sgeo, _) =
-            Grids.computegeometry(e2c, D, ξ, ω, (x...) -> identity(x))
+            Grids.computegeometry(e2c, D, ξ, ω, (x...) -> identity(x), N)
         vgeo = reshape(vgeo, Nq..., _nvgeo, nelem)
 
         @test (@view vgeo[:, :, :, _x1, :]) ≈ x_exact
@@ -639,7 +657,7 @@ end
 
     # Polynomial 3-D test
     #{{{
-    for FT in (Float32, Float64), N in ((9, 9, 9), (9, 9, 10), (10, 9, 11))
+    for N in ((9, 9, 9), (9, 9, 10), (10, 9, 11)), FT in (Float64, Float32)
         Nq = N .+ 1
         Np = prod(Nq)
         Nfp = div.(Np, Nq)
@@ -648,9 +666,10 @@ end
         nface = 2dim
 
         # Create element operators for each polynomial order
-        ξω = ntuple(j -> Elements.lglpoints(FT, N[j]), dim)
+        ξω = ntuple(j -> Elements.lglpoints(BigFloat, N[j]), dim)
         ξ, ω = ntuple(j -> map(x -> x[j], ξω), 2)
-        D = ntuple(j -> Elements.spectralderivative(ξ[j]), dim)
+        D = ntuple(j -> Double64.(Elements.spectralderivative(ξ[j])), dim)
+        ξ, ω = ntuple(j -> map(x -> Double64.(x[j]), ξω), 2)
 
         f(ξ1, ξ2, ξ3) = @.( (
             ξ2 + ξ1 * ξ3 - (ξ1^2 * ξ2^2 * ξ3^2) / 4,
@@ -672,7 +691,7 @@ end
         fx3ξ3(ξ1, ξ2, ξ3) =
             @.(6 * ((ξ1 + 1) / 2)^6 * ((ξ2 + 1) / 2)^6 * ((ξ3 + 1) / 2)^5)
 
-        e2c = Array{FT, 3}(undef, dim, 8, 1)
+        e2c = Array{Int, 3}(undef, dim, 8, 1)
         e2c[:, :, 1] = [
             -1 1 -1 1 -1 1 -1 1
             -1 -1 1 1 -1 -1 1 1
@@ -683,9 +702,15 @@ end
 
         # Compute exact metrics
         (x1ξ1, x1ξ2, x1ξ3, x2ξ1, x2ξ2, x2ξ3, x3ξ1, x3ξ2, x3ξ3) = let
-            (vgeo, _) =
-                Grids.computegeometry(e2c, D, ξ, ω, (x...) -> identity(x))
-            vgeo = reshape(vgeo, Nq..., _nvgeo, nelem)
+            (vgeo, _) = Grids.computegeometry(
+                e2c,
+                D,
+                ξ,
+                ω,
+                (x...) -> identity(x),
+                N,
+            )
+            vgeo = reshape(FT.(vgeo), Nq..., _nvgeo, nelem)
             ξ1 = vgeo[:, :, :, _x1, :]
             ξ2 = vgeo[:, :, :, _x2, :]
             ξ3 = vgeo[:, :, :, _x3, :]
@@ -701,27 +726,43 @@ end
                 fx3ξ3(ξ1, ξ2, ξ3),
             )
         end
-        J = (
-            x1ξ1 .* (x2ξ2 .* x3ξ3 - x2ξ3 .* x3ξ2) +
-            x2ξ1 .* (x3ξ2 .* x1ξ3 - x3ξ3 .* x1ξ2) +
-            x3ξ1 .* (x1ξ2 .* x2ξ3 - x1ξ3 .* x2ξ2)
-        )
+        ξ, ω = ntuple(j -> map(x -> FT.(x[j]), ξω), 2)
 
-        ξ1x1 = (x2ξ2 .* x3ξ3 - x2ξ3 .* x3ξ2) ./ J
-        ξ1x2 = (x3ξ2 .* x1ξ3 - x3ξ3 .* x1ξ2) ./ J
-        ξ1x3 = (x1ξ2 .* x2ξ3 - x1ξ3 .* x2ξ2) ./ J
-        ξ2x1 = (x2ξ3 .* x3ξ1 - x2ξ1 .* x3ξ3) ./ J
-        ξ2x2 = (x3ξ3 .* x1ξ1 - x3ξ1 .* x1ξ3) ./ J
-        ξ2x3 = (x1ξ3 .* x2ξ1 - x1ξ1 .* x2ξ3) ./ J
-        ξ3x1 = (x2ξ1 .* x3ξ2 - x2ξ2 .* x3ξ1) ./ J
-        ξ3x2 = (x3ξ1 .* x1ξ2 - x3ξ2 .* x1ξ1) ./ J
-        ξ3x3 = (x1ξ1 .* x2ξ2 - x1ξ2 .* x2ξ1) ./ J
+        Jξ1x1 = (x2ξ2 .* x3ξ3 - x2ξ3 .* x3ξ2)
+        Jξ1x2 = (x3ξ2 .* x1ξ3 - x3ξ3 .* x1ξ2)
+        Jξ1x3 = (x1ξ2 .* x2ξ3 - x1ξ3 .* x2ξ2)
+        Jξ2x1 = (x2ξ3 .* x3ξ1 - x2ξ1 .* x3ξ3)
+        Jξ2x2 = (x3ξ3 .* x1ξ1 - x3ξ1 .* x1ξ3)
+        Jξ2x3 = (x1ξ3 .* x2ξ1 - x1ξ1 .* x2ξ3)
+        Jξ3x1 = (x2ξ1 .* x3ξ2 - x2ξ2 .* x3ξ1)
+        Jξ3x2 = (x3ξ1 .* x1ξ2 - x3ξ2 .* x1ξ1)
+        Jξ3x3 = (x1ξ1 .* x2ξ2 - x1ξ2 .* x2ξ1)
 
-        (vgeo, sgeo, _) = Grids.computegeometry(e2c, D, ξ, ω, f)
+        J = similar(x1ξ1)
+        for i in 1:length(J)
+            J[i] = sqrt(det([
+                Jξ1x1[i] Jξ2x1[i] Jξ3x1[i]
+                Jξ1x2[i] Jξ2x2[i] Jξ3x2[i]
+                Jξ1x3[i] Jξ2x3[i] Jξ3x3[i]
+            ]))
+        end
+
+        ξ1x1 = Jξ1x1 ./ J
+        ξ1x2 = Jξ1x2 ./ J
+        ξ1x3 = Jξ1x3 ./ J
+        ξ2x1 = Jξ2x1 ./ J
+        ξ2x2 = Jξ2x2 ./ J
+        ξ2x3 = Jξ2x3 ./ J
+        ξ3x1 = Jξ3x1 ./ J
+        ξ3x2 = Jξ3x2 ./ J
+        ξ3x3 = Jξ3x3 ./ J
+
+        (vgeo, sgeo, _) = Grids.computegeometry(e2c, D, ξ, ω, f, N)
         vgeo = reshape(vgeo, Nq..., _nvgeo, nelem)
 
         @test (@view vgeo[:, :, :, _M, :]) ≈
               J .* reshape(kron(reverse(ω)...), Nq..., 1)
+        @assert (@view vgeo[:, :, :, _ξ1x1, :]) ≈ ξ1x1
         @test (@view vgeo[:, :, :, _ξ1x1, :]) ≈ ξ1x1
         @test (@view vgeo[:, :, :, _ξ1x2, :]) ≈ ξ1x2
         @test (@view vgeo[:, :, :, _ξ1x3, :]) ≈ ξ1x3
@@ -817,7 +858,7 @@ end
 
     # Constant preserving test
     #{{{
-    for FT in (Float32, Float64), N in ((5, 5, 5), (3, 4, 5), (4, 4, 5))
+    for FT in (Float64, Float64), N in ((5, 5, 5), (3, 4, 5), (4, 4, 5))
         Nq = N .+ 1
         Np = prod(Nq)
         Nfp = div.(Np, Nq)
@@ -845,7 +886,7 @@ end
 
         nelem = size(e2c, 3)
 
-        (vgeo, sgeo, _) = Grids.computegeometry(e2c, D, ξ, ω, f)
+        (vgeo, sgeo, _) = Grids.computegeometry(e2c, D, ξ, ω, f, N)
         vgeo = reshape(vgeo, Nq..., _nvgeo, nelem)
 
         (Cx1, Cx2, Cx3) = (zeros(FT, Nq...), zeros(FT, Nq...), zeros(FT, Nq...))
@@ -897,7 +938,7 @@ end
     #N = 0 test
     #{{{
     let
-        for FT in (Float32, Float64)
+        for FT in (Float64, Float64)
             N = (4, 4, 0)
             Nq = N .+ 1
             Np = prod(Nq)
@@ -980,7 +1021,7 @@ end
 
             meshwarp(ξ1, ξ2, ξ3) =
                 (fx1(ξ1, ξ2, ξ3), fx2(ξ1, ξ2, ξ3), fx3(ξ1, ξ2, ξ3))
-            (vgeo, sgeo, _) = Grids.computegeometry(e2c, D, ξ, ω, meshwarp)
+            (vgeo, sgeo, _) = Grids.computegeometry(e2c, D, ξ, ω, meshwarp, N)
             vgeo = reshape(vgeo, Nq..., _nvgeo, nelem)
 
             @test x1 ≈ vgeo[:, :, :, _x1, :]
@@ -1140,7 +1181,7 @@ end
     # Constant preserving test for N = 0
     #{{{
     let
-        for FT in (Float64, Float32),
+        for FT in (Float64, Float64),
             N in ((4, 4, 0), (0, 0, 2), (0, 3, 4), (2, 0, 3))
 
             Nq = N .+ 1
@@ -1176,7 +1217,7 @@ end
 
             meshwarp(ξ1, ξ2, ξ3) =
                 (fx1(ξ1, ξ2, ξ3), fx2(ξ1, ξ2, ξ3), fx2(ξ1, ξ2, ξ3))
-            (vgeo, sgeo, _) = Grids.computegeometry(e2c, D, ξ, ω, meshwarp)
+            (vgeo, sgeo, _) = Grids.computegeometry(e2c, D, ξ, ω, meshwarp, N)
 
             M = vgeo[:, _M, :]
             ξ1x1 = vgeo[:, _ξ1x1, :]
@@ -1231,7 +1272,7 @@ end
     # Constant preserving test with all N = 0
     #{{{
     let
-        for FT in (Float64, Float32)
+        for FT in (Float64, Float64)
             N = (0, 0, 0)
             Nq = N .+ 1
 
@@ -1266,7 +1307,7 @@ end
 
             meshwarp(ξ1, ξ2, ξ3) =
                 (fx1(ξ1, ξ2, ξ3), fx2(ξ1, ξ2, ξ3), fx2(ξ1, ξ2, ξ3))
-            (vgeo, sgeo, _) = Grids.computegeometry(e2c, D, ξ, ω, meshwarp)
+            (vgeo, sgeo, _) = Grids.computegeometry(e2c, D, ξ, ω, meshwarp, N)
 
             M = vgeo[:, _M, :]
             ξ1x1 = vgeo[:, _ξ1x1, :]
