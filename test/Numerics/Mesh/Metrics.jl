@@ -1,9 +1,9 @@
-using ClimateMachine.Mesh.Elements
-using ClimateMachine.Mesh.Grids
+import ClimateMachine.Mesh.Grids
 using ClimateMachine.Mesh.Metrics
 using LinearAlgebra: I
 using Test
 using Random: MersenneTwister
+using UnPack
 
 const _ξ1x1, _ξ2x1, _ξ3x1 = Grids._ξ1x1, Grids._ξ2x1, Grids._ξ3x1
 const _ξ1x2, _ξ2x2, _ξ3x2 = Grids._ξ1x2, Grids._ξ2x2, Grids._ξ3x2
@@ -29,20 +29,20 @@ const _nsgeo = Grids._nsgeo
             nface = 2dim
 
             # Create element operators for each polynomial order
-            ξω = ntuple(j -> Elements.lglpoints(FT, N[j]), dim)
-            ξ, ω = ntuple(j -> map(x -> x[j], ξω), 2)
-
-            D = ntuple(j -> Elements.spectralderivative(ξ[j]), dim)
-
             dim = 1
             e2c = Array{FT, 3}(undef, 1, 2, 2)
             e2c[:, :, 1] = [-1 0]
             e2c[:, :, 2] = [0 10]
             nelem = size(e2c, 3)
 
-            (vgeo, sgeo, _) =
-                Grids.computegeometry(e2c, D, ξ, ω, (x...) -> identity(x))
-            vgeo = reshape(vgeo, Nq..., _nvgeo, nelem)
+            @unpack ω, ξ, vgeo, sgeo = Grids.compute_operators_and_metrics(
+                FT,
+                FT,
+                N,
+                e2c,
+                (x...) -> identity(x),
+            )
+
             @test vgeo[:, _x1, 1] ≈ (ξ[1] .- 1) / 2
             @test vgeo[:, _x1, 2] ≈ 5 * (ξ[1] .+ 1)
 
@@ -69,21 +69,21 @@ const _nsgeo = Grids._nsgeo
             dim = length(N)
             nface = 2dim
 
-            # Create element operators for each polynomial order
-            ξω = ntuple(j -> Elements.glpoints(FT, N[j]), dim)
-            ξ, ω = ntuple(j -> map(x -> x[j], ξω), 2)
-
-            D = ntuple(j -> Elements.spectralderivative(ξ[j]), dim)
-
             dim = 1
             e2c = Array{FT, 3}(undef, 1, 2, 2)
             e2c[:, :, 1] = [-1 0]
             e2c[:, :, 2] = [0 10]
             nelem = size(e2c, 3)
 
-            (vgeo, sgeo, _) =
-                Grids.computegeometry(e2c, D, ξ, ω, (x...) -> identity(x))
+            @unpack ω, ξ, vgeo, sgeo = Grids.compute_operators_and_metrics(
+                FT,
+                FT,
+                N,
+                e2c,
+                (x...) -> identity(x),
+            )
             vgeo = reshape(vgeo, Nq..., _nvgeo, nelem)
+
             @test vgeo[1, _x1, 1] ≈ sum(e2c[:, :, 1]) / 2
             @test vgeo[1, _x1, 2] ≈ sum(e2c[:, :, 2]) / 2
 
@@ -103,6 +103,7 @@ end
 
 @testset "2-D Metric terms" begin
     # for FT in (Float32, Float64)
+    #{{{
     for FT in (Float32, Float64), N in ((4, 4), (4, 6), (6, 4))
         Nq = N .+ 1
         Np = prod(Nq)
@@ -110,11 +111,6 @@ end
 
         dim = length(N)
         nface = 2dim
-
-        # Create element operators for each polynomial order
-        ξω = ntuple(j -> Elements.lglpoints(FT, N[j]), dim)
-        ξ, ω = ntuple(j -> map(x -> x[j], ξω), 2)
-        D = ntuple(j -> Elements.spectralderivative(ξ[j]), dim)
 
         # linear and rotation test
         #{{{
@@ -136,6 +132,13 @@ end
                 0 0 2 2
                 2 0 2 0
             ]
+            @unpack ω, ξ, vgeo, sgeo = Grids.compute_operators_and_metrics(
+                FT,
+                FT,
+                N,
+                e2c,
+                (x...) -> identity(x),
+            )
             nelem = size(e2c, 3)
 
             x_exact = Array{FT, 3}(undef, Nq..., 4)
@@ -201,8 +204,6 @@ end
             ny_exact[1:Nfp[1], 1, 4] .= 1
             ny_exact[1:Nfp[1], 2, 4] .= -1
 
-            (vgeo, sgeo, _) =
-                Grids.computegeometry(e2c, D, ξ, ω, (x...) -> identity(x))
             vgeo = reshape(vgeo, Nq..., _nvgeo, nelem)
 
             @test (@view vgeo[:, :, _x1, :]) ≈ x_exact
@@ -245,22 +246,23 @@ end
 
             # Create the metrics
             (x1ξ1, x1ξ2, x2ξ1, x2ξ2) = let
-                (vgeo, _) = Grids.computegeometry(
+                @unpack vgeo = Grids.compute_operators_and_metrics(
+                    FT,
+                    FT,
+                    N,
                     e2c,
-                    D,
-                    ξ,
-                    ω,
                     (x...) -> identity(x),
                 )
                 vgeo = reshape(vgeo, Nq..., _nvgeo, nelem)
                 ξ1, ξ2 = vgeo[:, :, _x1, :], vgeo[:, :, _x2, :]
                 (fx1ξ1(ξ1, ξ2), fx1ξ2(ξ1, ξ2), fx2ξ1(ξ1, ξ2), fx2ξ2(ξ1, ξ2))
             end
-            J = (x1ξ1 .* x2ξ2 - x1ξ2 .* x2ξ1)
-            M = J .* reshape(kron(reverse(ω)...), Nq..., 1)
 
             meshwarp(ξ1, ξ2, _) = (f(ξ1, ξ2)..., 0)
-            (vgeo, sgeo, _) = Grids.computegeometry(e2c, D, ξ, ω, meshwarp)
+            @unpack ω, ξ, vgeo, sgeo =
+                Grids.compute_operators_and_metrics(FT, FT, N, e2c, meshwarp)
+            J = (x1ξ1 .* x2ξ2 - x1ξ2 .* x2ξ1)
+            M = J .* reshape(kron(reverse(ω)...), Nq..., 1)
             vgeo = reshape(vgeo, Nq..., _nvgeo, nelem)
             x1 = @view vgeo[:, :, _x1, :]
             x2 = @view vgeo[:, :, _x2, :]
@@ -310,7 +312,8 @@ end
             nelem = size(e2c, 3)
 
             meshwarp(ξ1, ξ2, _) = (f(ξ1, ξ2)..., 0)
-            (vgeo, sgeo, _) = Grids.computegeometry(e2c, D, ξ, ω, meshwarp)
+            @unpack ω, ξ, D, vgeo, sgeo =
+                Grids.compute_operators_and_metrics(FT, FT, N, e2c, meshwarp)
             vgeo = reshape(vgeo, Nq..., _nvgeo, nelem)
             x1 = @view vgeo[:, :, _x1, :]
             x2 = @view vgeo[:, :, _x2, :]
@@ -337,6 +340,7 @@ end
         end
         #}}}
     end
+    #}}}
 
     #N = 0 test
     #{{{
@@ -351,14 +355,6 @@ end
             nface = 2dim
 
             # Create element operators for each polynomial order
-            ξω = ntuple(
-                j ->
-                    Nq[j] == 1 ? Elements.glpoints(FT, N[j]) :
-                    Elements.lglpoints(FT, N[j]),
-                dim,
-            )
-            ξ, ω = ntuple(j -> map(x -> x[j], ξω), 2)
-            D = ntuple(j -> Elements.spectralderivative(ξ[j]), dim)
 
             fx1(ξ1, ξ2) = ξ1 + (1 + ξ1)^2 * ξ2 / 10
             fx1ξ1(ξ1, ξ2) = 1 + 2 * (1 + ξ1) * ξ2 / 10
@@ -369,13 +365,25 @@ end
 
             e2c = Array{FT, 3}(undef, 2, 4, 1)
             e2c[:, :, 1] = [-1 1 -1 1; -1 -1 1 1]
+
+            meshwarp(ξ1, ξ2, _) = (fx1(ξ1, ξ2), fx2(ξ1, ξ2), 0)
+            @unpack ω, ξ, vgeo, sgeo =
+                Grids.compute_operators_and_metrics(FT, FT, N, e2c, meshwarp)
+
             nelem = size(e2c, 3)
 
             # Create the metrics
             (x1, x2, x1ξ1, x1ξ2, x2ξ1, x2ξ2) = let
-                ξ1 = zeros(FT, Np, nelem)
-                ξ2 = zeros(FT, Np, nelem)
-                Metrics.creategrid!(ξ1, ξ2, e2c, ξ...)
+                _vgeo =
+                    Grids.compute_operators_and_metrics(
+                        FT,
+                        FT,
+                        N,
+                        e2c,
+                        (x...) -> identity(x),
+                    ).vgeo
+                _vgeo = reshape(_vgeo, Nq..., _nvgeo, nelem)
+                ξ1, ξ2 = _vgeo[:, :, _x1, :], _vgeo[:, :, _x2, :]
                 (
                     fx1.(ξ1, ξ2),
                     fx2.(ξ1, ξ2),
@@ -385,13 +393,11 @@ end
                     fx2ξ2.(ξ1, ξ2),
                 )
             end
+
             J = (x1ξ1 .* x2ξ2 - x1ξ2 .* x2ξ1)
-
             M = J .* reshape(kron(reverse(ω)...), Nq..., 1)
-
-            meshwarp(ξ1, ξ2, _) = (fx1(ξ1, ξ2), fx2(ξ1, ξ2), 0)
-            (vgeo, sgeo, _) = Grids.computegeometry(e2c, D, ξ, ω, meshwarp)
             vgeo = reshape(vgeo, Nq..., _nvgeo, nelem)
+
             @test x1 ≈ vgeo[:, :, _x1, :]
             @test x2 ≈ vgeo[:, :, _x2, :]
 
@@ -420,15 +426,16 @@ end
             (x1ξ1, x2ξ1) = let
                 @assert Nq[2] == 1 && Nq[1] != 1
                 Nq_N1 = max.(2, Nq)
-                ξ1 = zeros(FT, Nq_N1..., nelem)
-                ξ2 = zeros(FT, Nq_N1..., nelem)
-                Metrics.creategrid!(
-                    ξ1,
-                    ξ2,
-                    e2c,
-                    ξ[1],
-                    Elements.lglpoints(FT, 1)[1],
-                )
+                _vgeo =
+                    Grids.compute_operators_and_metrics(
+                        FT,
+                        FT,
+                        Nq_N1 .- 1,
+                        e2c,
+                        (x...) -> identity(x),
+                    ).vgeo
+                _vgeo = reshape(_vgeo, Nq_N1..., _nvgeo, nelem)
+                ξ1, ξ2 = _vgeo[:, :, _x1, :], _vgeo[:, :, _x2, :]
                 (fx1ξ1.(ξ1, ξ2), fx2ξ1.(ξ1, ξ2))
             end
             @test sM[1:Nfp[2], 3, :] .* n1[1:Nfp[2], 3, :] ≈
@@ -455,15 +462,6 @@ end
             nface = 2dim
 
             # Create element operators for each polynomial order
-            ξω = ntuple(
-                j ->
-                    Nq[j] == 1 ? Elements.glpoints(FT, N[j]) :
-                    Elements.lglpoints(FT, N[j]),
-                dim,
-            )
-            ξ, ω = ntuple(j -> map(x -> x[j], ξω), 2)
-            D = ntuple(j -> Elements.spectralderivative(ξ[j]), dim)
-
             rng = MersenneTwister(777)
             fx1(ξ1, ξ2) = ξ1 + (ξ1 * ξ2 * rand(rng) + rand(rng)) / 10
             fx2(ξ1, ξ2) = ξ2 + (ξ1 * ξ2 * rand(rng) + rand(rng)) / 10
@@ -473,7 +471,8 @@ end
             nelem = size(e2c, 3)
 
             meshwarp(ξ1, ξ2, _) = (fx1(ξ1, ξ2), fx2(ξ1, ξ2), 0)
-            (vgeo, sgeo, _) = Grids.computegeometry(e2c, D, ξ, ω, meshwarp)
+            @unpack ω, D, vgeo, sgeo =
+                Grids.compute_operators_and_metrics(FT, FT, N, e2c, meshwarp)
 
             M = vgeo[:, _M, :]
             ξ1x1 = vgeo[:, _ξ1x1, :]
@@ -508,6 +507,7 @@ end
     #}}}
 end
 
+#XXX UPDATE 3-D to use compute_operators_and_metrics
 @testset "3-D Metric terms" begin
     # linear test
     #{{{

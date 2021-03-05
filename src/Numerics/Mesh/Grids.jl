@@ -399,8 +399,8 @@ function compute_operators_and_metrics(
     dim = length(N)
     ξω = ntuple(
         j ->
-            N[j] == 0 ? Elements.glpoints(BigFloat, N[j]) :
-            Elements.lglpoints(BigFloat, N[j]),
+            N[j] == 0 ? Elements.glpoints(ComputeType, N[j]) :
+            Elements.lglpoints(ComputeType, N[j]),
         dim,
     )
     ξ, ω = ntuple(j -> map(x -> ComputeType.(x[j]), ξω), 2)
@@ -412,13 +412,13 @@ function compute_operators_and_metrics(
     (vgeo, sgeo, x_vtk) = computegeometry(elemtocoord, D, ξ, ω, meshwarp)
 
     return (
-        map(ω_i -> FloatType.(ω_i), ω),
-        map(ξ_i -> FloatType.(ξ_i), ξ),
-        map(D_i -> FloatType.(D_i), D),
-        map(Imat_i -> FloatType.(Imat_i), Imat),
-        FloatType.(vgeo),
-        FloatType.(sgeo),
-        map(x_vtk_i -> FloatType.(x_vtk_i), x_vtk),
+        ω = map(ω_i -> FloatType.(ω_i), ω),
+        ξ = map(ξ_i -> FloatType.(ξ_i), ξ),
+        D = map(D_i -> FloatType.(D_i), D),
+        Imat = map(Imat_i -> FloatType.(Imat_i), Imat),
+        vgeo = FloatType.(vgeo),
+        sgeo = FloatType.(sgeo),
+        x_vtk = map(x_vtk_i -> FloatType.(x_vtk_i), x_vtk),
     )
 end
 
