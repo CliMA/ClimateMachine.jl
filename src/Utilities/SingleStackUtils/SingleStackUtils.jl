@@ -315,7 +315,21 @@ function reduce_nodal_stack(
 
     state_data = array_device(Q) isa CPU ? Q.realdata : Array(Q.realdata)
     z = vrange.start
-    result = state_data[i + Nq1 * (j - 1), var_ind, z]
+    FT = eltype(state_data)
+
+    # Initialize result with identity operation for operator
+    result = if op isa typeof(+)
+        zero(FT)
+    elseif op isa typeof(*)
+        one(FT)
+    elseif op isa typeof(min)
+        floatmax(FT)
+    elseif op isa typeof(max)
+        -floatmax(FT)
+    else
+        error("unknown operator: $op")
+    end
+
     for ev in vrange
         for k in 1:Nqk
             ijk = i + Nq1 * ((j - 1) + Nq2 * (k - 1))
