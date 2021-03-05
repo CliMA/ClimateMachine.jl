@@ -180,7 +180,7 @@ function main()
         i = 6,
         j = 6,
     )
-    @test r1 ≈ 8.880558532968455e-16 && z1 == 10
+    @test r1 ≈ 0.0 && z1 == 1
     r2, z2 = reduce_nodal_stack(
         +,
         solver_config.dg.grid,
@@ -202,7 +202,7 @@ function main()
         f(a, b) = (a[1] + b[1], b[2])
         reduce(f, ns)
     end
-    @test r3 ≈ FT(2877.6) && z3 == 20
+    @test r3 ≈ FT(2877.6) && z3 == 1
 
     test_horizontally_ave(
         driver_config.grid,
