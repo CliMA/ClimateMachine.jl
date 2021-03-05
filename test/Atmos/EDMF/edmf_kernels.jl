@@ -229,7 +229,7 @@ eq_tends(
     pv::PV,
     m::EDMF,
     ::Flux{SecondOrder},
-) where {PV <: Union{Momentum, Energy, TotalMoisture}} = (SGSFlux{PV}(),)   # do _not_ add SGSFlux back to grid-mean
+) where {PV <: Union{Momentum, Energy, TotalMoisture}} = ()#(SGSFlux{PV}(),)   # do _not_ add SGSFlux back to grid-mean
 # (SGSFlux{PV}(),) # add SGSFlux back to grid-mean
 
 # Turbconv tendencies
@@ -495,7 +495,7 @@ function compute_gradient_flux!(
     z = altitude(m, aux)
 
     # gm_dif.S² = ∇transform.u[3, 1]^2 + ∇transform.u[3, 2]^2 + en_dif.∇w[3]^2 # ∇transform.u is Jacobian.T
-    gm_dif.S² = FT(0.0001)
+    gm_dif.S² = FT(1/100000)
     # Recompute l_mix, K_m and tke budget terms for output.
     ts = recover_thermo_state_all(m, state, aux)
 
