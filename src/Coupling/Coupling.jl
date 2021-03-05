@@ -6,7 +6,7 @@ Primitive coupling module sufficient for initial atmos-ocean-land coupled simula
 module Coupling
 
 export CplTestModel
-export CplState, put!, get, register_cpl_field
+export CplState, put!, get, register_cpl_field!
 
 using ClimateMachine.DGMethods
 using ClimateMachine.DGMethods.NumericalFluxes

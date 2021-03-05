@@ -5,7 +5,7 @@ using ClimateMachine
 
 # To test coupling
 using ClimateMachine.Coupling
-using ClimateMachine.Coupling: put!, get
+using Unitful, Dates
 
 # To create meshes (borrowed from Ocean for now!)
 using ClimateMachine.Ocean.Domains
@@ -176,14 +176,17 @@ mO = Coupling.CplTestModel(;
 
 # Create a Coupler State object for holding imort/export fields.
 # Try using Dict here - not sure if that will be OK with GPU
-cState = CplState(:Atmos_MeanAirSeaθFlux, :Ocean_SST)
+cState = CplState()
+register_cpl_field!(cState, :Ocean_SST, deepcopy(mO.state.θ[mO.boundary]), mO.grid, DateTime(0), u"°C")
+register_cpl_field!(cState, :Atmos_MeanAirSeaθFlux, deepcopy(mA.state.F_accum[mA.boundary]), mA.grid, DateTime(0), u"°C")
 
 # I think each BL can have a pre- and post- couple function?
 
 function preatmos(csolver)
 
     # Set boundary SST used in atmos to SST of ocean surface at start of coupling cycle.
-    mA.discretization.state_auxiliary.θ_secondary[mA.boundary] .= get(cState, :Ocean_SST)
+    mA.discretization.state_auxiliary.θ_secondary[mA.boundary] .= 
+        Coupling.get(cState, :Ocean_SST, mA.grid, DateTime(0), u"°C")
     # Set atmos boundary flux accumulator to 0.
     mA.state.F_accum .= 0
 
@@ -203,7 +206,8 @@ function postatmos(csolver)
 
     # Pass atmos exports to "coupler" namespace
     # 1. Save mean θ flux at the Atmos boundary during the coupling period
-    put!(cState, :Atmos_MeanAirSeaθFlux, mA.state.F_accum[mA.boundary] ./ csolver.dt)
+    Coupling.put!(cState, :Atmos_MeanAirSeaθFlux, mA.state.F_accum[mA.boundary] ./ csolver.dt,
+        mA.grid, DateTime(0), u"°C")
 
     @info(
         "postatmos",
@@ -223,12 +227,11 @@ function postatmos(csolver)
 
 end
 
-
 function preocean(csolver)
 
     # Set mean air-sea theta flux
     mO.discretization.state_auxiliary.F_prescribed[mO.boundary] .= 
-        get(cState, :Atmos_MeanAirSeaθFlux)
+        Coupling.get(cState, :Atmos_MeanAirSeaθFlux, mO.grid, DateTime(0), u"°C")
     # Set ocean boundary flux accumulator to 0. (this isn't used)
     mO.state.F_accum .= 0
 
@@ -255,7 +258,7 @@ function postocean(csolver)
 
     # Pass ocean exports to "coupler" namespace
     #  1. Ocean SST (value of θ at z=0)
-    put!(cState, :Ocean_SST, mO.state.θ[mO.boundary])
+    Coupling.put!(cState, :Ocean_SST, mO.state.θ[mO.boundary], mO.grid, DateTime(0), u"°C")
 end
 
 
@@ -274,8 +277,6 @@ cC = Coupling.CplSolver(
 
 # If this is run from t=0 we also need to initialize the imports so they can be read
 # (for restart we need to add logic to JLD2 save/restore cState.CplStateBlob ).
-put!(cState, :Ocean_SST, deepcopy(mO.state.θ[mO.boundary]))
-put!(cState, :Atmos_MeanAirSeaθFlux, deepcopy(mA.state.F_accum[mA.boundary]))
 
 # Invoke solve! with coupled timestepper and callback list.
-solve!(nothing, cC; numberofsteps = 1940)
+solve!(nothing, cC; numberofsteps = 10)

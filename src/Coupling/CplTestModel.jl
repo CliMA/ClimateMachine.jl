@@ -73,7 +73,7 @@ function CplTestModel(;
     )
 
     # Specify the coupling boundary
-    boundary = discretization.grid.vgeo[:, _x3:_x3, :] .== 0
+    boundary = grid.vgeo[:, _x3:_x3, :] .== 0
 
     ###
     ### Invoke the spatial ODE initialization functions
