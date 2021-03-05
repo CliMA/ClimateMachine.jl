@@ -3,7 +3,6 @@
 
 Returns the state and tendency diagnostic groups
 """
-
 function config_diagnostics(driver_config, timeend; interval = nothing)
     FT = eltype(driver_config.grid)
     info = driver_config.config_info
