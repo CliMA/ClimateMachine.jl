@@ -494,8 +494,8 @@ function compute_gradient_flux!(
     gm_dif.∇v = gm_∇tf.v
 
     z = altitude(m, aux)
-    # gm_dif.S² = ∇transform.u[3, 1]^2 + ∇transform.u[3, 2]^2 + en_dif.∇w[3]^2 # ∇transform.u is Jacobian.T
-    gm_dif.S² = FT(1/100000)
+    gm_dif.S² = ∇transform.u[3, 1]^2 + ∇transform.u[3, 2]^2 + en_dif.∇w[3]^2 # ∇transform.u is Jacobian.T
+    # gm_dif.S² = FT(1/100000)
     # Recompute l_mix, K_m and tke budget terms for output.
     ts = recover_thermo_state_all(m, state, aux)
 
