@@ -1487,7 +1487,6 @@ function numerical_flux_first_order!(
     )
 
     flux⁺ = similar(fluxᵀn, Size(3, num_state_prognostic))
-    @info flux⁺
     fill!(flux⁺, -zero(FT))
     flux_first_order!(
         balance_law,
@@ -1499,7 +1498,8 @@ function numerical_flux_first_order!(
     )
     p⁻ = (state_auxiliary⁻.moisture.p - state_auxiliary⁻.ref_state.p)
     p⁺ = (state_auxiliary⁺.moisture.p - state_auxiliary⁻.ref_state.p)
-    fluxᵀn .+= (flux⁻ + flux⁺)' * (normal_vector / 2) .+ (SVector(FT(p⁻),FT(p⁻),FT(p⁻)) + SVector(FT(p⁺),FT(p⁺),FT(p⁺)))' * (normal_vector / 2)
+    fluxᵀn .+= (flux⁻ + flux⁺)' * (normal_vector / 2) #.+ (SVector(FT(p⁻),FT(p⁻),FT(p⁻)) + SVector(FT(p⁺),FT(p⁺),FT(p⁺)))' * (normal_vector / 2)
+    #@info fluxᵀn
 end
 function numerical_flux_first_order!(
     numerical_flux::LMARSNumericalFlux,
