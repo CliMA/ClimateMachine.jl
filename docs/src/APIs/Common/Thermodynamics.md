@@ -67,6 +67,7 @@ liquid_ice_pottemp
 liquid_ice_pottemp_sat
 liquid_specific_humidity
 mixing_ratios
+vol_vapor_mixing_ratio
 moist_static_energy
 q_vap_saturation
 q_vap_saturation_liquid

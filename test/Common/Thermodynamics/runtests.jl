@@ -446,6 +446,10 @@ end
     @test mrs.tot == q_tot / (1 - q_tot)
     @test mrs.liq == q_liq / (1 - q_tot)
     @test mrs.ice == q_ice / (1 - q_tot)
+
+    vmrs = vol_vapor_mixing_ratio(param_set, q)
+    q_vap = vapor_specific_humidity(q)
+    @test vmrs ≈ _molmass_ratio * shum_to_mixing_ratio(q_vap, q.tot)
 end
 
 
