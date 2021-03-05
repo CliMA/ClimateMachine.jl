@@ -20,7 +20,6 @@ include("interface.jl")
 include("abstractions.jl")
 
 # Main balance law and its components
-include("hyperdiffusion_model.jl") # specific model component 
 include("test_model.jl") # umbrella model: TestEquations
 
 # BL and problem for this

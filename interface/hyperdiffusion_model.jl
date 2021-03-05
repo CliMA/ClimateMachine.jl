@@ -23,18 +23,16 @@ import ClimateMachine.BalanceLaws:
     wavespeed,
     transform_post_gradient_laplacian!
 
-using ClimateMachine.Mesh.Geometry: LocalGeometry
+using ClimateMachine.Mesh.Geometry: LocalGeometry, lengthscale, lengthscale_horizontal
 using ClimateMachine.DGMethods.NumericalFluxes:
     NumericalFluxFirstOrder, NumericalFluxSecondOrder
 
-# hyperdiffusion-specific files
+# hyperdiffusion-specific functions
 include("spherical_harmonics_kernels.jl")
-include("initial_condition.jl")
-
 
 """
-HyperDiffusionProblem 
-- collects parameters for hyperdiffusion
+    HyperDiffusionProblem 
+    - collects parameters for hyperdiffusion
 """
 abstract type HyperDiffusionProblem end
 
@@ -51,12 +49,12 @@ struct HyperDiffusionBoxProblem{dir, FT} <: HyperDiffusionProblem
 end
 
 """
-HyperDiffusion <: BalanceLaw
-- specifies which variable and compute kernels to use to compute the tendency due to hyperdiffusion
+    HyperDiffusion <: BalanceLaw
+    - specifies which variable and compute kernels to use to compute the tendency due to hyperdiffusion
 
-∂ρ_hyperdiff.
---            = - ∇ • (D∇³ρ) = - ∇ • F
-∂t
+    ∂ρ_hyperdiff.
+    --            = - ∇ • (D∇³ρ) = - ∇ • F
+    ∂t
 
 """
 struct HyperDiffusion{P} <: BalanceLaw
@@ -69,37 +67,52 @@ struct HyperDiffusion{P} <: BalanceLaw
 end
 
 # Set hyperdiffusion tensor, D, coordinate info, coorc, and c = l^2*(l+1)^2/r^4
-vars_state(::HyperDiffusion, ::Auxiliary, FT) = @vars(D::SMatrix{3, 3, FT, 9}, c::FT)
+vars_state(::HyperDiffusionProblem, ::Auxiliary, FT) = @vars(c::FT, D::FT)
 
-# Take the gradient of density
-vars_state(::HyperDiffusion, ::Gradient, FT) = @vars(ρ::FT)
+# variables for gradient computation
+vars_state(::HyperDiffusionProblem, ::Gradient, FT) = @vars(ρ::FT)
 
-# Take the gradient of laplacian of density
-vars_state(::HyperDiffusion, ::GradientLaplacian, FT) = @vars(ρ::FT)
+# variables for gradient of laplacian computation
+vars_state(::HyperDiffusionProblem, ::GradientLaplacian, FT) = @vars(ρ::FT)
 
-#vars_state(::HyperDiffusion, ::GradientFlux, FT) = @vars(ρ::FT)
+# variables for Laplacian computation
+vars_state(::HyperDiffusionProblem, ::GradientFlux, FT) = @vars()
 
 # The hyperdiffusion DG auxiliary variable: D ∇ Δρ
-vars_state(::HyperDiffusion, ::Hyperdiffusive, FT) = @vars(D∇³ρ::SVector{3, FT})
+vars_state(::HyperDiffusionProblem, ::Hyperdiffusive, FT) = @vars(D∇³ρ::SVector{3, FT})
 
 """
-    flux_second_order!(m::HyperDiffusion, flux::Grad, state::Vars,
-                     auxDG::Vars, auxHDG::Vars, aux::Vars, t::Real)
-
-Computes diffusive flux `F` in:
-
-```
-∂ρ
--- = - ∇ • (D∇³ρ) = - ∇ • F
-∂t
-```
-Where
-
- - `σ` is hyperdiffusion DG auxiliary variable (`σ = D ∇ Δρ` with D being the hyperdiffusion tensor)
+    Compute kernels
+    - compute_gradient_argument! - set up the variable to take the gradient of (`ρ` in this case)
+    - transform_post_gradient_laplacian! - collect the gradient of the Laplacian (`D∇³ρ`) into hyperdiffusion's aux 
+    - flux_second_order! - add the gradient of the Laplacian to the main BL's flux, the gradient of which will be taken after to obtain the tendency
 """
-
+function compute_gradient_argument!(
+    ::HyperDiffusionProblem,
+    ::BalanceLaw,
+    transform::Vars,
+    state::Vars,
+    aux::Vars,
+    t::Real,
+)
+    transform.hyperdiffusion.ρ = state.ρ
+end
+function transform_post_gradient_laplacian!(
+    ::HyperDiffusionProblem,
+    ::BalanceLaw,
+    auxHDG::Vars,
+    gradvars::Grad,
+    state::Vars,
+    aux::Vars,
+    t::Real,
+)
+    ∇Δρ = gradvars.hyperdiffusion.ρ
+    D = aux.hyperdiffusion.D * SMatrix{3,3,Float64}(I)
+    auxHDG.hyperdiffusion.D∇³ρ = D * ∇Δρ
+end
 function flux_second_order!(
-    m::HyperDiffusion,
+    ::HyperDiffusionProblem,
+    ::BalanceLaw,
     flux::Grad,
     state::Vars,
     auxDG::Vars,
@@ -111,38 +124,11 @@ function flux_second_order!(
 end
 
 """
-    compute_gradient_argument!(m::HyperDiffusion, transform::Vars, state::Vars,
-                   aux::Vars, t::Real)
-
-Set the variable to take the gradient of (`ρ` in this case)
-"""
-function compute_gradient_argument!(
-    m::HyperDiffusion,
-    transform::Vars,
-    state::Vars,
-    aux::Vars,
-    t::Real,
-)
-    transform.hyperdiffusion.ρ = state.ρ
-end
-function transform_post_gradient_laplacian!(
-    m::HyperDiffusion,
-    auxHDG::Vars,
-    gradvars::Grad,
-    state::Vars,
-    aux::Vars,
-    t::Real,
-)
-    ∇Δρ = gradvars.hyperdiffusion.ρ
-    D = aux.hyperdiffusion.D
-    auxHDG.hyperdiffusion.D∇³ρ = D * ∇Δρ
-end
-
-"""
     Initialize prognostic (whole state array at once) and auxiliary variables (per each spatial point = node)
 """
 function init_state_prognostic!(
-    m::HyperDiffusion,
+    ::HyperDiffusionProblem,
+    m::BalanceLaw,
     state::Vars,
     aux::Vars,
     localgeo,
@@ -151,7 +137,8 @@ function init_state_prognostic!(
     initial_condition!(m.problem, state, aux, localgeo, t)
 end
 function nodal_init_state_auxiliary!(
-    balance_law::HyperDiffusionCubedSphereProblem,
+    p::HyperDiffusionCubedSphereProblem,
+    m::BalanceLaw,
     aux::Vars,
     tmp::Vars,
     geom::LocalGeometry,
@@ -159,29 +146,31 @@ function nodal_init_state_auxiliary!(
     FT = eltype(aux)
     
     r = norm(aux.coord)
-    l = balance_law.problem.l
+    l = p.l
     aux.hyperdiffusion.c = get_c(l, r)
     
     Δ_hor = lengthscale_horizontal(geom)
-    aux.hyperdiffusion.D = D(balance_law.problem, Δ_hor)  * SMatrix{3,3,Float64}(I)
+    aux.hyperdiffusion.D = D(p, Δ_hor)  
 end
 function nodal_init_state_auxiliary!(
-    balance_law::HyperDiffusionBoxProblem,
+    p::HyperDiffusionBoxProblem,
+    m::BalanceLaw,
     aux::Vars,
     tmp::Vars,
     geom::LocalGeometry,
 )
     FT = eltype(aux)
     Δ = lengthscale(geom)
-    aux.hyperdiffusion.D = D(balance_law.problem, Δ)  * SMatrix{3,3,Float64}(I)
+
+    aux.hyperdiffusion.D = D(p, Δ)  
 end
 
 """
     Boundary conditions 
     - nothing if diffusion_direction (or direction) = HorizotalDirection()
 """
-boundary_conditions(::HyperDiffusion) = ()
-boundary_state!(nf, ::HyperDiffusion, _...) = nothing
+boundary_conditions(::HyperDiffusion, ::BalanceLaw) = ()
+boundary_state!(nf, ::HyperDiffusion, ::BalanceLaw, _...) = nothing
 
 """
     Initial conditions
@@ -189,7 +178,7 @@ boundary_state!(nf, ::HyperDiffusion, _...) = nothing
     - test: ∇^4_horz ρ0 = l^2(l+1)^2/r^4 ρ0 where r=a+z
 """
 function initial_condition!(
-    problem::HyperDiffusionCubedSphereProblem{FT},
+    p::HyperDiffusionCubedSphereProblem{FT},
     state,
     aux,
     x,
@@ -202,21 +191,18 @@ function initial_condition!(
         φ = latitude(SphericalOrientation(), aux)
         λ = longitude(SphericalOrientation(), aux)
         r = norm(aux.coord)
-        #@show aux.coord
+        
         z = r - _a
 
-        l = Int64(problem.l)
-        m = Int64(problem.m)
+        l = Int64(p.l)
+        m = Int64(p.m)
 
         c = get_c(l, r)
+        D = aux.hyperdiffusion.D
 
-        #Δ = map(geom -> lengthscale(geom), localgeom)  # LocalGeometry{Np, N}(vgeo, n, e),
-        
-        
-        state.ρ = calc_Ylm(φ, λ, l, m) * exp(- c*t) # - D*c*t
+        state.ρ = calc_Ylm(φ, λ, l, m) * exp(- D*c*t) # - D*c*t
     end
 end
-
 
 """
     Other useful functions
