@@ -6,6 +6,7 @@ import ..BrickMesh
 using MPI
 using LinearAlgebra
 using KernelAbstractions
+using DoubleFloats: DoubleFloat
 
 export DiscontinuousSpectralElementGrid, AbstractGrid
 export dofs_per_element, arraytype, dimensionality, polynomialorders
@@ -248,6 +249,7 @@ struct DiscontinuousSpectralElementGrid{
         FloatType,
         DeviceArray,
         meshwarp::Function = (x...) -> identity(x),
+        ComputeType = FloatType == Float32 ? Float64 : DoubleFloat{FloatType},
     ) where {dim}
 
         if polynomialorder isa Integer
@@ -286,11 +288,11 @@ struct DiscontinuousSpectralElementGrid{
         # Create element operators for each polynomial order
         ξω = ntuple(
             j ->
-                N[j] == 0 ? Elements.glpoints(FloatType, N[j]) :
-                Elements.lglpoints(FloatType, N[j]),
+                N[j] == 0 ? Elements.glpoints(BigFloat, N[j]) :
+                Elements.lglpoints(BigFloat, N[j]),
             dim,
         )
-        ξ, ω = ntuple(j -> map(x -> x[j], ξω), 2)
+        ξ, ω = ntuple(j -> map(x -> ComputeType.(x[j]), ξω), 2)
 
         Imat = ntuple(
             j -> indefinite_integral_interpolation_matrix(ξ[j], ω[j]),
@@ -308,17 +310,18 @@ struct DiscontinuousSpectralElementGrid{
         activedofs[vmaprecv] .= true
 
         # Create arrays on the device
-        vgeo = DeviceArray(vgeo)
-        sgeo = DeviceArray(sgeo)
+        vgeo = DeviceArray(FloatType.(vgeo))
+        sgeo = DeviceArray(FloatType.(sgeo))
+        x_vtk = DeviceArray.(map(x_vtk_i -> FloatType.(x_vtk_i), x_vtk))
         elemtobndy = DeviceArray(topology.elemtobndy)
         vmap⁻ = DeviceArray(vmap⁻)
         vmap⁺ = DeviceArray(vmap⁺)
         vmapsend = DeviceArray(vmapsend)
         vmaprecv = DeviceArray(vmaprecv)
         activedofs = DeviceArray(activedofs)
-        ω = DeviceArray.(ω)
-        D = DeviceArray.(D)
-        Imat = DeviceArray.(Imat)
+        ω = DeviceArray.(map(ω_i -> FloatType.(ω_i), ω))
+        D = DeviceArray.(map(D_i -> FloatType.(D_i), D))
+        Imat = DeviceArray.(map(Imat_i -> FloatType.(Imat_i), Imat))
 
         # FIXME: There has got to be a better way!
         DAT1 = typeof(ω)
@@ -684,7 +687,8 @@ function computegeometry_fvm(elemtocoord, D, ξ, ω, meshwarp)
     # First we compute the geometry with all the N = 0 dimension set to N = 1
     # so that we can later compute the geometry for the case N = 0, as the
     # average of two N = 1 cases
-    ξ1, ω1 = Elements.lglpoints(FT, 1)
+    ξ1, ω1 = Elements.lglpoints(BigFloat, 1)
+    ξ1, ω1 = FT.(ξ1), FT.(ω1)
     D1 = Elements.spectralderivative(ξ1)
     D_N1 = ntuple(j -> Nq[j] == 1 ? D1 : D[j], dim)
     ξ_N1 = ntuple(j -> Nq[j] == 1 ? ξ1 : ξ[j], dim)
