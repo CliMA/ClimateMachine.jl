@@ -126,6 +126,7 @@ function main()
         MPI.COMM_WORLD,
         brickrange,
         periodicity = (false, false, false),
+        connectivity = :face,
     )
     warpfun =
         (x1, x2, x3) -> begin

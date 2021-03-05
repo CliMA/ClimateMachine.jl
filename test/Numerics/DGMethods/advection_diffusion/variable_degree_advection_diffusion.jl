@@ -93,12 +93,13 @@ function test_run(mpicomm, dim, polynomialorders, level, ArrayType, FT)
     brickrange = ntuple(j -> range(FT(-1); length = Ne + 1, stop = 1), dim)
     periodicity = ntuple(j -> false, dim)
     bc = ntuple(j -> (1, 2), dim)
-
+    connectivity = dim == 3 ? :full : :face
     topl = StackedBrickTopology(
         mpicomm,
         brickrange;
         periodicity = periodicity,
         boundary = bc,
+        connectivity = connectivity,
     )
 
     dt = (α / 4) / (Ne * maximum(polynomialorders)^2)

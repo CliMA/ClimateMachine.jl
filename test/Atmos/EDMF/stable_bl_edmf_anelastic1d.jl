@@ -99,7 +99,6 @@ function init_state_prognostic!(
         en.ρatke = FT(0)
         en.ρaθ_liq_cv = FT(0)
     end
-
     en.ρaq_tot_cv = FT(0)
     en.ρaθ_liq_q_tot_cv = FT(0)
     return nothing
@@ -162,7 +161,7 @@ function main(::Type{FT}) where {FT}
 
     # Assemble configuration
     driver_config = ClimateMachine.SingleStackConfiguration(
-        "SBL_EDMF_ANELASTIC_1D",
+        "SBL_ANELASTIC_1D",
         N,
         nelem_vert,
         zmax,
@@ -170,7 +169,8 @@ function main(::Type{FT}) where {FT}
         model;
         hmax = FT(40),
         solver_type = ode_solver_type,
-        # Ncutoff = 3,
+        Ncutoff = 3,
+        # numerical_flux_first_order = RoeNumericalFlux(),
     )
 
     solver_config = ClimateMachine.SolverConfiguration(
@@ -370,5 +370,7 @@ function config_diagnostics(driver_config, timeend)
 end
 
 solver_config, diag_arr, time_data = main(Float64)
+
+# include(joinpath(@__DIR__, "report_mse_sbl_anelastic.jl"))
 
 nothing

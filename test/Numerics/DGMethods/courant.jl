@@ -73,6 +73,7 @@ let
     @testset "$(@__FILE__) DGModel matrix" begin
         for FT in (Float64, Float32)
             for dim in (2, 3)
+                connectivity = dim == 3 ? :full : :face
                 if dim == 2
                     brickrange = (
                         range(FT(0); length = Neh + 1, stop = 1),
@@ -86,7 +87,11 @@ let
                     )
                 end
                 μ = FT(2)
-                topl = StackedBrickTopology(mpicomm, brickrange)
+                topl = StackedBrickTopology(
+                    mpicomm,
+                    brickrange,
+                    connectivity = connectivity,
+                )
 
 
 

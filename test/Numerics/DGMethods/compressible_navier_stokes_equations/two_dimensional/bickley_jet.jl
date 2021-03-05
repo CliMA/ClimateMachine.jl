@@ -1,7 +1,10 @@
-include("CNSE2D.jl")
+include("../CNSE.jl")
+include("TwoDimensionalCompressibleNavierStokesEquations.jl")
 
 function Config(
     name,
+    resolution,
+    domain,
     params;
     numerical_flux_first_order = RusanovNumericalFlux(),
     Nover = 0,
@@ -12,8 +15,10 @@ function Config(
     mpicomm = MPI.COMM_WORLD
     ArrayType = ClimateMachine.array_type()
 
-    xrange = range(-params.Lˣ / 2; length = params.Nˣ + 1, stop = params.Lˣ / 2)
-    yrange = range(-params.Lʸ / 2; length = params.Nʸ + 1, stop = params.Lʸ / 2)
+    xrange =
+        range(-domain.Lˣ / 2; length = resolution.Nˣ + 1, stop = domain.Lˣ / 2)
+    yrange =
+        range(-domain.Lʸ / 2; length = resolution.Nʸ + 1, stop = domain.Lʸ / 2)
 
     brickrange = (xrange, yrange)
 
@@ -28,21 +33,21 @@ function Config(
         topl,
         FloatType = FT,
         DeviceArray = ArrayType,
-        polynomialorder = params.N + Nover,
+        polynomialorder = resolution.N + Nover,
     )
 
     model = TwoDimensionalCompressibleNavierStokes.CNSE2D{FT}(
-        (params.Lˣ, params.Lʸ),
+        (domain.Lˣ, domain.Lʸ),
         ClimateMachine.Ocean.NonLinearAdvectionTerm(),
         TwoDimensionalCompressibleNavierStokes.ConstantViscosity{FT}(
-            ν = 0, # 1e-6,   # m²/s
-            κ = 0, # 1e-6,   # m²/s
+            ν = params.ν,
+            κ = params.κ,
         ),
         nothing,
         nothing,
         boundary_conditons;
-        g = 10, # m/s²
-        c = 2, # m/s
+        g = params.g,
+        c = params.c,
     )
 
     dg = DGModel(
@@ -59,7 +64,7 @@ end
 import ClimateMachine.Ocean: ocean_init_state!, ocean_init_aux!
 
 function ocean_init_state!(
-    ::TwoDimensionalCompressibleNavierStokes.TwoDimensionalCompressibleNavierStokesEquations,
+    ::TwoDimensionalCompressibleNavierStokes.CNSE2D,
     state,
     aux,
     localgeo,

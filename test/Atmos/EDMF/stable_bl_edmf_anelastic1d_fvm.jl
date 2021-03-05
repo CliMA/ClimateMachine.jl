@@ -97,7 +97,6 @@ function init_state_prognostic!(
         en.ρatke = FT(0)
         en.ρaθ_liq_cv = FT(0)
     end
-
     en.ρaq_tot_cv = FT(0)
     en.ρaθ_liq_q_tot_cv = FT(0)
     return nothing
@@ -156,9 +155,8 @@ function main(::Type{FT}) where {FT}
         config_type,
         zmax,
         surface_flux;
-        turbulence = ConstantKinematicViscosity(FT(0.1)),
-        # turbulence = ConstantKinematicViscosity(FT(0.14)),
-        # turbulence = SmagorinskyLilly{FT}(0.21),
+        # turbulence = ConstantKinematicViscosity(FT(0)),
+        turbulence = SmagorinskyLilly{FT}(0.21),
         turbconv = turbconv,
         compressibility = compressibility,
         ref_state = HydrostaticState(
@@ -264,7 +262,7 @@ function main(::Type{FT}) where {FT}
     check_cons =
         (ClimateMachine.ConservationCheck("ρ", "3000steps", FT(0.00000001)),)
 
-    cb_print_step = GenericCallbacks.EveryXSimulationSteps(100) do
+    cb_print_step = GenericCallbacks.EveryXSimulationSteps(1) do
         @show getsteps(solver_config.solver)
         nothing
     end

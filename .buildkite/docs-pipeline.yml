@@ -15,7 +15,7 @@ steps:
     agents:
       config: cpu
       queue: central
-      slurm_ntasks: 1 
+      slurm_ntasks: 1
       slurm_cpus_per_task: 1
       slurm_mem_per_cpu: 6000
 
@@ -23,12 +23,15 @@ steps:
 
   - label: "Build docs"
     command:
-      # this extracts out the PR number from the bors message on the trying branch 
+      # this extracts out the PR number from the bors message on the trying branch
       # to force documenter to deploy the PR branch number gh-preview
       - "if [ $$BUILDKITE_BRANCH == \"trying\" ]; then \
             export BUILDKITE_PULL_REQUEST=\"$${BUILDKITE_MESSAGE//[!0-9]/}\"; \
          fi"
-      - "julia --project=docs/ --color=yes --procs=8 docs/make.jl"
+      - "if [[ ! -z \"$${PULL_REQUEST}\" ]]; then \
+            export BUILDKITE_PULL_REQUEST=\"$${PULL_REQUEST}\"; \
+         fi"
+      - "julia --project=docs/ --color=yes --procs=10 docs/make.jl"
     env:
       JULIA_PROJECT: "docs/"
     agents:
@@ -36,7 +39,7 @@ steps:
       queue: central
       slurm_time: 120
       slurm_nodes: 1
-      slurm_ntasks: 8
+      slurm_ntasks: 10
       slurm_cpus_per_task: 1
       slurm_mem_per_cpu: 6000
 

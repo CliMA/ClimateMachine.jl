@@ -273,6 +273,7 @@ let
                     mpicomm,
                     brickrange,
                     boundary = ((3, 3), (3, 3)),
+                    connectivity = :face,
                 )
 
                 maxvelocity = 2

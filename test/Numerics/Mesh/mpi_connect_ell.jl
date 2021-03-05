@@ -21,6 +21,7 @@ function main()
         (x, y);
         boundary = ((1, 2), (3, 4)),
         periodicity = (true, true),
+        connectivity = :face,
     )
 
     elems = topology.elems

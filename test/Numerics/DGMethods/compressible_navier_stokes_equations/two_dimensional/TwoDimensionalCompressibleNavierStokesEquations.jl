@@ -12,7 +12,7 @@ using ClimateMachine.Mesh.Geometry
 using ClimateMachine.DGMethods
 using ClimateMachine.DGMethods.NumericalFluxes
 using ClimateMachine.BalanceLaws
-using ClimateMachine.Ocean: kinematic_stress, coriolis_parameter
+using ClimateMachine.Ocean: coriolis_parameter
 using ClimateMachine.Mesh.Geometry: LocalGeometry
 using ClimateMachine.MPIStateArrays: MPIStateArray
 

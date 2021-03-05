@@ -726,6 +726,15 @@ steps:
       slurm_ntasks: 1
       slurm_gres: "gpu:1"
 
+  - label: "cpu_surface_fluxes"
+    key: "cpu_surface_fluxes"
+    command:
+      - "mpiexec julia --color=yes --project test/Common/SurfaceFluxes/runtests.jl"
+    agents:
+      config: cpu
+      queue: central
+      slurm_ntasks: 1
+
   - label: "gpu_thermodynamics"
     key: "gpu_thermodynamics"
     command:
@@ -1379,6 +1388,26 @@ steps:
       slurm_ntasks: 3
       slurm_gres: "gpu:1"
 
+  - label: "gpu_bickley_jet_3D"
+    key: "gpu_bickley_jet_3D"
+    command:
+      - "mpiexec julia --color=yes --project test/Numerics/DGMethods/compressible_navier_stokes_equations/three_dimensional/test_bickley_jet.jl "
+    agents:
+      config: gpu
+      queue: central
+      slurm_ntasks: 3
+      slurm_gres: "gpu:1"
+
+  - label: "gpu_cnse_sphere_3D"
+    key: "gpu_cnse_sphere_3D"
+    command:
+      - "mpiexec julia --color=yes --project test/Numerics/DGMethods/compressible_navier_stokes_equations/three_dimensional/test_sphere.jl "
+    agents:
+      config: gpu
+      queue: central
+      slurm_ntasks: 3
+      slurm_gres: "gpu:1"
+
   - label: "gpu_periodic_3D_hyperdiffusion"
     key: "gpu_periodic_3D_hyperdiffusion"
     command:
@@ -1677,6 +1706,16 @@ steps:
       config: cpu
       queue: central
       slurm_ntasks: 1
+
+  - label: "gpu_sbl_an1d"
+    key: "gpu_sbl_an1d"
+    command:
+      - "mpiexec julia --color=yes --project test/Atmos/EDMF/stable_bl_anelastic1d.jl --fix-rng-seed"
+    agents:
+      config: gpu
+      queue: central
+      slurm_ntasks: 1
+      slurm_gres: "gpu:1"
 
   - label: "gpu_bomex_bulk_sfc_flux"
     key: "gpu_bomex_bulk_sfc_flux"
