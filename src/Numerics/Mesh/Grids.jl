@@ -148,8 +148,7 @@ const sgeoid = (
 """
     DiscontinuousSpectralElementGrid(topology; FloatType, DeviceArray,
                                      polynomialorder,
-                                     meshwarp = (x...)->identity(x),
-                                     metricpolynomialorder = polynomialorder)
+                                     meshwarp = (x...)->identity(x))
 
 Generate a discontinuous spectral element (tensor product,
 Legendre-Gauss-Lobatto) grid/mesh from a `topology`, where the order of the
@@ -166,11 +165,6 @@ the vertical.
 The optional `meshwarp` function allows the coordinate points to be warped after
 the mesh is created; the mesh degrees of freedom are orginally assigned using a
 trilinear blend of the element corner locations.
-
-The optional `metricpolynomialorder` parameters specifies that in the
-calculation of metrics terms, the geometry is a polynomial of order
-`metricpolynomialorder`, thus modes greater than `metricpolynomialorder` are
-cutoff (though the final mesh is interpolated to `polynomialorder`).
 """
 struct DiscontinuousSpectralElementGrid{
     T,
@@ -256,7 +250,6 @@ struct DiscontinuousSpectralElementGrid{
         DeviceArray,
         meshwarp::Function = (x...) -> identity(x),
         ComputeType = FloatType == Float32 ? Float64 : DoubleFloat{FloatType},
-        metricpolynomialorder = polynomialorder,
     ) where {dim}
 
         if polynomialorder isa Integer
@@ -264,15 +257,6 @@ struct DiscontinuousSpectralElementGrid{
         elseif polynomialorder isa NTuple{2} && dim == 3
             polynomialorder =
                 (polynomialorder[1], polynomialorder[1], polynomialorder[2])
-        end
-        if metricpolynomialorder isa Integer
-            metricpolynomialorder = ntuple(j -> metricpolynomialorder, dim)
-        elseif metricpolynomialorder isa NTuple{2} && dim == 3
-            metricpolynomialorder = (
-                metricpolynomialorder[1],
-                metricpolynomialorder[1],
-                metricpolynomialorder[2],
-            )
         end
 
         @assert dim == length(polynomialorder)
@@ -316,14 +300,8 @@ struct DiscontinuousSpectralElementGrid{
         )
         D = ntuple(j -> Elements.spectralderivative(ξ[j]), dim)
 
-        (vgeo, sgeo, x_vtk) = computegeometry(
-            topology.elemtocoord,
-            D,
-            ξ,
-            ω,
-            meshwarp,
-            metricpolynomialorder,
-        )
+        (vgeo, sgeo, x_vtk) =
+            computegeometry(topology.elemtocoord, D, ξ, ω, meshwarp)
 
         @assert Np == size(vgeo, 1)
 
@@ -692,7 +670,7 @@ function commmapping(N, commelems, commfaces, nabrtocomm)
 end
 
 # Compute geometry
-function computegeometry_fvm(elemtocoord, D, ξ, ω, meshwarp, N_metric)
+function computegeometry_fvm(elemtocoord, D, ξ, ω, meshwarp)
     FT = eltype(D[1])
     dim = length(D)
     nface = 2dim
@@ -705,8 +683,6 @@ function computegeometry_fvm(elemtocoord, D, ξ, ω, meshwarp, N_metric)
     Nq_N1 = max.(Nq, 2)
     Np_N1 = prod(Nq_N1)
     Nfp_N1 = div.(Np_N1, Nq_N1)
-    N_N1_metric = max.(N_metric, 1)
-    @assert all(N_N1_metric .+ 1 .<= Nq_N1)
 
     # First we compute the geometry with all the N = 0 dimension set to N = 1
     # so that we can later compute the geometry for the case N = 0, as the
@@ -717,14 +693,8 @@ function computegeometry_fvm(elemtocoord, D, ξ, ω, meshwarp, N_metric)
     D_N1 = ntuple(j -> Nq[j] == 1 ? D1 : D[j], dim)
     ξ_N1 = ntuple(j -> Nq[j] == 1 ? ξ1 : ξ[j], dim)
     ω_N1 = ntuple(j -> Nq[j] == 1 ? ω1 : ω[j], dim)
-    (vgeo_N1, sgeo_N1, x_vtk) = computegeometry(
-        elemtocoord,
-        D_N1,
-        ξ_N1,
-        ω_N1,
-        meshwarp,
-        max.(Nq_N1, N_N1_metric),
-    )
+    (vgeo_N1, sgeo_N1, x_vtk) =
+        computegeometry(elemtocoord, D_N1, ξ_N1, ω_N1, meshwarp)
 
     # Sort out the vgeo terms
     @views begin
@@ -863,7 +833,7 @@ function computegeometry_fvm(elemtocoord, D, ξ, ω, meshwarp, N_metric)
     (vgeo, sgeo, x_vtk)
 end
 
-function computegeometry(elemtocoord, D, ξ, ω, meshwarp, N_metric)
+function computegeometry(elemtocoord, D, ξ, ω, meshwarp)
     dim = length(D)
     nface = 2dim
     nelem = size(elemtocoord, 3)
@@ -872,7 +842,7 @@ function computegeometry(elemtocoord, D, ξ, ω, meshwarp, N_metric)
 
     # Compute metric terms for FVM
     if any(Nq .== 1)
-        return computegeometry_fvm(elemtocoord, D, ξ, ω, meshwarp, N_metric)
+        return computegeometry_fvm(elemtocoord, D, ξ, ω, meshwarp)
     end
 
     Np = prod(Nq)
@@ -905,7 +875,7 @@ function computegeometry(elemtocoord, D, ξ, ω, meshwarp, N_metric)
     # Compute the metric terms
     p = reshape(1:Np, Nq)
     if dim == 1
-        Metrics.computemetric!(x1, J, JcV, ξ1x1, sJ, n1, D..., N_metric)
+        Metrics.computemetric!(x1, J, JcV, ξ1x1, sJ, n1, D...)
         fmask = (p[1:1], p[Nq[1]:Nq[1]])
     elseif dim == 2
         Metrics.computemetric!(
@@ -916,7 +886,6 @@ function computegeometry(elemtocoord, D, ξ, ω, meshwarp, N_metric)
             sJ,
             n1, n2,
             D...,
-            N_metric,
             #! format: on
         )
         fmask = (p[1, :][:], p[Nq[1], :][:], p[:, 1][:], p[:, Nq[2]][:])
@@ -929,7 +898,6 @@ function computegeometry(elemtocoord, D, ξ, ω, meshwarp, N_metric)
             sJ,
             n1, n2, n3,
             D...,
-            N_metric,
             #! format: on
         )
         fmask = (
