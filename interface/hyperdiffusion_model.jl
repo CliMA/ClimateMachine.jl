@@ -34,6 +34,7 @@ include("initial_condition.jl")
 
 """
 HyperDiffusionProblem 
+- collects parameters for hyperdiffusion
 """
 abstract type HyperDiffusionProblem end
 
@@ -44,16 +45,19 @@ struct HyperDiffusionCubedSphereProblem{FT} <: HyperDiffusionProblem
     m::FT
 end
 
-# need to modify for box test
+# TODO: need to modify for box test
 struct HyperDiffusionBoxProblem{dir, FT} <: HyperDiffusionProblem
     D::SMatrix{3, 3, FT, 9} # make this a scalar
 end
 
-Δt(p::HyperDiffusionProblem, Δ_min) = Δ_min^4 / 25 / sum( D(p, Δ_min) ) 
-D(p::HyperDiffusionProblem, Δ ) = (Δ /2)^4/2/ p.τ
-
 """
 HyperDiffusion <: BalanceLaw
+- specifies which variable and compute kernels to use to compute the tendency due to hyperdiffusion
+
+∂ρ_hyperdiff.
+--            = - ∇ • (D∇³ρ) = - ∇ • F
+∂t
+
 """
 struct HyperDiffusion{P} <: BalanceLaw
     problem::P
@@ -67,9 +71,6 @@ end
 # Set hyperdiffusion tensor, D, coordinate info, coorc, and c = l^2*(l+1)^2/r^4
 vars_state(::HyperDiffusion, ::Auxiliary, FT) = @vars(D::SMatrix{3, 3, FT, 9}, c::FT)
 
-# Density is only state
-#vars_state(::HyperDiffusion, ::Prognostic, FT) = @vars()
-
 # Take the gradient of density
 vars_state(::HyperDiffusion, ::Gradient, FT) = @vars(ρ::FT)
 
@@ -81,8 +82,6 @@ vars_state(::HyperDiffusion, ::GradientLaplacian, FT) = @vars(ρ::FT)
 # The hyperdiffusion DG auxiliary variable: D ∇ Δρ
 vars_state(::HyperDiffusion, ::Hyperdiffusive, FT) = @vars(D∇³ρ::SVector{3, FT})
 
-function flux_first_order!(m::HyperDiffusion, _...) end
-
 """
     flux_second_order!(m::HyperDiffusion, flux::Grad, state::Vars,
                      auxDG::Vars, auxHDG::Vars, aux::Vars, t::Real)
@@ -91,13 +90,14 @@ Computes diffusive flux `F` in:
 
 ```
 ∂ρ
--- = - ∇ • (σ) = - ∇ • F
+-- = - ∇ • (D∇³ρ) = - ∇ • F
 ∂t
 ```
 Where
 
  - `σ` is hyperdiffusion DG auxiliary variable (`σ = D ∇ Δρ` with D being the hyperdiffusion tensor)
 """
+
 function flux_second_order!(
     m::HyperDiffusion,
     flux::Grad,
@@ -107,8 +107,7 @@ function flux_second_order!(
     aux::Vars,
     t::Real,
 )
-
-    flux.ρ += auxHDG.D∇³ρ
+    flux.ρ += auxHDG.hyperdiffusion.D∇³ρ
 end
 
 """
@@ -126,8 +125,6 @@ function compute_gradient_argument!(
 )
     transform.hyperdiffusion.ρ = state.ρ
 end
-
-compute_gradient_flux!(m::HyperDiffusion, _...) = nothing
 function transform_post_gradient_laplacian!(
     m::HyperDiffusion,
     auxHDG::Vars,
@@ -142,14 +139,9 @@ function transform_post_gradient_laplacian!(
 end
 
 """
-    source!(m::HyperDiffusion, _...)
-
-There is no source in the hyperdiffusion model
+    Initialize prognostic (whole state array at once) and auxiliary variables (per each spatial point = node)
 """
-source!(m::HyperDiffusion, _...) = nothing
-
 function init_state_prognostic!(
-    
     m::HyperDiffusion,
     state::Vars,
     aux::Vars,
@@ -158,11 +150,6 @@ function init_state_prognostic!(
 )
     initial_condition!(m.problem, state, aux, localgeo, t)
 end
-
-boundary_conditions(::HyperDiffusion) = ()
-boundary_state!(nf, ::HyperDiffusion, _...) = nothing
-
-# define variables specific to spherical harmonic testing (generalise later)
 function nodal_init_state_auxiliary!(
     balance_law::HyperDiffusionCubedSphereProblem,
     aux::Vars,
@@ -185,15 +172,21 @@ function nodal_init_state_auxiliary!(
     geom::LocalGeometry,
 )
     FT = eltype(aux)
-    #aux.coord = geom.coord
     Δ = lengthscale(geom)
     aux.hyperdiffusion.D = D(balance_law.problem, Δ)  * SMatrix{3,3,Float64}(I)
 end
 
+"""
+    Boundary conditions 
+    - nothing if diffusion_direction (or direction) = HorizotalDirection()
+"""
+boundary_conditions(::HyperDiffusion) = ()
+boundary_state!(nf, ::HyperDiffusion, _...) = nothing
 
 """
-    initial condition is given by ρ0 = Y{m,l}(θ, λ)
-    test: ∇^4_horz ρ0 = l^2(l+1)^2/r^4 ρ0 where r=a+z
+    Initial conditions
+    - initial condition is given by ρ0 = Y{m,l}(θ, λ)
+    - test: ∇^4_horz ρ0 = l^2(l+1)^2/r^4 ρ0 where r=a+z
 """
 function initial_condition!(
     problem::HyperDiffusionCubedSphereProblem{FT},
@@ -225,7 +218,12 @@ function initial_condition!(
 end
 
 
+"""
+    Other useful functions
+"""
+# hyperdiffusion-dependent timestep (only use for hyperdiffusion unit test)
+Δt(p::HyperDiffusionProblem, Δ_min) = Δ_min^4 / 25 / sum( D(p, Δ_min) ) 
 
-
-
+# lengthscale-dependent hyperdiffusion coefficient
+D(p::HyperDiffusionProblem, Δ ) = (Δ /2)^4/2/ p.τ
 

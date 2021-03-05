@@ -69,27 +69,30 @@ function vars_state(m::TestEquations, st::Prognostic, FT)
         hyperdiffusion::vars_state(m.hyperdiffusion, st, FT)
     end
 end
-
-function init_state_prognostic!(
-    m::TestEquations,
-    state::Vars,
-    aux::Vars,
-    localgeo,
-    t::Real,
-)
-    init_state_prognostic!(
-        m.hyperdiffusion,
-        state::Vars,
-        aux::Vars,
-        localgeo,
-        t::Real,
-    )
-end
-
 function vars_state(m::TestEquations, aux::Auxiliary, FT)
     @vars begin
         coord::SVector{3, FT}
         hyperdiffusion::vars_state(m.hyperdiffusion, aux, FT)
+    end
+end
+function vars_state(m::TestEquations, grad::Gradient, FT)
+    @vars begin
+        hyperdiffusion::vars_state(m.hyperdiffusion, grad, FT)
+    end
+end
+function vars_state(m::TestEquations, grad::GradientFlux, FT)
+    @vars begin
+        hyperdiffusion::vars_state(m.hyperdiffusion, grad, FT)
+    end
+end 
+function vars_state(m::TestEquations, st::GradientLaplacian, FT)
+    @vars begin
+        hyperdiffusion::vars_state(m.hyperdiffusion, st, FT)
+    end
+end
+function vars_state(m::TestEquations, st::Hyperdiffusive, FT)
+    @vars begin
+        hyperdiffusion::vars_state(m.hyperdiffusion, st, FT)
     end
 end
 
@@ -108,11 +111,20 @@ function nodal_init_state_auxiliary!(
     )
 end
 
-function vars_state(m::TestEquations, grad::Gradient, FT)
-    @vars begin
-        ρ::FT
-        hyperdiffusion::vars_state(m.hyperdiffusion, grad, FT)
-    end
+function init_state_prognostic!(
+    m::TestEquations,
+    state::Vars,
+    aux::Vars,
+    localgeo,
+    t::Real,
+)
+    init_state_prognostic!(
+        m.hyperdiffusion,
+        state::Vars,
+        aux::Vars,
+        localgeo,
+        t::Real,
+    )
 end
 
 function compute_gradient_argument!(
@@ -125,13 +137,6 @@ function compute_gradient_argument!(
     compute_gradient_argument!(m.hyperdiffusion, grad, state, aux, t)
 end
 
-function vars_state(m::TestEquations, grad::GradientFlux, FT)
-    @vars begin
-        ρ::FT
-        hyperdiffusion::vars_state(m.hyperdiffusion, grad, FT)
-    end
-end
-
 function compute_gradient_flux!(
     model::TestEquations,
     gradflux::Vars,
@@ -140,7 +145,25 @@ function compute_gradient_flux!(
     aux::Vars,
     t::Real,
 )
-    # don't need anything for hyperdiffusion here
+    return nothing# don't need anything for hyperdiffusion here
+end
+
+function transform_post_gradient_laplacian!(
+    m::TestEquations,
+    auxHDG::Vars,
+    gradvars::Grad,
+    state::Vars,
+    aux::Vars,
+    t::Real,
+)
+    transform_post_gradient_laplacian!(
+    m.hyperdiffusion,
+    auxHDG, 
+    gradvars,
+    state,
+    aux,
+    t,
+    )
 end
 
 @inline function flux_first_order!(
@@ -151,15 +174,10 @@ end
     t::Real,
     direction,
 )
-    
     return nothing
 end
 
-function vars_state(m::TestEquations, st::Hyperdiffusive, FT)
-    @vars begin
-        hyperdiffusion::vars_state(m.hyperdiffusion, st, FT)
-    end
-end
+
 function flux_second_order!(
     model::TestEquations,
     flux::Grad,
@@ -188,29 +206,8 @@ end
     return nothing
 end
 
-function vars_state(m::TestEquations, st::GradientLaplacian, FT)
-    #ρ::FT
-    @vars begin
-        hyperdiffusion::vars_state(m.hyperdiffusion, st, FT)
-    end
-end
-function transform_post_gradient_laplacian!(
-    m::TestEquations,
-    auxHDG::Vars,
-    gradvars::Grad,
-    state::Vars,
-    aux::Vars,
-    t::Real,
-)
-    transform_post_gradient_laplacian!(
-    m.hyperdiffusion,
-    auxHDG, 
-    gradvars,
-    state,
-    aux,
-    t,
-    )
-end
+
+
 
 boundary_conditions(::TestEquations) = ()
 boundary_state!(nf, ::TestEquations, _...) = nothing
@@ -229,6 +226,7 @@ function DGModel(model::SpatialModel{BL}) where {BL <: AbstractEquations3D}
         numerical_flux_first_order,
         CentralNumericalFluxSecondOrder(),
         CentralNumericalFluxGradient(),
+        direction=HorizontalDirection(),
     )
 
     return rhs
