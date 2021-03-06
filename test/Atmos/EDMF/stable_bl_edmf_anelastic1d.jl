@@ -169,7 +169,7 @@ function main(::Type{FT}) where {FT}
         model;
         hmax = FT(40),
         solver_type = ode_solver_type,
-        Ncutoff = 3,
+        # Ncutoff = 3,
         # numerical_flux_first_order = RoeNumericalFlux(),
     )
 
@@ -278,8 +278,8 @@ function main(::Type{FT}) where {FT}
     cb_boyd = GenericCallbacks.EveryXSimulationSteps(1) do
         Filters.apply!(
             solver_config.Q,
-            # ("energy.ρe",turbconv_filters(turbconv)...,),
-            ("energy.ρe",),
+            ("energy.ρe",turbconv_filters(turbconv)...),
+            # ("energy.ρe",),
             solver_config.dg.grid,
             BoydVandevenFilter(
                 solver_config.dg.grid,
@@ -294,7 +294,7 @@ function main(::Type{FT}) where {FT}
     time_data = FT[0]
 
     # Define the number of outputs from `t0` to `timeend`
-    n_outputs = 5
+    n_outputs = 10
     # This equates to exports every ceil(Int, timeend/n_outputs) time-step:
     every_x_simulation_time = ceil(Int, timeend / n_outputs)
 

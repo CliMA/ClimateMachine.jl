@@ -136,7 +136,8 @@ function init_problem!(problem, bl, state, aux, localgeo, t)
     γ::FT = c_p / c_v
     # Initialise speeds [u = Eastward, v = Northward, w = Vertical]
     if z <= FT(300)
-        u = FT(8 + 4*(300-z)/400.0)# ∂u/∂z = -1/400
+        # u = FT(8 + 4*(300-z)/400.0)# ∂u/∂z = -1/400
+        u = FT(8 + (300-z)^2/400.0^2)# ∂u/∂z = -2(300-z)/400^2
     else
         u = FT(8)# ∂u/∂z = 0
     end
@@ -153,6 +154,7 @@ function init_problem!(problem, bl, state, aux, localgeo, t)
     else
         θ_liq = FT(265) + FT(0.01) * (z - z1)
     end
+
     θ = θ_liq
     p = aux.ref_state.p
     # Establish thermodynamic state and moist phase partitioning
