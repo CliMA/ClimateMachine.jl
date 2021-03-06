@@ -32,10 +32,9 @@ struct ThreeDimensionalCompressibleNavierStokesEquations{
     A,
     T,
     C,
-    G,
-    E,
+    F,
     BC,
-    P,
+    FT,
 } <: AbstractFluid3D
     initial_value_problem::I
     domain::D
@@ -43,10 +42,10 @@ struct ThreeDimensionalCompressibleNavierStokesEquations{
     advection::A
     turbulence::T
     coriolis::C
-    gravity::G
-    eos::E
+    forcing::F
     boundary_conditions::BC
-    parameters::P
+    cₛ::FT
+    ρₒ::FT
     function ThreeDimensionalCompressibleNavierStokesEquations{FT}(
         initial_value_problem::I,
         domain::D,
@@ -54,31 +53,27 @@ struct ThreeDimensionalCompressibleNavierStokesEquations{
         advection::A,
         turbulence::T,
         coriolis::C,
-        gravity::G,
-        eos::E,
-        boundary_conditions::BC,
-        parameters::P,
-    ) where {FT <: AbstractFloat, I, D, O, A, T, C, G, E, BC, P}
-        return new{I, D, O, A, T, C, G, E, BC, P}(
+        forcing::F,
+        boundary_conditions::BC;
+        cₛ = FT(sqrt(10)),  # m/s
+        ρₒ = FT(1),  #kg/m³
+    ) where {FT <: AbstractFloat, I, D, O, A, T, C, F, BC}
+        return new{I, D, O, A, T, C, F, BC, FT}(
             initial_value_problem,
             domain,
             orientation,
             advection,
             turbulence,
             coriolis,
-            gravity,
-            eos,
+            forcing,
             boundary_conditions,
-            parameters,
+            cₛ,
+            ρₒ,
         )
     end
 end
 
 CNSE3D = ThreeDimensionalCompressibleNavierStokesEquations
-
-include("thermodynamics.jl")
-include("coriolis.jl")
-include("gravity.jl")
 
 function vars_state(m::CNSE3D, ::Prognostic, T)
     @vars begin
@@ -264,8 +259,10 @@ function compute_gradient_argument!(
     t::Real,
 )
     ρ = state.ρ
-    
-    grad.∇p = calc_pressure(model.eos, state)
+    cₛ = model.cₛ
+    ρₒ = model.ρₒ
+
+    grad.∇p = (cₛ * ρ)^2 / (2 * ρₒ)
 
     compute_gradient_argument!(model.turbulence, grad, state, aux, t)
 end
@@ -350,10 +347,15 @@ end
     t::Real,
     direction,
 )
+    ρ = state.ρ
     ρu = state.ρu
+    ρθ = state.ρθ
+
+    cₛ = model.cₛ
+    ρₒ = model.ρₒ
 
     flux.ρ += ρu
-    # flux.ρu += calc_pressure(model.eos, state)
+    # flux.ρu += (cₛ * ρ)^2 / (2 * ρₒ) * I
 
     advective_flux!(model, model.advection, flux, state, aux, t)
 
@@ -417,16 +419,48 @@ end
     t::Real,
     direction,
 )
+
     source.ρu -= gradflux.∇p
 
-    calc_force!(source, model.coriolis, state, aux, model.orientation, t)
-    calc_force!(source, model.gravity, state, aux, model.orientation, t)
+    coriolis_force!(model, model.coriolis, source, state, aux, t)
+    forcing_term!(model, model.forcing, source, state, aux, t)
 
     return nothing
 end
 
+coriolis_force!(::CNSE3D, ::Nothing, _...) = nothing
+
+forcing_term!(::CNSE3D, ::Nothing, _...) = nothing
+
+@Base.kwdef struct Buoyancy{FT} <: Forcing
+    α :: FT # K⁻¹
+    g :: FT # ms⁻²
+end
+
+@inline function forcing_term!(
+    model::CNSE3D,
+    buoy::Buoyancy,
+    source,
+    state,
+    aux,
+    t,
+)
+    α = buoy.α
+    g = buoy.g
+    ρθ = state.ρθ
+
+    # as temperature increase, density decreases
+    B = -α * g * ρθ
+    k̂ = vertical_unit_vector(model.orientation, aux)
+
+    # gravity points downward
+    source.ρu -= B * k̂
+end
+
 @inline vertical_unit_vector(::Orientation, aux) = aux.orientation.∇Φ
 @inline vertical_unit_vector(::NoOrientation, aux) = @SVector [0, 0, 1]
+
+@inline wavespeed(m::CNSE3D, _...) = m.cₛ
 
 roe_average(ρ⁻, ρ⁺, var⁻, var⁺) =
     (sqrt(ρ⁻) * var⁻ + sqrt(ρ⁺) * var⁺) / (sqrt(ρ⁻) + sqrt(ρ⁺))
@@ -458,6 +492,10 @@ function numerical_flux_first_order!(
 
     FT = eltype(fluxᵀn)
 
+    # constants and normal vectors
+    cₛ = model.cₛ
+    ρₒ = model.ρₒ
+
     # - states
     ρ⁻ = state⁻.ρ
     ρu⁻ = state⁻.ρu
@@ -469,8 +507,8 @@ function numerical_flux_first_order!(
     uₙ⁻ = u⁻' * n⁻
 
     # in general thermodynamics
-    p⁻ = calc_pressure(model.eos, state⁻)
-    c⁻ = calc_sound_speed(model.eos, state⁻)
+    p⁻ = (cₛ * ρ⁻)^2 / (2 * ρₒ)
+    c⁻ = cₛ * sqrt(ρ⁻ / ρₒ)
 
     # + states
     ρ⁺ = state⁺.ρ
@@ -483,8 +521,8 @@ function numerical_flux_first_order!(
     uₙ⁺ = u⁺' * n⁻
 
     # in general thermodynamics
-    p⁺ = calc_pressure(model.eos, state⁺)
-    c⁺ = calc_sound_speed(model.eos, state⁺)
+    p⁺ = (cₛ * ρ⁺)^2 / (2 * ρₒ)
+    c⁺ = cₛ * sqrt(ρ⁺ / ρₒ)
 
     # construct roe averges
     ρ = sqrt(ρ⁻ * ρ⁺)
@@ -588,9 +626,9 @@ function DGModel(
         physics.dissipation,
         physics.coriolis,
         physics.gravity,
-        physics.eos,
         bcs,
-        parameters,
+        ρₒ = params.ρₒ,
+        cₛ = params.cₛ,
     )
 
     numerical_flux_first_order = model.numerics.flux # should be a function

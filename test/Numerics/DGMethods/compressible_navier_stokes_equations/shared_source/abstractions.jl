@@ -42,29 +42,12 @@ ways to add body terms and sources
 abstract type Forcing end
 abstract type CoriolisForce <: Forcing end
 
-struct fPlaneCoriolis{T} <: CoriolisForce
-    fₒ::T
-    β::T
-    function fPlaneCoriolis{T}(;
-        fₒ = T(1e-4), # Hz
-        β = T(1e-11), # Hz/m
-    ) where {T <: AbstractFloat}
-        return new{T}(fₒ, β)
-    end
-end
+@inline calc_force!(state, ::Nothing, _...) = nothing
 
 struct KinematicStress{T} <: Forcing
     τₒ::T
     function KinematicStress{T}(; τₒ = T(1e-4)) where {T <: AbstractFloat}
         return new{T}(τₒ)
-    end
-end
-
-struct Buoyancy{T} <: Forcing
-    α::T # 1/K
-    g::T # m/s²
-    function Buoyancy{T}(; α = T(2e-4), g = T(10)) where {T <: AbstractFloat}
-        return new{T}(α, g)
     end
 end
 
@@ -89,12 +72,13 @@ polynomialorders(model::SpatialModel) = convention(
 
 abstract type ModelPhysics end
 
-Base.@kwdef struct FluidPhysics{𝒪, 𝒜, 𝒟, 𝒞, ℬ} <: ModelPhysics
+Base.@kwdef struct FluidPhysics{𝒪, 𝒜, 𝒟, 𝒞, ℬ, ℰ} <: ModelPhysics
     orientation::𝒪 = ClimateMachine.Orientations.FlatOrientation()
     advection::𝒜 = NonLinearAdvectionTerm()
     dissipation::𝒟 = nothing
     coriolis::𝒞 = nothing
-    buoyancy::ℬ = nothing
+    gravity::ℬ = nothing
+    eos::ℰ = nothing
 end
 
 abstract type AbstractInitialValueProblem end

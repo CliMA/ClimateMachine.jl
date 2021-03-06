@@ -304,10 +304,7 @@ function visualize(
         quantile($state[:], $lowerclim_node),
         quantile($state[:], $upperclim_node),
     ))
-    cmap_rgb = @lift(
-        $oclims[1] < $oclims[2] ? to_colormap($colornode) :
-        reverse(to_colormap($colornode))
-    )
+    cmap_rgb = colornode
     clims = @lift(
         $oclims[1] != $oclims[2] ? (minimum($oclims), maximum($oclims)) :
         (minimum($oclims) - 1, maximum($oclims) + 1)
@@ -378,7 +375,7 @@ function visualize(
     cbar.width = Relative(1 / 3)
     cbar.height = Relative(5 / 6)
     cbar.halign = :center
-    cbar.flipaxisposition = true
+    # cbar.flipaxisposition = true
     # cbar.labelpadding = -350
     cbar.labelsize = 50
 
@@ -811,6 +808,93 @@ function volumeslice(
         cbar,
     )
 
+    display(scene)
+    return scene
+end
+
+
+function visualize(
+    simulation::Simulation,
+    spatialmodel::SpatialModel;
+    statenames = [string(i) for i in 1:size(simulation.state)[2]],
+    resolution = (32, 32, 32),
+)
+    a_, statesize, b_ = size(simulation.state)
+    mpistate = simulation.state
+    grid = simulation.model.grid
+    grid_helper = GridHelper(grid)
+    r = coordinates(grid)
+    states = []
+    ϕ = ScalarField(copy(r[1]), grid_helper)
+    r = uniform_grid(spatialmodel.grid.domain, resolution = resolution)
+    # statesymbol = vars(Q).names[i] # doesn't work for vectors
+    for i in 1:statesize
+        ϕ .= mpistate[:, i, :]
+        ϕnew = ϕ(r...)
+        push!(states, ϕnew)
+    end
+    visualize([states...], statenames = statenames)
+end
+
+"""
+function visualize(g::DiscontinuousSpectralElementGrid)
+# Description
+- Use Makie to visualize a 3D grid
+# Arguments
+- `g`: A DiscontinuousSpectralElementGrid
+"""
+function visualize(g::DiscontinuousSpectralElementGrid)
+    x, y, z = coordinates(g)
+
+    e = collect(1:size(x)[2])
+    nfaces = 6
+    faces = collect(1:nfaces)
+    opacities = collect(range(0,1, length = 10))
+
+    scene, layout = layoutscene()
+
+    element = Node{Any}(e[1])
+    face = Node{Any}(faces[6])
+    opacity = Node{Any}(opacities[1])
+
+    tmpx = @lift(x[:, $element])
+    tmpy = @lift(y[:, $element])
+    tmpz = @lift(z[:, $element])
+
+    inds = @lift g.vmap⁻[:, $face, $element] .> 0
+    safeind = @lift g.vmap⁻[:, $face, $element][$inds]
+    tmpxf = @lift(x[$safeind])
+    tmpyf = @lift(y[$safeind])
+    tmpzf = @lift(z[$safeind])
+
+    total_color = @lift(RGBAf0(0,0,0, $opacity))
+
+    lscene = layout[1:4, 2:4] = LScene(scene)
+    GLMakie.scatter!(lscene, x[:], y[:], z[:], color = total_color, markersize = 100.0, strokewidth = 0)
+    GLMakie.scatter!(lscene, tmpx, tmpy, tmpz, color = RGBAf0(0,0,0,0.5), markersize = 100.0, strokewidth = 0, camera = cam3d!)
+    GLMakie.scatter!(lscene, tmpxf, tmpyf, tmpzf, color = RGBAf0(1,0,0,1.0), markersize = 100.0, strokewidth = 0, camera = cam3d!)
+    supertitle = layout[1,2] = Label(scene, " "^10 * " Gauss-Lobatto Points " * " "^10, textsize = 50, color = :black)
+
+    menu  = Menu(scene, options = zip(e,e))
+    menu2 = Menu(scene, options = zip(faces,faces))
+    menu3 = Menu(scene, options = zip(opacities,opacities))
+    layout[1, 1] = vgrid!(
+        Label(scene, "Element", width = nothing),
+        menu,
+        Label(scene, "Face", width = nothing),
+        menu2,
+        Label(scene, "Opacity", width = nothing),
+        menu3,
+    )
+    on(menu.selection) do s
+        element[] = s
+    end
+    on(menu2.selection) do s
+        face[] = s
+    end
+    on(menu3.selection) do s
+        opacity[] = s
+    end
     display(scene)
     return scene
 end

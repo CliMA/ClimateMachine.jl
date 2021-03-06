@@ -39,3 +39,6 @@ src/**/Manifest.toml
 
 # Julia System Images
 *.so
+
+# File ignore
+*scratch*

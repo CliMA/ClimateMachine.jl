@@ -126,6 +126,55 @@ function create_callback(output::JLD2State, simulation::Simulation, odesolver)
         close(file)
         return nothing
     end
+
+    return jldcallback
+end
+
+function create_callback(output::VTKState, simulation::Simulation, odesolver)
+    # Initialize output
+    output.overwrite &&
+    isfile(output.filepath) &&
+    rm(output.filepath; force = output.overwrite)
+
+    state = simulation.state
+    model = simulation.model        
+
+    function do_output(counter, model, state)
+        mpicomm = MPI.COMM_WORLD
+        balance_law = model.balance_law
+        aux_state = model.state_auxiliary
+
+        outprefix = @sprintf(
+            "%s/mpirank%04d_step%04d",
+            output.filepath,
+            MPI.Comm_rank(mpicomm),
+            counter[1],
+        )
+
+        @info "doing VTK output" outprefix
+
+        state_names =
+            flattenednames(vars_state(balance_law, Prognostic(), eltype(state)))
+        aux_names = 
+            flattenednames(vars_state(balance_law, Auxiliary(), eltype(state)))
+
+        writevtk(outprefix, state, model, state_names, aux_state, aux_names)
+
+        counter[1] += 1
+
+        return nothing
+    end
+
+    do_output(output.counter, model, state)
+    cbvtk =
+        ClimateMachine.GenericCallbacks.EveryXSimulationSteps(output.iteration) do (
+            init = false
+        )
+            do_output(output.counter, model, state)
+            return nothing
+        end
+
+    return cbvtk
 end
 
 function create_callback(output::VTKState, simulation::Simulation, odesolver)

@@ -170,3 +170,13 @@ function ∂(Ω::ProductDomain)
     end
     return Boundaries(Tuple(splitb))
 end
+
+## Atmos Domain
+Base.@kwdef struct AtmosDomain{S,T} <: AbstractDomain
+    radius::S = 6378e3
+    height::T = 30e3
+end
+
+
+length(Ω::AtmosDomain) = (Ω.radius, Ω.radius, Ω.height)
+ndims(Ω::AtmosDomain) = 3

@@ -4,7 +4,7 @@ include("../boilerplate.jl")
 include("TwoDimensionalCompressibleNavierStokesEquations.jl")
 
 ClimateMachine.init()
-
+##
 ########
 # Setup physical and numerical domains
 ########
@@ -112,3 +112,6 @@ evolve!(simulation, model)
 toc = Base.time()
 time = toc - tic
 println(time)
+
+##
+visualize(simulation, model, statenames = ["ρ", "ρu", "ρv", "ρθ"], resolution = (32,32))
