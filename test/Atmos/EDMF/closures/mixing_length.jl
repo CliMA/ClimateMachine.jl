@@ -63,14 +63,8 @@ function mixing_length(
     L_Nˢ = coeff * Nˢ_fact + ml.max_length * (FT(1) - Nˢ_fact)
 
     # compute L2 - law of the wall
-    surf_vals = subdomain_surface_values(
-        m.turbconv.surface,
-        m.turbconv,
-        m,
-        gm,
-        gm_aux,
-        m.turbconv.surface.zLL,
-    )
+    # TODO: use zLL from altitude
+    surf_vals = subdomain_surface_values(m, gm, gm_aux, m.turbconv.surface.zLL)
 
     L_W = ml.κ * max(z, 5) / (sqrt(m.turbconv.surface.κ_star²) * ml.c_m)
     if obukhov_length < -eps(FT)

@@ -207,11 +207,11 @@ function Psi(uf::Businger, ζ, tt::HeatTransport)
             return -9 * ζ / 4
         end
     else
-        f_h = f_heat(uf, ζ)
-        if uf.L >= 0
+        if ζ >= 0
             _π_group = FT(π_group(uf, tt))
             return -_a_h * ζ / (2 * _π_group)
         else
+            f_h = f_heat(uf, ζ)
             log_term = 2 * log((1 + f_h) / 2)
             return log_term + 2 * (1 - f_h) / (9 * ζ) - 1
         end

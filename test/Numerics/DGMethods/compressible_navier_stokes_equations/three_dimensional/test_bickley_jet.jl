@@ -1,52 +1,9 @@
 #!/usr/bin/env julia --project
 
-include("box.jl")
+include("../boilerplate.jl")
+include("ThreeDimensionalCompressibleNavierStokesEquations.jl")
+
 ClimateMachine.init()
-
-const FT = Float64
-vtkpath = nothing
-
-#################
-# Initial State #
-#################
-import ClimateMachine.Ocean: ocean_init_state!
-
-function ocean_init_state!(
-    model::ThreeDimensionalCompressibleNavierStokes.CNSE3D,
-    state,
-    aux,
-    localgeo,
-    t,
-)
-    ϵ = 0.1 # perturbation magnitude
-    l = 0.5 # Gaussian width
-    k = 0.5 # Sinusoidal wavenumber
-
-    x = aux.x
-    y = aux.y
-    z = aux.z
-
-    # The Bickley jet
-    U = sech(y)^2
-    V = 0
-    W = 0
-
-    # Slightly off-center vortical perturbations
-    Ψ₁ = exp(-(y + l / 10)^2 / (2 * (l^2))) * cos(k * x) * cos(k * y)
-    Ψ₂ = exp(-(z + l / 10)^2 / (2 * (l^2))) * cos(k * y) * cos(k * z)
-
-    # Vortical velocity fields (u, v, w) = (-∂ʸ, +∂ˣ, 0) Ψ₁ + (0, -∂ᶻ, +∂ʸ)Ψ₂ 
-    u = Ψ₁ * (k * tan(k * y) + y / (l^2) + 1 / (10 * l))
-    v = -Ψ₁ * k * tan(k * x) + Ψ₂ * (k * tan(k * z) + z / (l^2) + 1 / (10 * l))
-    w = -Ψ₂ * k * tan(k * y)
-
-    ρ = model.ρₒ
-    state.ρ = ρ
-    state.ρu = ρ * @SVector [U + ϵ * u, V + ϵ * v, W + ϵ * w]
-    state.ρθ = ρ * sin(k * y)
-
-    return nothing
-end
 
 #################
 # RUN THE TESTS #
@@ -55,58 +12,119 @@ end
 
     include("refvals_bickley_jet.jl")
 
-    # simulation times
-    timeend = FT(200) # s
-    dt = FT(0.004) # s
-    nout = Int(timeend / dt / 10)
-    timespan = (; dt, nout, timeend)
+    ########
+    # Setup physical and numerical domains
+    ########
+    Ωˣ = IntervalDomain(-2π, 2π, periodic = true)
+    Ωʸ = IntervalDomain(-2π, 2π, periodic = true)
+    Ωᶻ = IntervalDomain(-2π, 2π, periodic = true)
 
-    # Domain Resolutions
-    polyorder_1 = (name = "first_order", N = 1, Nˣ = 32, Nʸ = 32, Nᶻ = 32)
-    polyorder_4 = (name = "fourth_order", N = 4, Nˣ = 13, Nʸ = 13, Nᶻ = 13)
-    resolutions = [polyorder_1, polyorder_4]
+    first_order = DiscretizedDomain(
+        Ωˣ × Ωʸ × Ωᶻ;
+        elements = 32,
+        polynomial_order = 1,
+        overintegration_order = 1,
+    )
 
-    # Domain size
-    Lˣ = 4 * FT(π)  # m
-    Lʸ = 4 * FT(π)  # m
-    Lᶻ = 4 * FT(π)  # m
-    domain = (; Lˣ, Lʸ, Lᶻ)
+    fourth_order = DiscretizedDomain(
+        Ωˣ × Ωʸ × Ωᶻ;
+        elements = 13,
+        polynomial_order = 4,
+        overintegration_order = 1,
+    )
 
-    # model params
-    cₛ = sqrt(10) # m/s
-    ρₒ = 1 # kg/m³
-    μ = 0 # 1e-6,   # m²/s
-    ν = 0 # 1e-6,   # m²/s
-    κ = 0 # 1e-6,   # m²/s
-    α = 0   # 1/K
-    g = 0   # m/s²
-    params = (; cₛ, ρₒ, μ, ν, κ, α, g)
+    grids = Dict("first_order" => first_order, "fourth_order" => fourth_order)
 
-    for resolution in resolutions
-        @testset "$(resolution.name)" begin
-            config = Config(
-                resolution.name,
-                resolution,
-                domain,
-                params;
-                numerical_flux_first_order = RoeNumericalFlux(),
-                Nover = 1,
+    ########
+    # Define timestepping parameters
+    ########
+    start_time = 0
+    end_time = 200.0
+    Δt = 0.004
+    method = SSPRK22Heuns
+
+    timestepper = TimeStepper(method = method, timestep = Δt)
+
+    callbacks = (Info(), StateCheck(10))
+
+    ########
+    # Define physical parameters and parameterizations
+    ########
+    parameters = (
+        ϵ = 0.1,  # perturbation size for initial condition
+        l = 0.5, # Gaussian width
+        k = 0.5, # Sinusoidal wavenumber
+        ρₒ = 1, # reference density
+        cₛ = sqrt(10), # sound speed
+    )
+
+    physics = FluidPhysics(;
+        advection = NonLinearAdvectionTerm(),
+        dissipation = ConstantViscosity{Float64}(μ = 0, ν = 0, κ = 0),
+        coriolis = nothing,
+        buoyancy = nothing,
+    )
+
+    ########
+    # Define initial conditions
+    ########
+
+    # The Bickley jet
+    U₀(p, x, y, z) = cosh(y)^(-2)
+    V₀(p, x, y, z) = 0
+    W₀(p, x, y, z) = 0
+
+    # Slightly off-center vortical perturbations
+    Ψ₁(p, x, y, z) =
+        exp(-(y + p.l / 10)^2 / (2 * (p.l^2))) * cos(p.k * x) * cos(p.k * y)
+    Ψ₂(p, x, y, z) =
+        exp(-(z + p.l / 10)^2 / (2 * (p.l^2))) * cos(p.k * y) * cos(p.k * z)
+
+    # Vortical velocity fields (u, v, w) = (-∂ʸ, +∂ˣ, 0) Ψ₁ + (0, -∂ᶻ, +∂ʸ)Ψ₂ 
+    u₀(p, x, y, z) =
+        Ψ₁(p, x, y, z) * (p.k * tan(p.k * y) + y / (p.l^2) + 1 / (10 * p.l))
+    v₀(p, x, y, z) =
+        Ψ₂(p, x, y, z) * (p.k * tan(p.k * z) + z / (p.l^2) + 1 / (10 * p.l)) -
+        Ψ₁(p, x, y, z) * p.k * tan(p.k * x)
+    w₀(p, x, y, z) = -Ψ₂(p, x, y, z) * p.k * tan(p.k * y)
+    θ₀(p, x, y, z) = sin(p.k * y)
+
+    ρ₀(p, x, y, z) = p.ρₒ
+    ρu₀(p, x...) = ρ₀(p, x...) * (p.ϵ * u₀(p, x...) + U₀(p, x...))
+    ρv₀(p, x...) = ρ₀(p, x...) * (p.ϵ * v₀(p, x...) + V₀(p, x...))
+    ρw₀(p, x...) = ρ₀(p, x...) * (p.ϵ * w₀(p, x...) + W₀(p, x...))
+    ρθ₀(p, x...) = ρ₀(p, x...) * θ₀(p, x...)
+
+    ρu⃗₀(p, x...) = @SVector [ρu₀(p, x...), ρv₀(p, x...), ρw₀(p, x...)]
+    initial_conditions = (ρ = ρ₀, ρu = ρu⃗₀, ρθ = ρθ₀)
+
+    for (key, grid) in grids
+        @testset "$(key)" begin
+            model = SpatialModel(
+                balance_law = Fluid3D(),
+                physics = physics,
+                numerics = (flux = RoeNumericalFlux(),),
+                grid = grid,
+                boundary_conditions = NamedTuple(),
+                parameters = parameters,
             )
 
-            println("starting test " * resolution.name)
-            tic = Base.time()
-
-            run_CNSE(
-                config,
-                resolution,
-                timespan;
-                TimeStepper = SSPRK22Heuns,
-                refDat = getproperty(refVals, Symbol(resolution.name)),
+            simulation = Simulation(
+                model = model,
+                initial_conditions = initial_conditions,
+                timestepper = timestepper,
+                callbacks = callbacks,
+                time = (; start = start_time, finish = end_time),
             )
 
-            toc = Base.time()
-            time = toc - tic
-            println(time)
+            ########
+            # Run the model
+            ########
+            evolve!(
+                simulation,
+                model;
+                refDat = getproperty(refVals, Symbol(key)),
+            )
         end
     end
 end
