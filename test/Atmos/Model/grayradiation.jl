@@ -112,7 +112,7 @@ using RRTMGP.RTE:                    Solver
 using RRTMGP.GrayRTESolver:          solve_lw!
 using ClimateMachine.BalanceLaws: number_states, Prognostic
 using ClimateMachine.Thermodynamics: air_pressure, air_temperature,
-    q_vap_saturation, shum_to_mixing_ratio
+    q_vap_saturation, PhasePartition, vol_vapor_mixing_ratio
 
 const nstreams = 1
 const ngpoints = 1
@@ -437,8 +437,8 @@ end
 end
 
 function relhum(FT, z)
-    z1 = FT(35e3)
-    z2 = FT(50e3)
+    z1 = FT(15e3)
+    z2 = FT(25e3)
     relhum1 = FT(0.5)
     relhum2 = FT(1e-4)
     if z <= z1
@@ -481,7 +481,7 @@ function lev_set!(
     else
         qvap = qvapmin
     end
-    h2o_lev[v, h] = shum_to_mixing_ratio(qvap, qvap)
+    h2o_lev[v, h] = vol_vapor_mixing_ratio(bl.param_set, PhasePartition(qvap))
     return qvapmin
 end
 
@@ -520,7 +520,7 @@ function lev_avg!(
     else
         qvap = qvapmin
     end
-    h2o_lev[v, h] += shum_to_mixing_ratio(qvap, qvap)
+    h2o_lev[v, h] += vol_vapor_mixing_ratio(bl.param_set, PhasePartition(qvap))
     h2o_lev[v, h] *= FT(0.5)
     return qvapmin
 end
@@ -842,14 +842,18 @@ function debug_arrays(Q, dg)
                     p_avg[v] += air_pressure(thermo_state)
                     t_avg[v] += air_temperature(thermo_state)
                     f_avg[v] += aux.radiation.flux
-                    qvap = relhum(FT, aux.coord[3]) * q_vap_saturation(thermo_state)
+                    qvap = relhum(FT, aux.coord[3]) *
+                        q_vap_saturation(thermo_state)
                     h = Nq1 * (Nq2 * (eh - horzelems[1]) + (j - 1)) + i
                     if qvap < qvapmins[h]
                         qvapmins[h] = qvap
                     else
                         qvap = qvapmins[h]
                     end
-                    h2o_avg[v] += shum_to_mixing_ratio(qvap, qvap)
+                    h2o_avg[v] += vol_vapor_mixing_ratio(
+                        balance_law.param_set,
+                        PhasePartition(qvap),
+                    )
                 end
                 p_avg[v] /= nhorz
                 t_avg[v] /= nhorz
