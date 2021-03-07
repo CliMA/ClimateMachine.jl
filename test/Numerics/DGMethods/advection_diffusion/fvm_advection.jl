@@ -268,6 +268,7 @@ let
                     dim == 2 ? SVector{3, FT}(1 / sqrt(2), 1 / sqrt(2), 0) :
                     SVector{3, FT}(1 / sqrt(3), 1 / sqrt(3), 1 / sqrt(3))
                 α = FT(1)
+                connectivity = dim == 2 ? :face : :full
 
                 for fvmethod in (FVConstant(), FVLinear())
                     @info @sprintf """Configuration
@@ -292,6 +293,7 @@ let
                             brickrange;
                             periodicity = periodicity,
                             boundary = bc,
+                            connectivity = connectivity,
                         )
                         dt = (α / 4) / (Ne * max(1, maximum(N))^2)
 

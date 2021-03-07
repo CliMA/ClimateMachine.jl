@@ -24,6 +24,7 @@ function main()
         Nhorz,
         Rrange;
         boundary = (1, 2),
+        connectivity = :face,
     )
     grid = DiscontinuousSpectralElementGrid(
         topology;

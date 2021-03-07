@@ -1,6 +1,6 @@
 module BrickMesh
 
-export brickmesh, centroidtocode, connectmesh, partition
+export brickmesh, centroidtocode, connectmesh, partition, connectmeshfull
 
 using MPI
 
@@ -1124,6 +1124,368 @@ function enumerateboundaryfaces!(elemtoelem, elemtobndy, periodicity, boundary)
         end
     end
     return (bndytoelem, bndytoface)
+end
+
+"""
+    connectmeshfull(comm::MPI.Comm, elemtovert, elemtocoord, elemtobndy,
+                faceconnections)
+
+This function takes in a mesh (as returned for example by `brickmesh`) and
+returns a corner connected mesh. It is similar to [`connectmesh`](@ref) but returns 
+a corner connected mesh, i.e. `ghostelems` will also include remote elements 
+that are only connected by vertices. This returns a `NamedTuple` of:
+
+ - `elems` the range of element indices
+ - `realelems` the range of real (aka nonghost) element indices
+ - `ghostelems` the range of ghost element indices
+ - `ghostfaces` ghost element to face is received;
+   `ghostfaces[f,ge] == true` if face `f` of ghost element `ge` is received.
+ - `sendelems` an array of send element indices
+ - `sendfaces` send element to face is sent;
+   `sendfaces[f,se] == true` if face `f` of send element `se` is sent.
+ - `elemtocoord` element to vertex coordinates; `elemtocoord[d,i,e]` is the
+    `d`th coordinate of corner `i` of element `e`
+ - `elemtoelem` element to neighboring element; `elemtoelem[f,e]` is the
+   number of the element neighboring element `e` across face `f`.  If there is
+   no neighboring element then `elemtoelem[f,e] == e`.
+ - `elemtoface` element to neighboring element face; `elemtoface[f,e]` is the
+   face number of the element neighboring element `e` across face `f`.  If
+   there is no neighboring element then `elemtoface[f,e] == f`.
+ - `elemtoordr` element to neighboring element order; `elemtoordr[f,e]` is the
+   ordering number of the element neighboring element `e` across face `f`.  If
+   there is no neighboring element then `elemtoordr[f,e] == 1`.
+ - `elemtobndy` element to bounday number; `elemtobndy[f,e]` is the
+   boundary number of face `f` of element `e`.  If there is a neighboring
+   element then `elemtobndy[f,e] == 0`.
+ - `nabrtorank` a list of the MPI ranks for the neighboring processes
+ - `nabrtorecv` a range in ghost elements to receive for each neighbor
+ - `nabrtosend` a range in `sendelems` to send for each neighbor
+
+The algorithm assumes that the 2-D mesh can be gathered on single process,
+which is reasonable for the 2-D mesh.
+"""
+function connectmeshfull(
+    comm::MPI.Comm,
+    elemtovert,
+    elemtocoord,
+    elemtobndy,
+    faceconnections;
+    dim = size(elemtocoord, 1),
+)
+    @assert dim == 2
+    dim_coord = size(elemtocoord, 1)
+    csize = MPI.Comm_size(comm)
+    crank = MPI.Comm_rank(comm)
+    root = 0
+    I = eltype(elemtovert)
+    FT = eltype(elemtocoord)
+    nvert, nelem = size(elemtovert)
+    nfaces = 2 * dim
+    nelemv = zeros(I, csize)
+    fmask = build_fmask(dim)
+    nfvert = size(fmask, 1)
+    # collecting # of realelems on each process
+    MPI.Allgather!(nelem, UBuffer(nelemv, Cint(1)), comm)
+    offset = cumsum(nelemv) .+ 1
+    pushfirst!(offset, 1)
+    nelemg = sum(nelemv)
+    # collecting elemtovert on each process
+    elemtovertg = zeros(I, nvert + 2, nelemg)
+    MPI.Allgatherv!(
+        [elemtovert; ones(I, 1, nelem) .* crank; reshape(Array(1:nelem), 1, :)],
+        VBuffer(elemtovertg, nelemv .* (nvert + 2)),
+        comm,
+    )
+
+    nvertg = maximum(elemtovertg[1:nvert, :])
+    # collecting elemtocoordg on each process
+    elemtocoordg = Array{FT}(undef, dim_coord, nvert, nelemg)
+    MPI.Allgatherv!(
+        elemtocoord,
+        VBuffer(elemtocoordg, nelemv .* (dim_coord * nvert)),
+        comm,
+    )
+    # collecting elemtobndy on each process
+    elemtobndyg = zeros(I, nfaces, nelemg)
+    MPI.Allgatherv!(elemtobndy, VBuffer(elemtobndyg, nelemv .* nfaces), comm)
+    # accounting for vertices on periodic faces
+    nper = length(faceconnections) * nfvert
+    vconn = Array{Int}(undef, 2, nper)          # stores the periodic and corresponding shadow vertex
+    ctr = 1
+    for fc in faceconnections
+        e, f, v = fc[1], fc[2], fc[3:end]
+        fv = elemtovert[fmask[:, f], e]
+        fv, o = vertsortandorder(fv)
+        v, o = vertsortandorder(v)
+        for i in 1:nfvert
+            vconn[1, ctr] = fv[1][i]
+            vconn[2, ctr] = v[1][i]
+            ctr += 1
+        end
+    end
+    vconn = unique(vconn, dims = 2)
+    nper = size(vconn, 2)
+    nperv = zeros(I, csize)
+    MPI.Allgather!(nper, UBuffer(nperv, Cint(1)), comm)
+    nperg = sum(nperv)
+    vconng = Array{Int}(undef, 2, nperg)
+    MPI.Allgatherv!(vconn, VBuffer(vconng, nperv .* 2), comm)
+
+    gldofv = -ones(Int, nvertg)
+    pmarker = -ones(Int, nperg)
+    # conflict-free periodic nodes
+    for i in 1:nperg
+        v1, v2 = vconng[1, i], vconng[2, i]
+        if gldofv[v1] == -1 && gldofv[v2] == -1
+            id = min(v1, v2)
+            gldofv[v1] = id
+            gldofv[v2] = id
+            pmarker[i] = 1
+        end
+    end
+    # dealing with doubly periodic nodes (whenever applicable)
+    for i in 1:nperg
+        if pmarker[i] == -1
+            v1, v2 = vconng[1, i], vconng[2, i]
+            id = min(gldofv[v1], gldofv[v2])
+            gldofv[v1] = id
+            gldofv[v2] = id
+        end
+    end
+    # labeling non-periodic vertices
+    for i in 1:nvertg
+        if gldofv[i] == -1
+            gldofv[i] = i
+        end
+    end
+    #-------------------------------------------------------------
+    elemtovertg_orig = deepcopy(elemtovertg)
+    for i in 1:nelemg, j in 1:nvert
+        elemtovertg[j, i] = gldofv[elemtovertg[j, i]]
+    end
+    #-------------------------------------------------
+    nsend, nghost = 0, 0
+    interiorelems, exteriorelems = Int[], Int[]
+    vertgtoprocs = map(i -> zeros(Int, i), zeros(Int, nvertg)) # procs for each vertex
+    vertgtolelem = map(i -> zeros(Int, i), zeros(Int, nvertg)) # local cell # for each vertex
+    vertgtolvert = map(i -> zeros(Int, i), zeros(Int, nvertg)) # local vertex # in local cell for each vertex
+    sendelems = map(i -> zeros(Int, i), zeros(Int, csize))
+    recvelems = map(i -> zeros(Int, i), zeros(Int, csize))
+
+    for icls in 1:nelemg # gathering connectivity info for each global vertex
+        for ivt in 1:nvert
+            gvt = elemtovertg[ivt, icls]
+            prc = elemtovertg[nvert + 1, icls]
+            lcl = elemtovertg[nvert + 2, icls]
+            push!(vertgtoprocs[gvt], prc)
+            push!(vertgtolelem[gvt], lcl)
+            push!(vertgtolvert[gvt], ivt)
+        end
+    end
+
+    for icls in 1:nelem # building sendelems and recvelems
+        interior = true
+        for ivt in 1:nvert
+            vt = elemtovert[ivt, icls]
+            gvt = gldofv[vt]
+            for ip in 1:length(vertgtoprocs[gvt])
+                proc = vertgtoprocs[gvt][ip]
+                if proc ≠ crank
+                    lcell = vertgtolelem[gvt][ip]
+                    if findfirst(recvelems[proc + 1] .== lcell) == nothing
+                        push!(recvelems[proc + 1], lcell)
+                        nghost += 1
+                    end
+                    if findfirst(sendelems[proc + 1] .== icls) == nothing
+                        push!(sendelems[proc + 1], icls)
+                        nsend += 1
+                    end
+                    interior = false
+                end
+            end
+        end
+        interior ? push!(interiorelems, icls) : push!(exteriorelems, icls)
+    end
+
+    nabrtorank = Int[]
+    newsendelems = Array{Int}(undef, nsend)
+    nabrtosend = Array{UnitRange{Int64}}(undef, 0)
+    nabrtorecv = Array{UnitRange{Int64}}(undef, 0)
+    st_recv, en_recv = 1, 1
+    st_send, en_send = 1, 1
+
+    for ipr in 0:(csize - 1)
+        l_send = length(sendelems[ipr + 1])
+        l_recv = length(recvelems[ipr + 1])
+        if l_send > 0
+            en_send = st_send + l_send - 1
+            sort!(sendelems[ipr + 1])
+            newsendelems[st_send:en_send] .= sendelems[ipr + 1][:]
+            push!(nabrtosend, st_send:en_send)
+            st_send = en_send + 1
+            push!(nabrtorank, ipr)
+
+        end
+        if l_recv > 0
+            en_recv = st_recv + l_recv - 1
+            sort!(recvelems[ipr + 1])
+            push!(nabrtorecv, st_recv:en_recv)
+            st_recv = en_recv + 1
+        end
+    end
+
+    sendfaces = BitArray(zeros(nfaces, nsend))
+    ghostfaces = BitArray(zeros(nfaces, nghost))
+
+    newelemtovert = similar(elemtovert, nvert, (nelem + nghost))
+    newelemtocoord = similar(elemtocoord, dim_coord, nvert, (nelem + nghost))
+    newelemtobndy = similar(elemtobndy, nfaces, (nelem + nghost))
+    newelemtovert[1:nvert, 1:nelem] .= elemtovert
+    newelemtocoord[:, :, 1:nelem] .= elemtocoord
+    newelemtobndy[:, 1:nelem] .= elemtobndy
+    vmarker = BitArray(undef, nvert)
+    ctrg, ctrs = 1, 1
+
+    for ipr in 0:(csize - 1)
+        # building ghost faces
+        for icls in recvelems[ipr + 1]
+            vmarker .= 0
+            off = offset[ipr + 1]
+            newelemtovert[1:nvert, nelem + ctrg] .=
+                elemtovertg_orig[1:nvert, off + icls - 1]
+            newelemtocoord[:, :, nelem + ctrg] .=
+                elemtocoordg[:, :, off + icls - 1]
+            newelemtobndy[:, nelem + ctrg] .= elemtobndyg[:, off + icls - 1]
+            for ivt in 1:nvert
+                gvt = elemtovertg[ivt, icls + off - 1]
+                if findfirst(vertgtoprocs[gvt] .== crank) ≠ nothing
+                    vmarker[ivt] = 1
+                end
+            end
+            for fc in 1:nfaces
+                if findfirst(vmarker[fmask[:, fc]]) ≠ nothing
+                    ghostfaces[fc, ctrg] = 1
+                end
+            end
+            ctrg += 1
+        end
+        # building send faces
+        for icls in sendelems[ipr + 1]
+            vmarker .= 0
+            for ivt in 1:nvert
+                vt = elemtovert[ivt, icls]
+                gvt = gldofv[vt]
+                if findfirst(vertgtoprocs[gvt] .== ipr) ≠ nothing
+                    vmarker[ivt] = 1
+                end
+            end
+            for fc in 1:nfaces
+                if findfirst(vmarker[fmask[:, fc]]) ≠ nothing
+                    sendfaces[fc, ctrs] = 1
+                end
+            end
+            ctrs += 1
+        end
+    end
+
+    A = zeros(Int, (nfvert + 3), nfaces * (nelem + nghost))
+    for e in 1:(nelem + nghost)
+        v = reshape(newelemtovert[:, e], ntuple(j -> 2, dim))
+        for f in 1:nfaces
+            j = (e - 1) * nfaces + f
+            fv, o = vertsortandorder(v[fmask[:, f]]...) # faces vertices, B-N orientation
+            for fvt in 1:nfvert
+                A[fvt, j] = gldofv[fv[fvt]]
+            end
+            A[nfvert + 1, j] = o # orientation
+            A[nfvert + 2, j] = e # local element number
+            A[nfvert + 3, j] = f # local face number for element e
+        end
+    end
+
+    A = sortslices(A, dims = 2, by = x -> x[1:nfvert])
+    elemtoelem = Array{Int}(undef, nfaces, (nelem + nghost))
+    elemtoface = Array{Int}(undef, nfaces, (nelem + nghost))
+    elemtoordr = Array{Int}(undef, nfaces, (nelem + nghost))
+    # match faces
+    n = size(A, 2)
+    j = 1
+    while j ≤ n
+        lel = A[nfvert + 2, j]
+        lfc = A[nfvert + 3, j]
+        if j + 1 ≤ n && A[1:nfvert, j] == A[1:nfvert, j + 1]
+            # found connected face
+            nel = A[nfvert + 2, j + 1] # local neighboring element
+            nfc = A[nfvert + 3, j + 1] # local face # of local neighboring element
+            elemtoelem[lfc, lel] = nel
+            elemtoface[lfc, lel] = nfc
+            elemtoelem[nfc, nel] = lel
+            elemtoface[nfc, nel] = lfc
+            if A[nfvert + 1, j] == A[nfvert + 1, j + 1]
+                elemtoordr[lfc, lel] = 1
+                elemtoordr[nfc, nel] = 1
+            else
+                elemtoordr[lfc, lel] = 2
+                elemtoordr[nfc, nel] = 2
+            end
+            j += 2
+        else
+            # found unconnected face
+            elemtoelem[lfc, lel] = lel
+            elemtoface[lfc, lel] = lfc
+            elemtoordr[lfc, lel] = 1
+            j += 1
+        end
+    end
+    #---------------------------------------------------------------
+    (
+        elems = 1:(nelem + nghost),       # range of element indices
+        realelems = 1:nelem,              # range of real element indices
+        ghostelems = nelem .+ (1:nghost), # range of ghost element indices
+        ghostfaces = ghostfaces,          # bit array of recv faces for ghost elems
+        sendelems = newsendelems,         # array of send element indices
+        sendfaces = sendfaces,            # bit array of send faces for send elems
+        elemtocoord = newelemtocoord,     # element to vertex coordinates
+        elemtoelem = elemtoelem,          # element to neighboring element
+        elemtoface = elemtoface,          # element to neighboring element face
+        elemtoordr = elemtoordr,          # element to neighboring element order
+        elemtobndy = newelemtobndy,       # element to boundary number
+        nabrtorank = nabrtorank,          # list of neighboring processes MPI ranks
+        nabrtorecv = nabrtorecv,          # neighbor receive ranges into `ghostelems`
+        nabrtosend = nabrtosend,          # neighbor send ranges into `sendelems`
+    )
+end
+
+"""
+    build_fmask(dim)
+
+Returns the face mask for mapping element vertices to face vertices.
+
+ex: for 2D element with vertices (1, 2, 3, 4)
+
+       3---4  
+       |   |  
+       1---2 
+
+the function returns the face mask
+f1 | f2 | f3 | f4 
+=================
+ 1 |  2 |  1 | 3
+ 3 |  4 |  2 | 4
+================= 
+"""
+function build_fmask(dim)
+    nvert = 2^dim
+    nfaces = 2 * dim
+    p = reshape(1:nvert, ntuple(j -> 2, dim))
+    fmask = Array{Int64}(undef, 2^(dim - 1), nfaces)
+    f = 0
+    for d in 1:dim
+        for slice in eachslice(p, dims = d)
+            fmask[:, f += 1] = vec(slice)
+        end
+    end
+    return fmask
 end
 
 end # module

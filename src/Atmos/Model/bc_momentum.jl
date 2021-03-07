@@ -26,13 +26,9 @@ function atmos_momentum_boundary_state!(
     bc_momentum::Impenetrable{FreeSlip},
     atmos,
     state⁺,
-    aux⁺,
-    n,
-    state⁻,
-    aux⁻,
-    t,
-    args...,
+    args,
 )
+    @unpack state⁻, n = args
     state⁺.ρu -= 2 * dot(state⁻.ρu, n) .* SVector(n)
 end
 function atmos_momentum_boundary_state!(
@@ -40,20 +36,16 @@ function atmos_momentum_boundary_state!(
     bc_momentum::Impenetrable{FreeSlip},
     atmos,
     state⁺,
-    aux⁺,
-    n,
-    state⁻,
-    aux⁻,
-    t,
-    args...,
+    args,
 )
+    @unpack state⁻, n = args
     state⁺.ρu -= dot(state⁻.ρu, n) .* SVector(n)
 end
 function atmos_momentum_normal_boundary_flux_second_order!(
     nf,
     bc_momentum::Impenetrable{FreeSlip},
     atmos,
-    args...,
+    _...,
 ) end
 
 
@@ -70,13 +62,9 @@ function atmos_momentum_boundary_state!(
     bc_momentum::Impenetrable{NoSlip},
     atmos,
     state⁺,
-    aux⁺,
-    n,
-    state⁻,
-    aux⁻,
-    t,
-    args...,
+    args,
 )
+    @unpack state⁻ = args
     state⁺.ρu = -state⁻.ρu
 end
 function atmos_momentum_boundary_state!(
@@ -84,12 +72,7 @@ function atmos_momentum_boundary_state!(
     bc_momentum::Impenetrable{NoSlip},
     atmos,
     state⁺,
-    aux⁺,
-    n,
-    state⁻,
-    aux⁻,
-    t,
-    args...,
+    args,
 )
     state⁺.ρu = zero(state⁺.ρu)
 end
@@ -97,7 +80,7 @@ function atmos_momentum_normal_boundary_flux_second_order!(
     nf,
     bc_momentum::Impenetrable{NoSlip},
     atmos,
-    args...,
+    _...,
 ) end
 
 
@@ -117,24 +100,14 @@ function atmos_momentum_boundary_state!(
     bc_momentum::Impenetrable{DL},
     atmos,
     state⁺,
-    aux⁺,
-    n,
-    state⁻,
-    aux⁻,
-    t,
-    args...,
+    args,
 ) where {DL <: DragLaw}
     atmos_momentum_boundary_state!(
         nf,
         Impenetrable(FreeSlip()),
         atmos,
         state⁺,
-        aux⁺,
-        n,
-        state⁻,
-        aux⁻,
-        t,
-        args...,
+        args,
     )
 end
 function atmos_momentum_normal_boundary_flux_second_order!(
@@ -142,23 +115,12 @@ function atmos_momentum_normal_boundary_flux_second_order!(
     bc_momentum::Impenetrable{DL},
     atmos,
     fluxᵀn,
-    n,
-    state⁻,
-    diffusive⁻,
-    hyperdiffusive⁻,
-    aux⁻,
-    state⁺,
-    diffusive⁺,
-    hyperdiffusive⁺,
-    aux⁺,
-    t,
-    state_int⁻,
-    diffusive_int⁻,
-    aux_int⁻,
+    args,
 ) where {DL <: DragLaw}
+    @unpack state⁻, aux⁻, n⁻, t, aux_int⁻, state_int⁻ = args
 
     u1⁻ = state_int⁻.ρu / state_int⁻.ρ
-    u_int⁻_tan = u1⁻ - dot(u1⁻, n) .* SVector(n)
+    u_int⁻_tan = u1⁻ - dot(u1⁻, n⁻) .* SVector(n⁻)
     normu_int⁻_tan = norm(u_int⁻_tan)
     # NOTE: difference from design docs since normal points outwards
     C = bc_momentum.drag.fn(state⁻, aux⁻, t, normu_int⁻_tan)

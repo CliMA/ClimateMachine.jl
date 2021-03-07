@@ -139,11 +139,13 @@ function test_run(
             stop = setup.domain_halflength,
         )
     end
+    connectivity = dims == 3 ? :full : :face
 
     topology = StackedBrickTopology(
         mpicomm,
         brickrange;
         periodicity = ntuple(_ -> true, dims),
+        connectivity = connectivity,
     )
 
     grid = DiscontinuousSpectralElementGrid(

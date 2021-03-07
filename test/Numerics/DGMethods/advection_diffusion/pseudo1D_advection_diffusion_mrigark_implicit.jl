@@ -303,6 +303,7 @@ let
         for FT in (Float64, Float32)
             result = zeros(FT, numlevels)
             for dim in 2:3
+                connectivity = dim == 3 ? :full : :face
                 for fluxBC in (true, false)
                     for linearsolvertype in (SingleColumnLU,)# ManyColumnLU)
                         d = dim == 2 ? FT[1, 10, 0] : FT[1, 1, 10]
@@ -335,6 +336,7 @@ let
                                     ntuple(j -> (1, 2), dim - 1)...,
                                     (3, 4),
                                 ),
+                                connectivity = connectivity,
                             )
                             dt = 32 * (α / 4) / (Ne * polynomialorder^2)
 

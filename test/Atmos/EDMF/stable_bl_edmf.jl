@@ -6,6 +6,7 @@ using ClimateMachine.BalanceLaws: vars_state
 const clima_dir = dirname(dirname(pathof(ClimateMachine)));
 
 include(joinpath(clima_dir, "experiments", "AtmosLES", "stable_bl_model.jl"))
+include(joinpath("helper_funcs", "diagnostics_configuration.jl"))
 include("edmf_model.jl")
 include("edmf_kernels.jl")
 
@@ -154,7 +155,8 @@ function main(::Type{FT}, cl_args) where {FT}
     )
     # ---
 
-    dgn_config = config_diagnostics(driver_config)
+    dgn_config =
+        config_diagnostics(driver_config, timeend; interval = "10ssecs")
 
     cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(1) do
         Filters.apply!(
@@ -211,6 +213,7 @@ function main(::Type{FT}, cl_args) where {FT}
 
     return solver_config, diag_arr, time_data
 end
+
 
 # add a command line argument to specify the kind of surface flux
 # TODO: this will move to the future namelist functionality
