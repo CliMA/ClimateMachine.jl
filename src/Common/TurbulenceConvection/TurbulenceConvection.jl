@@ -31,7 +31,7 @@ import ..BalanceLaws:
     integral_set_auxiliary_state!
 
 using ..MPIStateArrays: MPIStateArray
-using ..DGMethods: DGModel, LocalGeometry
+using ..DGMethods: SpaceDiscretization, LocalGeometry
 
 abstract type TurbulenceConvectionModel end
 
@@ -60,7 +60,7 @@ function init_aux_turbconv!(
 end
 
 function update_auxiliary_state!(
-    dg::DGModel,
+    spacedisc::SpaceDiscretization,
     m::TurbulenceConvectionModel,
     bl::BalanceLaw,
     Q::MPIStateArray,
