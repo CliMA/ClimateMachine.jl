@@ -112,8 +112,7 @@ function main(::Type{FT}) where {FT}
         help = "specify surface flux for energy and moisture"
         metavar = "prescribed|bulk|custom_sbl"
         arg_type = String
-        # default = "custom_sbl"
-        default = "prescribed"
+        default = "custom_sbl"
     end
 
     cl_args = ClimateMachine.init(parse_clargs = true, custom_clargs = sbl_args)
@@ -123,9 +122,6 @@ function main(::Type{FT}) where {FT}
     # FV-DG polynomial order
     N = (1,0)
     nelem_vert = 80
-    # DG polynomial order
-    # N = 4
-    # nelem_vert = 20
 
     # Prescribe domain parameters
     zmax = FT(400)
@@ -145,8 +141,8 @@ function main(::Type{FT}) where {FT}
 
     N_updrafts = 1
     N_quad = 3
-    turbconv = NoTurbConv()
-    # turbconv = EDMF(FT, N_updrafts, N_quad)
+    # turbconv = NoTurbConv()
+    turbconv = EDMF(FT, N_updrafts, N_quad)
     # compressibility = Compressible()
     compressibility = Anelastic1D()
 
@@ -155,8 +151,8 @@ function main(::Type{FT}) where {FT}
         config_type,
         zmax,
         surface_flux;
-        # turbulence = ConstantKinematicViscosity(FT(0)),
-        turbulence = SmagorinskyLilly{FT}(0.21),
+        turbulence = ConstantKinematicViscosity(FT(0)),
+        # turbulence = SmagorinskyLilly{FT}(0.21),
         turbconv = turbconv,
         compressibility = compressibility,
         ref_state = HydrostaticState(
@@ -175,7 +171,6 @@ function main(::Type{FT}) where {FT}
         model;
         hmax = FT(40),
         solver_type = ode_solver_type,
-        # numerical_flux_first_order = RoeNumericalFlux(),
         fv_reconstruction = HBFVReconstruction(model, FVLinear()),
         # Ncutoff = 3,
     )
@@ -226,7 +221,6 @@ function main(::Type{FT}) where {FT}
     cb_boyd = GenericCallbacks.EveryXSimulationSteps(1) do
         Filters.apply!(
             solver_config.Q,
-            # ("energy.ρe",turbconv_filters(turbconv)...,),
             ("energy.ρe",),
             solver_config.dg.grid,
             BoydVandevenFilter(
@@ -262,7 +256,7 @@ function main(::Type{FT}) where {FT}
     check_cons =
         (ClimateMachine.ConservationCheck("ρ", "3000steps", FT(0.00000001)),)
 
-    cb_print_step = GenericCallbacks.EveryXSimulationSteps(1) do
+    cb_print_step = GenericCallbacks.EveryXSimulationSteps(100) do
         @show getsteps(solver_config.solver)
         nothing
     end
@@ -271,7 +265,6 @@ function main(::Type{FT}) where {FT}
         solver_config;
         diagnostics_config = dgn_config,
         check_cons = check_cons,
-        # user_callbacks = (cb_boyd, cb_data_vs_time, cb_print_step),
         user_callbacks = (cb_data_vs_time, cb_print_step),
         check_euclidean_distance = true,
     )

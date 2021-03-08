@@ -82,6 +82,16 @@ end;
 
 function main(::Type{FT}, cl_args) where {FT}
 
+    sbl_args = ArgParseSettings(autofix_names = true)
+    add_arg_group!(sbl_args, "StableBoundaryLayer")
+    @add_arg_table! sbl_args begin
+        "--surface-flux"
+        help = "specify surface flux for energy and moisture"
+        metavar = "prescribed|bulk|custom_sbl"
+        arg_type = String
+        # default = "custom_sbl"
+        default = "prescribed"
+    end
     surface_flux = cl_args["surface_flux"]
 
     # DG polynomial order
@@ -94,7 +104,7 @@ function main(::Type{FT}, cl_args) where {FT}
     t0 = FT(0)
 
     # Simulation time
-    timeend = FT(60)
+    timeend = FT(400)
     CFLmax = FT(0.50)
 
     config_type = SingleStackConfigType
@@ -106,13 +116,15 @@ function main(::Type{FT}, cl_args) where {FT}
 
     N_updrafts = 1
     N_quad = 3 # Using N_quad = 1 leads to norm(Q) = NaN at init.
-    turbconv = EDMF(FT, N_updrafts, N_quad)
+    # turbconv = EDMF(FT, N_updrafts, N_quad)
+    turbconv = NoTurbConv()
 
     model = stable_bl_model(
         FT,
         config_type,
         zmax,
         surface_flux;
+        turbulence = ConstantKinematicViscosity(FT(0.1)),
         turbconv = turbconv,
         ref_state = HydrostaticState(
             DecayingTemperatureProfile{FT}(param_set);
@@ -242,6 +254,6 @@ cl_args = ClimateMachine.init(
 
 solver_config, diag_arr, time_data = main(Float64, cl_args)
 
-include(joinpath(@__DIR__, "report_mse_sbl_fv.jl"))
+# include(joinpath(@__DIR__, "report_mse_sbl_fv.jl"))
 
 nothing

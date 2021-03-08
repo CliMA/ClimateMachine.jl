@@ -114,8 +114,8 @@ function main(::Type{FT}) where {FT}
         help = "specify surface flux for energy and moisture"
         metavar = "prescribed|bulk|custom_sbl"
         arg_type = String
-        # default = "custom_sbl"
-        default = "prescribed"
+        default = "custom_sbl"
+        # default = "prescribed"
     end
 
     cl_args = ClimateMachine.init(parse_clargs = true, custom_clargs = sbl_args)
@@ -153,8 +153,8 @@ function main(::Type{FT}) where {FT}
         config_type,
         zmax,
         surface_flux;
-        turbulence = ConstantKinematicViscosity(FT(0)),
-        # turbulence = SmagorinskyLilly{FT}(0.21),
+        # turbulence = ConstantKinematicViscosity(FT(0)),
+        turbulence = SmagorinskyLilly{FT}(0.21),
         turbconv = turbconv,
         compressibility = compressibility,
     )
@@ -278,8 +278,8 @@ function main(::Type{FT}) where {FT}
     cb_boyd = GenericCallbacks.EveryXSimulationSteps(1) do
         Filters.apply!(
             solver_config.Q,
-            ("energy.ρe",turbconv_filters(turbconv)...),
-            # ("energy.ρe",),
+            # ("energy.ρe",turbconv_filters(turbconv)...),
+            ("energy.ρe",),
             solver_config.dg.grid,
             BoydVandevenFilter(
                 solver_config.dg.grid,
