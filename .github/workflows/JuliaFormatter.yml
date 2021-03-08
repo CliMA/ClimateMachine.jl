@@ -20,12 +20,8 @@ jobs:
         access_token: ${{ github.token }}
 
     - uses: actions/checkout@v2.2.0
-      with:
-        fetch-depth: 0
 
-    - run: git fetch origin
-    
-    - uses: dorny/paths-filter@v2
+    - uses: dorny/paths-filter@v2.9.1
       id: filter
       with:
         filters: |
@@ -35,7 +31,7 @@ jobs:
     - uses: julia-actions/setup-julia@latest
       if: steps.filter.outputs.julia_file_change == 'true'
       with:
-        version: 1.5.2
+        version: 1.5.3
 
     - name: Apply JuliaFormatter
       if: steps.filter.outputs.julia_file_change == 'true'
