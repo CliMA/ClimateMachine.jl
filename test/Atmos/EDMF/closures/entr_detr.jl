@@ -96,9 +96,8 @@ function entr_detr(
     )
 
     # compute entrainment/detrainment components
-    E_trb =
-        2 * up[i].ρa * entr.c_t * sqrt_tke /
-        max(m.turbconv.pressure.H_up, entr.H_up_min)
+    # TO DO: Add updraft height dependency (non-local)
+    E_trb = 2 * up[i].ρa * entr.c_t * sqrt_tke / m.turbconv.pressure.H_up_min
     E_dyn = up[i].ρa * λ * (D_E + M_E)
     Δ_dyn = up[i].ρa * λ * (D_δ + M_δ)
 
