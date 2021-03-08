@@ -209,54 +209,33 @@ struct Anelastic1D <: Compressibilty end
 """
     AtmosModel{FT}()
 
-Constructor for `AtmosModel` (where `AtmosModel <: BalanceLaw`) for LES
-and single stack configurations.
+Constructor for `AtmosModel` (where `AtmosModel <: BalanceLaw`).
 """
 function AtmosModel{FT}(
-    ::Union{Type{AtmosLESConfigType}, Type{SingleStackConfigType}},
+    orientation::Orientation,
     param_set::AbstractParameterSet;
-    init_state_prognostic::ISP = nothing,
-    problem::PR = AtmosProblem(init_state_prognostic = init_state_prognostic),
-    orientation::O = FlatOrientation(),
-    energy::E = EnergyModel(),
-    ref_state::RS = HydrostaticState(DecayingTemperatureProfile{FT}(param_set),),
-    turbulence::T = SmagorinskyLilly{FT}(0.21),
-    turbconv::TC = NoTurbConv(),
-    hyperdiffusion::HD = NoHyperDiffusion(),
-    viscoussponge::VS = NoViscousSponge(),
-    moisture::M = EquilMoist{FT}(),
-    precipitation::P = NoPrecipitation(),
-    radiation::R = NoRadiation(),
-    source::S = (
+    init_state_prognostic = nothing,
+    problem = AtmosProblem(init_state_prognostic = init_state_prognostic),
+    energy = EnergyModel(),
+    ref_state = HydrostaticState(DecayingTemperatureProfile{FT}(param_set),),
+    turbulence = SmagorinskyLilly{FT}(C_smag(param_set)),
+    turbconv = NoTurbConv(),
+    hyperdiffusion = NoHyperDiffusion(),
+    viscoussponge = NoViscousSponge(),
+    moisture = EquilMoist{FT}(),
+    precipitation = NoPrecipitation(),
+    radiation = NoRadiation(),
+    source = (
         Gravity(),
         Coriolis(),
         GeostrophicForcing(FT, 7.62e-5, 0, 0),
         turbconv_sources(turbconv)...,
     ),
-    tracers::TR = NoTracers(),
-    lsforcing::LF = NoLSForcing(),
-    compressibility::C = Compressible(),
-    data_config::DC = nothing,
-) where {
-    FT <: AbstractFloat,
-    ISP,
-    PR,
-    O,
-    E,
-    RS,
-    T,
-    TC,
-    HD,
-    VS,
-    M,
-    P,
-    R,
-    S,
-    TR,
-    LF,
-    C,
-    DC,
-}
+    tracers = NoTracers(),
+    lsforcing = NoLSForcing(),
+    compressibility = Compressible(),
+    data_config = nothing,
+) where {FT <: AbstractFloat}
     @assert !any(isa.(source, Tuple))
 
     atmos = (
@@ -285,73 +264,29 @@ end
 """
     AtmosModel{FT}()
 
+Constructor for `AtmosModel` (where `AtmosModel <: BalanceLaw`) for LES
+and single stack configurations.
+"""
+function AtmosModel{FT}(
+    ::Union{Type{AtmosLESConfigType}, Type{SingleStackConfigType}},
+    param_set::AbstractParameterSet;
+    kwargs...,
+) where {FT <: AbstractFloat}
+    return AtmosModel{FT}(FlatOrientation(), param_set; kwargs...)
+end
+
+"""
+    AtmosModel{FT}()
+
 Constructor for `AtmosModel` (where `AtmosModel <: BalanceLaw`) for GCM
 configurations.
 """
 function AtmosModel{FT}(
     ::Type{AtmosGCMConfigType},
     param_set::AbstractParameterSet;
-    init_state_prognostic::ISP = nothing,
-    problem::PR = AtmosProblem(init_state_prognostic = init_state_prognostic),
-    orientation::O = SphericalOrientation(),
-    energy::E = EnergyModel(),
-    ref_state::RS = HydrostaticState(DecayingTemperatureProfile{FT}(param_set),),
-    turbulence::T = SmagorinskyLilly{FT}(C_smag(param_set)),
-    turbconv::TC = NoTurbConv(),
-    hyperdiffusion::HD = NoHyperDiffusion(),
-    viscoussponge::VS = NoViscousSponge(),
-    moisture::M = EquilMoist{FT}(),
-    precipitation::P = NoPrecipitation(),
-    radiation::R = NoRadiation(),
-    source::S = (Gravity(), Coriolis(), turbconv_sources(turbconv)...),
-    tracers::TR = NoTracers(),
-    lsforcing::LF = NoLSForcing(),
-    compressibility::C = Compressible(),
-    data_config::DC = nothing,
-) where {
-    FT <: AbstractFloat,
-    ISP,
-    PR,
-    O,
-    E,
-    RS,
-    T,
-    TC,
-    HD,
-    VS,
-    M,
-    P,
-    R,
-    S,
-    TR,
-    LF,
-    C,
-    DC,
-}
-
-    @assert !any(isa.(source, Tuple))
-
-    atmos = (
-        param_set,
-        problem,
-        orientation,
-        energy,
-        ref_state,
-        turbulence,
-        turbconv,
-        hyperdiffusion,
-        viscoussponge,
-        moisture,
-        precipitation,
-        radiation,
-        source,
-        tracers,
-        lsforcing,
-        compressibility,
-        data_config,
-    )
-
-    return AtmosModel{FT, typeof.(atmos)...}(atmos...)
+    kwargs...,
+) where {FT <: AbstractFloat}
+    return AtmosModel{FT}(SphericalOrientation(), param_set; kwargs...)
 end
 
 """
