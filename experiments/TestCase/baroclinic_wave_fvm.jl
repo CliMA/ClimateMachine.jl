@@ -186,14 +186,17 @@ function config_baroclinic_wave(
         moisture = DryModel()
         source = (Gravity(), Coriolis())
     end
-    model = AtmosModel{FT}(
-        AtmosGCMConfigType,
+    physics = AtmosPhysics{FT}(
         param_set;
-        init_state_prognostic = init_baroclinic_wave!,
         ref_state = ref_state,
         turbulence = ConstantKinematicViscosity(FT(0)),
         # hyperdiffusion = hyperdiffusion,
         moisture = moisture,
+    )
+    model = AtmosModel{FT}(
+        AtmosGCMConfigType,
+        physics;
+        init_state_prognostic = init_baroclinic_wave!,
         source = source,
     )
 

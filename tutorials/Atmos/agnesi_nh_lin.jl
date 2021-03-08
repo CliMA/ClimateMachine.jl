@@ -235,15 +235,18 @@ function config_agnesi_hs_lin(
     nothing # hide
 
     _C_smag = FT(0.0)
-    model = AtmosModel{FT}(
-        AtmosLESConfigType,
+    physics = AtmosPhysics{FT}(
         param_set;
-        init_state_prognostic = init_agnesi_hs_lin!,
         ref_state = ref_state,
         turbulence = Vreman(_C_smag),
         moisture = DryModel(),
-        source = source,
         tracers = NoTracers(),
+    )
+    model = AtmosModel{FT}(
+        AtmosLESConfigType,
+        physics;
+        init_state_prognostic = init_agnesi_hs_lin!,
+        source = source,
     )
 
     config = ClimateMachine.AtmosLESConfiguration(

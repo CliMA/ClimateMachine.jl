@@ -141,14 +141,18 @@ function test_run(
     problem =
         AtmosProblem(boundaryconditions = (), init_state_prognostic = setup)
 
-    model = AtmosModel{FT}(
-        AtmosLESConfigType,
+    physics = AtmosPhysics{FT}(
         param_set;
-        problem = problem,
-        orientation = NoOrientation(),
         ref_state = IsentropicVortexReferenceState{FT}(setup),
         turbulence = ConstantDynamicViscosity(FT(0)),
         moisture = DryModel(),
+    )
+
+    model = AtmosModel{FT}(
+        AtmosLESConfigType,
+        physics;
+        problem = problem,
+        orientation = NoOrientation(),
         source = (),
     )
     # The linear model has the fast time scales

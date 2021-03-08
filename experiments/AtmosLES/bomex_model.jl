@@ -466,15 +466,15 @@ function bomex_model(
     )
 
     # Assemble model components
-    model = AtmosModel{FT}(
-        config_type,
+    physics = AtmosPhysics{FT}(
         param_set;
-        problem = problem,
         turbulence = SmagorinskyLilly{FT}(C_smag),
         moisture = moisture,
-        source = source,
         turbconv = turbconv,
     )
+
+    model =
+        AtmosModel{FT}(config_type, physics; problem = problem, source = source)
 
     return model
 end

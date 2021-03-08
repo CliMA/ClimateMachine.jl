@@ -342,14 +342,17 @@ function test_run(
     else
         moisture = DryModel()
     end
-    model = AtmosModel{FT}(
-        AtmosLESConfigType,
+    physics = AtmosPhysics{FT}(
         param_set;
-        problem = problem,
-        orientation = NoOrientation(),
         ref_state = NoReferenceState(),
         turbulence = ConstantDynamicViscosity(FT(0)),
         moisture = moisture,
+    )
+    model = AtmosModel{FT}(
+        AtmosLESConfigType,
+        physics;
+        problem = problem,
+        orientation = NoOrientation(),
         source = (),
     )
 

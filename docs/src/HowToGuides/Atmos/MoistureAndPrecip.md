@@ -203,14 +203,17 @@ choices, along with the `param_set` `struct` have to be passed to
 the Atmos model configuration:
 
 ```julia
-model = AtmosModel{FT}(
-    AtmosLESConfigType,
+physics = AtmosPhysics{FT}(
     param_set;
-    problem = problem,
     ref_state = ref_state,
     moisture = moisture,
     precipitation = precipitation,
     turbulence = SmagorinskyLilly{FT}(C_smag),
+)
+model = AtmosModel{FT}(
+    AtmosLESConfigType,
+    physics;
+    problem = problem,
     source = source,
 )
 ```

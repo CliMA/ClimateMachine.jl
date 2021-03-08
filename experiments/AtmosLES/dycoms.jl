@@ -363,15 +363,19 @@ function config_dycoms(
         init_state_prognostic = init_dycoms!,
     )
 
-    model = AtmosModel{FT}(
-        AtmosLESConfigType,
+    physics = AtmosPhysics{FT}(
         param_set;
-        problem = problem,
         ref_state = ref_state,
         turbulence = Vreman{FT}(C_smag),
         moisture = moisture,
         precipitation = precipitation,
         radiation = radiation,
+    )
+
+    model = AtmosModel{FT}(
+        AtmosLESConfigType,
+        physics;
+        problem = problem,
         source = source,
     )
 

@@ -3,6 +3,7 @@ using StaticArrays
 using ClimateMachine.Atmos:
     AtmosProblem,
     NoReferenceState,
+    AtmosPhysics,
     AtmosModel,
     DryModel,
     ConstantDynamicViscosity,
@@ -62,14 +63,17 @@ end
     func = lin_func
 
     for FT in (Float64,)
-        model = AtmosModel{FT}(
-            AtmosLESConfigType,
+        physics = AtmosPhysics{FT}(
             param_set;
-            problem = AtmosProblem(init_state_prognostic = initialcondition!),
-            orientation = FlatOrientation(),
             ref_state = NoReferenceState(),
             turbulence = ConstantDynamicViscosity(FT(0)),
             moisture = DryModel(),
+        )
+        model = AtmosModel{FT}(
+            AtmosLESConfigType,
+            physics;
+            problem = AtmosProblem(init_state_prognostic = initialcondition!),
+            orientation = FlatOrientation(),
         )
 
         vars_prim = Vars{vars_state(model, Primitive(), FT)}

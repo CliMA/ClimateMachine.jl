@@ -19,15 +19,17 @@ ClimateMachine.init()
 function get_atmos_ref_states(nelem_vert, N_poly, RH)
 
     FT = Float64
-    model = AtmosModel{FT}(
-        SingleStackConfigType,
+    physics = AtmosPhysics{FT}(
         param_set;
         ref_state = HydrostaticState(
             DecayingTemperatureProfile{FT}(param_set),
             RH,
         ),
-        init_state_prognostic = (problem, bl, state, aux, localgeo, t) ->
-            nothing,
+    )
+    model = AtmosModel{FT}(
+        SingleStackConfigType,
+        physics;
+        init_state_prognostic = (_...) -> nothing,
     )
     driver_config = ClimateMachine.SingleStackConfiguration(
         "ref_state",

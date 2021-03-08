@@ -119,13 +119,17 @@ function config_nonhydrostatic_gravity_wave(FT, poly_order, resolution)
     # Set up the atmosphere model
     exp_name = "NonhydrostaticGravityWave"
 
-    model = AtmosModel{FT}(
-        AtmosGCMConfigType,
+    physics = AtmosPhysics{FT}(
         param_set;
-        init_state_prognostic = init_nonhydrostatic_gravity_wave!,
         ref_state = ref_state,
         turbulence = ConstantKinematicViscosity(FT(0)),
         moisture = DryModel(),
+    )
+
+    model = AtmosModel{FT}(
+        AtmosGCMConfigType,
+        physics;
+        init_state_prognostic = init_nonhydrostatic_gravity_wave!,
         source = (Gravity(),),
     )
 

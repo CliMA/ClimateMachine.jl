@@ -88,11 +88,14 @@ end
     FT = Float64
     compressibility = (Anelastic1D(), Compressible())
     for comp in compressibility
-        bl = AtmosModel{FT}(
-            AtmosLESConfigType,
+        physics = AtmosPhysics{FT}(
             param_set;
             moisture = DryModel(),
             compressibility = comp,
+        )
+        bl = AtmosModel{FT}(
+            AtmosLESConfigType,
+            physics;
             init_state_prognostic = x -> x,
         )
         vs_prog = vars_state(bl, Prognostic(), FT)
@@ -132,11 +135,14 @@ end
     FT = Float64
     compressibility = (Compressible(),) # Anelastic1D() does not converge
     for comp in compressibility
-        bl = AtmosModel{FT}(
-            AtmosLESConfigType,
+        physics = AtmosPhysics{FT}(
             param_set;
             moisture = EquilMoist(; maxiter = 5), # maxiter=3 does not converge
             compressibility = comp,
+        )
+        bl = AtmosModel{FT}(
+            AtmosLESConfigType,
+            physics;
             init_state_prognostic = x -> x,
         )
         vs_prog = vars_state(bl, Prognostic(), FT)
@@ -189,10 +195,14 @@ end
     FT = Float64
     compressibility = (Anelastic1D(), Compressible())
     for comp in compressibility
-        bl = AtmosModel{FT}(
-            AtmosLESConfigType,
+        physics = AtmosPhysics{FT}(
             param_set;
             moisture = NonEquilMoist(),
+            compressibility = comp,
+        )
+        bl = AtmosModel{FT}(
+            AtmosLESConfigType,
+            physics;
             init_state_prognostic = x -> x,
         )
         vs_prog = vars_state(bl, Prognostic(), FT)
@@ -230,10 +240,10 @@ end
 
 @testset "Prognostic-Primitive conversion (array interface)" begin
     FT = Float64
+    physics = AtmosPhysics{FT}(param_set; moisture = DryModel())
     bl = AtmosModel{FT}(
         AtmosLESConfigType,
-        param_set;
-        moisture = DryModel(),
+        physics;
         init_state_prognostic = x -> x,
     )
     vs_prog = vars_state(bl, Prognostic(), FT)

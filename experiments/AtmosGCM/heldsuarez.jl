@@ -188,16 +188,20 @@ function config_heldsuarez(FT, poly_order, resolution)
         tracers = NoTracers()
     end
 
-    model = AtmosModel{FT}(
-        AtmosGCMConfigType,
+    physics = AtmosPhysics{FT}(
         param_set;
-        init_state_prognostic = init_heldsuarez!,
         ref_state = ref_state,
         turbulence = ConstantKinematicViscosity(FT(0)),
         hyperdiffusion = DryBiharmonic(FT(8 * 3600)),
         moisture = DryModel(),
-        source = (Gravity(), Coriolis(), HeldSuarezForcing()),
         tracers = tracers,
+    )
+
+    model = AtmosModel{FT}(
+        AtmosGCMConfigType,
+        physics;
+        init_state_prognostic = init_heldsuarez!,
+        source = (Gravity(), Coriolis(), HeldSuarezForcing()),
     )
 
     config = ClimateMachine.AtmosGCMConfiguration(

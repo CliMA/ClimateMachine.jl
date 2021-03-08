@@ -412,19 +412,23 @@ function config_cfsites(
         ),
         init_state_prognostic = init_cfsites!,
     )
+    physics = AtmosPhysics{FT}(
+        param_set;
+        turbulence = Vreman{FT}(0.23),
+        moisture = EquilMoist(; maxiter = 5, tolerance = FT(2)),
+        lsforcing = HadGEMVertical(),
+    )
+
     model = AtmosModel{FT}(
         AtmosLESConfigType,
-        param_set;
+        physics;
         problem = problem,
-        turbulence = Vreman{FT}(0.23),
         source = (
             Gravity(),
             LinearSponge{FT}(zmax, zmax * 0.85, 1, 4),
             LargeScaleProcess(),
             LargeScaleSubsidence(),
         ),
-        moisture = EquilMoist(; maxiter = 5, tolerance = FT(2)),
-        lsforcing = HadGEMVertical(),
     )
 
     # Timestepper options

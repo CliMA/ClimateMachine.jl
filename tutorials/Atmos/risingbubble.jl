@@ -226,15 +226,19 @@ function config_risingbubble(
 
     ## Here we assemble the `AtmosModel`.
     _C_smag = FT(C_smag(param_set))
-    model = AtmosModel{FT}(
-        AtmosLESConfigType,                            ## Flow in a box, requires the AtmosLESConfigType
+    physics = AtmosPhysics{FT}(
         param_set;                                     ## Parameter set corresponding to earth parameters
-        init_state_prognostic = init_risingbubble!,    ## Apply the initial condition
         ref_state = ref_state,                         ## Reference state
         turbulence = SmagorinskyLilly(_C_smag),        ## Turbulence closure model
         moisture = DryModel(),                         ## Exclude moisture variables
-        source = (Gravity(),),                         ## Gravity is the only source term here
         tracers = NTracers{ntracers, FT}(δ_χ),         ## Tracer model with diffusivity coefficients
+    )
+
+    model = AtmosModel{FT}(
+        AtmosLESConfigType,                            ## Flow in a box, requires the AtmosLESConfigType
+        physics;                                       ## Atmos physics
+        init_state_prognostic = init_risingbubble!,    ## Apply the initial condition
+        source = (Gravity(),),                         ## Gravity is the only source term here
     )
 
     ## Finally, we pass a `Problem Name` string, the mesh information, and the

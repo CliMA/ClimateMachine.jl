@@ -106,6 +106,12 @@ function test_run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, FT, dt)
         meshwarp = warpfun,
     )
 
+    physics = AtmosPhysics{FT}(
+        param_set;
+        ref_state = NoReferenceState(),
+        turbulence = ConstantDynamicViscosity(FT(μ_exact), WithDivergence()),
+        moisture = DryModel(),
+    )
     if dim == 2
         problem = AtmosProblem(
             boundaryconditions = (InitStateBC(),),
@@ -113,15 +119,9 @@ function test_run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, FT, dt)
         )
         model = AtmosModel{FT}(
             AtmosLESConfigType,
-            param_set;
+            physics;
             problem = problem,
             orientation = NoOrientation(),
-            ref_state = NoReferenceState(),
-            turbulence = ConstantDynamicViscosity(
-                FT(μ_exact),
-                WithDivergence(),
-            ),
-            moisture = DryModel(),
             source = (MMSSource{2}(),),
         )
     else
@@ -131,15 +131,9 @@ function test_run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, FT, dt)
         )
         model = AtmosModel{FT}(
             AtmosLESConfigType,
-            param_set;
+            physics;
             problem = problem,
             orientation = NoOrientation(),
-            ref_state = NoReferenceState(),
-            turbulence = ConstantDynamicViscosity(
-                FT(μ_exact),
-                WithDivergence(),
-            ),
-            moisture = DryModel(),
             source = (MMSSource{3}(),),
         )
     end

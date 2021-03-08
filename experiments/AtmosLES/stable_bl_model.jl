@@ -311,17 +311,17 @@ function stable_bl_model(
     )
 
     # Assemble model components
-    model = AtmosModel{FT}(
-        config_type,
+    physics = AtmosPhysics{FT}(
         param_set;
-        problem = problem,
         ref_state = ref_state,
         turbulence = turbulence,
         moisture = moisture,
-        source = source,
         turbconv = turbconv,
         compressibility = compressibility,
     )
+
+    model =
+        AtmosModel{FT}(config_type, physics; problem = problem, source = source)
 
     return model
 end

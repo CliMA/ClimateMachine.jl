@@ -108,13 +108,17 @@ let
                     init_state_prognostic = initialcondition!,
                 )
 
-                model = AtmosModel{FT}(
-                    AtmosLESConfigType,
+                physics = AtmosPhysics{FT}(
                     param_set;
-                    problem = problem,
                     ref_state = NoReferenceState(),
                     turbulence = ConstantDynamicViscosity(μ, WithDivergence()),
                     moisture = DryModel(),
+                )
+
+                model = AtmosModel{FT}(
+                    AtmosLESConfigType,
+                    physics;
+                    problem = problem,
                     source = (Gravity(),),
                 )
 

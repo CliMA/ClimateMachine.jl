@@ -191,14 +191,18 @@ function config_gcm_experiment(
     )
 
     # Create the Atmosphere model
-    model = AtmosModel{FT}(
-        AtmosGCMConfigType,
+    physics = AtmosPhysics{FT}(
         param_set;
-        problem = problem,
         ref_state = ref_state,
         turbulence = ConstantKinematicViscosity(FT(0)),
         hyperdiffusion = hyperdiffusion,
         moisture = moisture,
+    )
+
+    model = AtmosModel{FT}(
+        AtmosGCMConfigType,
+        physics;
+        problem = problem,
         source = setup_source(problem),
     )
 

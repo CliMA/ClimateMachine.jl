@@ -23,6 +23,7 @@ using ClimateMachine.Thermodynamics:
     air_density, soundspeed_air, internal_energy, PhaseDry_pT, PhasePartition
 using ClimateMachine.TemperatureProfiles: IsothermalProfile
 using ClimateMachine.Atmos:
+    AtmosPhysics,
     AtmosModel,
     DryModel,
     NoPrecipitation,
@@ -123,16 +124,19 @@ function test_run(
     T_profile = IsothermalProfile(param_set, setup.T_ref)
     δ_χ = @SVector [FT(ii) for ii in 1:ntracers]
 
-    fullmodel = AtmosModel{FT}(
-        AtmosLESConfigType,
+    fullphysics = AtmosPhysics{FT}(
         param_set;
-        init_state_prognostic = setup,
-        orientation = SphericalOrientation(),
         ref_state = HydrostaticState(T_profile),
         turbulence = ConstantDynamicViscosity(FT(0)),
         moisture = DryModel(),
-        source = (Gravity(),),
         tracers = NTracers{length(δ_χ), FT}(δ_χ),
+    )
+    fullmodel = AtmosModel{FT}(
+        AtmosLESConfigType,
+        fullphysics;
+        orientation = SphericalOrientation(),
+        init_state_prognostic = setup,
+        source = (Gravity(),),
     )
     dg = DGModel(
         fullmodel,
