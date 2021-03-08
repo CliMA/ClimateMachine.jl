@@ -117,7 +117,6 @@ function test_run(
         AtmosGCMConfigType,
         param_set;
         init_state_prognostic = setup,
-        orientation = SphericalOrientation(),
         ref_state = HydrostaticState(T_profile),
         turbulence = ConstantDynamicViscosity(FT(0)),
         moisture = DryModel(),

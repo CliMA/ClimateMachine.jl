@@ -105,11 +105,9 @@ function test_run(
 
     if domain_type === :box
         configtype = AtmosLESConfigType
-        orientation = FlatOrientation()
         source = (Gravity(),)
     elseif domain_type === :sphere
         configtype = AtmosGCMConfigType
-        orientation = SphericalOrientation()
         source = (Gravity(), Coriolis())
     end
 
@@ -117,7 +115,6 @@ function test_run(
         configtype,
         param_set;
         problem = problem,
-        orientation = orientation,
         ref_state = ref_state,
         turbulence = ConstantDynamicViscosity(FT(0)),
         moisture = DryModel(),

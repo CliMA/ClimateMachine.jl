@@ -270,9 +270,10 @@ and single stack configurations.
 function AtmosModel{FT}(
     ::Union{Type{AtmosLESConfigType}, Type{SingleStackConfigType}},
     param_set::AbstractParameterSet;
+    orientation = FlatOrientation(),
     kwargs...,
 ) where {FT <: AbstractFloat}
-    return AtmosModel{FT}(FlatOrientation(), param_set; kwargs...)
+    return AtmosModel{FT}(orientation, param_set; kwargs...)
 end
 
 """
@@ -284,9 +285,10 @@ configurations.
 function AtmosModel{FT}(
     ::Type{AtmosGCMConfigType},
     param_set::AbstractParameterSet;
+    orientation = SphericalOrientation(),
     kwargs...,
 ) where {FT <: AbstractFloat}
-    return AtmosModel{FT}(SphericalOrientation(), param_set; kwargs...)
+    return AtmosModel{FT}(orientation, param_set; kwargs...)
 end
 
 """

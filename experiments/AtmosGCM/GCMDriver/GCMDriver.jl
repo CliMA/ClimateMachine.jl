@@ -193,7 +193,6 @@ function config_gcm_experiment(
         AtmosGCMConfigType,
         param_set;
         problem = problem,
-        orientation = orientation,
         ref_state = ref_state,
         turbulence = ConstantKinematicViscosity(FT(0)),
         hyperdiffusion = hyperdiffusion,
