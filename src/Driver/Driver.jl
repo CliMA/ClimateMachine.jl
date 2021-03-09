@@ -314,7 +314,7 @@ function parse_commandline(
         arg_type = NTuple{2, Int}
         default = get_setting(:degree, defaults, global_defaults)
         "--cutoff-degree"
-        help = "tuple of horizontal and vertical polynomial degrees for cutoff filter (no space before/after comma)"
+        help = "tuple of horizontal and vertical polynomial degrees to keep when applying a cutoff filter (no space before/after comma)"
         metavar = "<horizontal>,<vertical>"
         arg_type = NTuple{2, Int}
         default = get_setting(:cutoff_degree, defaults, global_defaults)
