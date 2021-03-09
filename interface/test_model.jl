@@ -32,58 +32,55 @@ include("hyperdiffusion_model.jl") # specific model component
 abstract type AbstractEquations <: BalanceLaw end
 abstract type AbstractEquations3D <: AbstractEquations end
 
-struct TestEquations{D,FT} <: AbstractEquations3D
+struct TestEquations{FT,D,A,T,HD,C,F,BC,P,PS} <: AbstractEquations3D
     domain::D
-    advection::Union{ProblemType, Nothing}
-    turbulence::Union{ProblemType, Nothing}
-    hyperdiffusion::Union{ProblemType, Nothing}
-    coriolis::Union{ProblemType, Nothing}
-    forcing::Union{ProblemType, Nothing}
-    boundary_conditions::Union{ProblemType, Nothing}
-    params::Union{FT, Nothing}
-    param_set::Union{AbstractEarthParameterSet, Nothing}
-    function TestEquations{FT}(
-        domain::D;
-        advection = nothing,
-        turbulence = nothing,
-        hyperdiffusion = nothing,
-        coriolis = nothing,
-        forcing = nothing,
-        boundary_conditions = nothing,
-        params = nothing,
-        param_set = param_set,
-    ) where {FT <: AbstractFloat, D}
-        return new{D, FT}(
-            domain,
-            advection,
-            turbulence,
-            hyperdiffusion,
-            coriolis,
-            forcing,
-            boundary_conditions,
-            params,
-            param_set,
-        )
-    end
+    advection::A
+    turbulence::T
+    hyperdiffusion::HD
+    coriolis::C
+    forcing::F
+    boundary_conditions::BC
+    params::P
+    param_set::PS
+end
+
+function TestEquations{FT}(
+    domain::D;
+    advection::Union{ProblemType, Nothing} = nothing,
+    turbulence::Union{ProblemType, Nothing} = nothing,
+    hyperdiffusion::Union{ProblemType, Nothing} = nothing,
+    coriolis::Union{ProblemType, Nothing} = nothing,
+    forcing::Union{ProblemType, Nothing} = nothing,
+    boundary_conditions::Union{ProblemType, Nothing} = nothing,
+    params::Union{FT, Nothing} = nothing,
+    param_set::Union{AbstractEarthParameterSet, Nothing},
+) where {FT <: AbstractFloat, D}
+    args = (
+        domain,
+        advection,
+        turbulence,
+        hyperdiffusion,
+        coriolis,
+        forcing,
+        boundary_conditions,
+        params,
+        param_set
+    )
+    return TestEquations{FT, typeof.(args)...}(args...)
 end
 
 vars_state(m::TestEquations, st::Prognostic, FT) = @vars(ρ::FT)
 
-function vars_state(m::TestEquations, aux::Auxiliary, FT)
+function vars_state(m::TestEquations, st::Auxiliary, FT)
     @vars begin
         coord::SVector{3, FT}
-        
-        # temporary placement of hyperdiffusion variables
-        # hyperdiffusion::vars_state(m.hyperdiffusion, aux, FT)
-        hd__c::FT
-        hd__D::FT
+        hyperdiffusion::vars_state(m.hyperdiffusion, st, FT)
 
     end
 end
-function vars_state(m::TestEquations, grad::Gradient, FT)
+function vars_state(m::TestEquations, st::Gradient, FT)
     @vars begin
-        # hyperdiffusion::vars_state(m.hyperdiffusion, grad, FT)
-        hd__ρ::FT
+        hyperdiffusion::vars_state(m.hyperdiffusion, st, FT)
     end
 end
 
@@ -91,14 +88,12 @@ vars_state(m::TestEquations, grad::GradientFlux, FT) = @vars()
 
 function vars_state(m::TestEquations, st::GradientLaplacian, FT)
     @vars begin
-        #hyperdiffusion::vars_state(m.hyperdiffusion, st, FT)
-        hd__ρ::FT
+        hyperdiffusion::vars_state(m.hyperdiffusion, st, FT)
     end
 end
 function vars_state(m::TestEquations, st::Hyperdiffusive, FT)
     @vars begin
-        #hyperdiffusion::vars_state(m.hyperdiffusion, st, FT)
-        hd__D∇³ρ::SVector{3, FT}
+        hyperdiffusion::vars_state(m.hyperdiffusion, st, FT)
     end
 end
 

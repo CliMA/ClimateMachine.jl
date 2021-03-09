@@ -49,7 +49,7 @@ struct HyperDiffusionBoxProblem{dir, FT} <: HyperDiffusionProblem
 end
 
 """
-    HyperDiffusion <: BalanceLaw
+    HyperDiffusionProblem <: ProblemType
     - specifies which variable and compute kernels to use to compute the tendency due to hyperdiffusion
 
     ∂ρ_hyperdiff.
@@ -58,18 +58,6 @@ end
 
 """
 
-#=
-struct HyperDiffusion{P} <: BalanceLaw
-    problem::P
-    function HyperDiffusion(
-        problem::P,
-    ) where {P <: HyperDiffusionProblem}
-        new{P}(problem)
-    end
-end
-=#
-
-#=
 # Set hyperdiffusion tensor, D, coordinate info, coorc, and c = l^2*(l+1)^2/r^4
 vars_state(::HyperDiffusionProblem, ::Auxiliary, FT) = @vars(c::FT, D::FT)
 
@@ -84,7 +72,6 @@ vars_state(::HyperDiffusionProblem, ::GradientFlux, FT) = @vars()
 
 # The hyperdiffusion DG auxiliary variable: D ∇ Δρ
 vars_state(::HyperDiffusionProblem, ::Hyperdiffusive, FT) = @vars(D∇³ρ::SVector{3, FT})
-=#
 
 """
     Compute kernels
@@ -99,7 +86,7 @@ vars_state(::HyperDiffusionProblem, ::Hyperdiffusive, FT) = @vars(D∇³ρ::SVec
     aux::Vars,
     t::Real,
 )
-    transform.hd__ρ = state.ρ
+    transform.hyperdiffusion.ρ = state.ρ
 end
 @inline function transform_post_gradient_laplacian!(
     ::HyperDiffusionProblem,
@@ -109,9 +96,9 @@ end
     aux::Vars,
     t::Real,
 )
-    ∇Δρ = gradvars.hd__ρ
-    D = aux.hd__D * SMatrix{3,3,Float64}(I)
-    auxHDG.hd__D∇³ρ = D * ∇Δρ
+    ∇Δρ = gradvars.hyperdiffusion.ρ
+    D = aux.hyperdiffusion.D * SMatrix{3,3,Float64}(I)
+    auxHDG.hyperdiffusion.D∇³ρ = D * ∇Δρ
 end
 @inline function flux_second_order!(
     ::HyperDiffusionProblem,
@@ -122,7 +109,7 @@ end
     aux::Vars,
     t::Real,
 )
-    flux.ρ += auxHDG.hd__D∇³ρ
+    flux.ρ += auxHDG.hyperdiffusion.D∇³ρ
 end
 
 """
@@ -148,10 +135,10 @@ end
     
     r = norm(aux.coord)
     l = problem.l
-    aux.hd__c = get_c(l, r)
+    aux.hyperdiffusion.c = get_c(l, r)
     
     Δ_hor = lengthscale_horizontal(geom)
-    aux.hd__D = D(problem, Δ_hor)  
+    aux.hyperdiffusion.D = D(problem, Δ_hor)  
 end
 @inline function nodal_init_state_auxiliary!(
     problem::HyperDiffusionBoxProblem,
@@ -162,7 +149,7 @@ end
     FT = eltype(aux)
     Δ = lengthscale(geom)
 
-    aux.hd__D = D(problem, Δ)  
+    aux.hyperdiffusion.D = D(problem, Δ)  
 end
 
 """
@@ -198,7 +185,7 @@ end
         m = Int64(problem.m)
 
         c = get_c(l, r)
-        D = aux.hd__D
+        D = aux.hyperdiffusion.D
 
         state.ρ = calc_Ylm(φ, λ, l, m) * exp(- D*c*t) # - D*c*t
     end

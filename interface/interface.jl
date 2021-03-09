@@ -26,14 +26,13 @@ Computes a DiscontinuousSpectralElementGrid as specified by a product domain
 A DiscontinuousSpectralElementGrid object
 """
 function DiscontinuousSpectralElementGrid(
-    Ω::ProductDomain,
+    Ω::ProductDomain{FT},
     elements,
-    polynomialorder;
+    polynomialorder,
     mpicomm = MPI.COMM_WORLD,
-    boundary = nothing,
-    FT = Float64,
+    boundary = (1, 2),
     array = Array,
-)
+) where {FT}
     if elements == nothing
         error_message = "Please specify the number of elements as a tuple whose size is commensurate with the domain,"
         error_message = "e.g., a 3 dimensional domain would need a specification like elements = (10,10,10)."
@@ -114,14 +113,13 @@ for CubedSphere
 # ```
 
 function DiscontinuousSpectralElementGrid(
-    Ω::AtmosDomain,
+    Ω::AtmosDomain{FT},
     elements,
-    polynomialorder;
+    polynomialorder,
     mpicomm = MPI.COMM_WORLD,
     boundary = (1, 2),
-    FT = Float64,
     array = Array,
-)
+) where {FT}
     Rrange = grid1d(Ω.radius, Ω.radius + Ω.height, nelem = elements.vertical)
 
     topl = StackedCubedSphereTopology(
