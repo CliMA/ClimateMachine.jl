@@ -51,7 +51,7 @@ $ cd ClimateMachine.jl
 $ git remote add upstream https://github.com/CliMA/ClimateMachine.jl
 ```
 
-Now you have two remote repositories -- `origin`, which is your fork of the
+Now you have two remote repositories: `origin`, which is your fork of the
 `ClimateMachine`, and `upstream`, which is the main `ClimateMachine.jl`
 repository.
 
@@ -61,11 +61,26 @@ Create a branch for your feature; this will hold your contribution:
 $ git checkout -b <branchname>
 ```
 
-## Develop your feature
+#### Some useful tips
+- When you start working on a new feature branch, make sure you start from
+  master by running: `git checkout master`.
+- When you create a new branch and check it out, as in `git checkout -b <branchname>`,
+  a common convention is to make `branchname` something along the lines of
+  `<loginname>/<affected-module>-<short-description>`.
+
+### Develop your feature
 
 Follow the [Coding conventions](@ref) we use. Make sure you add tests
 for your code in `test/` and appropriate documentation in the code and/or
 in `docs/`.
+
+#### Some useful tips
+- Once you have written some code, inspect changes by running `git status`.
+- Commit all files changed: `git commit -a` or
+- Commit selected files: `git commit <file1> <file2>` or
+- Add new files to be committed: `git add <file1> <file2>` followed by `git commit`.
+  Modified files can be added to a commit in the same way.
+- Push feature branch to the remote for review: `git push origin <branchname>`
 
 When your PR is ready for review, clean up your commit history by squashing
 and make sure your code is current with `ClimateMachine` master by rebasing.
@@ -83,6 +98,34 @@ You might find it easier to [squash your
 commits](https://github.com/edx/edx-platform/wiki/How-to-Rebase-a-Pull-Request#squash-your-changes)
 first.
 
+#### Some useful tips
+When cleaning up your local branches, some of the following commands might be
+useful:
+- Show local and remote-tracking branches: `git branch -a`.
+- Show available remotes: `git remote -v`.
+- Show all branches available on remote: `git ls-remote`.
+Use `git remote show origin` for a complete summary.
+- Delete a local branch: `git branch -D <branchname>` (only after merge to
+  `master` is complete).
+- Delete remote branch: `git push origin :<branchname>` (mind the colon in
+  front of the branch name).
+
+Additionally, when debugging or inspecting the code for some potentially
+problematic changes introduced, some of the following commands can be used:
+- Show logs: `git log`. (A more powerful version of this that can track all
+  changes, even after potential rebases, is [`git reflog`](https://git-scm.com/docs/git-reflog)).
+- Show logs for file or folder: `git log <file>`.
+- Show changes for each log: `git log -p` (add file or folder name if required).
+- Show diff with current working tree: `git diff path/to/file`.
+- Show diff with other commit: `git diff <SHA1> path/to/file`.
+- Compare version of file in two commits: `git diff <SHA1> <SHA1> path/to/file`.
+- Show changes that are in `master`, but not yet in my current branch:
+  `git log..master`.
+- Discard changes to a file which are not yet committed: `git checkout <file>`.
+  (If the file was aready staged via `git add <file>`, then use `git restore <file>`
+  first, and then `git checkout <file>` to discard local changes).
+- Discard all changes to the current working tree: `git checkout -f`.
+
 ## Continuous integration
 
 It's time to click the button to open your PR! Fill out the template and
@@ -97,11 +140,12 @@ A `ClimateMachine` developer will look at your PR and provide feedback!
 Currently a number of checks are run per commit for a given PR.
 
 - `JuliaFormatter` checks if the PR is formatted with `.dev/climaformat.jl`.
-- `Documentation` rebuilds the documentation for the PR and checks if the docs are consistent and generate valid output.
+- `Documentation` rebuilds the documentation for the PR and checks if the docs
+  are consistent and generate valid output.
 - `Unit Tests` run subsets of the unit tests defined in `tests/`, using `Pkg.test()`.
-   The tests are run in parallel to ensure that they finish in a reasonable time.
-   The tests only run the latest commit for a PR, branch and will kill any stale jobs on push.
-   These tests are only run on linux (Ubuntu LTS).
+  The tests are run in parallel to ensure that they finish in a reasonable time.
+  The tests only run the latest commit for a PR, branch and will kill any stale jobs on push.
+  These tests are only run on linux (Ubuntu LTS).
 
 Unit tests are run against every new commit for a given PR,
 the status of the unit-tests are not checked during the merge
@@ -120,16 +164,19 @@ for a given PR always pass before merging into `master`.
 
 ### Integration testing
 
-Currently a number of checks are run during integration testing before being merged into master.
+Currently a number of checks are run during integration testing before being
+merged into master.
 
 - `JuliaFormatter` checks if the PR is formatted with `.dev/climaformat.jl`.
 - `Documentation` checks that the documentation correctly builds for the merged PR.
 - `OS Unit Tests` checks that ClimateMachine.jl package unit tests can pass
    on every OS supported with a pre-compiled system image (Linux, macOS, Windows).
-- `ClimateMachine-CI` computationally expensive integration testing on CPU and GPU hardware using HPC cluster resources.
+- `ClimateMachine-CI` computationally expensive integration testing on CPU and
+  GPU hardware using HPC cluster resources.
 
 Integration tests are run when triggered by a reviewer through `bors`.
-Integration tests are more computationally heavyweight than unit-tests and can exercise tests using accelerator hardware (GPUs).
+Integration tests are more computationally heavyweight than unit-tests and can
+exercise tests using accelerator hardware (GPUs).
 
 Currently HPC cluster integration tests are run using the [Buildkite CI service](https://buildkite.com/clima/climatemachine-ci).
 Tests are parallelized and run as individual [Slurm](https://slurm.schedmd.com/documentation.html)
@@ -219,12 +266,14 @@ using Plots
 plot(x)
 ```
 
-Please consider writing the comments in your tutorial as if they are meant to be read as an *article explaining the topic the tutorial is meant to explain.*
+Please consider writing the comments in your tutorial as if they are meant to
+be read as an *article explaining the topic the tutorial is meant to explain.*
 If there are any specific nuances to writing Literate documentation for ClimateMachine, please let us know!
 
 
 ### Speeding up the documentation build process
-Building the tutorials can take a long time so there is an environment variable switch to toggle on / off building the tutorials (`true` deafult):
+Building the tutorials can take a long time so there is an environment variable
+switch to toggle on / off building the tutorials (`true` deafult):
 
 ```
 CLIMATEMACHINE_DOCS_GENERATE_TUTORIALS=false julia --project=docs/ docs/make.jl
