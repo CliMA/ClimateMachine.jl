@@ -15,23 +15,27 @@ ClimateMachine.init()
 FT = Float64
 
 # Shared functions
+# include("interface/domains.jl")
+# include("interface/interface.jl")
+# include("interface/abstractions.jl")
+# include("interface/callbacks.jl")
 include("domains.jl")
 include("interface.jl")
 include("abstractions.jl")
+include("callbacks.jl")
 
 # Main balance law and its components
+# include("interface/test_model.jl") # umbrella model: TestEquations
 include("test_model.jl") # umbrella model: TestEquations
 
 # BL and problem for this
-hyperdiffusion = HyperDiffusion(
-                        HyperDiffusionCubedSphereProblem{FT}((;
-                            τ = 1,
+hyperdiffusion = HyperDiffusionCubedSphereProblem{FT}((;
+                            τ = 8*60*60,
                             l = 7,
                             m = 4,
                             )...,
                         )
-                    )       
-
+                     
 # Domain
 Ω = AtmosDomain(radius = planet_radius(param_set), height = 30e3)
 
@@ -45,12 +49,24 @@ dx = min_node_distance(grid, HorizontalDirection())
 numerics = (; flux = CentralNumericalFluxFirstOrder() ) # add  , overintegration = 1
 
 # Timestepping
-Δt_ = Δt(hyperdiffusion.problem, dx)
+Δt_ = Δt(hyperdiffusion, dx)
 timestepper = TimeStepper(method = LSRK54CarpenterKennedy, timestep = Δt_ )
 start_time, end_time = ( 0  , 2Δt_ )
 
 # Callbacks (TODO)
-callbacks = ()
+callbacks = (
+            #JLD2State((
+            #    interation = 1,
+            #    filepath ="output/tmp.jld2", 
+            #    overwrite = true
+            #    )...,),
+            VTKOutput((
+                interation = string(Δt_)*"ssecs" ,
+                overdir ="output", 
+                overwrite = true,
+                number_sample_points = 0
+                )...,),    
+            )
 
 # Specify RHS terms and any useful parameters
 balance_law = TestEquations{FT}(
@@ -60,6 +76,7 @@ balance_law = TestEquations{FT}(
         hyperdiffusion = hyperdiffusion, # hyper
         coriolis = nothing, # cori
         params = nothing,
+        param_set = param_set,
     )
 
 # Collect all spatial info of the model 
@@ -76,12 +93,15 @@ simulation = Simulation(
     timestepper = timestepper,
     callbacks = callbacks,
     simulation_time = (start_time, end_time),
+    name = "HyperdiffusionUnitTest"
 )
+
+cbvector = create_callbacks(simulation, simulation.odesolver)
 
 # Run the model
 @time solve!( 
     simulation.state, 
     simulation.odesolver; 
     timeend = end_time,
-    callbacks = callbacks,
+    callbacks = cbvector,
 )

@@ -34,7 +34,7 @@ include("spherical_harmonics_kernels.jl")
     HyperDiffusionProblem 
     - collects parameters for hyperdiffusion
 """
-abstract type HyperDiffusionProblem end
+abstract type HyperDiffusionProblem <: ProblemType end
 
 # struct 
 struct HyperDiffusionCubedSphereProblem{FT} <: HyperDiffusionProblem
@@ -57,6 +57,8 @@ end
     ∂t
 
 """
+
+#=
 struct HyperDiffusion{P} <: BalanceLaw
     problem::P
     function HyperDiffusion(
@@ -65,7 +67,9 @@ struct HyperDiffusion{P} <: BalanceLaw
         new{P}(problem)
     end
 end
+=#
 
+#=
 # Set hyperdiffusion tensor, D, coordinate info, coorc, and c = l^2*(l+1)^2/r^4
 vars_state(::HyperDiffusionProblem, ::Auxiliary, FT) = @vars(c::FT, D::FT)
 
@@ -80,6 +84,7 @@ vars_state(::HyperDiffusionProblem, ::GradientFlux, FT) = @vars()
 
 # The hyperdiffusion DG auxiliary variable: D ∇ Δρ
 vars_state(::HyperDiffusionProblem, ::Hyperdiffusive, FT) = @vars(D∇³ρ::SVector{3, FT})
+=#
 
 """
     Compute kernels
@@ -89,30 +94,27 @@ vars_state(::HyperDiffusionProblem, ::Hyperdiffusive, FT) = @vars(D∇³ρ::SVec
 """
 @inline function compute_gradient_argument!(
     ::HyperDiffusionProblem,
-    ::BalanceLaw,
     transform::Vars,
     state::Vars,
     aux::Vars,
     t::Real,
 )
-    transform.hyperdiffusion.ρ = state.ρ
+    transform.hd__ρ = state.ρ
 end
 @inline function transform_post_gradient_laplacian!(
     ::HyperDiffusionProblem,
-    ::BalanceLaw,
     auxHDG::Vars,
     gradvars::Grad,
     state::Vars,
     aux::Vars,
     t::Real,
 )
-    ∇Δρ = gradvars.hyperdiffusion.ρ
-    D = aux.hyperdiffusion.D * SMatrix{3,3,Float64}(I)
-    auxHDG.hyperdiffusion.D∇³ρ = D * ∇Δρ
+    ∇Δρ = gradvars.hd__ρ
+    D = aux.hd__D * SMatrix{3,3,Float64}(I)
+    auxHDG.hd__D∇³ρ = D * ∇Δρ
 end
 @inline function flux_second_order!(
     ::HyperDiffusionProblem,
-    ::BalanceLaw,
     flux::Grad,
     state::Vars,
     auxDG::Vars,
@@ -120,25 +122,23 @@ end
     aux::Vars,
     t::Real,
 )
-    flux.ρ += auxHDG.hyperdiffusion.D∇³ρ
+    flux.ρ += auxHDG.hd__D∇³ρ
 end
 
 """
     Initialize prognostic (whole state array at once) and auxiliary variables (per each spatial point = node)
 """
 @inline function init_state_prognostic!(
-    ::HyperDiffusionProblem,
-    m::BalanceLaw,
+    problem::HyperDiffusionProblem,
     state::Vars,
     aux::Vars,
     localgeo,
     t::Real,
 )
-    initial_condition!(m.problem, state, aux, localgeo, t)
+    initial_condition!(problem, state, aux, localgeo, t)
 end
 @inline function nodal_init_state_auxiliary!(
-    p::HyperDiffusionCubedSphereProblem,
-    m::BalanceLaw,
+    problem::HyperDiffusionCubedSphereProblem,
     aux::Vars,
     tmp::Vars,
     geom::LocalGeometry,
@@ -147,15 +147,14 @@ end
     FT = eltype(aux)
     
     r = norm(aux.coord)
-    l = p.l
-    aux.hyperdiffusion.c = get_c(l, r)
+    l = problem.l
+    aux.hd__c = get_c(l, r)
     
     Δ_hor = lengthscale_horizontal(geom)
-    aux.hyperdiffusion.D = D(p, Δ_hor)  
+    aux.hd__D = D(problem, Δ_hor)  
 end
 @inline function nodal_init_state_auxiliary!(
-    p::HyperDiffusionBoxProblem,
-    m::BalanceLaw,
+    problem::HyperDiffusionBoxProblem,
     aux::Vars,
     tmp::Vars,
     geom::LocalGeometry,
@@ -163,15 +162,15 @@ end
     FT = eltype(aux)
     Δ = lengthscale(geom)
 
-    aux.hyperdiffusion.D = D(p, Δ)  
+    aux.hd__D = D(problem, Δ)  
 end
 
 """
     Boundary conditions 
     - nothing if diffusion_direction (or direction) = HorizotalDirection()
 """
-@inline boundary_conditions(::HyperDiffusion, ::BalanceLaw) = ()
-@inline boundary_state!(nf, ::HyperDiffusion, ::BalanceLaw, _...) = nothing
+@inline boundary_conditions(::HyperDiffusionProblem, ::BalanceLaw) = ()
+@inline boundary_state!(nf, ::HyperDiffusionProblem, ::BalanceLaw, _...) = nothing
 
 """
     Initial conditions
@@ -179,7 +178,7 @@ end
     - test: ∇^4_horz ρ0 = l^2(l+1)^2/r^4 ρ0 where r=a+z
 """
 @inline function initial_condition!(
-    p::HyperDiffusionCubedSphereProblem{FT},
+    problem::HyperDiffusionCubedSphereProblem{FT},
     state,
     aux,
     x,
@@ -195,11 +194,11 @@ end
         
         z = r - _a
 
-        l = Int64(p.l)
-        m = Int64(p.m)
+        l = Int64(problem.l)
+        m = Int64(problem.m)
 
         c = get_c(l, r)
-        D = aux.hyperdiffusion.D
+        D = aux.hd__D
 
         state.ρ = calc_Ylm(φ, λ, l, m) * exp(- D*c*t) # - D*c*t
     end
@@ -209,8 +208,8 @@ end
     Other useful functions
 """
 # hyperdiffusion-dependent timestep (only use for hyperdiffusion unit test)
-@inline Δt(p::HyperDiffusionProblem, Δ_min) = Δ_min^4 / 25 / sum( D(p, Δ_min) ) 
+@inline Δt(problem::HyperDiffusionProblem, Δ_min) = Δ_min^4 / 25 / sum( D(problem, Δ_min) ) 
 
 # lengthscale-dependent hyperdiffusion coefficient
-@inline D(p::HyperDiffusionProblem, Δ ) = (Δ /2)^4/2/ p.τ
+@inline D(problem::HyperDiffusionProblem, Δ ) = (Δ /2)^4/2/ problem.τ
 

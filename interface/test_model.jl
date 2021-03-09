@@ -14,6 +14,9 @@ import ClimateMachine.DGMethods: DGModel
 import ClimateMachine.NumericalFluxes: numerical_flux_first_order!
 
 using ClimateMachine.BalanceLaws
+
+abstract type ProblemType end
+
 include("hyperdiffusion_model.jl") # specific model component 
 
 """
@@ -31,13 +34,14 @@ abstract type AbstractEquations3D <: AbstractEquations end
 
 struct TestEquations{D,FT} <: AbstractEquations3D
     domain::D
-    advection::Union{BalanceLaw, Nothing}
-    turbulence::Union{BalanceLaw, Nothing}
-    hyperdiffusion::Union{BalanceLaw, Nothing}
-    coriolis::Union{BalanceLaw, Nothing}
-    forcing::Union{BalanceLaw, Nothing}
-    boundary_conditions::Union{BalanceLaw, Nothing}
+    advection::Union{ProblemType, Nothing}
+    turbulence::Union{ProblemType, Nothing}
+    hyperdiffusion::Union{ProblemType, Nothing}
+    coriolis::Union{ProblemType, Nothing}
+    forcing::Union{ProblemType, Nothing}
+    boundary_conditions::Union{ProblemType, Nothing}
     params::Union{FT, Nothing}
+    param_set::Union{AbstractEarthParameterSet, Nothing}
     function TestEquations{FT}(
         domain::D;
         advection = nothing,
@@ -46,7 +50,8 @@ struct TestEquations{D,FT} <: AbstractEquations3D
         coriolis = nothing,
         forcing = nothing,
         boundary_conditions = nothing,
-        params = nothing
+        params = nothing,
+        param_set = param_set,
     ) where {FT <: AbstractFloat, D}
         return new{D, FT}(
             domain,
@@ -57,6 +62,7 @@ struct TestEquations{D,FT} <: AbstractEquations3D
             forcing,
             boundary_conditions,
             params,
+            param_set,
         )
     end
 end
@@ -66,27 +72,33 @@ vars_state(m::TestEquations, st::Prognostic, FT) = @vars(ρ::FT)
 function vars_state(m::TestEquations, aux::Auxiliary, FT)
     @vars begin
         coord::SVector{3, FT}
-        hyperdiffusion::vars_state(m.hyperdiffusion.problem, aux, FT)
+        
+        # temporary placement of hyperdiffusion variables
+        # hyperdiffusion::vars_state(m.hyperdiffusion, aux, FT)
+        hd__c::FT
+        hd__D::FT
+
     end
 end
 function vars_state(m::TestEquations, grad::Gradient, FT)
     @vars begin
-        hyperdiffusion::vars_state(m.hyperdiffusion.problem, grad, FT)
+        # hyperdiffusion::vars_state(m.hyperdiffusion, grad, FT)
+        hd__ρ::FT
     end
 end
-function vars_state(m::TestEquations, grad::GradientFlux, FT)
-    @vars begin
-        hyperdiffusion::vars_state(m.hyperdiffusion.problem, grad, FT)
-    end
-end 
+
+vars_state(m::TestEquations, grad::GradientFlux, FT) = @vars()
+
 function vars_state(m::TestEquations, st::GradientLaplacian, FT)
     @vars begin
-        hyperdiffusion::vars_state(m.hyperdiffusion.problem, st, FT)
+        #hyperdiffusion::vars_state(m.hyperdiffusion, st, FT)
+        hd__ρ::FT
     end
 end
 function vars_state(m::TestEquations, st::Hyperdiffusive, FT)
     @vars begin
-        hyperdiffusion::vars_state(m.hyperdiffusion.problem, st, FT)
+        #hyperdiffusion::vars_state(m.hyperdiffusion, st, FT)
+        hd__D∇³ρ::SVector{3, FT}
     end
 end
 
@@ -102,7 +114,6 @@ function init_state_prognostic!(
     t::Real,
 )
     init_state_prognostic!(
-        m.hyperdiffusion.problem,
         m.hyperdiffusion,
         state::Vars,
         aux::Vars,
@@ -119,7 +130,6 @@ function nodal_init_state_auxiliary!(
 )
     aux.coord = geom.coord
     nodal_init_state_auxiliary!(
-        m.hyperdiffusion.problem,
         m.hyperdiffusion,
         aux,
         tmp,
@@ -151,7 +161,7 @@ function compute_gradient_argument!(
     aux::Vars,
     t::Real,
 )
-    compute_gradient_argument!(m.hyperdiffusion.problem, m.hyperdiffusion, grad, state, aux, t)
+    compute_gradient_argument!(m.hyperdiffusion, grad, state, aux, t)
 end
 function compute_gradient_flux!(m::TestEquations, _...) end
 function transform_post_gradient_laplacian!(
@@ -163,7 +173,6 @@ function transform_post_gradient_laplacian!(
     t::Real,
 )
     transform_post_gradient_laplacian!(
-    m.hyperdiffusion.problem,
     m.hyperdiffusion,
     auxHDG, 
     gradvars,
@@ -184,7 +193,7 @@ function flux_second_order!(
     t::Real,
 )
     #@show t
-    flux_second_order!(m.hyperdiffusion.problem, m.hyperdiffusion, flux, state, gradflux, auxMISC, aux, t)
+    flux_second_order!(m.hyperdiffusion, flux, state, gradflux, auxMISC, aux, t)
 end
 @inline function source!(m::TestEquations, _...) end
 
