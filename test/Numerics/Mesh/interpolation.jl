@@ -271,7 +271,7 @@ function run_cubed_sphere_interpolation_test(
         FloatType = FT,
         DeviceArray = DA,
         polynomialorder = polynomialorders,
-        meshwarp = ClimateMachine.Mesh.Topologies.cubedshellwarp,
+        meshwarp = ClimateMachine.Mesh.Topologies.equiangular_cubed_sphere_warp,
     )
 
     model = AtmosModel{FT}(

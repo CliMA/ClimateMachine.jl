@@ -1,7 +1,7 @@
 using ClimateMachine
 using ClimateMachine.ConfigTypes
 using ClimateMachine.Mesh.Topologies:
-    StackedCubedSphereTopology, cubedshellwarp, grid1d
+    StackedCubedSphereTopology, equiangular_cubed_sphere_warp, grid1d
 using ClimateMachine.Mesh.Grids:
     DiscontinuousSpectralElementGrid, VerticalDirection
 using ClimateMachine.Mesh.Filters
@@ -107,7 +107,7 @@ function test_run(
         FloatType = FT,
         DeviceArray = ArrayType,
         polynomialorder = polynomialorder,
-        meshwarp = cubedshellwarp,
+        meshwarp = equiangular_cubed_sphere_warp,
     )
 
     T_profile = IsothermalProfile(param_set, setup.T_ref)

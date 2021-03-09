@@ -11,12 +11,18 @@ export AbstractTopology,
     AnalyticalTopography,
     NoTopography,
     DCMIPMountain,
+    EquidistantCubedSphere,
+    EquiangularCubedSphere,
     isstacked,
-    cubedshellwarp,
     cubedshelltopowarp,
     compute_lat_long,
     compute_analytical_topography,
-    cubedshellunwarp
+    cubed_sphere_warp,
+    cubed_sphere_unwarp,
+    equiangular_cubed_sphere_warp,
+    equiangular_cubed_sphere_unwarp,
+    equidistant_cubed_sphere_warp,
+    equidistant_cubed_sphere_unwarp
 
 export grid1d, SingleExponentialStretching, InteriorStretching
 
@@ -760,8 +766,8 @@ end
     CubedShellTopology(mpicomm, Nelem, T) <: AbstractTopology{dim,T,nb}
 
 Generate a cubed shell mesh with the number of elements along each dimension of
-the cubes being `Nelem`. This topology actual creates a cube mesh, and the
-warping should be done after the grid is created using the `cubedshellwarp`
+the cubes being `Nelem`. This topology actually creates a cube mesh, and the
+warping should be done after the grid is created using the `cubed_sphere_warp`
 function. The coordinates of the points will be of type `T`.
 
 The elements of the shell are partitioned equally across the MPI ranks based
@@ -771,7 +777,8 @@ Note that this topology is logically 2-D but embedded in a 3-D space
 
 # Examples
 
-We can build a cubed shell mesh with 10 elements on each cube, total elements is
+We can build a cubed shell mesh with 10*10 elements on each cube face, i.e., the
+total number of elements is
 `10 * 10 * 6 = 600`, with
 ```jldoctest brickmesh
 using ClimateMachine.Topologies
@@ -785,14 +792,18 @@ topology = CubedShellTopology(MPI.COMM_SELF, 10, Float64)
 # Shell radius = 1
 x1, x2, x3 = ntuple(j->topology.elemtocoord[j, :, :], 3)
 for n = 1:length(x1)
-   x1[n], x2[n], x3[n] = Topologies.cubedshellwarp(x1[n], x2[n], x3[n])
+   x1[n], x2[n], x3[n] = Topologies.cubed_sphere_warp(EquiangularCubedSphere(), x1[n], x2[n], x3[n])
 end
+
+# in case a unitary equiangular cubed sphere is desired, or
 
 # Shell radius = 10
 x1, x2, x3 = ntuple(j->topology.elemtocoord[j, :, :], 3)
 for n = 1:length(x1)
-  x1[n], x2[n], x3[n] = Topologies.cubedshellwarp(x1[n], x2[n], x3[n], 10)
+  x1[n], x2[n], x3[n] = Topologies.cubed_sphere_warp(EquidistantCubedSphere(), x1[n], x2[n], x3[n], 10)
 end
+
+# in case an equidistant cubed sphere of radius 10 is desired.
 ```
 """
 function CubedShellTopology(
@@ -969,56 +980,80 @@ function cubedshellmesh(Ne; part = 1, numparts = 1)
     (elemtovert, elemtocoord, elemtobndy, faceconnections, collect(elemlocal))
 end
 
+abstract type AbstractCubedSphere end
+struct EquiangularCubedSphere <: AbstractCubedSphere end
+struct EquidistantCubedSphere <: AbstractCubedSphere end
 
 """
-    cubedshellwarp(a, b, c, R = max(abs(a), abs(b), abs(c)))
+    cubed_sphere_warp(::EquiangularCubedSphere, a, b, c, R = max(abs(a), abs(b), abs(c)))
 
 Given points `(a, b, c)` on the surface of a cube, warp the points out to a
 spherical shell of radius `R` based on the equiangular gnomonic grid proposed by
 [Ronchi1996](@cite)
 """
-function cubedshellwarp(a, b, c, R = max(abs(a), abs(b), abs(c)))
+function cubed_sphere_warp(
+    ::EquiangularCubedSphere,
+    a,
+    b,
+    c,
+    R = max(abs(a), abs(b), abs(c)),
+)
 
     function f(sR, ξ, η)
         X, Y = tan(π * ξ / 4), tan(π * η / 4)
-        x1 = sR / sqrt(X^2 + Y^2 + 1)
-        x2, x3 = X * x1, Y * x1
-        x1, x2, x3
+        ζ1 = sR / sqrt(X^2 + Y^2 + 1)
+        ζ2, ζ3 = X * ζ1, Y * ζ1
+        ζ1, ζ2, ζ3
     end
 
     fdim = argmax(abs.((a, b, c)))
     if fdim == 1 && a < 0
-        # (-R, *, *) : Face I from Ronchi, Iacono, Paolucci (1996)
+        # (-R, *, *) : formulas for Face I from Ronchi, Iacono, Paolucci (1996)
+        #              but for us face II of the developed net of the cube
         x1, x2, x3 = f(-R, b / a, c / a)
     elseif fdim == 2 && b < 0
-        # ( *,-R, *) : Face II from Ronchi, Iacono, Paolucci (1996)
+        # ( *,-R, *) : formulas for Face II from Ronchi, Iacono, Paolucci (1996)
+        #              but for us face III of the developed net of the cube
         x2, x1, x3 = f(-R, a / b, c / b)
     elseif fdim == 1 && a > 0
-        # ( R, *, *) : Face III from Ronchi, Iacono, Paolucci (1996)
+        # ( R, *, *) : formulas for Face III from Ronchi, Iacono, Paolucci (1996)
+        #              but for us face IV of the developed net of the cube
         x1, x2, x3 = f(R, b / a, c / a)
     elseif fdim == 2 && b > 0
-        # ( *, R, *) : Face IV from Ronchi, Iacono, Paolucci (1996)
+        # ( *, R, *) : formulas for Face IV from Ronchi, Iacono, Paolucci (1996)
+        #              but for us face I of the developed net of the cube
         x2, x1, x3 = f(R, a / b, c / b)
     elseif fdim == 3 && c > 0
-        # ( *, *, R) : Face V from Ronchi, Iacono, Paolucci (1996)
+        # ( *, *, R) : formulas for Face V from Ronchi, Iacono, Paolucci (1996)
+        #              and the same for us on the developed net of the cube
         x3, x2, x1 = f(R, b / c, a / c)
     elseif fdim == 3 && c < 0
-        # ( *, *,-R) : Face VI from Ronchi, Iacono, Paolucci (1996)
+        # ( *, *,-R) : formulas for Face VI from Ronchi, Iacono, Paolucci (1996)
+        #              and the same for us on the developed net of the cube
         x3, x2, x1 = f(-R, b / c, a / c)
     else
-        error("invalid case for cubedshellwarp: $a, $b, $c")
+        error("invalid case for cubed_sphere_warp(::EquiangularCubedSphere): $a, $b, $c")
     end
 
     return x1, x2, x3
 end
 
+"""
+    equiangular_cubed_sphere_warp(a, b, c, R = max(abs(a), abs(b), abs(c)))
+
+A wrapper function for the cubed_sphere_warp function, when called with the
+EquiangularCubedSphere type
+"""
+equiangular_cubed_sphere_warp(a, b, c, R = max(abs(a), abs(b), abs(c))) =
+    cubed_sphere_warp(EquiangularCubedSphere(), a, b, c, R)
 
 """
-    cubedshellunwarp(x1, x2, x3)
+    cubed_sphere_unwarp(x1, x2, x3)
 
-The inverse of [`cubedshellwarp`](@ref).
+The inverse of [`cubed_sphere_warp`](@ref). This function projects
+a given point `(x_1, x_2, x_3)` from the surface of a sphere onto a cube
 """
-function cubedshellunwarp(x1, x2, x3)
+function cubed_sphere_unwarp(::EquiangularCubedSphere, x1, x2, x3)
 
     function g(R, X, Y)
         ξ = atan(X) * 4 / pi
@@ -1030,38 +1065,115 @@ function cubedshellunwarp(x1, x2, x3)
     fdim = argmax(abs.((x1, x2, x3)))
 
     if fdim == 1 && x1 < 0
-        # (-R, *, *) : Face I from Ronchi, Iacono, Paolucci (1996)
+        # (-R, *, *) : formulas for Face I from Ronchi, Iacono, Paolucci (1996)
+        #              but for us face II of the developed net of the cube
         a, b, c = g(-R, x2 / x1, x3 / x1)
     elseif fdim == 2 && x2 < 0
-        # ( *,-R, *) : Face II from Ronchi, Iacono, Paolucci (1996)
+        # ( *,-R, *) : formulas for Face II from Ronchi, Iacono, Paolucci (1996)
+        #              but for us face III of the developed net of the cube
         b, a, c = g(-R, x1 / x2, x3 / x2)
     elseif fdim == 1 && x1 > 0
-        # ( R, *, *) : Face III from Ronchi, Iacono, Paolucci (1996)
+        # ( R, *, *) : formulas for Face III from Ronchi, Iacono, Paolucci (1996)
+        #              but for us face IV of the developed net of the cube
         a, b, c = g(R, x2 / x1, x3 / x1)
     elseif fdim == 2 && x2 > 0
-        # ( *, R, *) : Face IV from Ronchi, Iacono, Paolucci (1996)
+        # ( *, R, *) : formulas for Face IV from Ronchi, Iacono, Paolucci (1996)
+        #              but for us face I of the developed net of the cube
         b, a, c = g(R, x1 / x2, x3 / x2)
     elseif fdim == 3 && x3 > 0
-        # ( *, *, R) : Face V from Ronchi, Iacono, Paolucci (1996)
+        # ( *, *, R) : formulas for Face V from Ronchi, Iacono, Paolucci (1996)
+        #              and the same for us on the developed net of the cube
         c, b, a = g(R, x2 / x3, x1 / x3)
     elseif fdim == 3 && x3 < 0
-        # ( *, *,-R) : Face VI from Ronchi, Iacono, Paolucci (1996)
+        # ( *, *,-R) : formulas for Face VI from Ronchi, Iacono, Paolucci (1996)
+        #              and the same for us on the developed net of the cube
         c, b, a = g(-R, x2 / x3, x1 / x3)
     else
-        error("invalid case for cubedshellunwarp: $a, $b, $c")
+        error("invalid case for cubed_sphere_unwarp(::EquiangularCubedSphere): $a, $b, $c")
     end
 
     return a, b, c
 end
 
 """
+    equiangular_cubed_sphere_unwarp(x1, x2, x3)
+
+A wrapper function for the cubed_sphere_unwarp function, when called with the
+EquiangularCubedSphere type
+"""
+equiangular_cubed_sphere_unwarp(x1, x2, x3) =
+    cubed_sphere_unwarp(EquiangularCubedSphere(), x1, x2, x3)
+
+"""
+    cubed_sphere_warp(a, b, c, R = max(abs(a), abs(b), abs(c)))
+
+Given points `(a, b, c)` on the surface of a cube, warp the points out to a
+spherical shell of radius `R` based on the equidistant gnomonic grid outlined in
+[Rancic1996](@cite) and [Nair2005](@cite)
+"""
+function cubed_sphere_warp(
+    ::EquidistantCubedSphere,
+    a,
+    b,
+    c,
+    R = max(abs(a), abs(b), abs(c)),
+)
+
+    r = hypot(a, b, c)
+
+    x1 = R * a / r
+    x2 = R * b / r
+    x3 = R * c / r
+
+    return x1, x2, x3
+end
+
+"""
+    equidistant_cubed_sphere_warp(a, b, c, R = max(abs(a), abs(b), abs(c)))
+
+A wrapper function for the cubed_sphere_warp function, when called with the
+EquidistantCubedSphere type
+"""
+equidistant_cubed_sphere_warp(a, b, c, R = max(abs(a), abs(b), abs(c))) =
+    cubed_sphere_warp(EquidistantCubedSphere(), a, b, c, R)
+
+"""
+    cubed_sphere_unwarp(x1, x2, x3)
+
+The inverse of [`cubed_sphere_warp`](@ref). This function projects
+a given point `(x_1, x_2, x_3)` from the surface of a sphere onto a cube
+"""
+function cubed_sphere_unwarp(::EquidistantCubedSphere, x1, x2, x3)
+
+    r = hypot(1, x2 / x1, x3 / x1)
+    R = hypot(x1, x2, x3)
+
+    a = r * x1
+    b = r * x2
+    c = r * x3
+
+    m = max(abs(a), abs(b), abs(c))
+
+    return a * R / m, b * R / m, c * R / m
+end
+
+"""
+    equidistant_cubed_sphere_unwarp(x1, x2, x3)
+
+A wrapper function for the cubed_sphere_unwarp function, when called with the
+EquidistantCubedSphere type
+"""
+equidistant_cubed_sphere_unwarp(x1, x2, x3) =
+    cubed_sphere_unwarp(EquidistantCubedSphere(), x1, x2, x3)
+
+"""
    StackedCubedSphereTopology(mpicomm, Nhorz, Rrange;
                               boundary=(1,1)) <: AbstractTopology{3}
 
 Generate a stacked cubed sphere topology with `Nhorz` by `Nhorz` cells for each
-horizontal face and `Rrange` is the radius edges of the stacked elements.  This
+horizontal face and `Rrange` is the radius edges of the stacked elements. This
 topology actual creates a cube mesh, and the warping should be done after the
-grid is created using the `cubedshellwarp` function. The coordinates of the
+grid is created using the `cubed_sphere_warp` function. The coordinates of the
 points will be of type `eltype(Rrange)`. The inner boundary condition type is
 `boundary[1]` and the outer boundary condition type is `boundary[2]`.
 
@@ -1073,8 +1185,8 @@ on a space-filling curve. Further, stacks are not split at MPI boundaries.
 
 # Examples
 
-We can build a cubed sphere mesh with 10 x 10 x 5 elements on each cube, total
-elements is `10 * 10 * 5 * 6 = 3000`, with
+We can build a cubed sphere mesh with 10 x 10 x 5 elements on each cube face,
+i.e., the total number of elements is `10 * 10 * 5 * 6 = 3000`, with
 ```jldoctest brickmesh
 using ClimateMachine.Topologies
 using MPI
@@ -1087,7 +1199,7 @@ topology = StackedCubedSphereTopology(MPI.COMM_SELF, Nhorz, Rrange)
 x1, x2, x3 = ntuple(j->reshape(topology.elemtocoord[j, :, :],
                             2, 2, 2, length(topology.elems)), 3)
 for n = 1:length(x1)
-   x1[n], x2[n], x3[n] = Topologies.cubedshellwarp(x1[n], x2[n], x3[n])
+   x1[n], x2[n], x3[n] = Topologies.cubed_sphere_warp(EquiangularCubedSphere(),x1[n], x2[n], x3[n])
 end
 ```
 Note that the faces are listed in Cartesian order.
@@ -1375,11 +1487,11 @@ end
 """
     compute_lat_long(X,Y,δ,faceid)
 Helper function to allow computation of latitute and longitude coordinates
-given the cubed sphere coordinates X, Y, δ, faceid 
+given the cubed sphere coordinates X, Y, δ, faceid
 """
 function compute_lat_long(X, Y, δ, faceid)
     if faceid == 1
-        λ = atan(X)                     # longitude 
+        λ = atan(X)                     # longitude
         ϕ = atan(cos(λ) * Y)            # latitude
     elseif faceid == 2
         λ = atan(X) + π / 2
@@ -1403,8 +1515,8 @@ end
 
 """
     AnalyticalTopography
-Abstract type to allow dispatch over different analytical topography prescriptions 
-in experiments. 
+Abstract type to allow dispatch over different analytical topography prescriptions
+in experiments.
 """
 abstract type AnalyticalTopography end
 
@@ -1421,15 +1533,15 @@ end
 
 """
     NoTopography <: AnalyticalTopography
-Allows definition of fallback methods in case cubedshelltopowarp is used with 
-no prescribed topography function. 
+Allows definition of fallback methods in case cubedshelltopowarp is used with
+no prescribed topography function.
 """
 struct NoTopography <: AnalyticalTopography end
 
-### DCMIP Mountain 
+### DCMIP Mountain
 """
     DCMIPMountain <: AnalyticalTopography
-Topography description based on standard DCMIP experiments. 
+Topography description based on standard DCMIP experiments.
 """
 struct DCMIPMountain <: AnalyticalTopography end
 function compute_analytical_topography(
@@ -1447,7 +1559,7 @@ function compute_analytical_topography(
     φ_m = 0
     λ_m = π * 3 / 2
     r_m = acos(sin(φ_m) * sin(ϕ) + cos(φ_m) * cos(ϕ) * cos(λ - λ_m))
-    # Define mesh decay profile 
+    # Define mesh decay profile
     Δ = (r_outer - abs(sR)) / (r_outer - r_inner)
     if r_m < R_m
         zs =
@@ -1464,15 +1576,15 @@ function compute_analytical_topography(
 end
 
 """
-    cubedshelltopowarp(a, b, c, R = max(abs(a), abs(b), abs(c)); 
+    cubedshelltopowarp(a, b, c, R = max(abs(a), abs(b), abs(c));
                        r_inner = _planet_radius,
                        r_outer = _planet_radius + domain_height,
                        topography = NoTopography())
 
 Given points `(a, b, c)` on the surface of a cube, warp the points out to a
 spherical shell of radius `R` based on the equiangular gnomonic grid proposed by
-[Ronchi1996](@cite). Assumes a user specified modified radius using the 
-compute_analytical_topography function. Defaults to smooth cubed sphere unless otherwise specified 
+[Ronchi1996](@cite). Assumes a user specified modified radius using the
+compute_analytical_topography function. Defaults to smooth cubed sphere unless otherwise specified
 via the AnalyticalTopography type.
 """
 function cubedshelltopowarp(
@@ -1528,7 +1640,7 @@ function cubedshelltopowarp(
         # ( *, *,-R) : Face VI from Ronchi, Iacono, Paolucci (1996)
         x3, x2, x1 = f(-R, b / c, a / c, faceid)
     else
-        error("invalid case for cubedshellwarp: $a, $b, $c")
+        error("invalid case for cubed_sphere_warp(::EquiangularCubedSphere): $a, $b, $c")
     end
 
     return x1, x2, x3

@@ -205,7 +205,7 @@ function test_run(
         FloatType = FT,
         DeviceArray = ArrayType,
         polynomialorder = (N, 0),
-        meshwarp = cubedshellwarp,
+        meshwarp = equiangular_cubed_sphere_warp,
     )
 
     dx = min_node_distance(grid, HorizontalDirection())

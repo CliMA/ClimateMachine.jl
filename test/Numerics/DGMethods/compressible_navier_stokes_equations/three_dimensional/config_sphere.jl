@@ -38,7 +38,7 @@ function Config(
         FloatType = FT,
         DeviceArray = ArrayType,
         polynomialorder = resolution.N + Nover,
-        meshwarp = cubedshellwarp,
+        meshwarp = equiangular_cubed_sphere_warp,
     )
 
     model = CNSE3D{FT}(

@@ -86,7 +86,7 @@ function test_run(
             nelem = numelem_vert,
         )
         topology = StackedCubedSphereTopology(mpicomm, numelem_horz, vert_range)
-        meshwarp = cubedshellwarp
+        meshwarp = equiangular_cubed_sphere_warp
     end
 
     grid = DiscontinuousSpectralElementGrid(
@@ -174,8 +174,8 @@ function test_run(
                               simtime = %.16e
                               runtime = %s
                               ρu = %.16e, %.16e
-                              ρv = %.16e, %.16e 
-                              ρw = %.16e, %.16e 
+                              ρv = %.16e, %.16e
+                              ρw = %.16e, %.16e
                               norm(Q) = %.16e
                               """ gettime(lsrk) runtime ρu... ρv... ρw... energy
         end
