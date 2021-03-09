@@ -263,9 +263,9 @@ eq_tends(pv::PV, m::EDMF, ::Source) where {PV <: EDMFPrognosticVariable} = ()
 eq_tends(pv::PV, m::EDMF, ::Source) where {PV <: en_ρatke} = (
     # EntrDetr{PV}(),
     # PressSource{PV}(),
-    ShearSource{PV}(),
+    # ShearSource{PV}(),
     # BuoySource{PV}(),
-    DissSource{PV}(),
+    # DissSource{PV}(),
 )
 
 eq_tends(
@@ -274,8 +274,8 @@ eq_tends(
     ::Source,
 ) where {PV <: Union{en_ρaθ_liq_cv, en_ρaq_tot_cv, en_ρaθ_liq_q_tot_cv}} = (
     # EntrDetr{PV}(),
-    DissSource{PV}(),
-    GradProdSource{PV}()
+    # DissSource{PV}(),
+    # GradProdSource{PV}()
     )
 
 eq_tends(pv::PV, m::EDMF, ::Source) where {PV <: up_ρaw} = (
@@ -520,10 +520,10 @@ function compute_gradient_flux!(
         env,
     )
 
-    en_dif.K_m = m.turbconv.mix_len.c_m * en_dif.l_mix *0.1 #* sqrt(tke_en)
+    en_dif.K_m = m.turbconv.mix_len.c_m * en_dif.l_mix * 0.1
     K_h = en_dif.K_m / Pr_t
     ρa₀ = gm.ρ * env.a
-    Diss₀ = m.turbconv.mix_len.c_d * sqrt(tke_en)/ en_dif.l_mix#
+    Diss₀ = m.turbconv.mix_len.c_d *  sqrt(tke_en) / en_dif.l_mix
 
     en_dif.shear = gm_dif.S² # tke Shear
     en_dif.shear_prod = ρa₀ * en_dif.K_m * gm_dif.S² - ρa₀ *Diss₀* tke_en  # tke Shear source
@@ -713,7 +713,6 @@ function source(::DissSource{en_ρatke}, atmos, args)
     ρa₀ = gm.ρ * env.a
     tke_en = enforce_positivity(en.ρatke) / gm.ρ / env.a
     return -ρa₀ * Diss₀ * tke_en  # original tke Dissipation
-    # return -en.ρatke * Diss₀  # tke Dissipation
 end
 
 function source(::DissSource{en_ρaθ_liq_cv}, atmos, args)
@@ -909,7 +908,7 @@ function precompute(::EDMF, bl, args, ts, ::Flux{SecondOrder})
 
     en = state.turbconv.environment
     tke_en = enforce_positivity(en.ρatke) / env.a / state.ρ
-    K_m = bl.turbconv.mix_len.c_m * l_mix *0.1 #* sqrt(tke_en)
+    K_m = bl.turbconv.mix_len.c_m * l_mix * 0.1
     K_h = K_m / Pr_t
     ρaw_up = vuntuple(i -> up[i].ρaw, N_up)
 
@@ -1012,9 +1011,9 @@ function precompute(::EDMF, bl, args, ts, ::Source)
     en = state.turbconv.environment
     tke_en = enforce_positivity(en.ρatke) / env.a / state.ρ
 
-    K_m = bl.turbconv.mix_len.c_m * l_mix * sqrt(tke_en)
+    K_m = bl.turbconv.mix_len.c_m * l_mix * 0.1
     K_h = K_m / Pr_t
-    Diss₀ = bl.turbconv.mix_len.c_d  * sqrt(tke_en)/ l_mix
+    Diss₀ = bl.turbconv.mix_len.c_d  * sqrt(tke_en) / l_mix
 
     return (;
         env,
