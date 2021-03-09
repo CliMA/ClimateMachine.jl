@@ -99,7 +99,7 @@ end
 
 abstract type AbstractSimulation end
 
-struct Simulation{𝒜, ℬ, 𝒞, 𝒟, ℰ, ℱ, O} <: AbstractSimulation
+struct Simulation{𝒜, ℬ, 𝒞, 𝒟, ℰ, ℱ, O, DG,N} <: AbstractSimulation
     model::𝒜
     state::ℬ
     timestepper::𝒞
@@ -107,6 +107,8 @@ struct Simulation{𝒜, ℬ, 𝒞, 𝒟, ℰ, ℱ, O} <: AbstractSimulation
     callbacks::ℰ
     simulation_time::ℱ
     odesolver::O
+    dgmodel::DG
+    name::N
 end
 
 function Simulation(;
@@ -117,6 +119,8 @@ function Simulation(;
     callbacks = nothing,
     simulation_time = nothing,
     odesolver = nothing,
+    dgmodel = nothing,
+    name = nothing,
 )
     # initialize DGModel (rhs)
     dgmodel = DGModel(model) # DGModel --> KernelModel, to be more general? 
@@ -131,7 +135,6 @@ function Simulation(;
     # initialize timestepper
     odesolver = timestepper.method( dgmodel, state; dt = timestepper.timestep, t0 = simulation_time[1] )
 
-    # model = (discrete = dgmodel, spatial = model)
     return Simulation(
         model,
         state,
@@ -140,6 +143,8 @@ function Simulation(;
         callbacks,
         simulation_time,
         odesolver,
+        dgmodel,
+        name,
     )
 end
 
