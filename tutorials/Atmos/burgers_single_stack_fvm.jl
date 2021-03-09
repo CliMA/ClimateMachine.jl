@@ -1,4 +1,4 @@
-# # Single stack tutorial based on the 3D Burgers + tracer equations
+# # Finite volume single stack tutorial based on the 3D Burgers + tracer equations
 
 # This tutorial implements the Burgers equations with a tracer field
 # in a single element stack. The flow is initialized with a horizontally
@@ -458,6 +458,8 @@ end;
 # # Spatial discretization
 
 # Prescribe polynomial order of basis functions in finite elements
+# The second index 0 indicates that finite volume method is 
+# applied in the vertical direction
 N_poly = (1, 0);
 
 # Specify the number of vertical elements
