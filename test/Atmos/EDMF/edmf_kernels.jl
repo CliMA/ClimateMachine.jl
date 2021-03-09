@@ -229,7 +229,7 @@ eq_tends(
     pv::PV,
     m::EDMF,
     ::Flux{SecondOrder},
-) where {PV <: Union{Momentum, Energy, TotalMoisture}} = ()  # do _not_ add SGSFlux back to grid-mean
+) where {PV <: Union{Momentum, Energy, TotalMoisture}} = (SGSFlux{PV}(),)   # do _not_ add SGSFlux back to grid-mean
 # (SGSFlux{PV}(),) # add SGSFlux back to grid-mean
 
 # Turbconv tendencies
@@ -246,7 +246,7 @@ eq_tends(
     pv::PV,
     m::EDMF,
     ::Flux{SecondOrder},
-) where {PV <: EnvironmentPrognosticVariable} = (Diffusion{PV}(),)
+) where {PV <: EnvironmentPrognosticVariable} = () #(Diffusion{PV}(),)
 
 eq_tends(
     pv::PV,
@@ -260,11 +260,11 @@ eq_tends(pv::PV, m::EDMF, ::Source) where {PV <: EDMFPrognosticVariable} =
     (EntrDetr{PV}(),)
 
 eq_tends(pv::PV, m::EDMF, ::Source) where {PV <: en_ρatke} = (
-    EntrDetr{PV}(),
-    PressSource{PV}(),
-    ShearSource{PV}(),
-    BuoySource{PV}(),
-    DissSource{PV}(),
+    # EntrDetr{PV}(),
+    # PressSource{PV}(),
+    # ShearSource{PV}(),
+    # BuoySource{PV}(),
+    # DissSource{PV}(),
 )
 
 eq_tends(
@@ -272,12 +272,12 @@ eq_tends(
     m::EDMF,
     ::Source,
 ) where {PV <: Union{en_ρaθ_liq_cv, en_ρaq_tot_cv, en_ρaθ_liq_q_tot_cv}} =
-    (EntrDetr{PV}(), DissSource{PV}(), GradProdSource{PV}())
+    () # EntrDetr{PV}(), DissSource{PV}(), GradProdSource{PV}()
 
 eq_tends(pv::PV, m::EDMF, ::Source) where {PV <: up_ρaw} = (
-    EntrDetr{PV}(),
-    PressSource(n_updrafts(m))...,
-    BuoySource(n_updrafts(m))...,
+    # EntrDetr{PV}(),
+    # PressSource(n_updrafts(m))...,
+    # BuoySource(n_updrafts(m))...,
 )
 
 struct SGSFlux{PV <: Union{Momentum, Energy, TotalMoisture}} <:
@@ -511,7 +511,7 @@ function compute_gradient_flux!(
         env,
     )
 
-    en_dif.K_m = m.turbconv.mix_len.c_m * en_dif.l_mix * sqrt(tke_en)
+    en_dif.K_m = m.turbconv.mix_len.c_m * en_dif.l_mix * 0.1 #sqrt(tke_en)
     K_h = en_dif.K_m / Pr_t
     ρa₀ = gm.ρ * env.a
     Diss₀ = m.turbconv.mix_len.c_d * sqrt(tke_en) / en_dif.l_mix
@@ -897,7 +897,7 @@ function precompute(::EDMF, bl, args, ts, ::Flux{SecondOrder})
 
     en = state.turbconv.environment
     tke_en = enforce_positivity(en.ρatke) / env.a / state.ρ
-    K_m = bl.turbconv.mix_len.c_m * l_mix * sqrt(tke_en)
+    K_m = bl.turbconv.mix_len.c_m * l_mix * 0.1 # sqrt(tke_en)
     K_h = K_m / Pr_t
     ρaw_up = vuntuple(i -> up[i].ρaw, N_up)
 
@@ -999,7 +999,7 @@ function precompute(::EDMF, bl, args, ts, ::Source)
 
     en = state.turbconv.environment
     tke_en = enforce_positivity(en.ρatke) / env.a / state.ρ
-    K_m = bl.turbconv.mix_len.c_m * l_mix * sqrt(tke_en)
+    K_m = bl.turbconv.mix_len.c_m * l_mix * 0.1 # sqrt(tke_en)
     K_h = K_m / Pr_t
     Diss₀ = bl.turbconv.mix_len.c_d * sqrt(tke_en) / l_mix
 

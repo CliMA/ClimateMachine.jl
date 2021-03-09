@@ -165,7 +165,7 @@ Base.@kwdef struct MixingLengthModel{FT <: AbstractFloat}
     "dissipation coefficient"
     c_d::FT = 0.22
     "Eddy Viscosity"
-    c_m::FT = 0.14
+    c_m::FT = 0.1
     "Static Stability coefficient"
     c_b::FT = 0.63
     "Empirical stability function coefficient"
