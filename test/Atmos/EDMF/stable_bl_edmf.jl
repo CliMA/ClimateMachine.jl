@@ -105,7 +105,7 @@ function main(::Type{FT}, cl_args) where {FT}
 
     N_updrafts = 1
     N_quad = 3 # Using N_quad = 1 leads to norm(Q) = NaN at init.
-    turbconv = EDMF(FT, N_updrafts, N_quad)
+    turbconv = EDMF(FT, N_updrafts, N_quad, param_set)
 
     model = stable_bl_model(
         FT,
