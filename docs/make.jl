@@ -46,9 +46,10 @@ mathengine = MathJax(Dict(
 ))
 
 format = Documenter.HTML(
-    prettyurls = get(ENV, "CI", "") == "true",
+    prettyurls = get(ENV, "CI", "") != "" ? true : false,
     mathengine = mathengine,
     collapselevel = 1,
+    analytics = get(ENV, "CI", "") != "" ? "UA-191640394-1" : "",
 )
 
 makedocs(
