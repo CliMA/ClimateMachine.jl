@@ -113,6 +113,7 @@ function main(::Type{FT}) where {FT}
         metavar = "prescribed|bulk|custom_sbl"
         arg_type = String
         default = "custom_sbl"
+        # default = "prescribed"
     end
 
     cl_args = ClimateMachine.init(parse_clargs = true, custom_clargs = sbl_args)
@@ -213,21 +214,6 @@ function main(::Type{FT}) where {FT}
             (turbconv_filters(turbconv)...,),
             solver_config.dg.grid,
             TMARFilter(),
-        )
-        nothing
-    end
-
-    # boyd vandeven filter
-    cb_boyd = GenericCallbacks.EveryXSimulationSteps(1) do
-        Filters.apply!(
-            solver_config.Q,
-            ("energy.ρe",),
-            solver_config.dg.grid,
-            BoydVandevenFilter(
-                solver_config.dg.grid,
-                1, #default=0
-                4, #default=32
-            ),
         )
         nothing
     end

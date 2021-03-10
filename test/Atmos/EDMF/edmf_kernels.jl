@@ -496,21 +496,8 @@ function compute_gradient_flux!(
     z = altitude(m, aux)
 
     # numerical shear²
-    gm_dif.S² = ∇transform.u[3, 1]^2 + ∇transform.u[3, 2]^2 + en_dif.∇w[3]^2 # ∇transform.u is Jacobian.T
-
-    # linear shear²
-    # if z <= FT(300)
-    #     gm_dif.S² = FT((-1/100)^2)
-    # else
-    #     gm_dif.S² = FT(0)
-    # end
-
-    # parabolic shear²
-    # if z <= FT(300)
-    #     gm_dif.S² = FT( (-2(300-z)/400^2)^2 )
-    # else
-    #     gm_dif.S² = FT(0)
-    # end
+    # gm_dif.S² = ∇transform.u[3, 1]^2 + ∇transform.u[3, 2]^2 + en_dif.∇w[3]^2 # ∇transform.u is Jacobian.T
+    gm_dif.S² = FT((1/400)^2)
 
     # Recompute l_mix, K_m and tke budget terms for output.
     ts = recover_thermo_state_all(m, state, aux)
