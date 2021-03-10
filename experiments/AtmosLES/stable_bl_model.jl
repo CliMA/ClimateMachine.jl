@@ -45,7 +45,7 @@ struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 import CLIMAParameters
 
-using ClimateMachine.Atmos: altitude, recover_thermo_state, density
+using ClimateMachine.Atmos: altitude, recover_thermo_state, density, pressure
 
 """
   StableBL Geostrophic Forcing (Source)
