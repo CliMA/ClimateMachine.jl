@@ -130,7 +130,7 @@ function new_thermo_state_up(
 ) where {FT}
     N_up = n_updrafts(m.turbconv)
     up = state.turbconv.updraft
-    p = air_pressure(ts)
+    p = pressure(m, state, aux)
 
     # compute thermo state for updrafts
     ts_up = vuntuple(N_up) do i
@@ -153,7 +153,7 @@ function new_thermo_state_up(
 
     N_up = n_updrafts(m.turbconv)
     up = state.turbconv.updraft
-    p = air_pressure(ts)
+    p = pressure(m, state, aux)
 
     # compute thermo state for updrafts
     ts_up = vuntuple(N_up) do i
@@ -183,8 +183,9 @@ function new_thermo_state_en(
     up = state.turbconv.updraft
 
     # diagnose environment thermo state
-    ρ_inv = 1 / state.ρ
-    p = air_pressure(ts)
+    p = pressure(m, state, aux)
+    ρ = density(m, state, aux)
+    ρ_inv = 1 / ρ
     θ_liq = liquid_ice_pottemp(ts)
     a_en = environment_area(state, N_up)
     θ_liq_en = (θ_liq - sum(vuntuple(j -> up[j].ρaθ_liq * ρ_inv, N_up))) / a_en
@@ -211,8 +212,9 @@ function new_thermo_state_en(
     up = state.turbconv.updraft
 
     # diagnose environment thermo state
-    ρ_inv = 1 / state.ρ
-    p = air_pressure(ts)
+    ρ = density(m, state, aux)
+    p = pressure(m, state, aux)
+    ρ_inv = 1 / ρ
     θ_liq = liquid_ice_pottemp(ts)
     q_tot = total_specific_humidity(ts)
     a_en = environment_area(state, N_up)
