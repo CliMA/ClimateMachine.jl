@@ -116,9 +116,10 @@ function advective_courant(
     return Δt * norm(aux.advection.u) / Δx
 end
 
+struct NoFlowBC end
 function boundary_state!(
     ::RusanovNumericalFlux,
-    bctype,
+    ::NoFlowBC,
     ::AdvectionDiffusion,
     stateP::Vars,
     auxP::Vars,
@@ -192,7 +193,8 @@ function test_run(
     dt = FT(cfl * dx / u_scale(problem()))
     dt = outputtime / ceil(Int64, outputtime / dt)
 
-    model = AdvectionDiffusion{3}(problem(), diffusion = false)
+    bcs = (NoFlowBC(),)
+    model = AdvectionDiffusion{3}(problem(), bcs, diffusion = false)
     dg = DGModel(
         model,
         grid,

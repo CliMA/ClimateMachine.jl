@@ -50,9 +50,10 @@ function initial_condition!(
     state.ρ = (ρ1, ρ2)
 end
 
-Dirichlet_data!(P::Pseudo1D, x...) = initial_condition!(P, x...)
+inhomogeneous_data!(::Val{0}, P::Pseudo1D, x...) = initial_condition!(P, x...)
 
-function Neumann_data!(
+function inhomogeneous_data!(
+    ::Val{1},
     ::Pseudo1D{n1, n2, α, β, μ, δ},
     ∇state,
     aux,
@@ -121,9 +122,11 @@ function test_run(mpicomm, dim, polynomialorders, level, ArrayType, FT)
         polynomialorder = polynomialorders,
     )
 
+    bcs = (InhomogeneousBC{0}(), InhomogeneousBC{1}())
     # Model being tested
     model = AdvectionDiffusion{dim}(
         Pseudo1D{n_hd, n_vd, α, β, μ, δ}(),
+        bcs,
         num_equations = 2,
     )
 
