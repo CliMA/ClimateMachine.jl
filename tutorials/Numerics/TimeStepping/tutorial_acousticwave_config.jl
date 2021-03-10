@@ -77,14 +77,12 @@ function run_acousticwave(
 
     setup = AcousticWaveSetup{FT}()
     T_profile = IsothermalProfile(param_set, setup.T_ref)
-    orientation = SphericalOrientation()
     ref_state = HydrostaticState(T_profile)
     turbulence = ConstantDynamicViscosity(FT(0))
     model = AtmosModel{FT}(
         AtmosGCMConfigType,
         param_set;
         init_state_prognostic = setup,
-        orientation = orientation,
         ref_state = ref_state,
         turbulence = turbulence,
         moisture = DryModel(),

@@ -44,7 +44,6 @@ possible options for each subcomponent.
 ```
     ::Type{AtmosGCMConfigType},
     param_set::AbstractParameterSet;
-    orientation::O = SphericalOrientation(),
     ref_state::RS = HydrostaticState(DecayingTemperatureProfile{FT}(param_set),)
     turbulence::T = SmagorinskyLilly{FT}(C_smag(param_set)),
     hyperdiffusion::HD = NoHyperDiffusion(),
