@@ -228,5 +228,6 @@ include("Runoff.jl")
 using .Runoff
 include("land_bc.jl")
 include("soil_bc.jl")
+include("PlantHydraulics.jl") # just need roots_flow! create_grass
 include("source.jl")
 end # Module
