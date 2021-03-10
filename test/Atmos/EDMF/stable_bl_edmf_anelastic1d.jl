@@ -144,7 +144,7 @@ function main(::Type{FT}) where {FT}
     N_updrafts = 1
     N_quad = 3
     # turbconv = NoTurbConv()
-    turbconv = EDMF(FT, N_updrafts, N_quad)
+    turbconv = EDMF(FT, N_updrafts, N_quad, param_set)
     # compressibility = Compressible()
     compressibility = Anelastic1D()
 
