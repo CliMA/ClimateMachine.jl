@@ -84,14 +84,15 @@ function source(s::CreateClouds{LiquidMoisture}, m, args)
     FT = eltype(state)
     q = PhasePartition(ts)
     T = air_temperature(ts)
+    param_set = parameter_set(m)
 
     # phase partition corresponding to the current T and q.tot
     # (this is not the same as phase partition from saturation adjustment)
-    ts_eq = PhaseEquil_ρTq(m.param_set, state.ρ, T, q.tot)
+    ts_eq = PhaseEquil_ρTq(param_set, state.ρ, T, q.tot)
     q_eq = PhasePartition(ts_eq)
 
     # cloud condensate as relaxation source terms
-    S_q_liq = conv_q_vap_to_q_liq_ice(m.param_set.microphys.liq, q_eq, q)
+    S_q_liq = conv_q_vap_to_q_liq_ice(param_set.microphys.liq, q_eq, q)
 
     return state.ρ * S_q_liq
 end
@@ -103,14 +104,15 @@ function source(s::CreateClouds{IceMoisture}, m, args)
     FT = eltype(state)
     q = PhasePartition(ts)
     T = air_temperature(ts)
+    param_set = parameter_set(m)
 
     # phase partition corresponding to the current T and q.tot
     # (this is not the same as phase partition from saturation adjustment)
-    ts_eq = PhaseEquil_ρTq(m.param_set, state.ρ, T, q.tot)
+    ts_eq = PhaseEquil_ρTq(param_set, state.ρ, T, q.tot)
     q_eq = PhasePartition(ts_eq)
 
     # cloud condensate as relaxation source terms
-    S_q_ice = conv_q_vap_to_q_liq_ice(m.param_set.microphys.ice, q_eq, q)
+    S_q_ice = conv_q_vap_to_q_liq_ice(param_set.microphys.ice, q_eq, q)
 
     return state.ρ * S_q_ice
 end

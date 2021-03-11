@@ -124,12 +124,13 @@ function init_problem!(problem, bl, state, aux, localgeo, t)
     (x, y, z) = localgeo.coord
 
     # Problem floating point precision
+    param_set = parameter_set(bl)
     FT = eltype(state)
-    R_gas::FT = R_d(bl.param_set)
-    c_p::FT = cp_d(bl.param_set)
-    c_v::FT = cv_d(bl.param_set)
-    p0::FT = MSLP(bl.param_set)
-    _grav::FT = grav(bl.param_set)
+    R_gas::FT = R_d(param_set)
+    c_p::FT = cp_d(param_set)
+    c_v::FT = cv_d(param_set)
+    p0::FT = MSLP(param_set)
+    _grav::FT = grav(param_set)
     γ::FT = c_p / c_v
     # Initialise speeds [u = Eastward, v = Northward, w = Vertical]
     u::FT = 4
@@ -145,7 +146,7 @@ function init_problem!(problem, bl, state, aux, localgeo, t)
     π_exner = FT(1) - _grav / (c_p * θ) * z # exner pressure
     ρ = p0 / (R_gas * θ) * (π_exner)^(c_v / R_gas) # density
     # Establish thermodynamic state and moist phase partitioning
-    TS = PhaseEquil_ρθq(bl.param_set, ρ, θ_liq, q_tot)
+    TS = PhaseEquil_ρθq(param_set, ρ, θ_liq, q_tot)
 
     # Compute momentum contributions
     ρu = ρ * u
@@ -175,11 +176,12 @@ function surface_temperature_variation(bl, state, t)
     FT = eltype(state)
     ρ = state.ρ
     θ_liq_sfc = FT(291.15) + FT(20) * sinpi(FT(t / 12 / 3600))
+    param_set = parameter_set(bl)
     if bl.moisture isa DryModel
-        TS = PhaseDry_ρθ(bl.param_set, ρ, θ_liq_sfc)
+        TS = PhaseDry_ρθ(param_set, ρ, θ_liq_sfc)
     else
         q_tot = state.moisture.ρq_tot / ρ
-        TS = PhaseEquil_ρθq(bl.param_set, ρ, θ_liq_sfc, q_tot)
+        TS = PhaseEquil_ρθq(param_set, ρ, θ_liq_sfc, q_tot)
     end
     return air_temperature(TS)
 end

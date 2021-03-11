@@ -211,7 +211,7 @@ end
     ]
 
     F.η += U
-    F.U += grav(m.param_set) * H * η * Iʰ
+    F.U += grav(parameter_set(m)) * H * η * Iʰ
 
     advective_flux!(m, m.advection, F, q, α, t)
 

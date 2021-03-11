@@ -46,13 +46,13 @@ function init_state_prognostic!(
     # SCM setting - need to have separate cases coded and called from a folder - see what LES does
     # a moist_thermo state is used here to convert the input θ,q_tot to e_int, q_tot profile
     e_int = internal_energy(m, state, aux)
-
+    param_set = parameter_set(m)
     if m.moisture isa DryModel
         ρq_tot = FT(0)
-        ts = PhaseDry(m.param_set, e_int, state.ρ)
+        ts = PhaseDry(param_set, e_int, state.ρ)
     else
         ρq_tot = gm.moisture.ρq_tot
-        ts = PhaseEquil(m.param_set, e_int, state.ρ, ρq_tot / state.ρ)
+        ts = PhaseEquil(param_set, e_int, state.ρ, ρq_tot / state.ρ)
     end
     T = air_temperature(ts)
     p = air_pressure(ts)

@@ -45,11 +45,12 @@ function compute_buoyancy_gradients(
     gm = state
     en_dif = diffusive.turbconv.environment
     N_up = n_updrafts(m.turbconv)
+    param_set = parameter_set(m)
 
-    _grav::FT = grav(m.param_set)
-    _R_d::FT = R_d(m.param_set)
-    _R_v::FT = R_v(m.param_set)
-    ε_v::FT = 1 / molmass_ratio(m.param_set)
+    _grav::FT = grav(param_set)
+    _R_d::FT = R_d(param_set)
+    _R_v::FT = R_v(param_set)
+    ε_v::FT = 1 / molmass_ratio(param_set)
     p = air_pressure(ts_gm)
 
     q_tot_en = total_specific_humidity(ts_en)

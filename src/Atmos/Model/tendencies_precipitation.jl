@@ -11,10 +11,11 @@ function flux(::PrecipitationFlux{Rain}, atmos, args)
     q_rai = state.precipitation.ρq_rai / state.ρ
 
     v_term_rai::FT = FT(0)
+    param_set = parameter_set(atmos)
     if q_rai > FT(0)
         v_term_rai = terminal_velocity(
-            atmos.param_set,
-            atmos.param_set.microphys.rai,
+            param_set,
+            param_set.microphys.rai,
             state.ρ,
             q_rai,
         )
@@ -29,12 +30,12 @@ function flux(::PrecipitationFlux{Snow}, atmos, args)
     FT = eltype(state)
     u = state.ρu / state.ρ
     q_sno = state.precipitation.ρq_sno / state.ρ
-
+    param_set = parameter_set(atmos)
     v_term_sno::FT = FT(0)
     if q_sno > FT(0)
         v_term_sno = terminal_velocity(
-            atmos.param_set,
-            atmos.param_set.microphys.sno,
+            param_set,
+            param_set.microphys.sno,
             state.ρ,
             q_sno,
         )

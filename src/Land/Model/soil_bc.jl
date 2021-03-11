@@ -103,22 +103,18 @@ function soil_boundary_state!(
     _...,
 )
     bc_function = bc.state_bc
-
+    param_set = parameter_set(land)
     ϑ_l, θ_i = get_water_content(land.soil.water, aux⁻, state⁻, t)
     θ_l = volumetric_liquid_fraction(ϑ_l, land.soil.param_functions.porosity)
     ρc_s = volumetric_heat_capacity(
         θ_l,
         θ_i,
         land.soil.param_functions.ρc_ds,
-        land.param_set,
+        param_set,
     )
 
-    ρe_int_bc = volumetric_internal_energy(
-        θ_i,
-        ρc_s,
-        bc_function(aux⁻, t),
-        land.param_set,
-    )
+    ρe_int_bc =
+        volumetric_internal_energy(θ_i, ρc_s, bc_function(aux⁻, t), param_set)
 
     state⁺.soil.heat.ρe_int = ρe_int_bc
 end

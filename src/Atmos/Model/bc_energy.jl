@@ -35,8 +35,9 @@ function atmos_energy_boundary_state!(
 )
     @unpack aux⁻, state⁻, t = args
     FT = eltype(aux⁻)
-    _T_0::FT = T_0(atmos.param_set)
-    _cv_d::FT = cv_d(atmos.param_set)
+    param_set = parameter_set(atmos)
+    _T_0::FT = T_0(param_set)
+    _cv_d::FT = cv_d(param_set)
 
     T = bc_energy.fn(state⁻, aux⁻, t)
     E_int⁺ = state⁺.ρ * _cv_d * (T - _T_0)
@@ -144,9 +145,10 @@ function atmos_energy_normal_boundary_flux_second_order!(
     normu_int⁻_tan = norm(u_int⁻_tan)
     C_h = bc_energy.fn_C_h(atmos, state⁻, aux⁻, t, normu_int⁻_tan)
     T, q_tot = bc_energy.fn_T_and_q_tot(atmos, state⁻, aux⁻, t)
+    param_set = parameter_set(atmos)
 
     # calculate MSE from the states at the boundary and at the interior point
-    ts = PhaseEquil_ρTq(atmos.param_set, state⁻.ρ, T, q_tot)
+    ts = PhaseEquil_ρTq(param_set, state⁻.ρ, T, q_tot)
     ts_int = recover_thermo_state(atmos, state_int⁻, aux_int⁻)
     e_pot = gravitational_potential(atmos.orientation, aux⁻)
     e_pot_int = gravitational_potential(atmos.orientation, aux_int⁻)
@@ -182,7 +184,7 @@ function atmos_energy_normal_boundary_flux_second_order!(
     args,
 )
     @unpack state⁻, aux⁻, t, aux_int⁻, state_int⁻ = args
-
+    param_set = parameter_set(atmos)
     FT = eltype(state⁻)
     # Interior state
     u_int⁻ = state_int⁻.ρu / state_int⁻.ρ
@@ -217,7 +219,7 @@ function atmos_energy_normal_boundary_flux_second_order!(
     z_in = altitude(atmos, aux_int⁻)
 
     θ_flux, q_tot_flux = get_energy_flux(surface_conditions(
-        atmos.param_set,
+        param_set,
         MO_param_guess,
         x_in,
         x_s,
@@ -228,10 +230,9 @@ function atmos_energy_normal_boundary_flux_second_order!(
     ))
 
     # recover thermo state
-    ts_surf = PhaseEquil_ρTq(atmos.param_set, state⁻.ρ, T, q_tot)
+    ts_surf = PhaseEquil_ρTq(param_set, state⁻.ρ, T, q_tot)
     # Add sensible heat flux
     fluxᵀn.energy.ρe -= state⁻.ρ * θ_flux * cp_m(ts_surf)
     # Add latent heat flux
-    fluxᵀn.energy.ρe -=
-        state⁻.ρ * q_tot_flux * latent_heat_vapor(atmos.param_set, T)
+    fluxᵀn.energy.ρe -= state⁻.ρ * q_tot_flux * latent_heat_vapor(param_set, T)
 end

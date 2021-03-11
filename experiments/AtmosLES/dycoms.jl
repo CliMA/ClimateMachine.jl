@@ -108,9 +108,10 @@ function flux(::DYCOMSRadiation{Energy}, atmos, args)
     # Constants
     upward_flux_from_cloud = m.F_0 * exp(-aux.∫dnz.radiation.attenuation_coeff)
     upward_flux_from_sfc = m.F_1 * exp(-aux.∫dz.radiation.attenuation_coeff)
+    param_set = parameter_set(atmos)
     free_troposphere_flux =
         m.ρ_i *
-        FT(cp_d(atmos.param_set)) *
+        FT(cp_d(param_set)) *
         m.D_subsidence *
         m.α_z *
         cbrt(Δz_i) *
@@ -180,16 +181,17 @@ function init_dycoms!(problem, bl, state, aux, localgeo, t)
     FT = eltype(state)
 
     (x, y, z) = localgeo.coord
+    param_set = parameter_set(bl)
 
     z = altitude(bl, aux)
 
     # These constants are those used by Stevens et al. (2005)
     qref = FT(9.0e-3)
     q_pt_sfc = PhasePartition(qref)
-    Rm_sfc = gas_constant_air(bl.param_set, q_pt_sfc)
+    Rm_sfc = gas_constant_air(param_set, q_pt_sfc)
     T_sfc = FT(290.4)
-    _MSLP = FT(MSLP(bl.param_set))
-    _grav = FT(grav(bl.param_set))
+    _MSLP = FT(MSLP(param_set))
+    _grav = FT(grav(param_set))
 
     # Specify moisture profiles
     q_liq = FT(0)
@@ -221,7 +223,7 @@ function init_dycoms!(problem, bl, state, aux, localgeo, t)
 
     # Density, Temperature
 
-    ts = PhaseEquil_pθq(bl.param_set, p, θ_liq, q_tot)
+    ts = PhaseEquil_pθq(param_set, p, θ_liq, q_tot)
     ρ = air_density(ts)
 
     e_kin = FT(1 / 2) * FT((u^2 + v^2 + w^2))

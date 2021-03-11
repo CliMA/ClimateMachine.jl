@@ -112,7 +112,13 @@ using ClimateMachine.ODESolvers
 using ClimateMachine.VariableTemplates
 using ClimateMachine.SingleStackUtils
 using ClimateMachine.BalanceLaws:
-    BalanceLaw, Prognostic, Auxiliary, Gradient, GradientFlux, vars_state
+    BalanceLaw,
+    Prognostic,
+    Auxiliary,
+    Gradient,
+    GradientFlux,
+    vars_state,
+    parameter_set
 
 # # Preliminary set-up
 
@@ -261,16 +267,17 @@ function init_soil!(land, state, aux, localgeo, time)
     θ_i = myFT(land.soil.water.initialθ_i(aux))
     state.soil.water.ϑ_l = ϑ_l
     state.soil.water.θ_i = θ_i
+    param_set = parameter_set(land)
 
     θ_l = volumetric_liquid_fraction(ϑ_l, land.soil.param_functions.porosity)
     ρc_ds = land.soil.param_functions.ρc_ds
-    ρc_s = volumetric_heat_capacity(θ_l, θ_i, ρc_ds, land.param_set)
+    ρc_s = volumetric_heat_capacity(θ_l, θ_i, ρc_ds, param_set)
 
     state.soil.heat.ρe_int = volumetric_internal_energy(
         θ_i,
         ρc_s,
         land.soil.heat.initialT(aux),
-        land.param_set,
+        param_set,
     )
 end;
 

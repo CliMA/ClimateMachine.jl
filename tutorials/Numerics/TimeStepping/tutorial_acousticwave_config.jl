@@ -36,6 +36,7 @@ end
 function (setup::AcousticWaveSetup)(problem, bl, state, aux, localgeo, t)
     ## callable to set initial conditions
     FT = eltype(state)
+    param_set = parameter_set(bl)
 
     λ = longitude(bl, aux)
     φ = latitude(bl, aux)
@@ -47,7 +48,7 @@ function (setup::AcousticWaveSetup)(problem, bl, state, aux, localgeo, t)
     Δp = setup.γ * f * g
     p = aux.ref_state.p + Δp
 
-    ts = PhaseDry_pT(bl.param_set, p, setup.T_ref)
+    ts = PhaseDry_pT(param_set, p, setup.T_ref)
     q_pt = PhasePartition(ts)
     e_pot = gravitational_potential(bl.orientation, aux)
     e_int = internal_energy(ts)

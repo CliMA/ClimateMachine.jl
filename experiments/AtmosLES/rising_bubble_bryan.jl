@@ -45,12 +45,13 @@ function init_risingbubble!(problem, bl, state, aux, localgeo, t)
     (x, y, z) = localgeo.coord
 
     FT = eltype(state)
-    R_gas::FT = R_d(bl.param_set)
-    c_p::FT = cp_d(bl.param_set)
-    c_v::FT = cv_d(bl.param_set)
+    param_set = parameter_set(bl)
+    R_gas::FT = R_d(param_set)
+    c_p::FT = cp_d(param_set)
+    c_v::FT = cv_d(param_set)
     γ::FT = c_p / c_v
-    p0::FT = MSLP(bl.param_set)
-    _grav::FT = grav(bl.param_set)
+    p0::FT = MSLP(param_set)
+    _grav::FT = grav(param_set)
 
     xc::FT = 10000
     zc::FT = 2000
@@ -68,7 +69,7 @@ function init_risingbubble!(problem, bl, state, aux, localgeo, t)
     π_exner = FT(1) - _grav / (c_p * θ) * z # exner pressure
     ρ = p0 / (R_gas * θ) * (π_exner)^(c_v / R_gas) # density
     q_tot = FT(0)
-    ts = PhaseEquil_ρθq(bl.param_set, ρ, θ, q_tot)
+    ts = PhaseEquil_ρθq(param_set, ρ, θ, q_tot)
     q_pt = PhasePartition(ts)
 
     ρu = SVector(FT(0), FT(0), FT(0))

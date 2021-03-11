@@ -495,7 +495,8 @@ function CB_constructor(interval::String, solver_config, default = nothing)
     solver = solver_config.solver
     dg = solver_config.dg
     bl = dg.balance_law
-    secs_per_day = day(bl.param_set)
+    param_set = parameter_set(bl)
+    secs_per_day = day(param_set)
 
     if (
         m = match(r"^([0-9\.]+)(smonths|sdays|shours|smins|ssecs)$", interval)
