@@ -57,12 +57,12 @@ function main(::Type{FT}) where {FT}
                 #    filepath ="output/tmp.jld2",
                 #    overwrite = true
                 #    )...,),
-                # VTKOutput((
-                #     interation = string(Δt_)*"ssecs" ,
-                #     overdir ="output",
-                #     overwrite = true,
-                #     number_sample_points = 0
-                #     )...,),
+                VTKOutput((
+                     interation = string(Δt_)*"ssecs" ,
+                     overdir ="output",
+                     overwrite = true,
+                     number_sample_points = 0
+                     )...,),
                 )
 
     # Specify RHS terms and any useful parameters
