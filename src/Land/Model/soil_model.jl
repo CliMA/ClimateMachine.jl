@@ -108,18 +108,6 @@ function vars_state(soil::SoilModel, st::GradientFlux, FT)
     end
 end
 
-
-function flux_first_order!(
-    land::LandModel,
-    soil::SoilModel,
-    flux::Grad,
-    state::Vars,
-    aux::Vars,
-    t::Real,
-    directions,
-) end
-
-
 function compute_gradient_argument!(
     land::LandModel,
     soil::SoilModel,
@@ -165,43 +153,6 @@ function compute_gradient_flux!(
     )
 
 end
-
-
-function flux_second_order!(
-    land::LandModel,
-    soil::SoilModel,
-    flux::Grad,
-    state::Vars,
-    diffusive::Vars,
-    hyperdiffusive::Vars,
-    aux::Vars,
-    t::Real,
-)
-    flux_second_order!(
-        land,
-        soil,
-        soil.water,
-        flux,
-        state,
-        diffusive,
-        hyperdiffusive,
-        aux,
-        t,
-    )
-    flux_second_order!(
-        land,
-        soil,
-        soil.heat,
-        flux,
-        state,
-        diffusive,
-        hyperdiffusive,
-        aux,
-        t,
-    )
-
-end
-
 
 function land_nodal_update_auxiliary_state!(
     land::LandModel,
@@ -280,21 +231,6 @@ function compute_gradient_flux!(
     diffusive::Vars,
     ∇transform::Grad,
     state::Vars,
-    aux::Vars,
-    t::Real,
-)
-
-end
-
-
-function flux_second_order!(
-    land::LandModel,
-    soil::SoilModel,
-    m::AbstractSoilComponentModel,
-    flux::Grad,
-    state::Vars,
-    diffusive::Vars,
-    hyperdiffusive::Vars,
     aux::Vars,
     t::Real,
 )
