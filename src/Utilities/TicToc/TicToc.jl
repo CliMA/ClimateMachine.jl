@@ -11,7 +11,7 @@ using Printf
 export @tic, @toc, tictoc
 
 # explicitly enable due to issues with pre-compilation
-const tictoc_enabled = false
+const tictoc_enabled = true
 
 # disable to reduce overhead
 const tictoc_track_memory = true
@@ -139,6 +139,8 @@ macro toc(args...)
     return _toc(ex)
 end
 
+puts(s::String) = ccall(:puts, Cint, (Cstring,), s)
+
 """
     print_timing_info()
 
@@ -146,11 +148,11 @@ end
 `stdout`.
 """
 function print_timing_info()
-    println("TicToc timing information")
+    puts("TicToc timing information")
     @static if tictoc_track_memory
-        println("name,ncalls,tottime(ns),allocbytes,gctime")
+        puts("name,ncalls,tottime(ns),allocbytes,gctime")
     else
-        println("name,ncalls,tottime(ns)")
+        puts("name,ncalls,tottime(ns)")
     end
     for i in 1:length(timing_info_names)
         @static if tictoc_track_memory
@@ -170,7 +172,7 @@ function print_timing_info()
                 timing_infos[i].time
             )
         end
-        println(s)
+        puts(s)
     end
 end
 

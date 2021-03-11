@@ -1,5 +1,6 @@
 using .NumericalFluxes:
     CentralNumericalFluxHigherOrder, CentralNumericalFluxDivergence
+using ..TicToc
 
 """
     SpaceDiscretization
@@ -452,6 +453,7 @@ The 4-argument form will just compute
     tendency .= dQdt(state_prognostic, p, t)
 """
 function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
+    @tic dg_rhs
 
     device = array_device(state_prognostic)
     Qhypervisc_grad, Qhypervisc_div = dg.states_higher_order
@@ -476,6 +478,7 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
             typeof(dg.direction) <: VerticalDirection
         )
 
+    @tic dg_rhs_update_auxiliary_state
     update_auxiliary_state!(
         dg,
         dg.balance_law,
@@ -483,6 +486,7 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
         t,
         dg.grid.topology.realelems,
     )
+    @toc dg_rhs_update_auxiliary_state
 
     exchange_state_prognostic = NoneEvent()
     exchange_state_gradient_flux = NoneEvent()
@@ -503,13 +507,16 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
         # Gradient Computation #
         ########################
 
+        @tic dg_rhs_volume_gradients
         comp_stream = launch_volume_gradients!(
             dg,
             state_prognostic,
             t;
             dependencies = comp_stream,
         )
+        @toc dg_rhs_volume_gradients
 
+        @tic dg_rhs_interface_gradients_interior
         comp_stream = launch_interface_gradients!(
             dg,
             state_prognostic,
@@ -517,6 +524,7 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
             surface = :interior,
             dependencies = comp_stream,
         )
+        @toc dg_rhs_interface_gradients_interior
 
         if communicate
             exchange_state_prognostic = MPIStateArrays.end_ghost_exchange!(
@@ -537,6 +545,7 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
             exchange_state_prognostic = Event(device)
         end
 
+        @tic dg_rhs_interface_gradients_exterior
         comp_stream = launch_interface_gradients!(
             dg,
             state_prognostic,
@@ -544,6 +553,7 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
             surface = :exterior,
             dependencies = (comp_stream, exchange_state_prognostic),
         )
+        @toc dg_rhs_interface_gradients_exterior
 
         if dg.gradient_filter !== nothing
             comp_stream = Filters.apply_async!(
@@ -575,6 +585,7 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
             # Update_aux_diffusive may start asynchronous work on the compute device
             # and we synchronize those here through a device event.
             wait(device, comp_stream)
+            @tic dg_rhs_update_auxiliary_state_gradient
             update_auxiliary_state_gradient!(
                 dg,
                 dg.balance_law,
@@ -582,6 +593,7 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
                 t,
                 dg.grid.topology.realelems,
             )
+            @toc dg_rhs_update_auxiliary_state_gradient
             comp_stream = Event(device)
         end
     end
@@ -591,13 +603,16 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
         # Laplacian Computation #
         #########################
 
+        @tic dg_rhs_volume_divergence_of_gradients
         comp_stream = launch_volume_divergence_of_gradients!(
             dg,
             state_prognostic,
             t;
             dependencies = comp_stream,
         )
+        @toc dg_rhs_volume_divergence_of_gradients
 
+        @tic dg_rhs_interface_divergence_of_gradients
         comp_stream = launch_interface_divergence_of_gradients!(
             dg,
             state_prognostic,
@@ -605,6 +620,7 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
             surface = :interior,
             dependencies = comp_stream,
         )
+        @toc dg_rhs_interface_divergence_of_gradients
 
         if communicate
             exchange_Qhypervisc_grad = MPIStateArrays.end_ghost_exchange!(
@@ -632,13 +648,16 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
         # Hyperdiffusive terms computation #
         ####################################
 
+        @tic dg_rhs_volume_gradients_of_laplacians
         comp_stream = launch_volume_gradients_of_laplacians!(
             dg,
             state_prognostic,
             t,
             dependencies = (comp_stream,),
         )
+        @toc dg_rhs_volume_gradients_of_laplacians
 
+        @tic dg_rhs_interface_gradients_of_laplacians_interior
         comp_stream = launch_interface_gradients_of_laplacians!(
             dg,
             state_prognostic,
@@ -646,6 +665,7 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
             surface = :interior,
             dependencies = (comp_stream,),
         )
+        @toc dg_rhs_interface_gradients_of_laplacians_interior
 
         if communicate
             exchange_Qhypervisc_div = MPIStateArrays.end_ghost_exchange!(
@@ -654,6 +674,7 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
             )
         end
 
+        @tic dg_rhs_interface_gradients_of_laplacians_exterior
         comp_stream = launch_interface_gradients_of_laplacians!(
             dg,
             state_prognostic,
@@ -661,6 +682,7 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
             surface = :exterior,
             dependencies = (comp_stream, exchange_Qhypervisc_div),
         )
+        @toc dg_rhs_interface_gradients_of_laplacians_exterior
 
         if communicate
             exchange_Qhypervisc_grad = MPIStateArrays.begin_ghost_exchange!(
@@ -674,6 +696,7 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
     ###################
     # RHS Computation #
     ###################
+    @tic dg_rhs_volume_tendency
     comp_stream = launch_volume_tendency!(
         dg,
         tendency,
@@ -683,7 +706,9 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
         β;
         dependencies = (comp_stream,),
     )
+    @toc dg_rhs_volume_tendency
 
+    @tic dg_rhs_interface_tendency_interior
     comp_stream = launch_interface_tendency!(
         dg,
         tendency,
@@ -694,6 +719,7 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
         surface = :interior,
         dependencies = (comp_stream,),
     )
+    @toc dg_rhs_interface_tendency_interior
 
     if communicate
         if num_state_gradient_flux > 0 || nhyperviscstate > 0
@@ -708,6 +734,7 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
                 # compute device and we synchronize those here through a device
                 # event.
                 wait(device, exchange_state_gradient_flux)
+                @tic dg_rhs_update_auxiliary_state_gradient_2
                 update_auxiliary_state_gradient!(
                     dg,
                     dg.balance_law,
@@ -715,6 +742,7 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
                     t,
                     dg.grid.topology.ghostelems,
                 )
+                @toc dg_rhs_update_auxiliary_state_gradient_2
                 exchange_state_gradient_flux = Event(device)
             end
             if nhyperviscstate > 0
@@ -732,6 +760,7 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
             # Update_aux may start asynchronous work on the compute device and
             # we synchronize those here through a device event.
             wait(device, exchange_state_prognostic)
+            @tic dg_rhs_update_auxiliary_state_2
             update_auxiliary_state!(
                 dg,
                 dg.balance_law,
@@ -739,10 +768,12 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
                 t,
                 dg.grid.topology.ghostelems,
             )
+            @toc dg_rhs_update_auxiliary_state_2
             exchange_state_prognostic = Event(device)
         end
     end
 
+    @tic dg_rhs_interface_tendency_exterior
     comp_stream = launch_interface_tendency!(
         dg,
         tendency,
@@ -758,6 +789,7 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
             exchange_Qhypervisc_grad,
         ),
     )
+    @toc dg_rhs_interface_tendency_exterior
 
     # The synchronization here through a device event prevents CuArray based and
     # other default stream kernels from launching before the work scheduled in
@@ -772,6 +804,8 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
         )
     end
     wait(device, comp_stream)
+
+    @toc dg_rhs
 end
 
 function init_ode_state(

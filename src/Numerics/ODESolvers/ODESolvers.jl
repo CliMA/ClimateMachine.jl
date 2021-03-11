@@ -12,6 +12,7 @@ using StaticArrays
 using ..SystemSolvers
 using ..MPIStateArrays: array_device, realview
 using ..GenericCallbacks
+using ..TicToc
 
 export solve!, updatedt!, gettime, getsteps
 
@@ -132,6 +133,7 @@ function solve!(
         step += 1
         updatesteps!(solver, step)
 
+        @tic ode_dostep
         time = general_dostep!(
             Q,
             solver,
@@ -139,8 +141,12 @@ function solve!(
             timeend;
             adjustfinalstep = adjustfinalstep,
         )
+        @toc ode_dostep
 
+        @tic ode_cbs
         val = GenericCallbacks.call!(callbacks, solver, Q, param, time)
+        @toc ode_cbs
+
         if val !== nothing && val > 0
             return gettime(solver)
         end

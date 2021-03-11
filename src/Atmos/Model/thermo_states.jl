@@ -47,7 +47,7 @@ recover_thermo_state(
     atmos::AtmosModel,
     state::Vars,
     aux::Vars,
-) = new_thermo_state(atmos, atmos.energy, atmos.moisture, state, aux)
+) = recover_thermo_state(atmos, atmos.energy, atmos.moisture, state, aux)
 
 recover_thermo_state(::Anelastic1D, atmos::AtmosModel, state::Vars, aux::Vars) =
     new_thermo_state_anelastic(atmos, state, aux)
@@ -156,6 +156,56 @@ function new_thermo_state(
         param_set,
         state.ρ,
         θ_liq_ice,
+        q,
+    )
+end
+
+function recover_thermo_state(
+    atmos::AtmosModel,
+    energy::EnergyModel,
+    moist::DryModel,
+    state::Vars,
+    aux::Vars,
+)
+    e_int = internal_energy(atmos, state, aux)
+    return PhaseDry(atmos.param_set, e_int, state.ρ)
+end
+
+function recover_thermo_state(
+    atmos::AtmosModel,
+    energy::EnergyModel,
+    moist::EquilMoist,
+    state::Vars,
+    aux::Vars,
+)
+    e_int = internal_energy(atmos, state, aux)
+    return PhaseEquil{eltype(state), typeof(atmos.param_set)}(
+        atmos.param_set,
+        e_int,
+        state.ρ,
+        state.moisture.ρq_tot / state.ρ,
+        aux.moisture.temperature,
+    )
+end
+
+function recover_thermo_state(
+    atmos::AtmosModel,
+    energy::EnergyModel,
+    moist::NonEquilMoist,
+    state::Vars,
+    aux::Vars,
+)
+    e_int = internal_energy(atmos, state, aux)
+    q = PhasePartition(
+        state.moisture.ρq_tot / state.ρ,
+        state.moisture.ρq_liq / state.ρ,
+        state.moisture.ρq_ice / state.ρ,
+    )
+
+    return PhaseNonEquil{eltype(state), typeof(atmos.param_set)}(
+        atmos.param_set,
+        e_int,
+        state.ρ,
         q,
     )
 end

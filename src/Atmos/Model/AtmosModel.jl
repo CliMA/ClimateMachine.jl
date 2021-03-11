@@ -45,6 +45,7 @@ using ..Mesh.Grids:
     min_node_distance,
     EveryDirection,
     Direction
+using ..TicToc
 
 using ..BalanceLaws
 using ClimateMachine.Problems
@@ -760,11 +761,23 @@ function nodal_update_auxiliary_state!(
     aux::Vars,
     t::Real,
 )
+    @tic anuas
+    @tic anuas_moisture
     atmos_nodal_update_auxiliary_state!(m.moisture, m, state, aux, t)
+    @toc anuas_moisture
+    @tic anuas_precipitation
     atmos_nodal_update_auxiliary_state!(m.precipitation, m, state, aux, t)
+    @toc anuas_precipitation
+    @tic anuas_radiation
     atmos_nodal_update_auxiliary_state!(m.radiation, m, state, aux, t)
+    @toc anuas_radiation
+    @tic anuas_tracers
     atmos_nodal_update_auxiliary_state!(m.tracers, m, state, aux, t)
+    @toc anuas_tracers
+    @tic anuas_turbconv
     turbconv_nodal_update_auxiliary_state!(m.turbconv, m, state, aux, t)
+    @toc anuas_turbconv
+    @toc anuas
 end
 
 function integral_load_auxiliary_state!(
