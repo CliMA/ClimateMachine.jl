@@ -466,6 +466,15 @@ density(atmos::AtmosModel, state::Vars, aux::Vars) =
 density(::Compressible, state, aux) = state.ρ
 density(::Anelastic1D, state, aux) = aux.ref_state.ρ
 
+pressure(atmos::AtmosModel, state::Vars, aux::Vars) =
+     pressure(atmos.compressibility, state, aux)
+
+function pressure(::Compressible, state, aux)
+     ts = recover_thermo_state(atmos, state, aux)
+     return air_pressure(ts)
+end
+
+pressure(::Anelastic1D, state, aux) = aux.ref_state.p
 
 include("declare_prognostic_vars.jl") # declare prognostic variables
 include("multiphysics_types.jl")      # types for multi-physics tendencies

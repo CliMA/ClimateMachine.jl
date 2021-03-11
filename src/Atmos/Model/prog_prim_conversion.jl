@@ -34,6 +34,7 @@ function prognostic_to_primitive!(
             prog.ρu,
             gravitational_potential(atmos.orientation, aux),
         ),
+        aux,
     )
     prognostic_to_primitive!(atmos.turbconv, atmos, atmos.moisture, prim, prog)
 end
@@ -60,6 +61,7 @@ function primitive_to_prognostic!(
         prog,
         prim,
         gravitational_potential(atmos.orientation, aux),
+        aux,
     )
     primitive_to_prognostic!(atmos.turbconv, atmos, atmos.moisture, prog, prim)
 end
@@ -74,11 +76,12 @@ function prognostic_to_primitive!(
     prim::Vars,
     prog::Vars,
     e_int::AbstractFloat,
+    aux::Vars,
 )
-    ts = PhaseDry(atmos.param_set, e_int, prog.ρ)
-    prim.ρ = prog.ρ
-    prim.u = prog.ρu ./ prog.ρ
-    prim.p = air_pressure(ts)
+    ts = recover_thermo_state(atmos, prog, aux)
+    prim.ρ = air_density(ts) # Needed for recovery of energy
+    prim.u = prog.ρu ./ density(atmos, prog, aux)
+    prim.p = pressure(atmos, prog, aux)
 end
 
 function prognostic_to_primitive!(
@@ -87,6 +90,7 @@ function prognostic_to_primitive!(
     prim::Vars,
     prog::Vars,
     e_int::AbstractFloat,
+    aux::Vars,
 )
     FT = eltype(prim)
     ts = PhaseEquil(
@@ -109,6 +113,7 @@ function prognostic_to_primitive!(
     prim::Vars,
     prog::Vars,
     e_int::AbstractFloat,
+    aux::Vars,
 )
     q_pt = PhasePartition(
         prog.moisture.ρq_tot / prog.ρ,
@@ -134,14 +139,15 @@ function primitive_to_prognostic!(
     prog::Vars,
     prim::Vars,
     e_pot::AbstractFloat,
+    aux::Vars,
 )
     atmos.energy isa EnergyModel || error("EnergyModel only supported")
-    ts = PhaseDry_ρp(atmos.param_set, prim.ρ, prim.p)
+    ts = PhaseDry_ρp(atmos.param_set, prim.ρ, prim.p) # Recover correct ts
     e_kin = prim.u' * prim.u / 2
 
-    prog.ρ = prim.ρ
-    prog.ρu = prim.ρ .* prim.u
-    prog.energy.ρe = prim.ρ * total_energy(e_kin, e_pot, ts)
+    prog.ρ = density(atmos, prog, aux)
+    prog.ρu = density(atmos, prog, aux) .* prim.u
+    prog.energy.ρe = density(atmos, prog, aux) * total_energy(e_kin, e_pot, ts)
 end
 
 function primitive_to_prognostic!(
@@ -150,6 +156,7 @@ function primitive_to_prognostic!(
     prog::Vars,
     prim::Vars,
     e_pot::AbstractFloat,
+    aux::Vars,
 )
     atmos.energy isa EnergyModel || error("EnergyModel only supported")
     ts = PhaseEquil_ρpq(
@@ -173,6 +180,7 @@ function primitive_to_prognostic!(
     prog::Vars,
     prim::Vars,
     e_pot::AbstractFloat,
+    aux::Vars,
 )
     atmos.energy isa EnergyModel || error("EnergyModel only supported")
     q_pt = PhasePartition(
