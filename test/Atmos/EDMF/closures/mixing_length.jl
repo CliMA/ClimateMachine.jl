@@ -42,7 +42,8 @@ function mixing_length(
     N_up = n_updrafts(m.turbconv)
 
     z = altitude(m, aux)
-    _grav::FT = grav(m.param_set)
+    param_set = parameter_set(m)
+    _grav::FT = grav(param_set)
     ρinv = 1 / gm.ρ
 
     Shear² = diffusive.turbconv.S²

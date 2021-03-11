@@ -8,6 +8,7 @@ using CLIMAParameters.Planet: grav
 using ...Problems
 
 using ..Ocean
+using ..BalanceLaws: parameter_set
 using ..HydrostaticBoussinesq
 using ..ShallowWater
 using ..SplitExplicit01

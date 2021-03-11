@@ -34,11 +34,12 @@ function init_schar!(problem, bl, state, aux, localgeo, t)
     (x, y, z) = localgeo.coord
 
     ## Unpack constant parameters
-    R_gas::FT = R_d(bl.param_set)
-    c_p::FT = cp_d(bl.param_set)
-    c_v::FT = cv_d(bl.param_set)
-    p0::FT = MSLP(bl.param_set)
-    _grav::FT = grav(bl.param_set)
+    param_set = parameter_set(bl)
+    R_gas::FT = R_d(param_set)
+    c_p::FT = cp_d(param_set)
+    c_v::FT = cv_d(param_set)
+    p0::FT = MSLP(param_set)
+    _grav::FT = grav(param_set)
     γ::FT = c_p / c_v
 
     c::FT = c_v / R_gas
@@ -59,8 +60,8 @@ function init_schar!(problem, bl, state, aux, localgeo, t)
 
     ## Compute perturbed thermodynamic state:
     T = θ * π_exner
-    e_int = internal_energy(bl.param_set, T)
-    ts = PhaseDry(bl.param_set, e_int, ρ)
+    e_int = internal_energy(param_set, T)
+    ts = PhaseDry(param_set, e_int, ρ)
 
     ## Initial velocity
     z₁::FT = 4000

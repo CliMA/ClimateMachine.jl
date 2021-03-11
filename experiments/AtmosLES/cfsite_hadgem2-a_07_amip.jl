@@ -107,7 +107,8 @@ function source(s::LargeScaleProcess{Energy}, m, args)
     FT = eltype(state)
     # Establish vertical orientation
     k̂ = vertical_unit_vector(m, aux)
-    _e_int_v0 = e_int_v0(m.param_set)
+    param_set = parameter_set(m)
+    _e_int_v0 = e_int_v0(param_set)
     # Unpack vertical gradients
     ∂qt∂z = diffusive.lsforcing.∇ᵥhus
     ∂T∂z = diffusive.lsforcing.∇ᵥta
@@ -349,8 +350,9 @@ end
 const seed = MersenneTwister(0)
 function init_cfsites!(problem, bl, state, aux, localgeo, t, spl)
     FT = eltype(state)
+    param_set = parameter_set(bl)
     (x, y, z) = localgeo.coord
-    _grav = grav(bl.param_set)
+    _grav = FT(grav(param_set))
 
     # Unpack splines, interpolate to z coordinate at
     # present grid index. (Functions are all pointwise)
@@ -367,9 +369,10 @@ function init_cfsites!(problem, bl, state, aux, localgeo, t, spl)
     wap = FT(spl.spl_wap(z))
     ρ_gcm = FT(1 / spl.spl_alpha(z))
 
+    param_set = parameter_set(bl)
     # Compute field properties based on interpolated data
-    ρ = air_density(bl.param_set, ta, pfull, PhasePartition(hus))
-    e_int = internal_energy(bl.param_set, ta, PhasePartition(hus))
+    ρ = air_density(param_set, ta, pfull, PhasePartition(hus))
+    e_int = internal_energy(param_set, ta, PhasePartition(hus))
     e_kin = (ua^2 + va^2) / 2
     e_pot = _grav * z
     # Assignment of state variables

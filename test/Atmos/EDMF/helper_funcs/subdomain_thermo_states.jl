@@ -131,14 +131,14 @@ function new_thermo_state_up(
     N_up = n_updrafts(m.turbconv)
     up = state.turbconv.updraft
     p = air_pressure(ts)
-
+    param_set = parameter_set(m)
     # compute thermo state for updrafts
     ts_up = vuntuple(N_up) do i
         ρa_up = up[i].ρa
         ρaθ_liq_up = up[i].ρaθ_liq
         θ_liq_up =
             fix_void_up(ρa_up, ρaθ_liq_up / ρa_up, liquid_ice_pottemp(ts))
-        PhaseDry_pθ(m.param_set, p, θ_liq_up)
+        PhaseDry_pθ(param_set, p, θ_liq_up)
     end
     return ts_up
 end
@@ -154,7 +154,7 @@ function new_thermo_state_up(
     N_up = n_updrafts(m.turbconv)
     up = state.turbconv.updraft
     p = air_pressure(ts)
-
+    param_set = parameter_set(m)
     # compute thermo state for updrafts
     ts_up = vuntuple(N_up) do i
         ρa_up = up[i].ρa
@@ -167,7 +167,7 @@ function new_thermo_state_up(
             ρaq_tot_up / ρa_up,
             total_specific_humidity(ts),
         )
-        PhaseEquil_pθq(m.param_set, p, θ_liq_up, q_tot_up)
+        PhaseEquil_pθq(param_set, p, θ_liq_up, q_tot_up)
     end
     return ts_up
 end
@@ -190,13 +190,14 @@ function new_thermo_state_en(
     θ_liq_en = (θ_liq - sum(vuntuple(j -> up[j].ρaθ_liq * ρ_inv, N_up))) / a_en
     a_min = m.turbconv.subdomains.a_min
     a_max = m.turbconv.subdomains.a_max
+    param_set = parameter_set(m)
     if !(0 <= θ_liq_en)
         @print("ρaθ_liq_up = ", up[Val(1)].ρaθ_liq, "\n")
         @print("θ_liq = ", θ_liq, "\n")
         @print("θ_liq_en = ", θ_liq_en, "\n")
         error("Environment θ_liq_en out-of-bounds in new_thermo_state_en")
     end
-    ts_en = PhaseDry_pθ(m.param_set, p, θ_liq_en)
+    ts_en = PhaseDry_pθ(param_set, p, θ_liq_en)
     return ts_en
 end
 
@@ -220,6 +221,7 @@ function new_thermo_state_en(
     q_tot_en = (q_tot - sum(vuntuple(j -> up[j].ρaq_tot * ρ_inv, N_up))) / a_en
     a_min = m.turbconv.subdomains.a_min
     a_max = m.turbconv.subdomains.a_max
+    param_set = parameter_set(m)
     if !(0 <= θ_liq_en)
         @print("θ_liq_en = ", θ_liq_en, "\n")
         error("Environment θ_liq_en out-of-bounds in new_thermo_state_en")
@@ -228,6 +230,6 @@ function new_thermo_state_en(
         @print("q_tot_en = ", q_tot_en, "\n")
         error("Environment q_tot_en out-of-bounds in new_thermo_state_en")
     end
-    ts_en = PhaseEquil_pθq(m.param_set, p, θ_liq_en, q_tot_en)
+    ts_en = PhaseEquil_pθq(param_set, p, θ_liq_en, q_tot_en)
     return ts_en
 end

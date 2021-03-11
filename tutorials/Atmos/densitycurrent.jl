@@ -132,13 +132,14 @@ function init_densitycurrent!(problem, bl, state, aux, localgeo, t)
 
     ## Problem float-type
     FT = eltype(state)
+    param_set = parameter_set(bl)
 
     ## Unpack constant parameters
-    R_gas::FT = R_d(bl.param_set)
-    c_p::FT = cp_d(bl.param_set)
-    c_v::FT = cv_d(bl.param_set)
-    p0::FT = MSLP(bl.param_set)
-    _grav::FT = grav(bl.param_set)
+    R_gas::FT = R_d(param_set)
+    c_p::FT = cp_d(param_set)
+    c_v::FT = cv_d(param_set)
+    p0::FT = MSLP(param_set)
+    _grav::FT = grav(param_set)
     γ::FT = c_p / c_v
 
     ## Define bubble center and background potential temperature
@@ -165,8 +166,8 @@ function init_densitycurrent!(problem, bl, state, aux, localgeo, t)
     π_exner = FT(1) - _grav / (c_p * θ) * z             ## exner pressure
     ρ = p0 / (R_gas * θ) * (π_exner)^(c_v / R_gas)      ## density
     T = θ * π_exner
-    e_int = internal_energy(bl.param_set, T)
-    ts = PhaseDry(bl.param_set, e_int, ρ)
+    e_int = internal_energy(param_set, T)
+    ts = PhaseDry(param_set, e_int, ρ)
     ρu = SVector(FT(0), FT(0), FT(0))                   ## momentum
     ## State (prognostic) variable assignment
     e_kin = FT(0)                                       ## kinetic energy

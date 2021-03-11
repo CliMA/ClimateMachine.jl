@@ -52,8 +52,8 @@ function init_state_prognostic!(
     # SCM setting - need to have separate cases coded and called from a folder - see what LES does
     # a thermo state is used here to convert the input θ to e_int profile
     e_int = internal_energy(m, state, aux)
-
-    ts = PhaseDry(m.param_set, e_int, state.ρ)
+    param_set = parameter_set(m)
+    ts = PhaseDry(param_set, e_int, state.ρ)
     T = air_temperature(ts)
     p = air_pressure(ts)
     q = PhasePartition(ts)

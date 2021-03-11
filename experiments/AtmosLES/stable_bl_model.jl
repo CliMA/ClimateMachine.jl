@@ -127,12 +127,13 @@ add_perturbations!(state, localgeo) = nothing
 function init_problem!(problem, bl, state, aux, localgeo, t)
     (x, y, z) = localgeo.coord
     # Problem floating point precision
+    param_set = parameter_set(bl)
     FT = eltype(state)
-    R_gas::FT = R_d(bl.param_set)
-    c_p::FT = cp_d(bl.param_set)
-    c_v::FT = cv_d(bl.param_set)
-    p0::FT = MSLP(bl.param_set)
-    _grav::FT = grav(bl.param_set)
+    R_gas::FT = R_d(param_set)
+    c_p::FT = cp_d(param_set)
+    c_v::FT = cv_d(param_set)
+    p0::FT = MSLP(param_set)
+    _grav::FT = grav(param_set)
     γ::FT = c_p / c_v
     # Initialise speeds [u = Eastward, v = Northward, w = Vertical]
     u::FT = 8
@@ -152,9 +153,9 @@ function init_problem!(problem, bl, state, aux, localgeo, t)
     p = aux.ref_state.p
     # Establish thermodynamic state and moist phase partitioning
     if bl.moisture isa DryModel
-        TS = PhaseDry_pθ(bl.param_set, p, θ)
+        TS = PhaseDry_pθ(param_set, p, θ)
     else
-        TS = PhaseEquil_pθq(bl.param_set, p, θ_liq, q_tot)
+        TS = PhaseEquil_pθq(param_set, p, θ_liq, q_tot)
     end
 
     ρ = bl.compressibility isa Compressible ? air_density(TS) : aux.ref_state.ρ

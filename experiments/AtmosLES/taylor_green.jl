@@ -52,13 +52,14 @@ function init_greenvortex!(problem, bl, state, aux, localgeo, t)
 
     # Problem float-type
     FT = eltype(state)
+    param_set = parameter_set(bl)
 
     # Unpack constant parameters
-    R_gas::FT = R_d(bl.param_set)
-    c_p::FT = cp_d(bl.param_set)
-    c_v::FT = cv_d(bl.param_set)
-    p0::FT = MSLP(bl.param_set)
-    _grav::FT = grav(bl.param_set)
+    R_gas::FT = R_d(param_set)
+    c_p::FT = cp_d(param_set)
+    c_v::FT = cv_d(param_set)
+    p0::FT = MSLP(param_set)
+    _grav::FT = grav(param_set)
     γ::FT = c_p / c_v
 
     # Compute perturbed thermodynamic state:
@@ -73,7 +74,7 @@ function init_greenvortex!(problem, bl, state, aux, localgeo, t)
     v = -Uzero * cos(x) * sin(y) * cos(z)
     e_kin = 0.5 * (u^2 + v^2)
     T = p / (ρ * R_gas)
-    e_int = internal_energy(bl.param_set, T, PhasePartition(FT(0)))
+    e_int = internal_energy(param_set, T, PhasePartition(FT(0)))
     ρe_tot = ρ * (e_kin + e_pot + e_int)
     # Assign State Variables
     state.ρ = ρ

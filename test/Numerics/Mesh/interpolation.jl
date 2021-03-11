@@ -69,6 +69,7 @@ end
 function (setup::TestSphereSetup)(problem, bl, state, aux, coords, t)
     # callable to set initial conditions
     FT = eltype(state)
+    param_set = parameter_set(bl)
     _grav::FT = grav(param_set)
     _R_d::FT = R_d(param_set)
 
@@ -76,11 +77,11 @@ function (setup::TestSphereSetup)(problem, bl, state, aux, coords, t)
 
     scale_height::FT = _R_d * setup.T_initial / _grav
     p::FT = setup.p_ground * exp(-z / scale_height)
-    e_int = internal_energy(bl.param_set, setup.T_initial)
+    e_int = internal_energy(param_set, setup.T_initial)
     e_pot = gravitational_potential(bl.orientation, aux)
 
     # TODO: Fix type instability: typeof(setup.T_initial) == typeof(p) fails
-    state.ρ = air_density(bl.param_set, FT(setup.T_initial), p)
+    state.ρ = air_density(param_set, FT(setup.T_initial), p)
     state.ρu = SVector{3, FT}(0, 0, 0)
     state.energy.ρe = state.ρ * (e_int + e_pot)
     return nothing

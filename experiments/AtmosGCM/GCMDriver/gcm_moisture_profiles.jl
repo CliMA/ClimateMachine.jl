@@ -64,7 +64,8 @@ function init_moisture_profile(
 )
     FT = eltype(state)
 
-    _p_0 = MSLP(bl.param_set)::FT
+    param_set = parameter_set(bl)
+    _p_0::FT = MSLP(param_set)
 
     φ = latitude(bl, aux)
 

@@ -5,6 +5,7 @@ using MPI
 using ClimateMachine
 
 using ClimateMachine: Settings
+using ...BalanceLaws: parameter_set
 
 using ...DGMethods.NumericalFluxes
 
@@ -167,7 +168,7 @@ function HydrostaticBoussinesqSuperModel(;
         eltype(domain),
         array_type,
         timestepper,
-        equations.param_set,
+        parameter_set(equations),
         equations,
         MPI.COMM_WORLD,
         grid,

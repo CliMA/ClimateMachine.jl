@@ -103,7 +103,13 @@ using ClimateMachine.ODESolvers
 using ClimateMachine.VariableTemplates
 using ClimateMachine.SingleStackUtils
 using ClimateMachine.BalanceLaws:
-    BalanceLaw, Prognostic, Auxiliary, Gradient, GradientFlux, vars_state
+    BalanceLaw,
+    Prognostic,
+    Auxiliary,
+    Gradient,
+    GradientFlux,
+    vars_state,
+    parameter_set
 import ClimateMachine.DGMethods: calculate_dt
 using ClimateMachine.ArtifactWrappers
 
@@ -286,16 +292,17 @@ bc = LandDomainBC(
 # converts between `T` and `ρe_int`.
 
 function init_soil!(land, state, aux, localgeo, time)
+    param_set = parameter_set(land)
     ϑ_l, θ_i = get_water_content(land.soil.water, aux, state, time)
     θ_l = volumetric_liquid_fraction(ϑ_l, land.soil.param_functions.porosity)
     ρc_ds = land.soil.param_functions.ρc_ds
-    ρc_s = volumetric_heat_capacity(θ_l, θ_i, ρc_ds, land.param_set)
+    ρc_s = volumetric_heat_capacity(θ_l, θ_i, ρc_ds, param_set)
 
     state.soil.heat.ρe_int = volumetric_internal_energy(
         θ_i,
         ρc_s,
         land.soil.heat.initialT(aux),
-        land.param_set,
+        param_set,
     )
 end;
 
@@ -376,10 +383,11 @@ function diffusive_courant(
     t,
     direction,
 )
+    param_set = parameter_set(m)
     soil = m.soil
     ϑ_l, θ_i = get_water_content(soil.water, aux, state, t)
     θ_l = volumetric_liquid_fraction(ϑ_l, soil.param_functions.porosity)
-    κ_dry = k_dry(m.param_set, soil.param_functions)
+    κ_dry = k_dry(param_set, soil.param_functions)
     S_r = relative_saturation(θ_l, θ_i, soil.param_functions.porosity)
     kersten = kersten_number(θ_i, S_r, soil.param_functions)
     κ_sat = saturated_thermal_conductivity(
@@ -390,7 +398,7 @@ function diffusive_courant(
     )
     κ = thermal_conductivity(κ_dry, kersten, κ_sat)
     ρc_ds = soil.param_functions.ρc_ds
-    ρc_s = volumetric_heat_capacity(θ_l, θ_i, ρc_ds, m.param_set)
+    ρc_s = volumetric_heat_capacity(θ_l, θ_i, ρc_ds, param_set)
     return Δt * κ / (Δx * Δx * ρc_ds)
 end
 

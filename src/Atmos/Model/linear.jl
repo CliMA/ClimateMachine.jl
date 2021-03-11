@@ -38,7 +38,7 @@ end
 @inline linearized_pressure(atmos, state::Vars, aux::Vars) =
     linearized_pressure(
         atmos.moisture,
-        atmos.param_set,
+        parameter_set(atmos),
         atmos.orientation,
         state,
         aux,
@@ -164,7 +164,7 @@ function wavespeed(
     direction,
 )
     ref = aux.ref_state
-    return soundspeed_air(lm.atmos.param_set, ref.T)
+    return soundspeed_air(parameter_set(lm.atmos), ref.T)
 end
 
 boundary_conditions(atmoslm::AtmosLinearModel) = (AtmosBC(), AtmosBC())
@@ -306,7 +306,7 @@ function numerical_flux_first_order!(
     )
 
     atmos = balance_law.atmos
-    param_set = atmos.param_set
+    param_set = parameter_set(atmos)
 
     ρu⁻ = state_prognostic⁻.ρu
 
@@ -397,7 +397,7 @@ function numerical_flux_first_order!(
     )
 
     atmos = balance_law.atmos
-    param_set = atmos.param_set
+    param_set = parameter_set(atmos)
     FT = eltype(aux)
     ρu⁻ = state_prognostic⁻.ρu
 

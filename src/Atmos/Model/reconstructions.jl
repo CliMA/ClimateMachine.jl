@@ -20,7 +20,8 @@ function (hb_recon::HBFVReconstruction)(
 ) where {D}
     FT = eltype(state_bot)
     vars_prim = Vars{vars_state(hb_recon._atmo, Primitive(), FT)}
-    _grav = FT(grav(hb_recon._atmo.param_set))
+    param_set = parameter_set(hb_recon._atmo)
+    _grav = FT(grav(param_set))
 
     # stencil info
     stencil_diameter = D
@@ -37,7 +38,7 @@ function (hb_recon::HBFVReconstruction)(
                 vars_prim(cell_states[i]).ρ * _grav * cell_weights[i] / 2
         end
 
-        # construct reference pressure steates and update pressure states
+        # construct reference pressure states and update pressure states
         p_ref = ps[stencil_center]
         p_bot_ref = p_ref + ρgΔz_half[stencil_center]
         p_top_ref = p_ref - ρgΔz_half[stencil_center]

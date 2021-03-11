@@ -406,11 +406,11 @@ function compute_gradient_argument!(
 
     # Get environment variables
     env = environment_vars(state, N_up)
-
+    param_set = parameter_set(m)
     @unroll_map(N_up) do i
         up_tf[i].w = fix_void_up(up[i].ρa, up[i].ρaw / up[i].ρa)
     end
-    _grav::FT = grav(m.param_set)
+    _grav::FT = grav(param_set)
 
     ρ_inv = 1 / gm.ρ
     θ_liq_en = liquid_ice_pottemp(ts.en)
@@ -939,8 +939,9 @@ function compute_buoyancy(
     ref_state::Vars,
 )
     FT = eltype(state)
+    param_set = parameter_set(bl)
     N_up = n_updrafts(bl.turbconv)
-    _grav::FT = grav(bl.param_set)
+    _grav::FT = grav(param_set)
     gm = state
     ρ_inv = 1 / gm.ρ
     buoyancy_en = -_grav * (air_density(ts_en) - ref_state.ρ) * ρ_inv
@@ -1027,7 +1028,8 @@ function flux(::SGSFlux{Energy}, atmos, args)
     @unpack state, aux, diffusive = args
     @unpack env, K_h, ρa_up, ρaw_up, ts_up = args.precomputed.turbconv
     FT = eltype(state)
-    _grav::FT = grav(atmos.param_set)
+    param_set = parameter_set(atmos)
+    _grav::FT = grav(param_set)
     z = altitude(atmos, aux)
     en_dif = diffusive.turbconv.environment
     up = state.turbconv.updraft
