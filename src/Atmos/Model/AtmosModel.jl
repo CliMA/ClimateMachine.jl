@@ -8,7 +8,8 @@ export AtmosModel,
     RoeNumericalFluxMoist,
     LMARSNumericalFlux,
     Compressible,
-    Anelastic1D
+    Anelastic1D,
+    parameter_set
 
 using UnPack
 using CLIMAParameters
@@ -57,6 +58,7 @@ import ..BalanceLaws:
     eq_tends,
     flux,
     precompute,
+    parameter_set,
     source,
     wavespeed,
     boundary_conditions,
@@ -102,6 +104,25 @@ using ..DGMethods.NumericalFluxes:
 import ..Courant: advective_courant, nondiffusive_courant, diffusive_courant
 
 """
+    AtmosPhysics
+
+An `AtmosPhysics` for atmospheric physics
+
+# Usage
+
+    AtmosPhysics(
+        param_set,
+    )
+
+# Fields
+$(DocStringExtensions.FIELDS)
+"""
+struct AtmosPhysics{FT, PS}
+    "Parameter Set (type to dispatch on, e.g., planet parameters. See CLIMAParameters.jl package)"
+    param_set::PS
+end
+
+"""
     AtmosModel <: BalanceLaw
 
 A `BalanceLaw` for atmosphere modeling. Users may over-ride prescribed
@@ -110,7 +131,7 @@ default values for each field.
 # Usage
 
     AtmosModel(
-        param_set,
+        physics,
         problem,
         orientation,
         ref_state,
@@ -131,7 +152,7 @@ $(DocStringExtensions.FIELDS)
 """
 struct AtmosModel{
     FT,
-    PS,
+    PH,
     PR,
     O,
     E,
@@ -149,8 +170,8 @@ struct AtmosModel{
     C,
     DC,
 } <: BalanceLaw
-    "Parameter Set (type to dispatch on, e.g., planet parameters. See CLIMAParameters.jl package)"
-    param_set::PS
+    "Atmospheric physics"
+    physics::PH
     "Problem (initial and boundary conditions)"
     problem::PR
     "An orientation model"
@@ -184,6 +205,8 @@ struct AtmosModel{
     "Data Configuration (Helper field for experiment configuration)"
     data_config::DC
 end
+
+parameter_set(atmos::AtmosModel) = atmos.physics.param_set
 
 abstract type Compressibilty end
 
@@ -239,7 +262,7 @@ function AtmosModel{FT}(
     @assert !any(isa.(source, Tuple))
 
     atmos = (
-        param_set,
+        AtmosPhysics{FT, typeof(param_set)}(param_set),
         problem,
         orientation,
         energy,
@@ -436,14 +459,14 @@ end
 #### Forward orientation methods
 ####
 projection_normal(bl, aux, u⃗) =
-    projection_normal(bl.orientation, bl.param_set, aux, u⃗)
+    projection_normal(bl.orientation, parameter_set(bl), aux, u⃗)
 projection_tangential(bl, aux, u⃗) =
-    projection_tangential(bl.orientation, bl.param_set, aux, u⃗)
+    projection_tangential(bl.orientation, parameter_set(bl), aux, u⃗)
 latitude(bl, aux) = latitude(bl.orientation, aux)
 longitude(bl, aux) = longitude(bl.orientation, aux)
-altitude(bl, aux) = altitude(bl.orientation, bl.param_set, aux)
+altitude(bl, aux) = altitude(bl.orientation, parameter_set(bl), aux)
 vertical_unit_vector(bl, aux) =
-    vertical_unit_vector(bl.orientation, bl.param_set, aux)
+    vertical_unit_vector(bl.orientation, parameter_set(bl), aux)
 gravitational_potential(bl, aux) = gravitational_potential(bl.orientation, aux)
 ∇gravitational_potential(bl, aux) =
     ∇gravitational_potential(bl.orientation, aux)
@@ -930,7 +953,7 @@ function numerical_flux_first_order!(
     )
 
     FT = eltype(fluxᵀn)
-    param_set = balance_law.param_set
+    param_set = parameter_set(balance_law)
     _cv_d::FT = cv_d(param_set)
     _T_0::FT = T_0(param_set)
 
@@ -1049,7 +1072,7 @@ function numerical_flux_first_order!(
 ) where {S, A}
     FT = eltype(fluxᵀn)
     num_state_prognostic = number_states(balance_law, Prognostic())
-    param_set = balance_law.param_set
+    param_set = parameter_set(balance_law)
 
     # Extract the first-order fluxes from the AtmosModel (underlying BalanceLaw)
     # and compute normals on the positive + and negative - sides of the
@@ -1184,7 +1207,7 @@ function numerical_flux_first_order!(
     )
 
     FT = eltype(fluxᵀn)
-    param_set = balance_law.param_set
+    param_set = parameter_set(balance_law)
     _cv_d::FT = cv_d(param_set)
     _T_0::FT = T_0(param_set)
     γ::FT = cp_d(param_set) / cv_d(param_set)
@@ -1413,7 +1436,7 @@ function numerical_flux_first_order!(
             balance_law.moisture isa EquilMoist
 
     FT = eltype(fluxᵀn)
-    param_set = balance_law.param_set
+    param_set = parameter_set(balance_law)
 
     ρ⁻ = state_prognostic⁻.ρ
     ρu⁻ = state_prognostic⁻.ρu
