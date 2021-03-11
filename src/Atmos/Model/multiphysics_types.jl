@@ -5,68 +5,54 @@ using CLIMAParameters.Planet: T_freeze, cv_l
 using ..Microphysics_0M
 using ..Microphysics
 
+export RainSnow_1M
+export WarmRain_1M
+export Diffusion
 export Subsidence
-struct Subsidence{PV, FT} <: TendencyDef{Source, PV}
+export RemovePrecipitation
+
+struct Subsidence{FT} <: TendencyDef{Source}
     D::FT
 end
 
-# Subsidence includes tendencies in Mass, Energy and TotalMoisture equations:
-Subsidence(D::FT) where {FT} = (
-    Subsidence{Mass, FT}(D),
-    Subsidence{Energy, FT}(D),
-    Subsidence{TotalMoisture, FT}(D),
-)
+prognostic_vars(::Subsidence) = (Mass(), Energy(), TotalMoisture())
 
-subsidence_velocity(subsidence::Subsidence{PV, FT}, z::FT) where {PV, FT} =
+# Subsidence includes tendencies in Mass, Energy and TotalMoisture equations:
+
+subsidence_velocity(subsidence::Subsidence{FT}, z::FT) where {FT} =
     -subsidence.D * z
 
-struct PressureGradient{PV <: Momentum} <: TendencyDef{Flux{FirstOrder}, PV} end
-struct Pressure{PV <: Energy} <: TendencyDef{Flux{FirstOrder}, PV} end
+struct PressureGradient <: TendencyDef{Flux{FirstOrder}} end
+struct Pressure <: TendencyDef{Flux{FirstOrder}} end
+struct Advect <: TendencyDef{Flux{FirstOrder}} end
+struct Diffusion <: TendencyDef{Flux{SecondOrder}} end
+struct MoistureDiffusion <: TendencyDef{Flux{SecondOrder}} end
 
-struct Advect{PV} <: TendencyDef{Flux{FirstOrder}, PV} end
-export Diffusion
-struct Diffusion{PV} <: TendencyDef{Flux{SecondOrder}, PV} end
-
-struct MoistureDiffusion{PV <: Union{Mass, Momentum, Moisture}} <:
-       TendencyDef{Flux{SecondOrder}, PV} end
-
-export RemovePrecipitation
 """
-    RemovePrecipitation{PV} <: TendencyDef{Source, PV}
+    RemovePrecipitation <: TendencyDef{Source}
+
 A sink to `q_tot` when cloud condensate is exceeding a threshold.
 The threshold is defined either in terms of condensate or supersaturation.
 The removal rate is implemented as a relaxation term
 in the Microphysics_0M module.
 The default thresholds and timescale are defined in CLIMAParameters.jl.
 """
-struct RemovePrecipitation{PV <: Union{Mass, Energy, TotalMoisture}} <:
-       TendencyDef{Source, PV}
+struct RemovePrecipitation <: TendencyDef{Source}
     " Set to true if using qc based threshold"
     use_qc_thr::Bool
 end
 
-RemovePrecipitation(b::Bool) = (
-    RemovePrecipitation{Mass}(b),
-    RemovePrecipitation{Energy}(b),
-    RemovePrecipitation{TotalMoisture}(b),
-)
+prognostic_vars(::RemovePrecipitation) = (Mass(), Energy(), TotalMoisture())
 
 """
-    PrecipitationFlux{PV <: Union{Rain, Snow}} <: TendencyDef{Flux{FirstOrder}, PV}
+    PrecipitationFlux <: TendencyDef{Flux{FirstOrder}}
 
 Computes the precipitation flux as a sum of air velocity and terminal velocity
 multiplied by the advected variable.
 """
-struct PrecipitationFlux{PV <: Union{Rain, Snow}} <:
-       TendencyDef{Flux{FirstOrder}, PV} end
+struct PrecipitationFlux <: TendencyDef{Flux{FirstOrder}} end
 
-PrecipitationFlux() = (PrecipitationFlux{Rain}(), PrecipitationFlux{Snow}())
-
-function remove_precipitation_sources(
-    s::RemovePrecipitation{PV},
-    atmos,
-    args,
-) where {PV <: Union{Mass, Energy, TotalMoisture}}
+function remove_precipitation_sources(s::RemovePrecipitation, atmos, args)
     @unpack state, aux = args
     @unpack ts = args.precomputed
 
@@ -89,27 +75,18 @@ function remove_precipitation_sources(
 
     S_e::FT = (λ * I_l + (1 - λ) * I_i + Φ) * S_qt
 
-    return (S_ρ_qt = state.ρ * S_qt, S_ρ_e = state.ρ * S_e)
+    return (; S_ρ_qt = state.ρ * S_qt, S_ρ_e = state.ρ * S_e)
 end
 
-export WarmRain_1M
 """
-    WarmRain_1M{PV <: Union{Mass, Energy, TotalMoisture, LiquidMoisture, Rain},
-        } <: TendencyDef{Source, PV}
+    WarmRain_1M <: TendencyDef{Source}
 
 A collection of source/sink terms related to 1-moment warm rain microphysics.
 """
-struct WarmRain_1M{
-    PV <: Union{Mass, Energy, TotalMoisture, LiquidMoisture, Rain},
-} <: TendencyDef{Source, PV} end
+struct WarmRain_1M <: TendencyDef{Source} end
 
-WarmRain_1M() = (
-    WarmRain_1M{Mass}(),
-    WarmRain_1M{Energy}(),
-    WarmRain_1M{TotalMoisture}(),
-    WarmRain_1M{LiquidMoisture}(),
-    WarmRain_1M{Rain}(),
-)
+prognostic_vars(::WarmRain_1M) =
+    (Mass(), Energy(), TotalMoisture(), LiquidMoisture(), Rain())
 
 function warm_rain_sources(atmos, args, ts)
     @unpack state, aux = args
@@ -149,7 +126,7 @@ function warm_rain_sources(atmos, args, ts)
     S_qt::FT = -S_qr
     S_e::FT = S_qt * (I_l + Φ)
 
-    return (
+    return (;
         S_ρ_qt = state.ρ * S_qt,
         S_ρ_ql = state.ρ * S_ql,
         S_ρ_qr = state.ρ * S_qr,
@@ -157,24 +134,21 @@ function warm_rain_sources(atmos, args, ts)
     )
 end
 
-export RainSnow_1M
 """
-    RainSnow_1M{PV <: Union{Mass, Energy, Moisture, Rain, Snow}} <:
-       TendencyDef{Source, PV}
+    RainSnow_1M <: TendencyDef{Source}
 
 A collection of source/sink terms related to 1-moment rain and snow microphysics
 """
-struct RainSnow_1M{PV <: Union{Mass, Energy, Moisture, Rain, Snow}} <:
-       TendencyDef{Source, PV} end
+struct RainSnow_1M <: TendencyDef{Source} end
 
-RainSnow_1M() = (
-    RainSnow_1M{Mass}(),
-    RainSnow_1M{Energy}(),
-    RainSnow_1M{TotalMoisture}(),
-    RainSnow_1M{LiquidMoisture}(),
-    RainSnow_1M{IceMoisture}(),
-    RainSnow_1M{Rain}(),
-    RainSnow_1M{Snow}(),
+prognostic_vars(::RainSnow_1M) = (
+    Mass(),
+    Energy(),
+    TotalMoisture(),
+    LiquidMoisture(),
+    IceMoisture(),
+    Rain(),
+    Snow(),
 )
 
 function rain_snow_sources(atmos, args, ts)
@@ -347,7 +321,7 @@ function rain_snow_sources(atmos, args, ts)
     # total qt sink is the sum of precip sources
     S_qt = -S_qr - S_qs
 
-    return (
+    return (;
         S_ρ_qt = state.ρ * S_qt,
         S_ρ_ql = state.ρ * S_ql,
         S_ρ_qi = state.ρ * S_qi,

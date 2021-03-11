@@ -4,7 +4,7 @@
 ##### First order fluxes
 #####
 
-function flux(::Advect{Mass}, atmos, args)
+function flux(::Mass, ::Advect, atmos, args)
     return args.state.ρu
 end
 
@@ -12,7 +12,7 @@ end
 ##### Second order fluxes
 #####
 
-function flux(::MoistureDiffusion{Mass}, atmos, args)
+function flux(::Mass, ::MoistureDiffusion, atmos, args)
     @unpack state, diffusive = args
     @unpack D_t = args.precomputed.turbulence
     d_q_tot = (-D_t) .* diffusive.moisture.∇q_tot
@@ -23,7 +23,7 @@ end
 ##### Sources
 #####
 
-function source(s::Subsidence{Mass}, m, args)
+function source(::Mass, s::Subsidence, m, args)
     @unpack state, aux, diffusive = args
     z = altitude(m, aux)
     w_sub = subsidence_velocity(s, z)
@@ -31,7 +31,7 @@ function source(s::Subsidence{Mass}, m, args)
     return -state.ρ * w_sub * dot(k̂, diffusive.moisture.∇q_tot)
 end
 
-function source(s::RemovePrecipitation{Mass}, m, args)
+function source(::Mass, s::RemovePrecipitation, m, args)
     @unpack state = args
     @unpack ts = args.precomputed
     if has_condensate(ts)
@@ -43,12 +43,12 @@ function source(s::RemovePrecipitation{Mass}, m, args)
     end
 end
 
-function source(s::WarmRain_1M{Mass}, m, args)
+function source(::Mass, s::WarmRain_1M, m, args)
     @unpack cache = args.precomputed.precipitation
     return cache.S_ρ_qt
 end
 
-function source(s::RainSnow_1M{Mass}, m, args)
+function source(::Mass, s::RainSnow_1M, m, args)
     @unpack cache = args.precomputed.precipitation
     return cache.S_ρ_qt
 end

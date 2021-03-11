@@ -43,7 +43,7 @@ using ClimateMachine.VariableTemplates
 using ClimateMachine.Spectra: compute_gaussian!
 
 using ClimateMachine.BalanceLaws
-import ClimateMachine.BalanceLaws: source
+import ClimateMachine.BalanceLaws: source, prognostic_vars
 
 using CLIMAParameters
 using CLIMAParameters.Planet

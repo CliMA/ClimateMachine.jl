@@ -12,6 +12,7 @@ export AtmosModel,
     parameter_set
 
 using UnPack
+using DispatchedTuples
 using CLIMAParameters
 using CLIMAParameters.Planet: grav, cp_d, R_v, LH_v0, e_int_v0
 using CLIMAParameters.Atmos.SubgridScale: C_smag
@@ -52,6 +53,8 @@ using ClimateMachine.Problems
 import ..BalanceLaws:
     vars_state,
     projection,
+    prognostic_vars,
+    get_prog_state,
     flux_first_order!,
     flux_second_order!,
     source!,
@@ -251,7 +254,7 @@ function AtmosModel{FT}(
     source = (
         Gravity(),
         Coriolis(),
-        GeostrophicForcing(FT, 7.62e-5, 0, 0),
+        GeostrophicForcing{FT}(7.62e-5, 0, 0),
         turbconv_sources(turbconv)...,
     ),
     tracers = NoTracers(),
@@ -259,7 +262,6 @@ function AtmosModel{FT}(
     compressibility = Compressible(),
     data_config = nothing,
 ) where {FT <: AbstractFloat}
-    @assert !any(isa.(source, Tuple))
 
     atmos = (
         AtmosPhysics{FT, typeof(param_set)}(param_set),
@@ -274,7 +276,7 @@ function AtmosModel{FT}(
         moisture,
         precipitation,
         radiation,
-        source,
+        prognostic_var_source_map(source),
         tracers,
         lsforcing,
         compressibility,

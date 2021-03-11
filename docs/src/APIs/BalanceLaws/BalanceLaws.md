@@ -25,8 +25,7 @@ eq_tends
 prognostic_vars
 projection
 precompute
-fluxes
-sources
+prognostic_var_source_map
 show_tendencies
 ```
 

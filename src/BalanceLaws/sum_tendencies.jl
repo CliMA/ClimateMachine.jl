@@ -44,7 +44,7 @@ function Σfluxes(
 ) where {N, O, PV}
     return ntuple_sum(
         ntuple(Val(N)) do i
-            projection(bl, fluxes[i], args, flux(pv, fluxes[i], bl, args))
+            projection(pv, bl, fluxes[i], args, flux(pv, fluxes[i], bl, args))
         end,
     )
 end
@@ -92,7 +92,13 @@ function Σsources(
 ) where {N, PV}
     return ntuple_sum(
         ntuple(Val(N)) do i
-            projection(bl, sources[i], args, source(pv, sources[i], bl, args))
+            projection(
+                pv,
+                bl,
+                sources[i],
+                args,
+                source(pv, sources[i], bl, args),
+            )
         end,
     )
 end
@@ -108,18 +114,18 @@ end
 
 # Emptry vector case:
 function Σsources(
-    pv::PV,
+    pv::AbstractMomentum,
     sources::NTuple{0, TendencyDef{Source}},
     args...,
-) where {PV <: AbstractMomentum}
+)
     return SVector(0, 0, 0)
 end
 
 # Emptry tracer case:
 function Σsources(
-    pv::PV,
+    pv::AbstractTracers{N},
     sources::NTuple{0, TendencyDef{Source}},
     args...,
-) where {N, PV <: AbstractTracers{N}}
+) where {N}
     return SArray{Tuple{N}}(ntuple(i -> 0, N))
 end

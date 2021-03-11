@@ -50,26 +50,17 @@ struct Energy <: PrognosticVariable end
 # which returns _all_ prognostic variables
 prognostic_vars(::MyBalanceLaw) = (Mass(), Energy());
 
-# ## Define some tendency definition types
+# ## Define tendency definition types
 
 # Tendency definitions types are made by subtyping
 # [`TendencyDef`](@ref ClimateMachine.BalanceLaws.TendencyDef).
-# There are two type parameters for `TendencyDef`. The first
-# of which, `AbstractTendencyType`, can be either
+# `TendencyDef` has one type parameters: the
+# `AbstractTendencyType`, which can be either
 # `Flux{FirstOrder}`, `Flux{SecondOrder}`, or `Source`.
-# The second type parameter must be a subtype of `PrognosticVariable`.
-# Tendency definitions they can be written generically
-# and shared across all prognostic variables:
-struct Advection{PV} <: TendencyDef{Flux{FirstOrder}, PV} end
-struct Source1{PV} <: TendencyDef{Source, PV} end
-struct Source2{PV} <: TendencyDef{Source, PV} end
-
-# We can also permit tendency definitions to be defined for
-# only the relevant prognostic variables: here, we restrict
-# the second order flux, Diffusion, to be defined only for Energy.
-# Doing this means that if we try to create `Diffusion{Mass}()`,
-# an error will be thrown.
-struct Diffusion{PV <: Energy} <: TendencyDef{Flux{SecondOrder}, PV} end
+struct Advection <: TendencyDef{Flux{FirstOrder}} end
+struct Source1 <: TendencyDef{Source} end
+struct Source2 <: TendencyDef{Source} end
+struct Diffusion <: TendencyDef{Flux{SecondOrder}} end
 
 # Define [`eq_tends`](@ref ClimateMachine.BalanceLaws.eq_tends),
 # which returns a tuple of tendency definitions (those sub-typed
@@ -79,14 +70,12 @@ struct Diffusion{PV <: Energy} <: TendencyDef{Flux{SecondOrder}, PV} end
 #  - the model (balance law)
 #  - the tendency type ([`Flux`](@ref ClimateMachine.BalanceLaws.Flux) or
 #    [`Source`](@ref ClimateMachine.BalanceLaws.Source))
-#! format: off
-eq_tends(pv::PV, ::MyBalanceLaw, ::Flux{FirstOrder}) where {PV <: Mass} = (Advection{PV}(),);
-eq_tends(pv::PV, ::MyBalanceLaw, ::Flux{FirstOrder}) where {PV <: Energy} = (Advection{PV}(),);
-eq_tends(pv::PV, ::MyBalanceLaw, ::Flux{SecondOrder}) where {PV <: Mass} = ();
-eq_tends(pv::PV, ::MyBalanceLaw, ::Flux{SecondOrder}) where {PV <: Energy} = (Diffusion{PV}(),);
-eq_tends(pv::PV, ::MyBalanceLaw, ::Source) where {PV <: Mass} = (Source1{PV}(), Source2{PV}());
-eq_tends(pv::PV, ::MyBalanceLaw, ::Source) where {PV <: Energy} = (Source1{PV}(), Source2{PV}());
-#! format: on
+eq_tends(::Mass, ::MyBalanceLaw, ::Flux{FirstOrder}) = (Advection(),);
+eq_tends(::Energy, ::MyBalanceLaw, ::Flux{FirstOrder}) = (Advection(),);
+eq_tends(::Mass, ::MyBalanceLaw, ::Flux{SecondOrder}) = ();
+eq_tends(::Energy, ::MyBalanceLaw, ::Flux{SecondOrder}) = (Diffusion(),);
+eq_tends(::Mass, ::MyBalanceLaw, ::Source) = (Source1(), Source2());
+eq_tends(::Energy, ::MyBalanceLaw, ::Source) = (Source1(), Source2());
 
 # ## Testing `prognostic_vars` `eq_tends`
 
@@ -110,9 +99,9 @@ show_tendencies(bl; table_complete = true)
 # we'll add a layer that tests the `Flux{FirstOrder}` column
 # in the table above. First, we'll define individual
 # [`flux`](@ref ClimateMachine.BalanceLaws.flux) kernels:
-flux(::Advection{Mass}, bl::MyBalanceLaw, args) =
+flux(::Mass, ::Advection, bl::MyBalanceLaw, args) =
     args.state.ρ * SVector(1, 1, 1);
-flux(::Advection{Energy}, bl::MyBalanceLaw, args) =
+flux(::Energy, ::Advection, bl::MyBalanceLaw, args) =
     args.state.ρe * SVector(1, 1, 1);
 
 # !!! note
@@ -135,12 +124,12 @@ function flux_first_order!(
     args = (; state, aux, t, direction)
 
     ## `Σfluxes(Mass(), eq_tends(Mass(), bl, tend_type), bl, args)` calls
-    ## `flux(::Advection{Mass}, ...)` defined above:
+    ## `flux(::Mass, ::Advection, ...)` defined above:
     eqt_ρ = eq_tends(Mass(), bl, tend_type)
     flx.ρ = Σfluxes(Mass(), eqt_ρ, bl, args)
 
     ## `Σfluxes(Energy(), eq_tends(Energy(), bl, tend_type), bl, args)` calls
-    ## `flux(::Advection{Energy}, ...)` defined above:
+    ## `flux(::Energy, ::Advection, ...)` defined above:
     eqt_ρe = eq_tends(Energy(), bl, tend_type)
     flx.ρe = Σfluxes(Energy(), eqt_ρe, bl, args)
     return nothing
@@ -167,10 +156,5 @@ flux_first_order!(bl, flx, state, aux, t, direction);
     @test flx.ρ == [1, 1, 1]
     @test flx.ρe == [2, 2, 2]
 end
-
-# !!! tip
-#     A useful pattern for finding tendency definitions
-#     is to globally search for, for example,
-#     `::Gravity{Momentum` or `::Gravity{`.
 
 nothing

@@ -36,7 +36,7 @@ using ClimateMachine.TurbulenceClosures
 using ClimateMachine.TurbulenceConvection
 using ClimateMachine.VariableTemplates
 using ClimateMachine.BalanceLaws
-import ClimateMachine.BalanceLaws: source
+import ClimateMachine.BalanceLaws: source, prognostic_vars
 
 using CLIMAParameters
 using CLIMAParameters.Planet: R_d, cp_d, cv_d, MSLP, grav, day
@@ -50,7 +50,7 @@ using ClimateMachine.Atmos: altitude, recover_thermo_state, density
 """
   StableBL Geostrophic Forcing (Source)
 """
-struct StableBLGeostrophic{PV <: Momentum, FT} <: TendencyDef{Source, PV}
+struct StableBLGeostrophic{FT} <: TendencyDef{Source}
     "Coriolis parameter [s⁻¹]"
     f_coriolis::FT
     "Eastward geostrophic velocity `[m/s]` (Base)"
@@ -60,10 +60,9 @@ struct StableBLGeostrophic{PV <: Momentum, FT} <: TendencyDef{Source, PV}
     "Northward geostrophic velocity `[m/s]`"
     v_geostrophic::FT
 end
-StableBLGeostrophic(::Type{FT}, args...) where {FT} =
-    StableBLGeostrophic{Momentum, FT}(args...)
+prognostic_vars(::StableBLGeostrophic) = (Momentum(),)
 
-function source(s::StableBLGeostrophic{Momentum}, m, args)
+function source(::Momentum, s::StableBLGeostrophic, m, args)
     @unpack state, aux = args
     @unpack f_coriolis, u_geostrophic, u_slope, v_geostrophic = s
 
@@ -79,7 +78,7 @@ end
 """
   StableBL Sponge (Source)
 """
-struct StableBLSponge{PV <: Momentum, FT} <: TendencyDef{Source, PV}
+struct StableBLSponge{FT} <: TendencyDef{Source}
     "Maximum domain altitude (m)"
     z_max::FT
     "Altitude at with sponge starts (m)"
@@ -96,10 +95,9 @@ struct StableBLSponge{PV <: Momentum, FT} <: TendencyDef{Source, PV}
     v_geostrophic::FT
 end
 
-StableBLSponge(::Type{FT}, args...) where {FT} =
-    StableBLSponge{Momentum, FT}(args...)
+prognostic_vars(::StableBLSponge) = (Momentum(),)
 
-function source(s::StableBLSponge{Momentum}, m, args)
+function source(::Momentum, s::StableBLSponge, m, args)
     @unpack state, aux = args
 
     @unpack z_max, z_sponge, α_max, γ = s
@@ -219,8 +217,7 @@ function stable_bl_model(
     # Assemble source components
     source_default = (
         g...,
-        StableBLSponge(
-            FT,
+        StableBLSponge{FT}(
             zmax,
             z_sponge,
             α_max,
@@ -229,8 +226,7 @@ function stable_bl_model(
             u_slope,
             v_geostrophic,
         ),
-        StableBLGeostrophic(
-            FT,
+        StableBLGeostrophic{FT}(
             f_coriolis,
             u_geostrophic,
             u_slope,
@@ -245,7 +241,7 @@ function stable_bl_model(
         source = source_default
         moisture = EquilMoist{FT}(; maxiter = 5, tolerance = FT(0.1))
     elseif moisture_model == "nonequilibrium"
-        source = (source_default..., CreateClouds()...)
+        source = (source_default..., CreateClouds())
         moisture = NonEquilMoist()
     else
         @warn @sprintf(

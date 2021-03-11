@@ -174,7 +174,7 @@ function config_baroclinic_wave(FT, poly_order, resolution, with_moisture)
     if with_moisture
         hyperdiffusion = EquilMoistBiharmonic(FT(8 * 3600))
         moisture = EquilMoist{FT}()
-        source = (Gravity(), Coriolis(), RemovePrecipitation(true)...) # precipitation is default to NoPrecipitation() as 0M microphysics
+        source = (Gravity(), Coriolis(), RemovePrecipitation(true)) # precipitation is default to NoPrecipitation() as 0M microphysics
     else
         hyperdiffusion = DryBiharmonic(FT(8 * 3600))
         moisture = DryModel()

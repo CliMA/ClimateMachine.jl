@@ -32,7 +32,7 @@ using ClimateMachine.Thermodynamics:
 using ClimateMachine.VariableTemplates
 
 using ClimateMachine.BalanceLaws
-import ClimateMachine.BalanceLaws: source
+import ClimateMachine.BalanceLaws: source, prognostic_vars
 
 using LinearAlgebra
 using StaticArrays
@@ -104,16 +104,14 @@ function init_heldsuarez!(problem, bl, state, aux, localgeo, t)
 end
 
 """
-    HeldSuarezForcing{PV <: Union{Momentum,Energy}} <: TendencyDef{Source, PV}
+    HeldSuarezForcing <: TendencyDef{Source}
 
 Defines a forcing that parametrises radiative and frictional effects using
 Newtonian relaxation and Rayleigh friction, following Held and Suarez (1994)
 """
-struct HeldSuarezForcing{PV <: Union{Momentum, Energy}} <:
-       TendencyDef{Source, PV} end
+struct HeldSuarezForcing <: TendencyDef{Source} end
 
-HeldSuarezForcing() =
-    (HeldSuarezForcing{Momentum}(), HeldSuarezForcing{Energy}())
+prognostic_vars(::HeldSuarezForcing) = (Momentum(), Energy())
 
 function held_suarez_forcing_coefficients(bl, args)
     @unpack state, aux = args
@@ -156,7 +154,7 @@ function held_suarez_forcing_coefficients(bl, args)
     return (k_v = k_v, k_T = k_T, T_equil = T_equil)
 end
 
-function source(s::HeldSuarezForcing{Energy}, m, args)
+function source(::Energy, s::HeldSuarezForcing, m, args)
     @unpack state = args
     @unpack ts = args.precomputed
     nt = held_suarez_forcing_coefficients(m, args)
@@ -168,7 +166,7 @@ function source(s::HeldSuarezForcing{Energy}, m, args)
     return -k_T * state.ρ * _cv_d * (T - T_equil)
 end
 
-function source(s::HeldSuarezForcing{Momentum}, m, args)
+function source(::Momentum, s::HeldSuarezForcing, m, args)
     nt = held_suarez_forcing_coefficients(m, args)
     return -nt.k_v * projection_tangential(m, args.aux, args.state.ρu)
 end
@@ -198,7 +196,7 @@ function config_heldsuarez(FT, poly_order, resolution)
         turbulence = ConstantKinematicViscosity(FT(0)),
         hyperdiffusion = DryBiharmonic(FT(8 * 3600)),
         moisture = DryModel(),
-        source = (Gravity(), Coriolis(), HeldSuarezForcing()...),
+        source = (Gravity(), Coriolis(), HeldSuarezForcing()),
         tracers = tracers,
     )
 

@@ -15,13 +15,16 @@
 #  - `T₂` - the second order flux divergence (column vector)
 #  - `S` - the non-conservative source (column vector)
 
+using DispatchedTuples
+
 export PrognosticVariable,
     AbstractMomentum, AbstractEnergy, Moisture, Precipitation, AbstractTracers
 
 export FirstOrder, SecondOrder
 export AbstractTendencyType, Flux, Source
 export TendencyDef
-export eq_tends, prognostic_vars, fluxes, sources
+export prognostic_var_source_map
+export eq_tends, prognostic_vars
 
 """
     PrognosticVariable
@@ -127,7 +130,7 @@ prognostic_vars(::BalanceLaw) = ()
 Provide a hook to project individual tendencies.
 Return identity by defualt
 """
-projection(bl, ::TendencyDef{TT, PV}, args, x) where {TT, PV} = x
+projection(pv::PV, bl, ::TendencyDef{TT}, args, x) where {TT, PV} = x
 
 """
     var, name = get_prog_state(state::Union{Vars, Grad}, pv::PrognosticVariable)
@@ -148,41 +151,6 @@ var, name = get_prog_state(state, Moisture())
 function get_prog_state end
 
 """
-    sources(bl::BalanceLaw)
-
-A tuple of `TendencyDef{Source}`s
-given the `BalanceLaw`.
-
-i.e., a tuple of `TendencyDef{Source}`s
-corresponding to the column-vector `S` in:
-
-    `∂_t Yᵢ + (∇•F₁(Y))ᵢ + (∇•F₂(Y,G)))ᵢ = (S(Y,G))ᵢ`
-"""
-function sources(bl::BalanceLaw)
-    tend = eq_tends.(prognostic_vars(bl), Ref(bl), Ref(Source()))
-    tend = filter(x -> x ≠ nothing, tend)
-    return Tuple(Iterators.flatten(tend))
-end
-
-"""
-    fluxes(bl::BalanceLaw, order::O) where {O <: AbstractOrder}
-
-A tuple of `TendencyDef{Flux{O}}`s
-given the `BalanceLaw` and the `order::O`.
-
-i.e., a tuple of `TendencyDef{Flux{O}}`s
-corresponding to the column-vector `F₁`
-or `F₂` given the flux order `order::O` in:
-
-    `∂_t Yᵢ + (∇•F₁(Y))ᵢ + (∇•F₂(Y,G)))ᵢ = (S(Y,G))ᵢ`
-"""
-function fluxes(bl::BalanceLaw, order::O) where {O <: AbstractOrder}
-    tend = eq_tends.(prognostic_vars(bl), Ref(bl), Ref(Flux{O}()))
-    tend = filter(x -> x ≠ nothing, tend)
-    return Tuple(Iterators.flatten(tend))
-end
-
-"""
     precompute(bl, args, ::AbstractTendencyType)
 
 A nested NamedTuple of precomputed (cached) values
@@ -192,3 +160,31 @@ tendency terms. For example, computing a quantity
 that requires iteration.
 """
 precompute(bl, args, ::AbstractTendencyType) = NamedTuple()
+
+"""
+    prognostic_var_source_map(driver_sources::Tuple)
+
+A DispatchedTuple, given a Tuple
+of the driver/experiment sources.
+
+!!! note
+    `prognostic_vars`, which returns a Tuple
+    of prognostic variable types, must be
+    defined for boundary condition types.
+"""
+function prognostic_var_source_map(driver_sources::Tuple)
+    tup = map(driver_sources) do t
+        map(prognostic_vars(t)) do pv
+            (pv, t)
+        end
+    end
+    tup = tuple_of_tuples(tup)
+    return DispatchedTuple(tup)
+end
+
+# Flatten "tuple of tuple of tuples" to "tuple of tuples"
+tuple_of_tuples(a::Tuple{PrognosticVariable, T}) where {T} = (a,)
+tuple_of_tuples(a, b...) =
+    tuple(tuple_of_tuples(a)..., tuple_of_tuples(b...)...)
+tuple_of_tuples(a::Tuple) = tuple_of_tuples(a...)
+tuple_of_tuples(a::Tuple{}) = a
