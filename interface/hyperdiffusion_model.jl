@@ -122,7 +122,7 @@ end
     localgeo,
     t::Real,
 )
-    initial_condition!(problem, state, aux, localgeo, t)
+    state.ρ = initial_condition!(problem, state, aux, t)
 end
 @inline function nodal_init_state_auxiliary!(
     problem::HyperDiffusionCubedSphereProblem,
@@ -165,13 +165,13 @@ end
     - test: ∇^4_horz ρ0 = l^2(l+1)^2/r^4 ρ0 where r=a+z
 """
 @inline function initial_condition!(
-    problem::HyperDiffusionCubedSphereProblem{FT},
+    problem::HyperDiffusionCubedSphereProblem,
     state,
     aux,
-    x,
     t,
-) where {FT}
+)
     @inbounds begin
+        FT = eltype(aux) 
         # import planet paraset
         _a::FT = planet_radius(param_set)
 
@@ -186,17 +186,19 @@ end
 
         c = get_c(l, r)
         D = aux.hyperdiffusion.D
-
-        state.ρ = calc_Ylm(φ, λ, l, m) * exp(- D*c*t) # - D*c*t
+        
+        return calc_Ylm(φ, λ, l, m) * exp(- D*c*t) # - D*c*t
     end
 end
 
 """
     Other useful functions
 """
-# hyperdiffusion-dependent timestep (only use for hyperdiffusion unit test)
-@inline Δt(problem::HyperDiffusionProblem, Δ_min) = Δ_min^4 / 25 / sum( D(problem, Δ_min) ) 
+# hyperdiffusion-dependent timestep (only use for hyperdiffusion unit test) - may want to generalise for calculate_dt
+#@inline Δt(problem::HyperDiffusionProblem, Δ_min) = Δ_min^4 / 25 / sum( D(problem, Δ_min) ) 
+@inline Δt(problem::HyperDiffusionProblem, Δx; CFL=0.05) = (Δx /2)^4/2 / D(problem, Δx) * CFL 
+#dt = CFL_wanted / CFL_max = CFL_wanted / max( D / dx^4 )
 
 # lengthscale-dependent hyperdiffusion coefficient
-@inline D(problem::HyperDiffusionProblem, Δ ) = (Δ /2)^4/2/ problem.τ
+@inline D(problem::HyperDiffusionProblem, Δx ) = (Δx /2)^4/2 / problem.τ
 

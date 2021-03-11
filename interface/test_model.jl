@@ -9,7 +9,9 @@ import ClimateMachine.BalanceLaws:
     source!,
     wavespeed,
     boundary_conditions,
-    boundary_state!
+    boundary_state!,
+    nodal_update_auxiliary_state!
+
 import ClimateMachine.DGMethods: DGModel
 import ClimateMachine.NumericalFluxes: numerical_flux_first_order!
 
@@ -74,8 +76,8 @@ vars_state(m::TestEquations, st::Prognostic, FT) = @vars(ρ::FT)
 function vars_state(m::TestEquations, st::Auxiliary, FT)
     @vars begin
         coord::SVector{3, FT}
+        ρ_analytical::FT
         hyperdiffusion::vars_state(m.hyperdiffusion, st, FT)
-
     end
 end
 function vars_state(m::TestEquations, st::Gradient, FT)
@@ -132,6 +134,7 @@ function nodal_init_state_auxiliary!(
     )
 end
 
+
 """
     Compute kernels
 
@@ -147,6 +150,7 @@ end
     - flux_first_order!  - collects non-diffusive fluxes (`F_non-diff`), the gradient of which will be taken after to obtain the tendency
     - flux_second_order! - collects diffusive fluxes (`F_diff`), the gradient of which will be taken after to obtain the tendency
     - source! - adds S(Y) (e.g. Coriolis, linear drag)
+    - nodal_update_auxiliary_state - to update auxstate at each node
 """
 
 function compute_gradient_argument!(
@@ -187,7 +191,6 @@ function flux_second_order!(
     aux::Vars,
     t::Real,
 )
-    #@show t
     flux_second_order!(m.hyperdiffusion, flux, state, gradflux, auxMISC, aux, t)
 end
 @inline function source!(m::TestEquations, _...) end
@@ -218,4 +221,20 @@ function DGModel(m::SpatialModel{BL}) where {BL <: BalanceLaw}
     )
     
     return rhs
+end
+
+"""
+    nodal_update_auxiliary_state! 
+    - use to update auxstate on the nodal level at each time step 
+"""
+function nodal_update_auxiliary_state!(
+    m::TestEquations,
+    state::Vars,
+    aux::Vars,
+    t::Real,
+)
+    get_analytical(m, state, aux, t)
+end
+function get_analytical(m, state, aux, t)
+    aux.ρ_analytical = initial_condition!(m.hyperdiffusion, state, aux, t)
 end
