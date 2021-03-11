@@ -169,5 +169,6 @@ include("AdditiveRungeKuttaMethod.jl")
 include("MultirateRungeKuttaMethod.jl")
 include("SplitExplicitMethod.jl")
 include("DifferentialEquations.jl")
+include("CplSolver.jl")
 
 end # module
