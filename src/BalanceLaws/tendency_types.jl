@@ -90,7 +90,7 @@ struct Source <: AbstractTendencyType end
 Subtypes are used for specifying
 each tendency definition.
 """
-abstract type TendencyDef{TT <: AbstractTendencyType, PV <: PrognosticVariable} end
+abstract type TendencyDef{TT <: AbstractTendencyType} end
 
 """
     eq_tends(::PrognosticVariable, ::BalanceLaw, ::AbstractTendencyType)
