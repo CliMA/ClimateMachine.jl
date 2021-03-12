@@ -66,18 +66,27 @@ function land_source!(
     direction,
 ) where {FT}
     bc = land.boundary_conditions.surface_bc.soil_water
-    #this returns |K∇h|, so add minus sign
-    infiltration = -compute_surface_grad_bc(
-        land.soil,
-        bc.runoff_model,
-        bc.precip_model,
-        state,
-        diffusive,
-        aux,
-        t,
-    )
+    #this is either i_c is rain > i_c or = rain if rain < i_c
+    infiltration =
+        -compute_surface_grad_bc(
+            land.soil,
+            bc.runoff_model,
+            bc.precip_model,
+            state,
+            diffusive,
+            aux,
+            t,
+        )
     precip = bc.precip_model(t)
-    source.river.area  += -(precip - infiltration)
+    if infiltration < FT(0)
+        f = -norm(diffusive.soil.water.K∇h)
+
+    else
+        f = FT(0.0)
+    end
+    
+    
+    source.river.area  += -(precip - f)
     
 end
 

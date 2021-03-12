@@ -450,8 +450,9 @@ imaginary numbers, resulting in domain errors. Exit in this
 case with an error.
 """
 function effective_saturation(porosity::FT, ϑ_l::FT) where {FT}
-    ϑ_l < 0 && error("Effective saturation is negative")
-    S_l = ϑ_l / porosity
+    θ_r = FT(0.08)
+    ϑ_l < θ_r && error("Effective saturation is negative")
+    S_l = (ϑ_l-θ_r) / (porosity-θ_r)
     return S_l
 end
 
@@ -482,8 +483,7 @@ function pressure_head(
     θ_i::FT,
 ) where {FT}
     eff_porosity = porosity - θ_i
-    S_l_eff = effective_saturation(eff_porosity, ϑ_l)
-    if S_l_eff < 1
+    if ϑ_l < eff_porosity
         S_l = effective_saturation(porosity, ϑ_l)
         ψ = matric_potential(model, S_l)
     else

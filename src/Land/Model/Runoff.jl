@@ -88,7 +88,6 @@ function compute_surface_grad_bc(
     aux⁻::Vars,
     t::Real,
 )
-    #Dirichlet test doesnt end up here
     FT = eltype(state⁻)
     incident_water_flux = precip_model(t)
     Δz = runoff_model.Δz
@@ -125,9 +124,9 @@ function compute_surface_grad_bc(
         )
 
     i_c = (K * ∂h∂z)
-    if incident_water_flux < -norm(diff⁻.soil.water.K∇h) #-i_c# More negative if both are negative,
+    if incident_water_flux < -i_c#-norm(diff⁻.soil.water.K∇h) #-i_c#More negative if both are negative,
         #ponding BC
-        K∇h⁺ = min(i_c,-incident_water_flux) #i_c
+        K∇h⁺ = i_c#min(i_c,-incident_water_flux) #i_c
     else
         #K∇h⁺ = n̂ * (-FT(2) * incident_water_flux) - diff⁻.soil.water.K∇h
         K∇h⁺ = - incident_water_flux

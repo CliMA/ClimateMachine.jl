@@ -1,3 +1,4 @@
+using Printf
 # General case - to be used with bc::NoBC or m::PrescribedXModels
 function soil_boundary_flux!(
     nf,
@@ -253,6 +254,8 @@ function soil_boundary_flux!(
     t,
     _...,
 )
+
+
     diff⁺.soil.water.K∇h = n̂ * compute_surface_grad_bc(
         land.soil,
         bc.runoff_model,
@@ -262,5 +265,6 @@ function soil_boundary_flux!(
         aux⁻,
         t,
     )
-
+    #    @printf("%le %le %le %le \n", t, aux⁺.x, aux⁺.y, aux⁺.z)
+    #    println(diff⁺.soil.water.K∇h)
 end
