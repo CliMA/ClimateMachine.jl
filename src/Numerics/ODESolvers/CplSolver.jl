@@ -26,9 +26,11 @@ timesteps. These are defined within the component balance law.
 The shadown variable is a full 3d array because of the way the current 
 infrastructure works. This can be tidied up later once design is settled.
 """
-mutable struct CplSolver{CL, FT} <: AbstractODESolver
+mutable struct CplSolver{CL, CPL, FT} <: AbstractODESolver
     "Named list of pre-defined components"
     component_list::CL
+    "Coupler State"
+    coupler::CPL
     "Coupling timestep"
     dt::FT
     "Start time - initializes or tries to restart"
@@ -41,10 +43,11 @@ end
 
 function CplSolver(;
     component_list = component_list,
+    coupler = coupler,
     coupling_dt = coupling_dt,
     t0 = t0,
 )
-    return CplSolver(component_list, coupling_dt, t0, t0, 0)
+    return CplSolver(component_list, coupler, coupling_dt, t0, t0, 0)
 end
 
 function dostep!(Qtop, csolver::CplSolver, param, time::Real)
