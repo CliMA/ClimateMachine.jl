@@ -46,6 +46,15 @@ internal_energy(atmos::AtmosModel, state::Vars, aux::Vars) =
     )
 end
 
+θv(atmos, aux, ts) = θv(atmos.compressibility, aux, ts)
+θv(::Compressible, aux, ts) = virtual_pottemp(ts)
+θv(::Anelastic1D, aux, ts) = virtual_pottemp_given_pressure(
+    ts.param_set,
+    air_temperature(ts),
+    aux.ref_state.p,
+    PhasePartition(ts),
+    )
+
 """
     DryModel
 
@@ -62,7 +71,7 @@ vars_state(::DryModel, ::Auxiliary, FT) = @vars(θ_v::FT, air_T::FT)
     t::Real,
 )
     ts = new_thermo_state(atmos, state, aux)
-    aux.moisture.θ_v = virtual_pottemp(ts)
+    aux.moisture.θ_v = θv(atmos, aux, ts)
     aux.moisture.air_T = air_temperature(ts)
     nothing
 end
@@ -98,7 +107,7 @@ vars_state(::EquilMoist, ::Auxiliary, FT) =
 )
     ts = new_thermo_state(atmos, state, aux)
     aux.moisture.temperature = air_temperature(ts)
-    aux.moisture.θ_v = virtual_pottemp(ts)
+    aux.moisture.θ_v = θv(atmos, aux, ts)
     aux.moisture.q_liq = PhasePartition(ts).liq
     aux.moisture.q_ice = PhasePartition(ts).ice
     nothing
@@ -156,7 +165,7 @@ vars_state(::NonEquilMoist, ::Auxiliary, FT) = @vars(temperature::FT, θ_v::FT)
 )
     ts = new_thermo_state(atmos, state, aux)
     aux.moisture.temperature = air_temperature(ts)
-    aux.moisture.θ_v = virtual_pottemp(ts)
+    aux.moisture.θ_v = θv(atmos, aux, ts)
     nothing
 end
 

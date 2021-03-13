@@ -44,6 +44,7 @@ export liquid_fraction, PhasePartition_equil
 # Auxiliary functions, e.g., for diagnostic purposes
 export dry_pottemp
 export virtual_pottemp
+export virtual_pottemp_given_pressure
 export exner
 export shum_to_mixing_ratio
 export mixing_ratios
@@ -2157,6 +2158,41 @@ virtual_pottemp(ts::ThermodynamicState) = virtual_pottemp(
     ts.param_set,
     air_temperature(ts),
     air_density(ts),
+    PhasePartition(ts),
+)
+
+"""
+    virtual_pottemp_given_pressure(param_set, T, ρ[, q::PhasePartition])
+
+The virtual potential temperature where
+
+ - `param_set` an `AbstractParameterSet`, see the [`Thermodynamics`](@ref) for more details
+ - `T` temperature
+ - `p` pressure
+and, optionally,
+ - `q` [`PhasePartition`](@ref). Without this argument, the results are for dry air.
+"""
+function virtual_pottemp_given_pressure(
+    param_set::APS,
+    T::FT,
+    p::FT,
+    q::PhasePartition{FT} = q_pt_0(FT),
+) where {FT <: Real}
+    _R_d::FT = R_d(param_set)
+    return gas_constant_air(param_set, q) / _R_d *
+           dry_pottemp_given_pressure(param_set, T, p, q)
+end
+
+"""
+    virtual_pottemp_given_pressure(ts::ThermodynamicState)
+
+The virtual potential temperature,
+given a thermodynamic state `ts`.
+"""
+virtual_pottemp_given_pressure(ts::ThermodynamicState) = virtual_pottemp_given_pressure(
+    ts.param_set,
+    air_temperature(ts),
+    air_pressure(ts),
     PhasePartition(ts),
 )
 
