@@ -43,21 +43,23 @@ to execute with a certain timestep to synchronize with the coupling time scale.
 function CplTestModel(;
     domain,
     equations,
-    nsteps,
+    nsteps::Int,
     btags = ((0, 0), (0, 0), (1, 2)),
+    boundary_z = 0.0,
     dt = 1.0,
     timestepper = LSRK54CarpenterKennedy,
     NFSecondOrder = CentralNumericalFluxSecondOrder(),
 )
-
-    FT = eltype(domain)
 
     ###
     ### Instantiate the spatial grid for this component.
     ### Use ocean scripting interface convenience wrapper for now.
     ###
     grid = nothing
-    grid = DiscontinuousSpectralElementGrid(domain; boundary_tags = btags)
+    nelem = (;horizontal = 8, vertical = 4)
+    polynomialorder = (;horizontal = 5, vertical = 5)
+    grid = DiscontinuousSpectralElementGrid(domain, nelem, polynomialorder)#boundary_tags = btags)
+    FT = eltype(grid.vgeo) # TODO: Infer this from domain? domain::AbstractDomain{FT}
 
     ###
     ### Create a discretization that is the union of the spatial
@@ -74,12 +76,12 @@ function CplTestModel(;
     )
 
     # Specify the coupling boundary
-    boundary = grid.vgeo[:, _x3:_x3, :] .== FT(4e3)
+    boundary = grid.vgeo[:, _x3:_x3, :] .== boundary_z
 
     ###
     ### Invoke the spatial ODE initialization functions
     ###
-    state = init_ode_state(discretization, FT(0); init_on_cpu = true)
+    state = init_ode_state(discretization, zero(FT); init_on_cpu = true)
 
     ###
     ### Create a timestepper of the sort needed for this component.

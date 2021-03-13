@@ -276,7 +276,7 @@ compO = (pre_step = preocean, component_model = mO, post_step = postocean)
 component_list = (atmosphere = compA, ocean = compO)
 cC = Coupling.CplSolver(
     component_list = component_list,
-    coupler
+    coupler = cState,
     coupling_dt = couple_dt,
     t0 = 0.0,
 )

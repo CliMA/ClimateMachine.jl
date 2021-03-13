@@ -8,6 +8,12 @@ using ClimateMachine.Atmos: SphericalOrientation, latitude, longitude
 
 using CLIMAParameters
 using CLIMAParameters.Planet: MSLP, R_d, day, grav, Omega, planet_radius
+
+using ClimateMachine.Coupling
+using Unitful
+using Dates: DateTime
+using Statistics
+
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 
@@ -22,7 +28,6 @@ include("callbacks.jl")
 
 # Main balance law and its components
 include("CplTestingBL.jl") #include("test_model.jl") # umbrella model: TestEquations
-
 using .CplTestingBL
 
 
@@ -35,24 +40,29 @@ const κᵃʰ = FT(1e4) * 0.0
 const κᵃᶻ = FT(1e-1)
 const κᵒʰ = FT(1e3) * 0.0
 const κᵒᶻ = FT(1e-4)
-
+const τ_airsea = FT(60 * 86400)
+const L_airsea = FT(500)
+const λ_airsea = FT(L_airsea / τ_airsea)
+function coupling_lambda()
+    return (λ_airsea)
+end
 
 function main(::Type{FT}) where {FT}
 
     # BL and problem for this
-    diffusionA = DiffusionCubedSphereProblem{FT}((;
-                            τ = 8*60*60,
-                            l = 7,
-                            m = 4,
-                            )...,
-                        )
+    # diffusionA = DiffusionCubedSphereProblem{FT}((;
+    #                         τ = 8*60*60,
+    #                         l = 7,
+    #                         m = 4,
+    #                         )...,
+    #                     )
     
-    diffusionO = DiffusionCubedSphereProblem{FT}((;
-                            τ = 8*60*60,
-                            l = 7,
-                            m = 4,
-                            )...,
-                        )                        
+    # diffusionO = DiffusionCubedSphereProblem{FT}((;
+    #                         τ = 8*60*60,
+    #                         l = 7,
+    #                         m = 4,
+    #                         )...,
+    #                     )                        
 
     # Domain
     ΩO = AtmosDomain(radius = FT(planet_radius(param_set)), height = FT(4e3))
@@ -130,6 +140,7 @@ function main(::Type{FT}) where {FT}
             (CoupledPrimaryBoundary(), ExteriorBoundary()),
         ),
         nsteps = nstepsA,
+        # boundary_z = FT(planet_radius(param_set)) + FT(4e3),
         dt = Δt_ / nstepsA,
         timestepper = LSRK54CarpenterKennedy,
         NFSecondOrder = CplTestingBL.PenaltyNumFluxDiffusive(),
@@ -171,6 +182,7 @@ function main(::Type{FT}) where {FT}
             (ExteriorBoundary(), CoupledSecondaryBoundary()),
         ),
         nsteps = nstepsO,
+        # boundary_z = FT(planet_radius(param_set)) + FT(4e3),
         dt = Δt_ / nstepsO,
         timestepper = LSRK54CarpenterKennedy,
         NFSecondOrder = CplTestingBL.PenaltyNumFluxDiffusive(),
@@ -179,8 +191,8 @@ function main(::Type{FT}) where {FT}
     # Create a Coupler State object for holding imort/export fields.
     # Try using Dict here - not sure if that will be OK with GPU
     coupler = CplState()
-    register_cpl_field!(cState, :Ocean_SST, deepcopy(mO.state.θ[mO.boundary]), mO.grid, DateTime(0), u"°C")
-    register_cpl_field!(cState, :Atmos_MeanAirSeaθFlux, deepcopy(mA.state.F_accum[mA.boundary]), mA.grid, DateTime(0), u"°C")
+    register_cpl_field!(coupler, :Ocean_SST, deepcopy(mO.state.θ[mO.boundary]), mO.grid, DateTime(0), u"°C")
+    register_cpl_field!(coupler, :Atmos_MeanAirSeaθFlux, deepcopy(mA.state.F_accum[mA.boundary]), mA.grid, DateTime(0), u"°C")
     
 
     # Instantiate a coupled timestepper that steps forward the components and
@@ -193,13 +205,14 @@ function main(::Type{FT}) where {FT}
     cpl_solver = Coupling.CplSolver(
         component_list = component_list,
         coupler = coupler,
-        coupling_dt = couple_dt,
+        coupling_dt = Δt_,
         t0 = 0.0,
 )
 
-    cbvector = create_callbacks(simulation, simulation.odesolver)
-    
-    return simulation, end_time, cbvector
+    # cbvector = create_callbacks(simulation, simulation.odesolver)
+    cbvector = ()
+
+    return cpl_solver, end_time, cbvector
 end
 
 
@@ -212,12 +225,6 @@ function run(cpl_solver, numberofsteps, cbvector)
         callbacks = cbvector,
     )
 end
-
-simulation, end_time, cbvector = main(Float64);
-println("Initialized. Running...")
-@time run(simulation, end_time, cbvector)
-
-
 
 # potentially move out:
 function preatmos(csolver)
@@ -300,3 +307,8 @@ function postocean(csolver)
     #  1. Ocean SST (value of θ at z=0)
     Coupling.put!(csolver.coupler, :Ocean_SST, mO.state.θ[mO.boundary], mO.grid, DateTime(0), u"°C")
 end
+
+simulation, end_time, cbvector = main(Float64);
+nsteps = Int(end_time / dt)
+println("Initialized. Running...")
+@time run(simulation, nsteps, cbvector)
