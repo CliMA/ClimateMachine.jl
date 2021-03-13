@@ -10,7 +10,7 @@ struct CplTestModel{G, D, B, S, TS}
 end
 
 """
-    CplTestModel(;domain,
+    CplTestModel(;grid,
                   equations,
                   nsteps,
                   btags=((0,0),(0,0),(1,2) ),
@@ -41,10 +41,9 @@ to execute with a certain timestep to synchronize with the coupling time scale.
 
 """
 function CplTestModel(;
-    domain,
+    grid,
     equations,
     nsteps::Int,
-    btags = ((0, 0), (0, 0), (1, 2)),
     boundary_z = 0.0,
     dt = 1.0,
     timestepper = LSRK54CarpenterKennedy,
@@ -55,11 +54,8 @@ function CplTestModel(;
     ### Instantiate the spatial grid for this component.
     ### Use ocean scripting interface convenience wrapper for now.
     ###
-    grid = nothing
-    nelem = (;horizontal = 8, vertical = 4)
-    polynomialorder = (;horizontal = 5, vertical = 5)
-    grid = DiscontinuousSpectralElementGrid(domain, nelem, polynomialorder)#boundary_tags = btags)
-    FT = eltype(grid.vgeo) # TODO: Infer this from domain? domain::AbstractDomain{FT}
+    
+    FT = eltype(grid.vgeo)
 
     ###
     ### Create a discretization that is the union of the spatial

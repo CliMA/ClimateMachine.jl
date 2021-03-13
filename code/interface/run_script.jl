@@ -27,8 +27,8 @@ include("abstractions.jl")
 include("callbacks.jl")
 
 # Main balance law and its components
-include("CplTestingBL.jl") #include("test_model.jl") # umbrella model: TestEquations
-using .CplTestingBL
+# include("CplTestingBL.jl") #include("test_model.jl") # umbrella model: TestEquations
+# using .CplTestingBL
 
 
 const dt = 3600.0
@@ -65,15 +65,15 @@ function main(::Type{FT}) where {FT}
     #                     )                        
 
     # Domain
-    ΩO = AtmosDomain(radius = FT(planet_radius(param_set)), height = FT(4e3))
-    ΩA = AtmosDomain(radius = FT(planet_radius(param_set)) + FT(4e3), height = FT(4e3))
+    ΩO = AtmosDomain(radius = FT(planet_radius(param_set)) - FT(4e3), height = FT(4e3))
+    ΩA = AtmosDomain(radius = FT(planet_radius(param_set)) , height = FT(4e3))
 
     # Grid
     nelem = (;horizontal = 8, vertical = 4)
     polynomialorder = (;horizontal = 5, vertical = 5)
     
-    # gridA = DiscontinuousSpectralElementGrid(ΩA, nelem, polynomialorder)
-    # gridO = DiscontinuousSpectralElementGrid(ΩO, nelem, polynomialorder)
+    gridA = DiscontinuousSpectralElementGrid(ΩA, nelem, polynomialorder)
+    gridO = DiscontinuousSpectralElementGrid(ΩO, nelem, polynomialorder)
 
     #dx = min_node_distance(grid, HorizontalDirection())
 
@@ -90,104 +90,33 @@ function main(::Type{FT}) where {FT}
     # Collect spatial info, timestepping, balance law and DGmodel for the two components
 
     # 1. Atmos component
-    ## Set atmosphere initial state function
-    function atmos_init_theta(xc, yc, zc, npt, el)
-        return 30.0
-    end
-    ## Set atmosphere shadow boundary flux function
-    function atmos_theta_shadow_boundary_flux(θᵃ, θᵒ, npt, el, xc, yc, zc)
-        if zc == 0.0
-            tflux = (1.0 / τ_airsea) * (θᵃ - θᵒ)
-        else
-            tflux = 0.0
-        end
-        return tflux
-    end
-    ## Set atmsophere diffusion coeffs
-    function atmos_calc_kappa_diff(_...)
-        return κᵃʰ, κᵃʰ, κᵃᶻ
-    end
-    ## Set atmos source!
-    function atmos_source_theta(θᵃ, npt, el, xc, yc, zc, θᵒ)
-        tsource = 0.0
-        if zc == 0.0
-            #tsource = -(1. / τ_airsea)*( θᵃ-θᵒ )
-        end
-        return tsource
-    end
-    ## Set penalty term tau (for debugging)
-    function atmos_get_penalty_tau(_...)
-        return FT(3.0 * 0.0)
-    end
-    ## Create atmos component
-    bl_prop = CplTestingBL.prop_defaults()
-
-    bl_prop = (;bl_prop..., init_theta = atmos_init_theta, 
-                theta_shadow_boundary_flux = atmos_theta_shadow_boundary_flux)
-
-
-    bl_prop = (bl_prop..., init_theta = atmos_init_theta)
-    bl_prop =
-        (bl_prop..., theta_shadow_boundary_flux = atmos_theta_shadow_boundary_flux)
-    bl_prop = (bl_prop..., calc_kappa_diff = atmos_calc_kappa_diff)
-    bl_prop = (bl_prop..., source_theta = atmos_source_theta)
-    bl_prop = (bl_prop..., get_penalty_tau = atmos_get_penalty_tau)
-    bl_prop = (bl_prop..., coupling_lambda = coupling_lambda)
     mA = Coupling.CplTestModel(;
-        domain = ΩA,
+        grid = gridA,
         equations = CplTestBL(
-            bl_prop,
+            bl_propA,
             (CoupledPrimaryBoundary(), ExteriorBoundary()),
         ),
         nsteps = nstepsA,
-        # boundary_z = FT(planet_radius(param_set)) + FT(4e3),
         dt = Δt_ / nstepsA,
         timestepper = LSRK54CarpenterKennedy,
         NFSecondOrder = CplTestingBL.PenaltyNumFluxDiffusive(),
     )
 
     # 2. Ocean component
-    ## Set initial temperature profile
-    function ocean_init_theta(xc, yc, zc, npt, el)
-        return 20.0
-    end
-    ## Set boundary source imported from atmos
-    function ocean_source_theta(θ, npt, el, xc, yc, zc, air_sea_flux_import)
-        sval = 0.0
-        if zc == 0.0
-            #sval=air_sea_flux_import
-        end
-        return sval
-    end
-    ## Set ocean diffusion coeffs
-    function ocean_calc_kappa_diff(_...)
-        # return κᵒʰ,κᵒʰ,κᵒᶻ*FT(100.)
-        return κᵒʰ, κᵒʰ, κᵒᶻ # m^2 s^-1
-    end
-    ## Set penalty term tau (for debugging)
-    function ocean_get_penalty_tau(_...)
-        return FT(0.15 * 0.0)
-    end
-    ## Create ocean component
-    bl_prop = CplTestingBL.prop_defaults()
-    bl_prop = (bl_prop..., init_theta = ocean_init_theta)
-    bl_prop = (bl_prop..., source_theta = ocean_source_theta)
-    bl_prop = (bl_prop..., calc_kappa_diff = ocean_calc_kappa_diff)
-    bl_prop = (bl_prop..., get_penalty_tau = ocean_get_penalty_tau)
-    bl_prop = (bl_prop..., coupling_lambda = coupling_lambda)
     mO = Coupling.CplTestModel(;
-        domain = ΩO,
+        grid = gridO,
         equations = CplTestBL(
-            bl_prop,
+            bl_propO,
             (ExteriorBoundary(), CoupledSecondaryBoundary()),
         ),
         nsteps = nstepsO,
-        # boundary_z = FT(planet_radius(param_set)) + FT(4e3),
         dt = Δt_ / nstepsO,
         timestepper = LSRK54CarpenterKennedy,
         NFSecondOrder = CplTestingBL.PenaltyNumFluxDiffusive(),
     )
 
+    @info sum(mA.boundary)
+    @info sum(mO.boundary)
     # Create a Coupler State object for holding imort/export fields.
     # Try using Dict here - not sure if that will be OK with GPU
     coupler = CplState()
@@ -307,6 +236,83 @@ function postocean(csolver)
     #  1. Ocean SST (value of θ at z=0)
     Coupling.put!(csolver.coupler, :Ocean_SST, mO.state.θ[mO.boundary], mO.grid, DateTime(0), u"°C")
 end
+
+# Prop functions - probably move too
+
+## Set atmosphere initial state function
+function atmos_init_theta(xc, yc, zc, npt, el)
+    return 30.0
+end
+## Set atmosphere shadow boundary flux function
+function atmos_theta_shadow_boundary_flux(θᵃ, θᵒ, npt, el, xc, yc, zc)
+    if zc == 0.0
+        tflux = (1.0 / τ_airsea) * (θᵃ - θᵒ)
+    else
+        tflux = 0.0
+    end
+    return tflux
+end
+## Set atmsophere diffusion coeffs
+function atmos_calc_kappa_diff(_...)
+    return κᵃʰ, κᵃʰ, κᵃᶻ
+end
+## Set atmos source!
+function atmos_source_theta(θᵃ, npt, el, xc, yc, zc, θᵒ)
+    tsource = 0.0
+    if zc == 0.0
+        #tsource = -(1. / τ_airsea)*( θᵃ-θᵒ )
+    end
+    return tsource
+end
+## Set penalty term tau (for debugging)
+function atmos_get_penalty_tau(_...)
+    return FT(3.0 * 0.0)
+end
+## Create atmos component
+bl_propA = CplTestingBL.prop_defaults()
+
+bl_propA = (;bl_propA..., init_theta = atmos_init_theta, 
+            theta_shadow_boundary_flux = atmos_theta_shadow_boundary_flux)
+
+
+bl_propA = (bl_propA..., init_theta = atmos_init_theta)
+bl_propA =
+    (bl_propA..., theta_shadow_boundary_flux = atmos_theta_shadow_boundary_flux)
+bl_propA = (bl_propA..., calc_kappa_diff = atmos_calc_kappa_diff)
+bl_propA = (bl_propA..., source_theta = atmos_source_theta)
+bl_propA = (bl_propA..., get_penalty_tau = atmos_get_penalty_tau)
+bl_propA = (bl_propA..., coupling_lambda = coupling_lambda)
+
+## Set initial temperature profile
+function ocean_init_theta(xc, yc, zc, npt, el)
+    return 20.0
+end
+## Set boundary source imported from atmos
+function ocean_source_theta(θ, npt, el, xc, yc, zc, air_sea_flux_import)
+    sval = 0.0
+    if zc == 0.0
+        #sval=air_sea_flux_import
+    end
+    return sval
+end
+## Set ocean diffusion coeffs
+function ocean_calc_kappa_diff(_...)
+    # return κᵒʰ,κᵒʰ,κᵒᶻ*FT(100.)
+    return κᵒʰ, κᵒʰ, κᵒᶻ # m^2 s^-1
+end
+## Set penalty term tau (for debugging)
+function ocean_get_penalty_tau(_...)
+    return FT(0.15 * 0.0)
+end
+## Create ocean component
+bl_propO = CplTestingBL.prop_defaults()
+bl_propO = (bl_propO..., init_theta = ocean_init_theta)
+bl_propO = (bl_propO..., source_theta = ocean_source_theta)
+bl_propO = (bl_propO..., calc_kappa_diff = ocean_calc_kappa_diff)
+bl_propO = (bl_propO..., get_penalty_tau = ocean_get_penalty_tau)
+bl_propO = (bl_propO..., coupling_lambda = coupling_lambda)
+
+
 
 simulation, end_time, cbvector = main(Float64);
 nsteps = Int(end_time / dt)
