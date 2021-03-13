@@ -29,7 +29,7 @@ infrastructure works. This can be tidied up later once design is settled.
 mutable struct CplSolver{CL, CPL, FT} <: AbstractODESolver
     "Named list of pre-defined components"
     component_list::CL
-    "Coupler object"
+    "Coupler State"
     coupler::CPL
     "Coupling timestep"
     dt::FT
