@@ -1698,6 +1698,16 @@ steps:
       slurm_ntasks: 1
       slurm_gres: "gpu:1"
 
+  - label: "gpu_ekman"
+    key: "gpu_ekman"
+    command:
+      - "mpiexec julia --color=yes --project test/Atmos/EDMF/ekman_layer.jl --fix-rng-seed"
+    agents:
+      config: gpu
+      queue: central
+      slurm_ntasks: 1
+      slurm_gres: "gpu:1"
+
   - label: "gpu_sbl_edmf"
     key: "gpu_sbl_edmf"
     command:
