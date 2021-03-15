@@ -27,12 +27,11 @@ include("abstractions.jl")
 include("callbacks.jl")
 
 # Main balance law and its components
-# include("CplTestingBL.jl") #include("test_model.jl") # umbrella model: TestEquations
-# using .CplTestingBL
-
+include("CplTestingBL.jl") #include("test_model.jl") # umbrella model: TestEquations
+using .CplTestingBL
 
 const dt = 3600.0
-nstepsA = 5
+nstepsA = 10
 nstepsO = 5
 
 #  Background atmos and ocean diffusivities
@@ -78,7 +77,7 @@ function main(::Type{FT}) where {FT}
     #dx = min_node_distance(grid, HorizontalDirection())
 
     # Numerics-specific options
-    numerics = (; flux = CentralNumericalFluxFirstOrder() ) # add  , overintegration = 1
+    # numerics = (; flux = CentralNumericalFluxFirstOrder() ) # add  , overintegration = 1
 
     # Timestepping
     Δt_ = dt
@@ -311,8 +310,6 @@ bl_propO = (bl_propO..., source_theta = ocean_source_theta)
 bl_propO = (bl_propO..., calc_kappa_diff = ocean_calc_kappa_diff)
 bl_propO = (bl_propO..., get_penalty_tau = ocean_get_penalty_tau)
 bl_propO = (bl_propO..., coupling_lambda = coupling_lambda)
-
-
 
 simulation, end_time, cbvector = main(Float64);
 nsteps = Int(end_time / dt)
