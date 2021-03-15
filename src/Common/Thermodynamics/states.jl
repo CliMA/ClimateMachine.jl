@@ -69,7 +69,7 @@ PhasePartition(q_tot::FT) where {FT <: Real} =
     PhasePartition(q_tot, zero(FT), zero(FT))
 
 const ITERTYPE = Union{Int, Nothing}
-TOLTYPE(::Type{FT}) where {FT <: AbstractFloat} = Union{FT, Nothing}
+TOLTYPE(FT) = Union{FT, Nothing}
 
 #####
 ##### Dry states
