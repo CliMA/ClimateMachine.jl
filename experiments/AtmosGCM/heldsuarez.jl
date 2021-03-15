@@ -21,8 +21,9 @@ using ClimateMachine.ConfigTypes
 using ClimateMachine.Diagnostics
 using ClimateMachine.GenericCallbacks
 using ClimateMachine.ODESolvers
-using ClimateMachine.TurbulenceClosures
+using ClimateMachine.StdDiagnostics
 using ClimateMachine.SystemSolvers: ManyColumnLU
+using ClimateMachine.TurbulenceClosures
 using ClimateMachine.Mesh.Filters
 using ClimateMachine.Mesh.Grids
 using ClimateMachine.TemperatureProfiles
@@ -250,7 +251,9 @@ function main()
     )
 
     # Set up diagnostics
-    dgn_config = config_diagnostics(FT, driver_config)
+    dgn_ssecs = cld(timeend, 2) + 30
+    dgn_interval = "$(dgn_ssecs)ssecs"
+    dgn_config = config_diagnostics(FT, driver_config, dgn_interval)
 
     # Set up user-defined callbacks
     filterorder = 20
@@ -275,9 +278,7 @@ function main()
     )
 end
 
-function config_diagnostics(FT, driver_config)
-    interval = "40000steps" # chosen to allow a single diagnostics collection
-
+function config_diagnostics(FT, driver_config, interval)
     _planet_radius = FT(planet_radius(param_set))
 
     info = driver_config.config_info
@@ -292,8 +293,7 @@ function config_diagnostics(FT, driver_config)
         resolution,
     )
 
-    dgngrp = setup_atmos_default_diagnostics(
-        AtmosGCMConfigType(),
+    dgngrp = StdDiagnostics.AtmosGCMDefault(
         interval,
         driver_config.name,
         interpol = interpol,

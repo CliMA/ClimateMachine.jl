@@ -35,7 +35,7 @@ using DocStringExtensions
 
 abstract type TracerModel end
 
-export NoTracers, NTracers
+export TracerModel, NoTracers, NTracers
 
 vars_state(::TracerModel, ::AbstractStateType, FT) = @vars()
 
