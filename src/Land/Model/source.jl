@@ -123,7 +123,8 @@ function land_source!(
         qsum::FT=FT(0), #(sum of flow rates, no water going into canopy by default), can leave qsum blank
     ) where {FT}
 
-        
+        # we dont want to update his model at every point ; we store hydarulic head in aux, we could
+        # access the whole thing, and charlie might know... 
         for i_root in eachindex(plant_hs.roots)
             plant_hs.roots[i_root].p_ups = p_soil_array[i_root];
         end
