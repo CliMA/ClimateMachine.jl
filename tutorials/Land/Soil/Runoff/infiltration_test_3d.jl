@@ -102,7 +102,7 @@ m_river = RiverModel(
 N_poly = 1
 xres = FT(80)
 yres = FT(1)
-zres = FT(0.05)
+zres = FT(0.2)
 # Specify the domain boundaries.
 zmax = FT(0);
 zmin = FT(-2);
@@ -113,7 +113,7 @@ ymax = FT(1)
 bc =  LandDomainBC(
 bottom_bc = LandComponentBC(soil_water = Neumann((aux,t)->eltype(aux)(0.0))),
 surface_bc = LandComponentBC(#soil_water = Dirichlet((aux,t)->eltype(aux)(0.4)),),
-                             soil_water = SurfaceDrivenWaterBoundaryConditions(FT;
+                             soil_water = CATHYWaterBoundaryConditions(FT;
                                                                                precip_model = DrivenConstantPrecip{FT}(precip_of_t),
                                                                                runoff_model = CoarseGridRunoff{FT}(Δz)
                                                                                )
@@ -169,6 +169,7 @@ driver_config = ClimateMachine.MultiColumnLandModel(
     param_set,
     model;
     zmin = zmin,
+    # uncomment this to turn off Rusanov
     numerical_flux_first_order = RusanovNumericalFlux(),
     meshwarp = (x...) -> warp_shift_up(x...;topo_max = topo_max,xmax = xmax),
 );
@@ -177,7 +178,7 @@ driver_config = ClimateMachine.MultiColumnLandModel(
 # Choose the initial and final times, as well as a timestep.
 t0 = FT(0)
 timeend = FT(60* 300)
-dt = FT(0.5);
+dt = FT(1);
 const n_outputs = 500;
 const every_x_simulation_time = ceil(Int, timeend / n_outputs);
 solver_config =
@@ -269,8 +270,8 @@ cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(1) do
     )
     nothing
 end
-
-ClimateMachine.invoke!(solver_config; user_callbacks = (cbtmarfilter, callback));
+#remove cbtmarfilter from list to stop TMAR
+ClimateMachine.invoke!(solver_config; user_callbacks = (cbtmarfilter, callback,));
 
 x = aux[:,1,:]
 y = aux[:,2,:]
@@ -333,7 +334,8 @@ end
 solution = analytic.(time_data, alpha, t_c, t_r, i, L, m)
 
 #plot(time_data ./ 60,solution, label = "base case")
-#plot!(time_data ./ 60, q , label = "K = 1e-1m/d,Δ = 0.05m", color = "red")
+#plot!(time_data ./ 60, q , label = "sim")
+#plot!(time_data ./ 60, q , label = "K = 1e-1m/d,Δ = 0.05m", color = "red", linestyle = :dash)
 #plot!(ylim = [0,10.5])
 #plot!(yticks = [0,1,2,3,4,5,6,7,8,9,10])
 #plot!(xticks = [0,50,100,150,200,250,300])

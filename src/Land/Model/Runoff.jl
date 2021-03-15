@@ -99,7 +99,8 @@ function compute_surface_grad_bc(
     T = get_temperature(soil.heat, aux⁻, t)
     θ_i = state⁻.soil.water.θ_i
     # Ponding Dirichlet BC
-    ϑ_bc = FT(ν - θ_i)
+    ## ONLY for overland flow
+    ϑ_bc = ν+specific_storage*state⁻.river.area#FT(ν - θ_i)
     # Value below surface
     ϑ_below = state⁻.soil.water.ϑ_l
 

@@ -3,7 +3,8 @@ export LandDomainBC,
     Dirichlet,
     Neumann,
     NoBC,
-    SurfaceDrivenWaterBoundaryConditions
+    SurfaceDrivenWaterBoundaryConditions,
+    CATHYWaterBoundaryConditions
 
 """
    AbstractBoundaryConditions 
@@ -72,10 +73,8 @@ struct SurfaceDrivenWaterBoundaryConditions{FT, PD, RD} <:
     "Runoff model"
     runoff_model::RD
 end
-
-
 """
-    SurfaceDrivenWaterBoundaryConditions(
+    CATHYWaterBoundaryConditions(
         ::Type{FT};
         precip_model::AbstractPrecipModel{FT} = DrivenConstantPrecip{FT}(),
         runoff_model::AbstractSurfaceRunoffModel{FT} = NoRunoff(),
@@ -93,6 +92,46 @@ function SurfaceDrivenWaterBoundaryConditions(
 ) where {FT}
     args = (precip_model, runoff_model)
     return SurfaceDrivenWaterBoundaryConditions{FT, typeof.(args)...}(args...)
+end
+
+
+"""
+    SurfaceDrivenWaterBoundaryConditions{FT, PD, RD} <: AbstractBoundaryConditions
+
+Boundary condition type to be used when the user wishes to 
+apply physical fluxes of water at the top of the domain (according to precipitation, runoff, and 
+evaporation rates).
+
+# Fields
+$(DocStringExtensions.FIELDS)
+"""
+struct CATHYWaterBoundaryConditions{FT, PD, RD} <:
+       AbstractBoundaryConditions where {FT, PD, RD}
+    "Precipitation model"
+    precip_model::PD
+    "Runoff model"
+    runoff_model::RD
+end
+
+"""
+    CATHYWaterBoundaryConditions(
+        ::Type{FT};
+        precip_model::AbstractPrecipModel{FT} = DrivenConstantPrecip{FT}(),
+        runoff_model::AbstractSurfaceRunoffModel{FT} = NoRunoff(),
+    ) where {FT}
+
+Constructor for the SurfaceDrivenWaterBoundaryConditions object. The default
+is a constant precipitation rate on the subgrid scale, and no runoff.
+"""
+function CATHYWaterBoundaryConditions(
+    ::Type{FT};
+    precip_model::AbstractPrecipModel{FT} = DrivenConstantPrecip{FT}(
+        (t) -> (0.0),
+    ),
+    runoff_model::AbstractSurfaceRunoffModel = NoRunoff(),
+) where {FT}
+    args = (precip_model, runoff_model)
+    return CATHYWaterBoundaryConditions{FT, typeof.(args)...}(args...)
 end
 
 

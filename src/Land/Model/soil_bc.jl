@@ -254,9 +254,7 @@ function soil_boundary_flux!(
     t,
     _...,
 )
-
-
-    diff⁺.soil.water.K∇h = n̂ * compute_surface_grad_bc(
+    diff⁺.soil.water.K∇h =  n̂ * compute_surface_grad_bc(
         land.soil,
         bc.runoff_model,
         bc.precip_model,
@@ -265,6 +263,55 @@ function soil_boundary_flux!(
         aux⁻,
         t,
     )
-    #    @printf("%le %le %le %le \n", t, aux⁺.x, aux⁺.y, aux⁺.z)
-    #    println(diff⁺.soil.water.K∇h)
+
+end
+
+
+
+function soil_boundary_flux!(
+    nf,
+    bc::CATHYWaterBoundaryConditions,
+    water::SoilWaterModel,
+    land::LandModel,
+    state⁺::Vars,
+    diff⁺::Vars,
+    aux⁺::Vars,
+    n̂,
+    state⁻::Vars,
+    diff⁻::Vars,
+    aux⁻::Vars,
+    t,
+    _...,
+)
+    FT = eltype(state⁻)
+    if state⁻.river.area < eps(FT)
+        diff⁺.soil.water.K∇h = n̂ * (FT(2)*bc.precip_model(t))- diff⁻.soil.water.K∇h
+    else
+        diff⁺.soil.water.K∇h = diff⁻.soil.water.K∇h
+    end
+
+end
+
+
+function soil_boundary_state!(
+    nf,
+    bc::CATHYWaterBoundaryConditions,
+    water::SoilWaterModel,
+    land::LandModel,
+    state⁺::Vars,
+    aux⁺::Vars,
+    n̂,
+    state⁻::Vars,
+    aux⁻::Vars,
+    t,
+    _...,
+)
+    FT = eltype(state⁻)
+    if state⁻.river.area < eps(FT)
+        nothing
+    else
+        height = state⁻.river.area
+        state⁺.soil.water.ϑ_l = height*land.soil.param_functions.S_s+land.soil.param_functions.porosity
+    end
+    
 end

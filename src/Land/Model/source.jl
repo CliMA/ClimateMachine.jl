@@ -67,27 +67,13 @@ function land_source!(
 ) where {FT}
     bc = land.boundary_conditions.surface_bc.soil_water
     #this is either i_c is rain > i_c or = rain if rain < i_c
-    infiltration =
-        -compute_surface_grad_bc(
-            land.soil,
-            bc.runoff_model,
-            bc.precip_model,
-            state,
-            diffusive,
-            aux,
-            t,
-        )
+    #I dont think what is below will work for exfiltration
+    #what about if evap > precip?
+    #definitely needs work, but with precip only, flux into soil only, should be OK
     precip = bc.precip_model(t)
-    if infiltration < FT(0)
-        f = -norm(diffusive.soil.water.K∇h)
-
-    else
-        f = FT(0.0)
-    end
-    
-    
-    source.river.area  += -(precip - f)
-    
+    flux_into_soil = -norm(diffusive.soil.water.K∇h)
+    source.river.area  += -(precip - flux_into_soil)
+                                      
 end
 
 function land_source!(
