@@ -68,6 +68,9 @@ PhasePartition(q_tot::FT, q_liq::FT) where {FT <: Real} =
 PhasePartition(q_tot::FT) where {FT <: Real} =
     PhasePartition(q_tot, zero(FT), zero(FT))
 
+const ITERTYPE = Union{Int, Nothing}
+TOLTYPE(::Type{FT}) where {FT <: AbstractFloat} = Union{FT, Nothing}
+
 #####
 ##### Dry states
 #####
@@ -236,10 +239,12 @@ function PhaseEquil(
     e_int::FT,
     ρ::FT,
     q_tot::FT,
-    maxiter::Int = 8,
-    temperature_tol::FT = FT(1e-1),
+    maxiter::IT = nothing,
+    temperature_tol::FTT = nothing,
     ::Type{sat_adjust_method} = NewtonsMethod,
-) where {FT <: Real, sat_adjust_method}
+) where {FT <: Real, sat_adjust_method, IT <: ITERTYPE, FTT <: TOLTYPE(FT)}
+    maxiter === nothing && (maxiter = 8)
+    temperature_tol === nothing && (temperature_tol = FT(1e-1))
     phase_type = PhaseEquil
     q_tot_safe = clamp(q_tot, FT(0), FT(1))
     T = saturation_adjustment(
@@ -296,9 +301,11 @@ function PhaseEquil_ρθq(
     ρ::FT,
     θ_liq_ice::FT,
     q_tot::FT,
-    maxiter::Int = 36,
-    temperature_tol::FT = FT(1e-1),
-) where {FT <: Real}
+    maxiter::IT = nothing,
+    temperature_tol::FTT = nothing,
+) where {FT <: Real, IT <: ITERTYPE, FTT <: TOLTYPE(FT)}
+    maxiter === nothing && (maxiter = 36)
+    temperature_tol === nothing && (temperature_tol = FT(1e-1))
     phase_type = PhaseEquil
     tol = ResidualTolerance(temperature_tol)
     T = saturation_adjustment_given_ρθq(
@@ -412,10 +419,12 @@ function PhaseEquil_peq(
     p::FT,
     e_int::FT,
     q_tot::FT,
-    maxiter::Int = 40,
-    temperature_tol::FT = FT(1e-2),
+    maxiter::IT = nothing,
+    temperature_tol::FTT = nothing,
     ::Type{sat_adjust_method} = SecantMethod,
-) where {FT <: Real, sat_adjust_method}
+) where {FT <: Real, sat_adjust_method, IT <: ITERTYPE, FTT <: TOLTYPE(FT)}
+    maxiter === nothing && (maxiter = 40)
+    temperature_tol === nothing && (temperature_tol = FT(1e-2))
     phase_type = PhaseEquil
     q_tot_safe = clamp(q_tot, FT(0), FT(1))
     T = saturation_adjustment_given_peq(
