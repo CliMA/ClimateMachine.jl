@@ -77,7 +77,7 @@ function main(::Type{FT}) where {FT}
     #dx = min_node_distance(grid, HorizontalDirection())
 
     # Numerics-specific options
-    # numerics = (; flux = CentralNumericalFluxFirstOrder() ) # add  , overintegration = 1
+    numerics = (NFsecondorder = CplTestingBL.PenaltyNumFluxDiffusive(),) # add  , overintegration = 1
 
     # Timestepping
     Δt_ = dt
@@ -98,7 +98,7 @@ function main(::Type{FT}) where {FT}
         nsteps = nstepsA,
         dt = Δt_ / nstepsA,
         timestepper = LSRK54CarpenterKennedy,
-        NFSecondOrder = CplTestingBL.PenaltyNumFluxDiffusive(),
+        numerics...,
     )
 
     # 2. Ocean component
@@ -111,12 +111,10 @@ function main(::Type{FT}) where {FT}
         nsteps = nstepsO,
         dt = Δt_ / nstepsO,
         timestepper = LSRK54CarpenterKennedy,
-        NFSecondOrder = CplTestingBL.PenaltyNumFluxDiffusive(),
+        numerics...,
     )
 
-    @info sum(mA.boundary)
-    @info sum(mO.boundary)
-    # Create a Coupler State object for holding imort/export fields.
+    # Create a Coupler State object for holding import/export fields.
     # Try using Dict here - not sure if that will be OK with GPU
     coupler = CplState()
     register_cpl_field!(coupler, :Ocean_SST, deepcopy(mO.state.θ[mO.boundary]), mO.grid, DateTime(0), u"°C")
