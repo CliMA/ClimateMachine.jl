@@ -319,7 +319,7 @@ function config_dycoms(
 
     # moisture model and its sources
     if moisture_model == "equilibrium"
-        moisture = EquilMoist{FT}(; maxiter = 4, tolerance = FT(1))
+        moisture = EquilMoist(; maxiter = 4, tolerance = FT(1))
     elseif moisture_model == "nonequilibrium"
         source = (source..., CreateClouds())
         moisture = NonEquilMoist()
@@ -329,7 +329,7 @@ function config_dycoms(
 %s: unrecognized moisture_model in source terms, using the defaults""",
             moisture_model,
         )
-        moisture = EquilMoist{FT}(; maxiter = 4, tolerance = FT(1))
+        moisture = EquilMoist(; maxiter = 4, tolerance = FT(1))
     end
 
     # precipitation model and its sources

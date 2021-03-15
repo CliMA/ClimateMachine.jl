@@ -18,7 +18,7 @@ possible options for each subcomponent.
     ref_state::RS = HydrostaticState(DecayingTemperatureProfile{FT}(param_set),)
     turbulence::T = SmagorinskyLilly{FT}(0.21),
     hyperdiffusion::HD = NoHyperDiffusion(),
-    moisture::M = EquilMoist{FT}(),
+    moisture::M = EquilMoist(),
     precipitation::P = NoPrecipitation(),
     radiation::R = NoRadiation(),
     source::S = (Gravity(), Coriolis(), GeostrophicForcing{FT}(7.62e-5, 0, 0)),
@@ -47,7 +47,7 @@ possible options for each subcomponent.
     ref_state::RS = HydrostaticState(DecayingTemperatureProfile{FT}(param_set),)
     turbulence::T = SmagorinskyLilly{FT}(C_smag(param_set)),
     hyperdiffusion::HD = NoHyperDiffusion(),
-    moisture::M = EquilMoist{FT}(),
+    moisture::M = EquilMoist(),
     precipitation::P = NoPrecipitation(),
     radiation::R = NoRadiation(),
     source::S = (Gravity(), Coriolis()),

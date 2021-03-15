@@ -110,7 +110,7 @@ function config_surfacebubble(FT, N, resolution, xmax, ymax, zmax)
         param_set;
         problem = problem,
         turbulence = SmagorinskyLilly{FT}(C_smag),
-        moisture = EquilMoist{FT}(),
+        moisture = EquilMoist(),
         source = (Gravity(),),
     )
     config = ClimateMachine.AtmosLESConfiguration(

@@ -170,7 +170,7 @@ function config_gcm_experiment(
         moisture = DryModel()
     else
         hyperdiffusion = EquilMoistBiharmonic(FT(8 * 3600))
-        moisture = EquilMoist{FT}()
+        moisture = EquilMoist()
     end
 
     # Set up the boundary conditions

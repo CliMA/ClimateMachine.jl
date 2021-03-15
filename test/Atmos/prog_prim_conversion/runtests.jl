@@ -120,7 +120,7 @@ end
 
 @testset "Prognostic-Primitive conversion (EquilMoist)" begin
     FT = Float64
-    bl = TestBL(param_set, EquilMoist{FT}(), EnergyModel())
+    bl = TestBL(param_set, EquilMoist(), EnergyModel())
     vs_prog = vars_state(bl, Prognostic(), FT)
     vs_prim = vars_state(bl, Primitive(), FT)
     prog_arr = zeros(varsize(vs_prog))
