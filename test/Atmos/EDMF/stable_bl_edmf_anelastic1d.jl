@@ -82,23 +82,25 @@ function init_state_prognostic!(
     end
 
     # initialize environment covariance with zero for now
-    if z <= FT(250)
-        en.ρatke =
-            gm.ρ *
-            FT(0.4) *
-            FT(1 - z / 250.0) *
-            FT(1 - z / 250.0) *
-            FT(1 - z / 250.0)
-        en.ρaθ_liq_cv =
-            gm.ρ *
-            FT(0.4) *
-            FT(1 - z / 250.0) *
-            FT(1 - z / 250.0) *
-            FT(1 - z / 250.0)
-    else
-        en.ρatke = FT(0)
-        en.ρaθ_liq_cv = FT(0)
-    end
+    en.ρatke = gm.ρ*FT(0.4)*FT(1 - z / 400.0)
+    en.ρaθ_liq_cv = gm.ρ*FT(0.4)*FT(1 - z / 400.0)
+    # if z <= FT(250)
+    #     en.ρatke =
+    #         gm.ρ *
+    #         FT(0.4) *
+    #         FT(1 - z / 250.0) *
+    #         FT(1 - z / 250.0) *
+    #         FT(1 - z / 250.0)
+    #     en.ρaθ_liq_cv =
+    #         gm.ρ *
+    #         FT(0.4) *
+    #         FT(1 - z / 250.0) *
+    #         FT(1 - z / 250.0) *
+    #         FT(1 - z / 250.0)
+    # else
+    #     en.ρatke = FT(0)
+    #     en.ρaθ_liq_cv = FT(0)
+    # end
     en.ρaq_tot_cv = FT(0)
     en.ρaθ_liq_q_tot_cv = FT(0)
     return nothing
@@ -124,7 +126,7 @@ function main(::Type{FT}) where {FT}
 
     # DG polynomial order
     N = 4
-    nelem_vert = 20
+    nelem_vert = 10
 
     # Prescribe domain parameters
     zmax = FT(400)
@@ -132,8 +134,8 @@ function main(::Type{FT}) where {FT}
     t0 = FT(0)
 
     # Simulation time
-    timeend = FT(1800)
-    CFLmax  = FT(100)
+    timeend = FT(15)
+    CFLmax  = FT(10)
 
     config_type = SingleStackConfigType
 
@@ -153,8 +155,8 @@ function main(::Type{FT}) where {FT}
         config_type,
         zmax,
         surface_flux;
-        # turbulence = ConstantKinematicViscosity(FT(0)),
-        turbulence = SmagorinskyLilly{FT}(0.21),
+        turbulence = ConstantKinematicViscosity(FT(0.1)),
+        # turbulence = SmagorinskyLilly{FT}(0.21),
         turbconv = turbconv,
         compressibility = compressibility,
     )
