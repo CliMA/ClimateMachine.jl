@@ -538,7 +538,7 @@ export_plot(
     time_data,
     state_data,
     ("ρcT",),
-    joinpath(output_dir, "initial_condition_T_nodal.png");
+    joinpath(output_dir, "initial_condition_T_nodal_fvm.png");
     xlabel = "ρcT at southwest node",
     ylabel = z_label,
 );
@@ -547,7 +547,7 @@ export_plot(
     time_data,
     state_data,
     ("ρu[1]",),
-    joinpath(output_dir, "initial_condition_u_nodal.png");
+    joinpath(output_dir, "initial_condition_u_nodal_fvm.png");
     xlabel = "ρu at southwest node",
     ylabel = z_label,
 );
@@ -556,13 +556,13 @@ export_plot(
     time_data,
     state_data,
     ("ρu[2]",),
-    joinpath(output_dir, "initial_condition_v_nodal.png");
+    joinpath(output_dir, "initial_condition_v_nodal_fvm.png");
     xlabel = "ρv at southwest node",
     ylabel = z_label,
 );
 
-# ![](initial_condition_T_nodal.png)
-# ![](initial_condition_u_nodal.png)
+# ![](initial_condition_T_nodal_fvm.png)
+# ![](initial_condition_u_nodal_fvm.png)
 
 # ## Inspect the initial conditions for the horizontal averages
 
@@ -588,7 +588,7 @@ export_plot(
     time_data,
     data_avg,
     ("ρu[1]",),
-    joinpath(output_dir, "initial_condition_avg_u.png");
+    joinpath(output_dir, "initial_condition_avg_u_fvm.png");
     xlabel = "Horizontal mean of ρu",
     ylabel = z_label,
 );
@@ -597,13 +597,13 @@ export_plot(
     time_data,
     data_var,
     ("ρu[1]",),
-    joinpath(output_dir, "initial_condition_variance_u.png");
+    joinpath(output_dir, "initial_condition_variance_u_fvm.png");
     xlabel = "Horizontal variance of ρu",
     ylabel = z_label,
 );
 
-# ![](initial_condition_avg_u.png)
-# ![](initial_condition_variance_u.png)
+# ![](initial_condition_avg_u_fvm.png)
+# ![](initial_condition_variance_u_fvm.png)
 
 # # Solver hooks / callbacks
 
@@ -672,7 +672,7 @@ export_plot(
     time_data,
     data_avg,
     ("ρu[1]"),
-    joinpath(output_dir, "solution_vs_time_u_avg.png");
+    joinpath(output_dir, "solution_vs_time_u_avg_fvm.png");
     xlabel = "Horizontal mean of ρu",
     ylabel = z_label,
 );
@@ -681,7 +681,7 @@ export_plot(
     time_data,
     data_var,
     ("ρu[1]"),
-    joinpath(output_dir, "variance_vs_time_u.png");
+    joinpath(output_dir, "variance_vs_time_u_fvm.png");
     xlabel = "Horizontal variance of ρu",
     ylabel = z_label,
 );
@@ -690,7 +690,7 @@ export_plot(
     time_data,
     data_avg,
     ("ρcT"),
-    joinpath(output_dir, "solution_vs_time_T_avg.png");
+    joinpath(output_dir, "solution_vs_time_T_avg_fvm.png");
     xlabel = "Horizontal mean of ρcT",
     ylabel = z_label,
 );
@@ -699,7 +699,7 @@ export_plot(
     time_data,
     data_var,
     ("ρcT"),
-    joinpath(output_dir, "variance_vs_time_T.png");
+    joinpath(output_dir, "variance_vs_time_T_fvm.png");
     xlabel = "Horizontal variance of ρcT",
     ylabel = z_label,
 );
@@ -708,15 +708,15 @@ export_plot(
     time_data,
     data_nodal,
     ("ρu[1]"),
-    joinpath(output_dir, "solution_vs_time_u_nodal.png");
+    joinpath(output_dir, "solution_vs_time_u_nodal_fvm.png");
     xlabel = "ρu at southwest node",
     ylabel = z_label,
 );
-# ![](solution_vs_time_u_avg.png)
-# ![](variance_vs_time_u.png)
-# ![](solution_vs_time_T_avg.png)
-# ![](variance_vs_time_T.png)
-# ![](solution_vs_time_u_nodal.png)
+# ![](solution_vs_time_u_avg_fvm.png)
+# ![](variance_vs_time_u_fvm.png)
+# ![](solution_vs_time_T_avg_fvm.png)
+# ![](variance_vs_time_T_fvm.png)
+# ![](solution_vs_time_u_nodal_fvm.png)
 
 # Rayleigh friction returns the horizontal velocity to the objective
 # profile on the timescale of the simulation (1 second), since `γ`∼1. The horizontal viscosity
