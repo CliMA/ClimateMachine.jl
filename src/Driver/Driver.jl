@@ -17,6 +17,7 @@ using ..Checkpoint
 using ..SystemSolvers
 using ..ConfigTypes
 using ..Diagnostics
+using ..DiagnosticsMachine
 using ..DGMethods
 using ..BalanceLaws
 using ..DGMethods: remainder_DGModel, SpaceDiscretization
@@ -686,6 +687,15 @@ function invoke!(
     if Settings.diagnostics != "never" && !isnothing(diagnostics_config)
         dgn_starttime = replace(string(now()), ":" => ".")
         Diagnostics.init(
+            mpicomm,
+            solver_config.param_set,
+            dg,
+            Q,
+            dgn_starttime,
+            Settings.output_dir,
+            Settings.no_overwrite,
+        )
+        DiagnosticsMachine.init(
             mpicomm,
             solver_config.param_set,
             dg,

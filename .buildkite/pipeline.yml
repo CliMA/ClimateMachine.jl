@@ -1531,7 +1531,7 @@ steps:
   - label: "gpu_heldsuarez"
     key: "gpu_heldsuarez"
     command:
-      - "mpiexec julia --color=yes --project experiments/AtmosGCM/heldsuarez.jl --fix-rng-seed "
+      - "mpiexec julia --color=yes --project experiments/AtmosGCM/heldsuarez.jl --diagnostics=default --fix-rng-seed "
     agents:
       config: gpu
       queue: central

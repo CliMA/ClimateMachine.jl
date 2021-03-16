@@ -15,11 +15,10 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-          test-modules: ["Arrays,Atmos,Common,Diagnostics,Driver,InputOutput,Utilities",
-                         "Numerics/DGMethods",
-                         "Numerics/Mesh",
-                         "Numerics/ODESolvers",
-                         "Numerics/SystemSolvers",
+          test-modules: ["Atmos,Common,InputOutput,Utilities",
+                         "Driver",
+                         "Diagnostics",
+                         "Arrays,Numerics/ODESolvers,Numerics/SystemSolvers",
                          "Ocean",
                          "Land",]
 

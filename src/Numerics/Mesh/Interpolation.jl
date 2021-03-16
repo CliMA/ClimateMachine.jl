@@ -26,6 +26,8 @@ export dimensions,
 
 abstract type InterpolationTopology end
 
+dimensions(nothing) = OrderedDict()
+
 """
     InterpolationBrick{
         FT <: AbstractFloat,CuArrays

@@ -8,8 +8,9 @@ using ClimateMachine.ConfigTypes
 using ClimateMachine.GenericCallbacks
 using ClimateMachine.DGMethods.NumericalFluxes
 using ClimateMachine.Diagnostics
-using ClimateMachine.ODESolvers
 using ClimateMachine.Mesh.Filters
+using ClimateMachine.ODESolvers
+using ClimateMachine.StdDiagnostics
 using ClimateMachine.Thermodynamics
 using ClimateMachine.TurbulenceClosures
 using ClimateMachine.VariableTemplates
@@ -134,13 +135,9 @@ function config_diagnostics(
     ymax::FT,
     zmax::FT,
     resolution,
+    interval,
 ) where {FT}
-    interval = "10000steps"
-    dgngrp = setup_atmos_default_diagnostics(
-        AtmosLESConfigType(),
-        interval,
-        driver_config.name,
-    )
+    dgngrp = StdDiagnostics.AtmosLESDefault(interval, driver_config.name)
     boundaries = [
         FT(0) FT(0) FT(0)
         xmax ymax zmax
@@ -180,7 +177,17 @@ function main()
         driver_config,
         init_on_cpu = true,
     )
-    dgn_config = config_diagnostics(driver_config, xmax, ymax, zmax, resolution)
+
+    dgn_ssecs = (timeend / 2) + 10
+    dgn_interval = "$(dgn_ssecs)ssecs"
+    dgn_config = config_diagnostics(
+        driver_config,
+        xmax,
+        ymax,
+        zmax,
+        resolution,
+        dgn_interval,
+    )
 
     cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(1) do
         Filters.apply!(
