@@ -2,15 +2,18 @@ module Grids
 using ..Topologies
 import ..Metrics, ..Elements
 import ..BrickMesh
+using ClimateMachine.MPIStateArrays
 
 using MPI
 using LinearAlgebra
 using KernelAbstractions
+using DocStringExtensions
 
 export DiscontinuousSpectralElementGrid, AbstractGrid
 export dofs_per_element, arraytype, dimensionality, polynomialorders
 export referencepoints, min_node_distance, get_z
 export EveryDirection, HorizontalDirection, VerticalDirection, Direction
+export effect_dss3d!
 
 abstract type Direction end
 struct EveryDirection <: Direction end
@@ -241,6 +244,21 @@ struct DiscontinuousSpectralElementGrid{
     """
     minΔ::MINΔ
 
+    """
+    Map to vertex degrees of freedom
+    """
+    vertmap::Union{DAI1, Nothing}
+
+    """
+    Map to edge degrees of freedom `edgemap[edgdof, edgno, orient]`
+    """
+    edgemap::Union{DAI3, Nothing}
+
+    """
+    Map to face degrees of freedom `facemap[fcdof, fcno, orient]`
+    """
+    facemap::Union{DAI3, Nothing}
+
     # Constructor for a tuple of polynomial orders
     function DiscontinuousSpectralElementGrid(
         topology::AbstractTopology{dim};
@@ -283,6 +301,7 @@ struct DiscontinuousSpectralElementGrid{
 
         Np = prod(N .+ 1)
 
+        vertmap, edgemap, facemap = init_vertex_edge_face_mappings(N)
         # Create element operators for each polynomial order
         ξω = ntuple(
             j ->
@@ -330,7 +349,15 @@ struct DiscontinuousSpectralElementGrid{
         DAI3 = typeof(vmap⁻)
         TOP = typeof(topology)
         TVTK = typeof(x_vtk)
-
+        if vertmap isa Array
+            vertmap = DAI1(vertmap)
+        end
+        if edgemap isa Array
+            edgemap = DAI3(edgemap)
+        end
+        if facemap isa Array
+            facemap = DAI3(facemap)
+        end
         FT = FloatType
         minΔ = MinNodalDistance(
             min_node_distance(vgeo, topology, N, FT, HorizontalDirection()),
@@ -373,6 +400,9 @@ struct DiscontinuousSpectralElementGrid{
             Imat,
             x_vtk,
             minΔ,
+            vertmap,
+            edgemap,
+            facemap,
         )
     end
 end
@@ -600,6 +630,114 @@ function mappings(N, elemtoelem, elemtoface, elemtoordr)
     (vmap⁻, vmap⁺)
 end
 # }}}
+
+function init_vertex_edge_face_mappings(N)
+    dim = length(N)
+    Np = N .+ 1
+    if dim == 3 && Np[end] > 2
+        nodes = reshape(1:prod(Np), Np)
+        vertmap =
+            Int64.([
+                nodes[1, 1, 1],
+                nodes[Np[1], 1, 1],
+                nodes[1, Np[2], 1],
+                nodes[Np[1], Np[2], 1],
+                nodes[1, 1, Np[3]],
+                nodes[Np[1], 1, Np[3]],
+                nodes[1, Np[2], Np[3]],
+                nodes[Np[1], Np[2], Np[3]],
+            ])
+        Ne = Np .- 2
+        Ne_max = maximum(Ne)
+        if Ne_max ≥ 1
+            edgemap = -ones(Int64, Ne_max, 12, 2)
+
+            if Np[1] > 2
+                edgemap[1:Ne[1], 1, 1] .= nodes[2:(end - 1), 1, 1]
+                edgemap[1:Ne[1], 2, 1] .= nodes[2:(end - 1), Np[2], 1]
+                edgemap[1:Ne[1], 3, 1] .= nodes[2:(end - 1), 1, Np[3]]
+                edgemap[1:Ne[1], 4, 1] .= nodes[2:(end - 1), Np[2], Np[3]]
+
+                edgemap[1:Ne[1], 1, 2] .= nodes[(end - 1):-1:2, 1, 1]
+                edgemap[1:Ne[1], 2, 2] .= nodes[(end - 1):-1:2, Np[2], 1]
+                edgemap[1:Ne[1], 3, 2] .= nodes[(end - 1):-1:2, 1, Np[3]]
+                edgemap[1:Ne[1], 4, 2] .= nodes[(end - 1):-1:2, Np[2], Np[3]]
+            end
+
+            if Np[2] > 2
+                edgemap[1:Ne[2], 5, 1] .= nodes[1, 2:(end - 1), 1]
+                edgemap[1:Ne[2], 6, 1] .= nodes[Np[1], 2:(end - 1), 1]
+                edgemap[1:Ne[2], 7, 1] .= nodes[1, 2:(end - 1), Np[3]]
+                edgemap[1:Ne[2], 8, 1] .= nodes[Np[1], 2:(end - 1), Np[3]]
+
+                edgemap[1:Ne[2], 5, 2] .= nodes[1, (end - 1):-1:2, 1]
+                edgemap[1:Ne[2], 6, 2] .= nodes[Np[1], (end - 1):-1:2, 1]
+                edgemap[1:Ne[2], 7, 2] .= nodes[1, (end - 1):-1:2, Np[3]]
+                edgemap[1:Ne[2], 8, 2] .= nodes[Np[1], (end - 1):-1:2, Np[3]]
+            end
+
+            if Np[3] > 2
+                edgemap[1:Ne[3], 9, 1] .= nodes[1, 1, 2:(end - 1)]
+                edgemap[1:Ne[3], 10, 1] .= nodes[Np[1], 1, 2:(end - 1)]
+                edgemap[1:Ne[3], 11, 1] .= nodes[1, Np[2], 2:(end - 1)]
+                edgemap[1:Ne[3], 12, 1] .= nodes[Np[1], Np[2], 2:(end - 1)]
+
+                edgemap[1:Ne[3], 9, 2] .= nodes[1, 1, (end - 1):-1:2]
+                edgemap[1:Ne[3], 10, 2] .= nodes[Np[1], 1, (end - 1):-1:2]
+                edgemap[1:Ne[3], 11, 2] .= nodes[1, Np[2], (end - 1):-1:2]
+                edgemap[1:Ne[3], 12, 2] .= nodes[Np[1], Np[2], (end - 1):-1:2]
+            end
+        else
+            edgemap = nothing
+        end
+
+        Nf = Np .- 2
+        Nf_max = max(Nf[1] * Nf[2], Nf[1] * Nf[3])
+        if Nf_max ≥ 1
+            facemap = -ones(Int64, Nf_max, 6, 2)
+
+            if Nf[2] > 0 && Nf[3] > 0
+                nfc = Nf[2] * Nf[3]
+                facemap[1:nfc, 1, 1] .= nodes[1, 2:(end - 1), 2:(end - 1)][:]
+                facemap[1:nfc, 2, 1] .=
+                    nodes[Np[1], 2:(end - 1), 2:(end - 1)][:]
+
+                facemap[1:nfc, 1, 2] .= nodes[1, (end - 1):-1:2, 2:(end - 1)][:]
+                facemap[1:nfc, 2, 2] .=
+                    nodes[Np[1], (end - 1):-1:2, 2:(end - 1)][:]
+            end
+
+            if Nf[1] > 0 && Nf[3] > 0
+                nfc = Nf[1] * Nf[3]
+                facemap[1:nfc, 3, 1] .= nodes[2:(end - 1), 1, 2:(end - 1)][:]
+                facemap[1:nfc, 4, 1] .=
+                    nodes[2:(end - 1), Np[2], 2:(end - 1)][:]
+
+                facemap[1:nfc, 3, 2] .= nodes[(end - 1):-1:2, 1, 2:(end - 1)][:]
+                facemap[1:nfc, 4, 2] .=
+                    nodes[(end - 1):-1:2, Np[2], 2:(end - 1)][:]
+            end
+
+            if Nf[1] > 0 && Nf[2] > 0
+                nfc = Nf[1] * Nf[2]
+                facemap[1:nfc, 5, 1] .= nodes[2:(end - 1), 2:(end - 1), 1][:]
+                facemap[1:nfc, 6, 1] .=
+                    nodes[2:(end - 1), 2:(end - 1), Np[3]][:]
+
+                facemap[1:nfc, 5, 2] .= nodes[(end - 1):-1:2, 2:(end - 1), 1][:]
+                facemap[1:nfc, 6, 2] .=
+                    nodes[(end - 1):-1:2, 2:(end - 1), Np[3]][:]
+            end
+        else
+            facemap = nothing
+        end
+    else
+        vertmap, edgemap, facemap = nothing, nothing, nothing
+    end
+
+    return vertmap, edgemap, facemap
+end
+
 
 """
    commmapping(N, commelems, commfaces, nabrtocomm)
@@ -1154,5 +1292,7 @@ neighbors.
 
     min_neighbor_distance[ijk, e] = md
 end
+
+include("DSS.jl")
 
 end # module

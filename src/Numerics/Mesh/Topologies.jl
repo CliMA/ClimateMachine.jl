@@ -1,6 +1,7 @@
 module Topologies
 import ..BrickMesh
 import MPI
+using CUDA
 using DocStringExtensions
 
 export AbstractTopology,
@@ -171,6 +172,40 @@ struct BoxElementTopology{dim, T, nb} <: AbstractTopology{dim, T, nb}
     """
     bndytoface::NTuple{nb, Array{Int64, 1}}
 
+    """
+    Element to locally unique vertex number; `elemtouvert[v,e]` is the `v`th vertex 
+    of element `e`
+    """
+    elemtouvert::Union{Array{Int64, 2}, Nothing}
+
+    """
+    Vertex connectivity information for direct stiffness summation; 
+    `vtconn[lvt1, lelem1, lvt2, lelem2, ....]`
+    """
+    vtconn::Union{AbstractArray{Int64, 1}, Nothing}
+
+    """
+    Vertex offset for vertex connectivity information
+    """
+    vtconnoff::Union{AbstractArray{Int64, 1}, Nothing}
+
+    """
+    Face connectivity information for direct stiffness summation; 
+    `fcconn[ufc][lfc1, lelem1, lfc2, lelem2, ordr]`
+    """
+    fcconn::Union{AbstractArray{Int64, 2}, Nothing}
+
+    """
+    Edge connectivity information for direct stiffness summation; 
+    `edgconn[uedg][ledg1, orient, lelem1, ledg2, orient, lelem2, ...]`
+    """
+    edgconn::Union{AbstractArray{Int64, 1}, Nothing}
+
+    """
+    Edge offset for edge connectivity information
+    """
+    edgconnoff::Union{AbstractArray{Int64, 1}, Nothing}
+
     function BoxElementTopology{dim, T, nb}(
         mpicomm,
         elems,
@@ -189,7 +224,13 @@ struct BoxElementTopology{dim, T, nb} <: AbstractTopology{dim, T, nb}
         nabrtosend,
         origsendorder,
         bndytoelem,
-        bndytoface,
+        bndytoface;
+        elemtouvert = nothing,
+        vtconn = nothing,
+        vtconnoff = nothing,
+        fcconn = nothing,
+        edgconn = nothing,
+        edgconnoff = nothing,
     ) where {dim, T, nb}
 
         exteriorelems = sort(unique(sendelems))
@@ -216,6 +257,12 @@ struct BoxElementTopology{dim, T, nb} <: AbstractTopology{dim, T, nb}
             origsendorder,
             bndytoelem,
             bndytoface,
+            elemtouvert,
+            vtconn,
+            vtconnoff,
+            fcconn,
+            edgconn,
+            edgconnoff,
         )
     end
 end
@@ -456,6 +503,7 @@ function BrickTopology(
         origsendorder,
         bndytoelem,
         bndytoface,
+        elemtouvert = topology.elemtovert,
     ))
 end
 
@@ -735,7 +783,190 @@ function StackedBrickTopology(
     nb = length(bndytoelem)
 
     T = eltype(basetopo.elemtocoord)
-
+    #----setting up DSS----------
+    if basetopo.elemtouvert isa Array
+        DA = CUDA.has_cuda_gpu() ? CuArray : Array
+        #---setup vertex DSS
+        nvertby2 = div(nvert, 2)
+        elemtouvert = similar(basetopo.elemtouvert, nvert, length(elems))
+        # base level
+        for i in 1:length(basetopo.elems)
+            e = stacksize * (i - 1) + 1
+            for vt in 1:nvertby2
+                elemtouvert[vt, e] =
+                    (basetopo.elemtouvert[vt, i] - 1) * (stacksize + 1) + 1
+            end
+        end
+        # interior levels
+        for i in 1:length(basetopo.elems), j in 1:(stacksize - 1)
+            e = stacksize * (i - 1) + j
+            for vt in 1:nvertby2
+                elemtouvert[nvertby2 + vt, e] = elemtouvert[vt, e] + 1
+                elemtouvert[vt, e + 1] = elemtouvert[nvertby2 + vt, e]
+            end
+        end
+        # top level
+        if periodicity[dim]
+            for i in 1:length(basetopo.elems)
+                e = stacksize * i
+                for vt in 1:nvertby2
+                    elemtouvert[nvertby2 + vt, e] =
+                        (basetopo.elemtouvert[vt, i] - 1) * (stacksize + 1) + 1
+                end
+            end
+        else
+            for i in 1:length(basetopo.elems)
+                e = stacksize * i
+                for vt in 1:nvertby2
+                    elemtouvert[nvertby2 + vt, e] = elemtouvert[vt, e] + 1
+                end
+            end
+        end
+        vtmax = maximum(unique(elemtouvert))
+        vtconn = map(j -> zeros(Int, j), zeros(Int, vtmax))
+        for el in elems, lvt in 1:nvert
+            vt = elemtouvert[lvt, el]
+            push!(vtconn[vt], lvt) # local vertex number
+            push!(vtconn[vt], el)  # local elem number
+        end
+        # building the vertex connectivity device array
+        vtconnoff = zeros(Int, vtmax + 1)
+        vtconnoff[1] = 1
+        temp = Int64[]
+        for vt in 1:vtmax
+            nconn = length(vtconn[vt])
+            if nconn > 2
+                vtconnoff[vt + 1] = vtconnoff[vt] + nconn
+                append!(temp, vtconn[vt])
+            else
+                vtconnoff[vt + 1] = vtconnoff[vt]
+            end
+        end
+        vtconn = DA(temp)
+        vtconnoff = DA(vtconnoff)
+        #---setup face DSS---------------------
+        fcmarker = -ones(Int, nface, length(elems))
+        fcno = 0
+        for el in realelems
+            for fc in 1:nface
+                if elemtobndy[fc, el] == 0
+                    nabrel = elemtoelem[fc, el]
+                    nabrfc = elemtoface[fc, el]
+                    if fcmarker[fc, el] == -1 && fcmarker[nabrfc, nabrel] == -1
+                        fcno += 1
+                        fcmarker[fc, el] = fcno
+                        fcmarker[nabrfc, nabrel] = fcno
+                    end
+                end
+            end
+        end
+        fcconn = -ones(Int, fcno, 5)
+        for el in realelems
+            for fc in 1:nface
+                fcno = fcmarker[fc, el]
+                ordr = elemtoordr[fc, el]
+                if fcno ≠ -1
+                    nabrel = elemtoelem[fc, el]
+                    nabrfc = elemtoface[fc, el]
+                    fcconn[fcno, 1] = fc
+                    fcconn[fcno, 2] = el
+                    fcconn[fcno, 3] = nabrfc
+                    fcconn[fcno, 4] = nabrel
+                    fcconn[fcno, 5] = ordr
+                    fcmarker[fc, el] = -1
+                    fcmarker[nabrfc, nabrel] = -1
+                end
+            end
+        end
+        fcconn = DA(fcconn)
+        #---setup edge DSS---------------------
+        if dim == 3
+            nedge = 12
+            edgemask = [
+                1 3 5 7 1 2 5 6 1 2 3 4
+                2 4 6 8 3 4 7 8 5 6 7 8
+            ]
+            edges = Array{Int64}(undef, 6, nedge * length(elems))
+            ledge = zeros(Int64, 2)
+            uedge = Dict{Array{Int64, 1}, Int64}()
+            orient = 1
+            uedgno = Int64(0)
+            ctr = 1
+            for el in elems
+                for edg in 1:nedge
+                    orient = 1
+                    for i in 1:2
+                        ledge[i] = elemtouvert[edgemask[i, edg], el]
+                        edges[i, ctr] = ledge[i]                     # edge vertices [1:2]
+                    end
+                    if ledge[1] > ledge[2]
+                        sort!(ledge)
+                        orient = 2
+                    end
+                    edges[3, ctr] = edg    # local edge number
+                    edges[4, ctr] = orient # edge orientation
+                    edges[5, ctr] = el     # element number
+                    if haskey(uedge, ledge[:])
+                        edges[6, ctr] = uedge[ledge[:]]  # unique edge number
+                    else
+                        uedgno += 1
+                        uedge[ledge[:]] = uedgno
+                        edges[6, ctr] = uedgno
+                    end
+                    ctr += 1
+                end
+            end
+            edgconn = map(j -> zeros(Int, j), zeros(Int, uedgno))
+            ctr = 1
+            for el in elems
+                for edg in 1:nedge
+                    uedg = edges[6, ctr]
+                    push!(edgconn[uedg], edg)           # local edge number
+                    push!(edgconn[uedg], edges[4, ctr]) # orientation
+                    push!(edgconn[uedg], el)            # element number
+                    ctr += 1
+                end
+            end
+            # remove edges belonging to a single element and edges
+            # belonging exclusively to ghost elements
+            # and build edge connectivity device array
+            edgconnoff = Int64[]
+            temp = Int64[]
+            push!(edgconnoff, 1)
+            for i in 1:uedgno
+                elen = length(edgconn[i])
+                encls = Int(elen / 3)
+                edgmrk = true
+                if encls > 1
+                    for j in 1:encls
+                        if edgconn[i][3 * j] ≤ nreal
+                            edgmrk = false
+                        end
+                    end
+                end
+                if edgmrk
+                    edgconn[i] = []
+                else
+                    shift = edgconnoff[end]
+                    push!(edgconnoff, (shift + length(edgconn[i])))
+                    append!(temp, edgconn[i][:])
+                end
+            end
+            edgconn = DA(temp)
+            edgconnoff = DA(edgconnoff)
+        else
+            edgconn = nothing
+            edgconnoff = nothing
+        end
+    else
+        elemtouvert = nothing
+        vtconn = nothing
+        vtconnoff = nothing
+        fcconn = nothing
+        edgconn = nothing
+        edgconnoff = nothing
+    end
+    #---------------
     StackedBrickTopology{dim, T, nb}(
         BoxElementTopology{dim, T, nb}(
             mpicomm,
@@ -756,6 +987,12 @@ function StackedBrickTopology(
             basetopo.origsendorder,
             bndytoelem,
             bndytoface,
+            elemtouvert = elemtouvert,
+            vtconn = vtconn,
+            vtconnoff = vtconnoff,
+            fcconn = fcconn,
+            edgconn = edgconn,
+            edgconnoff = edgconnoff,
         ),
         stacksize,
         periodicity[end],
@@ -876,6 +1113,7 @@ function CubedShellTopology(
         origsendorder,
         (),
         (),
+        elemtouvert = topology.elemtovert,
     ))
 end
 
@@ -1369,7 +1607,182 @@ function StackedCubedSphereTopology(
         (boundary,),
     )
     nb = length(bndytoelem)
+    #----setting up DSS----------
+    if basetopo.elemtouvert isa Array
+        DA = CUDA.has_cuda_gpu() ? CuArray : Array
+        #---setup vertex DSS
+        nvertby2 = div(nvert, 2)
+        elemtouvert = similar(basetopo.elemtouvert, nvert, length(elems))
+        # base level
+        for i in 1:length(basetopo.elems)
+            e = stacksize * (i - 1) + 1
+            for vt in 1:nvertby2
+                elemtouvert[vt, e] =
+                    (basetopo.elemtouvert[vt, i] - 1) * (stacksize + 1) + 1
+            end
+        end
+        # interior levels
+        for i in 1:length(basetopo.elems), j in 1:(stacksize - 1)
+            e = stacksize * (i - 1) + j
+            for vt in 1:nvertby2
+                elemtouvert[nvertby2 + vt, e] = elemtouvert[vt, e] + 1
+                elemtouvert[vt, e + 1] = elemtouvert[nvertby2 + vt, e]
+            end
+        end
+        # top level
+        for i in 1:length(basetopo.elems)
+            e = stacksize * i
+            for vt in 1:nvertby2
+                elemtouvert[nvertby2 + vt, e] = elemtouvert[vt, e] + 1
+            end
+        end
+        vtmax = maximum(unique(elemtouvert))
+        vtconn = map(j -> zeros(Int, j), zeros(Int, vtmax))
 
+        for el in elems, lvt in 1:nvert
+            vt = elemtouvert[lvt, el]
+            push!(vtconn[vt], lvt) # local vertex number
+            push!(vtconn[vt], el)  # local elem number
+        end
+        # building the vertex connectivity device array
+        vtconnoff = zeros(Int, vtmax + 1)
+        vtconnoff[1] = 1
+        temp = Int64[]
+        for vt in 1:vtmax
+            nconn = length(vtconn[vt])
+            if nconn > 2
+                vtconnoff[vt + 1] = vtconnoff[vt] + nconn
+                append!(temp, vtconn[vt])
+            else
+                vtconnoff[vt + 1] = vtconnoff[vt]
+            end
+        end
+        vtconn = DA(temp)
+        vtconnoff = DA(vtconnoff)
+        #---setup face DSS---------------------
+        fcmarker = -ones(Int, nface, length(elems))
+        fcno = 0
+        for el in realelems
+            for fc in 1:nface
+                if elemtobndy[fc, el] == 0
+                    nabrel = elemtoelem[fc, el]
+                    nabrfc = elemtoface[fc, el]
+                    if fcmarker[fc, el] == -1 && fcmarker[nabrfc, nabrel] == -1
+                        fcno += 1
+                        fcmarker[fc, el] = fcno
+                        fcmarker[nabrfc, nabrel] = fcno
+                    end
+                end
+            end
+        end
+        fcconn = -ones(Int, fcno, 5)
+        for el in realelems
+            for fc in 1:nface
+                fcno = fcmarker[fc, el]
+                ordr = elemtoordr[fc, el]
+                if fcno ≠ -1
+                    nabrel = elemtoelem[fc, el]
+                    nabrfc = elemtoface[fc, el]
+                    fcconn[fcno, 1] = fc
+                    fcconn[fcno, 2] = el
+                    fcconn[fcno, 3] = nabrfc
+                    fcconn[fcno, 4] = nabrel
+                    fcconn[fcno, 5] = ordr
+                    fcmarker[fc, el] = -1
+                    fcmarker[nabrfc, nabrel] = -1
+                end
+            end
+        end
+        fcconn = DA(fcconn)
+        #---setup edge DSS---------------------
+        if dim == 3
+            nedge = 12
+            edgemask = [
+                1 3 5 7 1 2 5 6 1 2 3 4
+                2 4 6 8 3 4 7 8 5 6 7 8
+            ]
+            edges = Array{Int64}(undef, 6, nedge * length(elems))
+            ledge = zeros(Int64, 2)
+            uedge = Dict{Array{Int64, 1}, Int64}()
+            orient = 1
+            uedgno = Int64(0)
+            ctr = 1
+            for el in elems
+                for edg in 1:nedge
+                    orient = 1
+                    for i in 1:2
+                        ledge[i] = elemtouvert[edgemask[i, edg], el]
+                        edges[i, ctr] = ledge[i]                     # edge vertices [1:2]
+                    end
+                    if ledge[1] > ledge[2]
+                        sort!(ledge)
+                        orient = 2
+                    end
+                    edges[3, ctr] = edg    # local edge number
+                    edges[4, ctr] = orient # edge orientation
+                    edges[5, ctr] = el     # element number
+                    if haskey(uedge, ledge[:])
+                        edges[6, ctr] = uedge[ledge[:]]  # unique edge number
+                    else
+                        uedgno += 1
+                        uedge[ledge[:]] = uedgno
+                        edges[6, ctr] = uedgno
+                    end
+                    ctr += 1
+                end
+            end
+            edgconn = map(j -> zeros(Int, j), zeros(Int, uedgno))
+            ctr = 1
+            for el in elems
+                for edg in 1:nedge
+                    uedg = edges[6, ctr]
+                    push!(edgconn[uedg], edg)           # local edge number
+                    push!(edgconn[uedg], edges[4, ctr]) # orientation
+                    push!(edgconn[uedg], el)            # element number
+                    ctr += 1
+                end
+            end
+            # remove edges belonging to a single element and edges
+            # belonging exclusively to ghost elements
+            # and build edge connectivity device array
+            edgconnoff = Int64[]
+            temp = Int64[]
+            push!(edgconnoff, 1)
+            for i in 1:uedgno
+                elen = length(edgconn[i])
+                encls = Int(elen / 3)
+                edgmrk = true
+                if encls > 1
+                    for j in 1:encls
+                        if edgconn[i][3 * j] ≤ nreal
+                            edgmrk = false
+                        end
+                    end
+                end
+                if edgmrk
+                    edgconn[i] = []
+                else
+                    shift = edgconnoff[end]
+                    push!(edgconnoff, (shift + length(edgconn[i])))
+                    append!(temp, edgconn[i][:])
+                end
+            end
+            edgconn = DA(temp)
+            edgconnoff = DA(edgconnoff)
+        else
+            edgconn = nothing
+            edgconnoff = nothing
+        end
+        #-------------------------------------
+    else
+        elemtouvert = nothing
+        vtconn = nothing
+        vtconnoff = nothing
+        fcconn = nothing
+        edgconn = nothing
+        edgconnoff = nothing
+    end
+    #-----------------------------
     StackedCubedSphereTopology{T, nb}(
         BoxElementTopology{3, T, nb}(
             mpicomm,
@@ -1390,11 +1803,16 @@ function StackedCubedSphereTopology(
             basetopo.origsendorder,
             bndytoelem,
             bndytoface,
+            elemtouvert = elemtouvert,
+            vtconn = vtconn,
+            vtconnoff = vtconnoff,
+            fcconn = fcconn,
+            edgconn = edgconn,
+            edgconnoff = edgconnoff,
         ),
         stacksize,
     )
 end
-
 
 """
     grid1d(a, b[, stretch::AbstractGridStretching]; elemsize, nelem)

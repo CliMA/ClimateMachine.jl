@@ -76,6 +76,7 @@ Grids.get_z
 Grids.referencepoints
 Grids.min_node_distance
 Grids.DiscontinuousSpectralElementGrid
+Grids.effect_dss3d!
 ```
 
 ## Filters
