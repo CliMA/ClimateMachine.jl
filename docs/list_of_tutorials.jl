@@ -101,14 +101,15 @@ if generate_tutorials
     println("Building literate tutorials...")
 
     @everywhere function generate_tutorial(tutorials_dir, tutorial)
-        gen_dir =
-            joinpath(GENERATED_DIR, relpath(dirname(tutorial), tutorials_dir))
-        input = abspath(tutorial)
-        script = Literate.script(input, gen_dir)
-        code = strip(read(script, String))
-        mdpost(str) = replace(str, "@__CODE__" => code)
-        Literate.markdown(input, gen_dir, postprocess = mdpost)
-        Literate.notebook(input, gen_dir, execute = true)
+        rpath = relpath(dirname(tutorial), tutorials_dir)
+        rpath = rpath == "." ? "" : rpath
+        gen_dir = joinpath(GENERATED_DIR, rpath)
+        mkpath(gen_dir)
+        cd(gen_dir) do
+            input = abspath(tutorial)
+            Literate.markdown(input; execute = true, documenter = false)
+            Literate.notebook(input)
+        end
     end
 
     tutorials_dir = joinpath(@__DIR__, "..", "tutorials")
