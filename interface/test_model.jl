@@ -19,16 +19,28 @@ using ClimateMachine.BalanceLaws
 
 abstract type ProblemType end
 
+include("advection_model.jl") # specific model component 
+include("diffusion_model.jl") # specific model component 
 include("hyperdiffusion_model.jl") # specific model component 
 
+include("spherical_harmonics_kernels.jl")
 """
     TestEquations <: BalanceLaw
     - A `BalanceLaw` for general testing.
-    - specifies which variable and compute kernels to use to compute the tendency due to hyperdiffusion
+    - specifies which variable and compute kernels to use to compute the tendency due to advection-diffusion-hyperdiffusion
 
+    ```
     ∂ρ
-    --  = - ∇ • (... + D∇³ρ) = - ∇ • F
+    --  = - ∇ • ( u ρ + D ∇ ρ + H ∇³ρ) = - ∇ • F
     ∂t
+    ```
+    
+    Where
+    
+     - `ρ` is the solution vector
+     - `u` is the initial advection velocity
+     - `D` is the diffusion tensor
+     - `H` is the hyperdiffusion tensor
 
 """
 abstract type AbstractEquations <: BalanceLaw end
@@ -76,17 +88,26 @@ vars_state(m::TestEquations, st::Prognostic, FT) = @vars(ρ::FT)
 function vars_state(m::TestEquations, st::Auxiliary, FT)
     @vars begin
         coord::SVector{3, FT}
-        ρ_analytical::FT
+        u::SVector{3, FT}
+        #ρ_analytical::FT
+        
         hyperdiffusion::vars_state(m.hyperdiffusion, st, FT)
+        advection::vars_state(m.advection, st, FT)
+        turbulence::vars_state(m.turbulence, st, FT)
     end
 end
 function vars_state(m::TestEquations, st::Gradient, FT)
     @vars begin
         hyperdiffusion::vars_state(m.hyperdiffusion, st, FT)
+        turbulence::vars_state(m.turbulence, st, FT)
     end
 end
 
-vars_state(m::TestEquations, grad::GradientFlux, FT) = @vars()
+function vars_state(m::TestEquations, st::GradientFlux, FT)
+@vars begin
+    turbulence::vars_state(m.turbulence, st, FT)
+    end
+end
 
 function vars_state(m::TestEquations, st::GradientLaplacian, FT)
     @vars begin
@@ -126,6 +147,8 @@ function nodal_init_state_auxiliary!(
     geom::LocalGeometry,
 )
     aux.coord = geom.coord
+    FT = eltype(aux)
+    aux.u = (FT(1),FT(1),FT(0))
     nodal_init_state_auxiliary!(
         m.hyperdiffusion,
         aux,
@@ -233,8 +256,16 @@ function nodal_update_auxiliary_state!(
     aux::Vars,
     t::Real,
 )
-    get_analytical(m, state, aux, t)
+    #get_analytical(m, state, aux, t)
 end
 function get_analytical(m, state, aux, t)
     aux.ρ_analytical = initial_condition!(m.hyperdiffusion, state, aux, t)
 end
+
+# Defaults
+vars_state(m::Union{ProblemType, Nothing}, st::Prognostic, FT) = @vars()
+vars_state(m::Union{ProblemType, Nothing}, st::Auxiliary, FT) = @vars()
+vars_state(m::Union{ProblemType, Nothing}, st::Gradient, FT) = @vars()
+vars_state(m::Union{ProblemType, Nothing}, st::GradientFlux, FT) = @vars()
+vars_state(m::Union{ProblemType, Nothing}, st::GradientLaplacian, FT) = @vars()
+vars_state(m::Union{ProblemType, Nothing}, st::Hyperdiffusive, FT) = @vars()

@@ -27,49 +27,51 @@ using ClimateMachine.Mesh.Geometry: LocalGeometry, lengthscale, lengthscale_hori
 using ClimateMachine.DGMethods.NumericalFluxes:
     NumericalFluxFirstOrder, NumericalFluxSecondOrder
 
+# diffusion-specific functions
+#include("spherical_harmonics_kernels.jl")
 
 """
-    HyperDiffusionProblem 
-    - collects parameters for hyperdiffusion
+    DiffusionProblem 
+    - collects parameters for diffusion
 """
-abstract type HyperDiffusionProblem <: ProblemType end
+abstract type DiffusionProblem <: ProblemType end
 
 # struct 
-struct HyperDiffusionCubedSphereProblem{FT} <: HyperDiffusionProblem
+struct DiffusionCubedSphereProblem{FT} <: DiffusionProblem
     τ::FT
     l::FT
     m::FT
 end
 
 # TODO: need to modify for box test
-struct HyperDiffusionBoxProblem{dir, FT} <: HyperDiffusionProblem
-    H::SMatrix{3, 3, FT, 9} # make this a scalar
+struct DiffusionBoxProblem{dir, FT} <: DiffusionProblem
+    D::SMatrix{3, 3, FT, 9} # make this a scalar
 end
 
 """
-    HyperDiffusionProblem <: ProblemType
-    - specifies which variable and compute kernels to use to compute the tendency due to hyperdiffusion
+    DiffusionProblem <: ProblemType
+    - specifies which variable and compute kernels to use to compute the tendency due to diffusion
 
-    ∂ρ_hyperdiff.
-    --            = - ∇ • (D∇³ρ) = - ∇ • F
+    ∂ρ_diff.
+    --            = - ∇ • (D∇ρ) = - ∇ • F
     ∂t
 
 """
 
-# Set hyperdiffusion tensor, H, coordinate info, coorc, and c = l^2*(l+1)^2/r^4
-vars_state(::HyperDiffusionProblem, ::Auxiliary, FT) = @vars(c::FT, H::FT)
+# Set diffusion tensor, D, coordinate info, coorc, and c = l*(l+1)/r^2
+vars_state(::DiffusionProblem, ::Auxiliary, FT) = @vars(c::FT, D::FT)
 
 # variables for gradient computation
-vars_state(::HyperDiffusionProblem, ::Gradient, FT) = @vars(ρ::FT)
+vars_state(::DiffusionProblem, ::Gradient, FT) = @vars(ρ::FT)
 
 # variables for gradient of laplacian computation
-vars_state(::HyperDiffusionProblem, ::GradientLaplacian, FT) = @vars(ρ::FT)
+vars_state(::DiffusionProblem, ::GradientLaplacian, FT) = @vars()
 
 # variables for Laplacian computation
-vars_state(::HyperDiffusionProblem, ::GradientFlux, FT) = @vars()
+vars_state(::DiffusionProblem, ::GradientFlux, FT) = @vars(D∇ρ::SVector{3, FT})
 
-# The hyperdiffusion DG auxiliary variable: H ∇ Δρ
-vars_state(::HyperDiffusionProblem, ::Hyperdiffusive, FT) = @vars(D∇³ρ::SVector{3, FT})
+# The hyperdiffusion DG auxiliary variable: D ∇ Δρ
+vars_state(::DiffusionProblem, ::Hyperdiffusive, FT) = @vars()
 
 """
     Compute kernels
@@ -78,43 +80,37 @@ vars_state(::HyperDiffusionProblem, ::Hyperdiffusive, FT) = @vars(D∇³ρ::SVec
     - flux_second_order! - add the gradient of the Laplacian to the main BL's flux, the gradient of which will be taken after to obtain the tendency
 """
 @inline function compute_gradient_argument!(
-    ::HyperDiffusionProblem,
+    ::DiffusionProblem,
     transform::Vars,
     state::Vars,
     aux::Vars,
     t::Real,
 )
-    transform.hyperdiffusion.ρ = state.ρ
+    transform.turbulence.ρ = state.ρ
 end
-@inline function transform_post_gradient_laplacian!(
-    ::HyperDiffusionProblem,
-    auxHDG::Vars,
+
+@inline function compute_gradient_flux!(
+    ::DiffusionProblem,
+    auxDG::Vars,
     gradvars::Grad,
     state::Vars,
     aux::Vars,
     t::Real,
 )
-    ∇Δρ = gradvars.hyperdiffusion.ρ
-    H = aux.hyperdiffusion.H * SMatrix{3,3,Float64}(I)
-    auxHDG.hyperdiffusion.D∇³ρ = H * ∇Δρ
+    ∇ρ = gradvars.turbulence.ρ
+    auxDG.D∇ρ = D * ∇ρ
+end 
+
+@inline function flux_second_order!(::DiffusionProblem, flux::Grad, auxDG::Vars)
+    flux.ρ += auxDG.turbulence.D∇ρ
 end
-@inline function flux_second_order!(
-    ::HyperDiffusionProblem,
-    flux::Grad,
-    state::Vars,
-    auxDG::Vars,
-    auxHDG::Vars,
-    aux::Vars,
-    t::Real,
-)
-    flux.ρ += auxHDG.hyperdiffusion.D∇³ρ
-end
+
 
 """
     Initialize prognostic and auxiliary variables (per each spatial point = node)
 """
 @inline function init_state_prognostic!(
-    problem::HyperDiffusionProblem,
+    problem::DiffusionProblem,
     state::Vars,
     aux::Vars,
     localgeo,
@@ -123,7 +119,7 @@ end
     state.ρ = initial_condition!(problem, state, aux, t)
 end
 @inline function nodal_init_state_auxiliary!(
-    problem::HyperDiffusionCubedSphereProblem,
+    problem::DiffusionCubedSphereProblem,
     aux::Vars,
     tmp::Vars,
     geom::LocalGeometry,
@@ -133,13 +129,14 @@ end
     
     r = norm(aux.coord)
     l = problem.l
-    aux.hyperdiffusion.c = get_c(l, r)
+    
+    aux.turbulence.c = get_c(l, r)
     
     Δ_hor = lengthscale_horizontal(geom)
-    aux.hyperdiffusion.H = H(problem, Δ_hor)  
+    aux.turbulence.D = D(problem, Δ_hor)  
 end
 @inline function nodal_init_state_auxiliary!(
-    problem::HyperDiffusionBoxProblem,
+    problem::DiffusionBoxProblem,
     aux::Vars,
     tmp::Vars,
     geom::LocalGeometry,
@@ -147,23 +144,25 @@ end
     FT = eltype(aux)
     Δ = lengthscale(geom)
 
-    aux.hyperdiffusion.H = H(problem, Δ)  
+    aux.turbulence.D = D(problem, Δ)  
 end
 
 """
     Boundary conditions 
     - nothing if diffusion_direction (or direction) = HorizotalDirection()
 """
-@inline boundary_conditions(::HyperDiffusionProblem, ::BalanceLaw) = ()
-@inline boundary_state!(nf, ::HyperDiffusionProblem, ::BalanceLaw, _...) = nothing
+@inline boundary_conditions(::DiffusionProblem, ::BalanceLaw) = ()
+@inline boundary_state!(nf, ::DiffusionProblem, ::BalanceLaw, _...) = nothing
 
 """
     Initial conditions
     - initial condition is given by ρ0 = Y{m,l}(θ, λ)
-    - test: ∇^4_horz ρ0 = l^2(l+1)^2/r^4 ρ0 where r=a+z
+    - test: ∇^2_horz ρ0 = l(l+1)/r^2 ρ0 where r=a+z
+
+    ∇^2 ( ∇^2_horz Y{m,l}(θ, λ) ) =  l(l+1)/r^2 ( l(l+1)/r^2 Y{m,l} )
 """
 @inline function initial_condition!(
-    problem::HyperDiffusionCubedSphereProblem,
+    problem::DiffusionCubedSphereProblem,
     state,
     aux,
     t,
@@ -183,9 +182,9 @@ end
         m = Int64(problem.m)
 
         c = get_c(l, r)
-        H = aux.hyperdiffusion.H
+        D = aux.turbulence.D
         
-        return calc_Ylm(φ, λ, l, m) * exp(- H*c*t) # - H*c*t
+        return calc_Ylm(φ, λ, l, m) * exp(- D*c*t) # - D*c*t
     end
 end
 
@@ -193,10 +192,10 @@ end
     Other useful functions
 """
 # hyperdiffusion-dependent timestep (only use for hyperdiffusion unit test) - may want to generalise for calculate_dt
-#@inline Δt(problem::HyperDiffusionProblem, Δ_min) = Δ_min^4 / 25 / sum( H(problem, Δ_min) ) 
-@inline Δt(problem::HyperDiffusionProblem, Δx; CFL=0.05) = (Δx /2)^4/2 / H(problem, Δx) * CFL 
-#dt = CFL_wanted / CFL_max = CFL_wanted / max( H / dx^4 )
+#@inline Δt(problem::DiffusionProblem, Δ_min) = Δ_min^4 / 25 / sum( D(problem, Δ_min) ) 
+@inline Δt(problem::DiffusionProblem, Δx; CFL=0.05) = (Δx /2 )^4 /2 / D(problem, Δx) * CFL 
+#dt = CFL_wanted / CFL_max = CFL_wanted / max( D / dx^4 )
 
 # lengthscale-dependent hyperdiffusion coefficient
-@inline H(problem::HyperDiffusionProblem, Δx ) = (Δx /2)^4/2 / problem.τ
+@inline D(problem::DiffusionProblem, Δx ) = (Δx /2 )^2 /2 / problem.τ
 

@@ -33,6 +33,15 @@ function main(::Type{FT}) where {FT}
                                 )...,
                             )
 
+    diffusion = DiffusionCubedSphereProblem{FT}((;
+                                τ = 8*60*60,
+                                l = 7,
+                                m = 4,
+                                )...,
+                            )
+
+    advection = AdvectionCubedSphereProblem()
+    
     # Domain
     Ω = AtmosDomain(radius = FT(planet_radius(param_set)), height = FT(30e3))
 
@@ -68,8 +77,8 @@ function main(::Type{FT}) where {FT}
     # Specify RHS terms and any useful parameters
     balance_law = TestEquations{FT}(
             Ω;
-            advection = nothing, # adv
-            turbulence = nothing, # turb
+            advection = advection, # adv
+            turbulence = diffusion, # turb
             hyperdiffusion = hyperdiffusion, # hyper
             coriolis = nothing, # cori
             params = nothing,
