@@ -2,12 +2,12 @@
 #### Defines list of theory documents
 ####
 
-theory_docs = Any[
-    "Common" => Any[
+theory_docs = [
+    "Common" => [
         "SurfaceFluxes" => "Theory/Common/SurfaceFluxes.md",
         "Turbulence Closures" => "Theory/Common/Turbulence.md",
     ],
-    "Atmos" => Any[
+    "Atmos" => [
         "AtmosModel" => "Theory/Atmos/AtmosModel.md",
         "EDMF Model" => "Theory/Atmos/EDMF_plots.md",
         "Microphysics_0M" => "Theory/Atmos/Microphysics_0M.md",

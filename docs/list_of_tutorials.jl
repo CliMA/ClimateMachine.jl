@@ -107,8 +107,7 @@ if generate_tutorials
         script = Literate.script(input, gen_dir)
         code = strip(read(script, String))
         mdpost(str) = replace(str, "@__CODE__" => code)
-        Literate.markdown(input, gen_dir, postprocess = mdpost)
-        Literate.notebook(input, gen_dir, execute = true)
+        Literate.markdown(input, gen_dir, execute = true, postprocess = mdpost)
     end
 
     tutorials_dir = joinpath(@__DIR__, "..", "tutorials")
