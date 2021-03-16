@@ -1,7 +1,15 @@
+module DSS
+
+using ..Grids
+using ClimateMachine.MPIStateArrays
 using CUDA
+using KernelAbstractions
+using DocStringExtensions
+
+export dss!
 
 """
-    effect_dss3d!(Q::MPIStateArray,
+    dss3d(Q::MPIStateArray,
         grid::DiscontinuousSpectralElementGrid)
 
 This function computes the 3D direct stiffness summation for all variables in the MPIStateArray.
@@ -10,16 +18,18 @@ This function computes the 3D direct stiffness summation for all variables in th
  - `Q`: MPIStateArray
  - `grid`: Discontinuous Spectral Element Grid
 """
-function effect_dss3d!(Q::MPIStateArray, grid::DiscontinuousSpectralElementGrid)
+function dss!(
+    Q::MPIStateArray,
+    grid::DiscontinuousSpectralElementGrid{FT, 3};
+    max_threads = 256,
+) where {FT}
     DA = arraytype(grid)                                      # device array
     device = arraytype(grid) <: Array ? CPU() : CUDADevice()  # device
-    FT = eltype(Q.data)
     #----communication--------------------------
     event = MPIStateArrays.begin_ghost_exchange!(Q)
     event = MPIStateArrays.end_ghost_exchange!(Q, dependencies = event)
     wait(event)
     #----Direct Stiffness Summation-------------
-    nvars = size(Q.data, 2)
     vertmap = grid.vertmap
     edgemap = grid.edgemap
     facemap = grid.facemap
@@ -38,249 +48,271 @@ function effect_dss3d!(Q::MPIStateArray, grid::DiscontinuousSpectralElementGrid)
     Nqmax = maximum(Nq)
     Nemax = Nqmax - 2
     Nfmax = size(facemap, 1)
-
+    args = (
+        Q.data,
+        vertmap,
+        edgemap,
+        facemap,
+        vtconn,
+        vtconnoff,
+        edgconn,
+        edgconnoff,
+        fcconn,
+        nvt,
+        nedg,
+        nfc,
+        Nemax,
+        Nfmax,
+    )
     if device == CPU()
-        effect_dss3d_CPU!(
-            Q.data,
-            vertmap,
-            edgemap,
-            facemap,
-            vtconn,
-            vtconnoff,
-            edgconn,
-            edgconnoff,
-            fcconn,
-            nvt,
-            nedg,
-            nfc,
-            Nemax,
-            Nfmax,
-        )
+        dss3d_CPU!(args...)
     else
-        max_threads = 256
         n_items = nvt + nfc + nedg
         tx = max(n_items, max_threads)
         bx = cld(n_items, tx)
-        @cuda threads = (tx) blocks = (bx) effect_dss3d_CUDA!(
-            Q.data,
-            vertmap,
-            edgemap,
-            facemap,
-            vtconn,
-            vtconnoff,
-            edgconn,
-            edgconnoff,
-            fcconn,
-            nvt,
-            nedg,
-            nfc,
-            Nemax,
-            Nfmax,
-        )
+        @cuda threads = (tx) blocks = (bx) dss3d_CUDA!(args...)
     end
     return nothing
 end
 
-function effect_dss3d_CUDA!(
-    data::AbstractArray{FT, 3},
-    vertmap::AbstractArray{I, 1},
-    edgemap::AbstractArray{I, 3},
-    facemap::AbstractArray{I, 3},
-    vtconn::AbstractArray{I, 1},
-    vtconnoff::AbstractArray{I, 1},
-    edgconn::AbstractArray{I, 1},
-    edgconnoff::AbstractArray{I, 1},
-    fcconn::AbstractArray{I, 2},
-    nvt::I,
-    nedg::I,
-    nfc::I,
-    Nemax::I,
-    Nfmax::I,
-) where {I <: Int, FT <: AbstractFloat}
+function dss3d_CUDA!(
+    data,
+    vertmap,
+    edgemap,
+    facemap,
+    vtconn,
+    vtconnoff,
+    edgconn,
+    edgconnoff,
+    fcconn,
+    nvt,
+    nedg,
+    nfc,
+    Nemax,
+    Nfmax,
+)
+    I = eltype(nvt)
+    FT = eltype(data)
 
     tx = threadIdx().x        # threaid id
     bx = blockIdx().x         # block id
     bxdim = blockDim().x      # block dimension
     glx = tx + (bx - 1) * bxdim # global id
-
-    vx = (glx ≥ 1 && glx ≤ nvt) ? glx : -1
-    ex = (glx > nvt && glx ≤ (nvt + nedg)) ? (glx - nvt) : -1
-    fx =
-        (glx > (nvt + nedg) && glx ≤ (nvt + nedg + nfc)) ? (glx - nvt - nedg) :
-        -1
-
     nvars = size(data, 2)
 
-    #vertex DSS
-    if vx ≠ -1
-        sumv = FT(0)
+    # A mesh node is either
+    # - interior (no dss required)
+    # - on an element corner / vertex,
+    # - edge (excluding end point element corners / vertices)
+    # - face (excluding edges and corners)
+    if glx ≤ nvt #vertex DSS
+        vx = glx
         for ivar in 1:nvars
-            st = vtconnoff[vx]
-            nlvt = Int((vtconnoff[vx + 1] - vtconnoff[vx]) / 2)
-            sumv = -FT(0)
-            for j in 1:nlvt
-                lvt = vtconn[st + (j - 1) * 2]
-                lelem = vtconn[st + (j - 1) * 2 + 1]
-                loc = vertmap[lvt]
-                sumv += data[loc, ivar, lelem]
-            end
-            for j in 1:nlvt
-                lvt = vtconn[st + (j - 1) * 2]
-                lelem = vtconn[st + (j - 1) * 2 + 1]
-                loc = vertmap[lvt]
-                data[loc, ivar, lelem] = sumv
-            end
+            dss_vertex!(vtconn, vtconnoff, vertmap, data, ivar, vx, FT)
         end
-    end
-    # edge DSS
-    if ex ≠ -1
-        sume = FT(0)
+    elseif glx > nvt && glx ≤ (nvt + nedg) # edge DSS
+        ex = glx - nvt
         for ivar in 1:nvars
-            st = edgconnoff[ex]
-            nledg = Int((edgconnoff[ex + 1] - edgconnoff[ex]) / 3)
-
-            for k in 1:Nemax
-                sume = -FT(0)
-                for j in 1:nledg
-                    ledg = edgconn[st + (j - 1) * 3]
-                    lor = edgconn[st + (j - 1) * 3 + 1]
-                    lelem = edgconn[st + (j - 1) * 3 + 2]
-                    loc = edgemap[k, ledg, lor]
-                    if loc ≠ -1
-                        sume += data[loc, ivar, lelem]
-                    end
-                end
-                for j in 1:nledg
-                    ledg = edgconn[st + (j - 1) * 3]
-                    lor = edgconn[st + (j - 1) * 3 + 1]
-                    lelem = edgconn[st + (j - 1) * 3 + 2]
-                    loc = edgemap[k, ledg, lor]
-                    if loc ≠ -1
-                        data[loc, ivar, lelem] = sume
-                    end
-                end
-            end
+            dss_edge!(edgconn, edgconnoff, edgemap, Nemax, data, ivar, ex, FT)
         end
-    end
-    # face DSS
-    if fx ≠ -1
-        sumf = FT(0)
+    elseif glx > (nvt + nedg) && glx ≤ (nvt + nedg + nfc) # face DSS
+        fx = glx - (nvt + nedg)
         for ivar in 1:nvars
-            if fcconn[fx, 1] ≠ -1
-                lfc = fcconn[fx, 1]
-                lel = fcconn[fx, 2]
-                nabrlfc = fcconn[fx, 3]
-                nabrlel = fcconn[fx, 4]
-                ordr = fcconn[fx, 5]
-                ordr = ordr == 3 ? 2 : 1
-                for j in 1:Nfmax
-                    loc1 = facemap[j, lfc, ordr]
-                    loc2 = facemap[j, nabrlfc, 1]
-                    if loc1 ≠ -1 && loc2 ≠ -1
-                        sumf = data[loc1, ivar, lel] + data[loc2, ivar, nabrlel]
-                        data[loc1, ivar, lel] = sumf
-                        data[loc2, ivar, nabrlel] = sumf
-                    end
-                end
-            end
+            dss_face!(fcconn, facemap, Nfmax, data, ivar, fx)
         end
     end
 
     return nothing
 end
 
-function effect_dss3d_CPU!(
-    data::AbstractArray{FT, 3},
-    vertmap::AbstractArray{I, 1},
-    edgemap::AbstractArray{I, 3},
-    facemap::AbstractArray{I, 3},
-    vtconn::AbstractArray{I, 1},
-    vtconnoff::AbstractArray{I, 1},
-    edgconn::AbstractArray{I, 1},
-    edgconnoff::AbstractArray{I, 1},
-    fcconn::AbstractArray{I, 2},
-    nvt::I,
-    nedg::I,
-    nfc::I,
-    Nemax::I,
-    Nfmax::I,
-) where {I <: Int, FT <: AbstractFloat}
-
+function dss3d_CPU!(
+    data,
+    vertmap,
+    edgemap,
+    facemap,
+    vtconn,
+    vtconnoff,
+    edgconn,
+    edgconnoff,
+    fcconn,
+    nvt,
+    nedg,
+    nfc,
+    Nemax,
+    Nfmax,
+)
+    I = eltype(nvt)
+    FT = eltype(data)
     nvars = size(data, 2)
 
-    # vertex DSS
-    sumv = FT(0)
+    # A mesh node is either
+    # - interior (no dss required)
+    # - on an element corner / vertex,
+    # - edge (excluding end point element corners / vertices)
+    # - face (excluding edges and corners)
     for ivar in 1:nvars
-        for i in 1:nvt
-            st = vtconnoff[i]
-            nlvt = Int((vtconnoff[i + 1] - vtconnoff[i]) / 2)
-            sumv = -FT(0)
-            for j in 1:nlvt
-                lvt = vtconn[st + (j - 1) * 2]
-                lelem = vtconn[st + (j - 1) * 2 + 1]
-                loc = vertmap[lvt]
-                sumv += data[loc, ivar, lelem]
-            end
-            for j in 1:nlvt
-                lvt = vtconn[st + (j - 1) * 2]
-                lelem = vtconn[st + (j - 1) * 2 + 1]
-                loc = vertmap[lvt]
-                data[loc, ivar, lelem] = sumv
-            end
+        for vx in 1:nvt # vertex DSS
+            dss_vertex!(vtconn, vtconnoff, vertmap, data, ivar, vx, FT)
         end
-    end
-    # edge DSS
-    sume = FT(0)
-    for ivar in 1:nvars
-        for i in 1:nedg
-            st = edgconnoff[i]
-            nledg = Int((edgconnoff[i + 1] - edgconnoff[i]) / 3)
-
-            for k in 1:Nemax
-                sume = -FT(0)
-                for j in 1:nledg
-                    ledg = edgconn[st + (j - 1) * 3]
-                    lor = edgconn[st + (j - 1) * 3 + 1]
-                    lelem = edgconn[st + (j - 1) * 3 + 2]
-                    loc = edgemap[k, ledg, lor]
-                    if loc ≠ -1
-                        sume += data[loc, ivar, lelem]
-                    end
-                end
-                for j in 1:nledg
-                    ledg = edgconn[st + (j - 1) * 3]
-                    lor = edgconn[st + (j - 1) * 3 + 1]
-                    lelem = edgconn[st + (j - 1) * 3 + 2]
-                    loc = edgemap[k, ledg, lor]
-                    if loc ≠ -1
-                        data[loc, ivar, lelem] = sume
-                    end
-                end
-            end
+        for ex in 1:nedg # edge DSS
+            dss_edge!(edgconn, edgconnoff, edgemap, Nemax, data, ivar, ex, FT)
         end
-    end
-    # face DSS
-    sumf = FT(0)
-    for ivar in 1:nvars
-        for i in 1:nfc
-            if fcconn[i, 1] ≠ -1
-                lfc = fcconn[i, 1]
-                lel = fcconn[i, 2]
-                nabrlfc = fcconn[i, 3]
-                nabrlel = fcconn[i, 4]
-                ordr = fcconn[i, 5]
-                ordr = ordr == 3 ? 2 : 1
-                for j in 1:Nfmax
-                    loc1 = facemap[j, lfc, ordr]
-                    loc2 = facemap[j, nabrlfc, 1]
-                    if loc1 ≠ -1 && loc2 ≠ -1
-                        sumf = data[loc1, ivar, lel] + data[loc2, ivar, nabrlel]
-                        data[loc1, ivar, lel] = sumf
-                        data[loc2, ivar, nabrlel] = sumf
-                    end
-                end
-            end
+        for fx in 1:nfc # face DSS
+            dss_face!(fcconn, facemap, Nfmax, data, ivar, fx)
         end
     end
     return nothing
+end
+
+"""
+    dss_vertex!(
+    vtconn,
+    vtconnoff,
+    vertmap,
+    data,
+    ivar,
+    vx,
+    ::Type{FT},
+) where {FT}
+
+This function computes the direct stiffness summation for the vertex `vx`.
+
+# Fields
+ - `vtconn`: vertex connectivity array
+ - `vtconnoff`: offsets for vertex connectivity array
+ - `vertmap`: map to vertex degrees of freedom: `vertmap[vx]` contains the 
+    degree of freedom located at vertex `vx`.
+ - `data`: data field of MPIStateArray
+ - `ivar`: variable # in the MPIStateArray
+ - `vx`: unique edge number
+ - `::Type{FT}`: Floating point type
+"""
+function dss_vertex!(
+    vtconn,
+    vtconnoff,
+    vertmap,
+    data,
+    ivar,
+    vx,
+    ::Type{FT},
+) where {FT}
+    @inbounds st = vtconnoff[vx]
+    @inbounds nlvt = Int((vtconnoff[vx + 1] - vtconnoff[vx]) / 2)
+    sumv = -FT(0)
+    @inbounds for j in 1:nlvt
+        lvt = vtconn[st + (j - 1) * 2]
+        lelem = vtconn[st + (j - 1) * 2 + 1]
+        loc = vertmap[lvt]
+        sumv += data[loc, ivar, lelem]
+    end
+    @inbounds for j in 1:nlvt
+        lvt = vtconn[st + (j - 1) * 2]
+        lelem = vtconn[st + (j - 1) * 2 + 1]
+        loc = vertmap[lvt]
+        data[loc, ivar, lelem] = sumv
+    end
+end
+
+"""
+    dss_edge!(
+    edgconn,
+    edgconnoff,
+    edgemap,
+    Nemax,
+    data,
+    ivar,
+    ex,
+    ::Type{FT},
+) where {FT}
+
+This function computes the direct stiffness summation for 
+all degrees of freedom corresponding to edge `ex`. dss_edge!
+applies only to interior (non-vertex) edge nodes.
+
+# Fields
+ - `edgconn`: edge connectivity array
+ - `edgconnoff`: offsets for edge connectivity array
+ - `edgemap`: map to edge degrees of freedom: 
+    `edgemap[i, edgno, orient]` contains the element node index of 
+    the `i`th interior node on edge `edgno`, under orientation `orient`. 
+ - `Nemax`: # of relevant degrees of freedom per edge (other dof are marked as -1)
+ - `data`: data field of MPIStateArray
+ - `ivar`: variable # in the MPIStateArray
+ - `ex`: unique edge number
+ - `::Type{FT}`: Floating point type
+"""
+function dss_edge!(
+    edgconn,
+    edgconnoff,
+    edgemap,
+    Nemax,
+    data,
+    ivar,
+    ex,
+    ::Type{FT},
+) where {FT}
+    @inbounds st = edgconnoff[ex]
+    @inbounds nledg = Int((edgconnoff[ex + 1] - edgconnoff[ex]) / 3)
+
+    @inbounds for k in 1:Nemax
+        sume = -FT(0)
+        @inbounds for j in 1:nledg
+            ledg = edgconn[st + (j - 1) * 3]
+            lor = edgconn[st + (j - 1) * 3 + 1]
+            lelem = edgconn[st + (j - 1) * 3 + 2]
+            loc = edgemap[k, ledg, lor]
+            if loc ≠ -1
+                sume += data[loc, ivar, lelem]
+            end
+        end
+        @inbounds for j in 1:nledg
+            ledg = edgconn[st + (j - 1) * 3]
+            lor = edgconn[st + (j - 1) * 3 + 1]
+            lelem = edgconn[st + (j - 1) * 3 + 2]
+            loc = edgemap[k, ledg, lor]
+            if loc ≠ -1
+                data[loc, ivar, lelem] = sume
+            end
+        end
+    end
+end
+"""
+    dss_face!(fcconn, facemap, Nfmax, data, ivar, fx)
+
+This function computes the direct stiffness summation for 
+all degrees of freedom corresponding to face `fx`. dss_face!
+applies only to interior (non-vertex and non-edge) face nodes.
+
+# Fields
+ - `fcconn`: face connectivity array
+ - `facemap`: map to face degrees of freedom: `facemap[ij, fcno, orient]` 
+    contains the element node index of the `ij`th 
+    interior node on face `fcno` under orientation `orient`
+ - `Nfmax`: # of relevant degrees of freedom per face (other dof are marked as -1)
+ - `data`: data field of MPIStateArray
+ - `ivar`: variable # in the MPIStateArray
+ - `fx`: unique face number
+"""
+function dss_face!(fcconn, facemap, Nfmax, data, ivar, fx)
+    @inbounds lfc = fcconn[fx, 1]
+    @inbounds lel = fcconn[fx, 2]
+    @inbounds nabrlfc = fcconn[fx, 3]
+    @inbounds nabrlel = fcconn[fx, 4]
+    @inbounds ordr = fcconn[fx, 5]
+    ordr = ordr == 3 ? 2 : 1
+    # mesh orientation 3 is a flip along the horizontal edges.
+    # This is the only orientation currently support by the mesh generator
+    # see vertsortandorder in
+    # src/Numerics/Mesh/BrickMesh.jl                
+    @inbounds for j in 1:Nfmax
+        loc1 = facemap[j, lfc, ordr]
+        loc2 = facemap[j, nabrlfc, 1]
+        if loc1 ≠ -1 && loc2 ≠ -1
+            sumf = data[loc1, ivar, lel] + data[loc2, ivar, nabrlel]
+            data[loc1, ivar, lel] = sumf
+            data[loc2, ivar, nabrlel] = sumf
+        end
+    end
+end
+
 end

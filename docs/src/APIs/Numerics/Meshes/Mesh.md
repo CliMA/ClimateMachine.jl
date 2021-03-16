@@ -76,7 +76,17 @@ Grids.get_z
 Grids.referencepoints
 Grids.min_node_distance
 Grids.DiscontinuousSpectralElementGrid
-Grids.effect_dss3d!
+```
+
+## DSS
+
+Computes the direct stiffness summation of fields in the MPIStateArray.
+
+```@docs
+DSS.dss!
+DSS.dss_vertex!
+DSS.dss_edge!
+DSS.dss_face!
 ```
 
 ## Filters

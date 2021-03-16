@@ -1,4 +1,5 @@
 module Topologies
+using ClimateMachine
 import ..BrickMesh
 import MPI
 using CUDA
@@ -180,7 +181,10 @@ struct BoxElementTopology{dim, T, nb} <: AbstractTopology{dim, T, nb}
 
     """
     Vertex connectivity information for direct stiffness summation; 
-    `vtconn[lvt1, lelem1, lvt2, lelem2, ....]`
+    `vtconn[vtconnoff[i]:vtconnoff[i+1]-1] == vtconn[lvt1, lelem1, lvt2, lelem2, ....]`
+    for each rank-local unique vertex number,
+    where `lvt1` is the element-local vertex number of element `lelem1`, etc.
+    Vertices, not shared by multiple elements, are ignored.
     """
     vtconn::Union{AbstractArray{Int64, 1}, Nothing}
 
@@ -191,13 +195,20 @@ struct BoxElementTopology{dim, T, nb} <: AbstractTopology{dim, T, nb}
 
     """
     Face connectivity information for direct stiffness summation; 
-    `fcconn[ufc][lfc1, lelem1, lfc2, lelem2, ordr]`
+    `fcconn[ufc,:] = [lfc1, lelem1, lfc2, lelem2, ordr]`
+    where `ufc` is the rank-local unique face number, and 
+    `lfc1` is the element-local face number of element `lelem1`, etc.,
+    and ordr is the relative orientation. Faces, not shared by multiple
+    elements are ignored.
     """
     fcconn::Union{AbstractArray{Int64, 2}, Nothing}
 
     """
     Edge connectivity information for direct stiffness summation; 
-    `edgconn[uedg][ledg1, orient, lelem1, ledg2, orient, lelem2, ...]`
+    `edgconn[edgconnoff[i]:edgconnoff[i+1]-1] == edgconn[ledg1, orient, lelem1, ledg2, orient, lelem2, ...]`
+    for each rank-local unique edge number,
+    where `ledg1` is the element-local edge number, `orient1` is orientation (forward/reverse) of dof along edge.
+    Edges, not shared by multiple elements, are ignored.
     """
     edgconn::Union{AbstractArray{Int64, 1}, Nothing}
 
@@ -225,6 +236,7 @@ struct BoxElementTopology{dim, T, nb} <: AbstractTopology{dim, T, nb}
         origsendorder,
         bndytoelem,
         bndytoface;
+        device_array = ClimateMachine.array_type(),
         elemtouvert = nothing,
         vtconn = nothing,
         vtconnoff = nothing,
@@ -235,7 +247,17 @@ struct BoxElementTopology{dim, T, nb} <: AbstractTopology{dim, T, nb}
 
         exteriorelems = sort(unique(sendelems))
         interiorelems = sort(setdiff(realelems, exteriorelems))
-
+        if vtconn isa Array && vtconnoff isa Array
+            vtconn = device_array(vtconn)
+            vtconnoff = device_array(vtconnoff)
+        end
+        if fcconn isa Array
+            fcconn = device_array(fcconn)
+        end
+        if edgconn isa Array && edgconnoff isa Array
+            edgconn = device_array(edgconn)
+            edgconnoff = device_array(edgconnoff)
+        end
         return new{dim, T, nb}(
             mpicomm,
             elems,
@@ -785,7 +807,6 @@ function StackedBrickTopology(
     T = eltype(basetopo.elemtocoord)
     #----setting up DSS----------
     if basetopo.elemtouvert isa Array
-        DA = CUDA.has_cuda_gpu() ? CuArray : Array
         #---setup vertex DSS
         nvertby2 = div(nvert, 2)
         elemtouvert = similar(basetopo.elemtouvert, nvert, length(elems))
@@ -842,8 +863,7 @@ function StackedBrickTopology(
                 vtconnoff[vt + 1] = vtconnoff[vt]
             end
         end
-        vtconn = DA(temp)
-        vtconnoff = DA(vtconnoff)
+        vtconn = temp
         #---setup face DSS---------------------
         fcmarker = -ones(Int, nface, length(elems))
         fcno = 0
@@ -878,7 +898,6 @@ function StackedBrickTopology(
                 end
             end
         end
-        fcconn = DA(fcconn)
         #---setup edge DSS---------------------
         if dim == 3
             nedge = 12
@@ -952,8 +971,7 @@ function StackedBrickTopology(
                     append!(temp, edgconn[i][:])
                 end
             end
-            edgconn = DA(temp)
-            edgconnoff = DA(edgconnoff)
+            edgconn = temp
         else
             edgconn = nothing
             edgconnoff = nothing
@@ -1609,7 +1627,6 @@ function StackedCubedSphereTopology(
     nb = length(bndytoelem)
     #----setting up DSS----------
     if basetopo.elemtouvert isa Array
-        DA = CUDA.has_cuda_gpu() ? CuArray : Array
         #---setup vertex DSS
         nvertby2 = div(nvert, 2)
         elemtouvert = similar(basetopo.elemtouvert, nvert, length(elems))
@@ -1657,8 +1674,7 @@ function StackedCubedSphereTopology(
                 vtconnoff[vt + 1] = vtconnoff[vt]
             end
         end
-        vtconn = DA(temp)
-        vtconnoff = DA(vtconnoff)
+        vtconn = temp
         #---setup face DSS---------------------
         fcmarker = -ones(Int, nface, length(elems))
         fcno = 0
@@ -1693,7 +1709,6 @@ function StackedCubedSphereTopology(
                 end
             end
         end
-        fcconn = DA(fcconn)
         #---setup edge DSS---------------------
         if dim == 3
             nedge = 12
@@ -1767,8 +1782,7 @@ function StackedCubedSphereTopology(
                     append!(temp, edgconn[i][:])
                 end
             end
-            edgconn = DA(temp)
-            edgconnoff = DA(edgconnoff)
+            edgconn = temp
         else
             edgconn = nothing
             edgconnoff = nothing

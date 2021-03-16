@@ -13,7 +13,6 @@ export DiscontinuousSpectralElementGrid, AbstractGrid
 export dofs_per_element, arraytype, dimensionality, polynomialorders
 export referencepoints, min_node_distance, get_z
 export EveryDirection, HorizontalDirection, VerticalDirection, Direction
-export effect_dss3d!
 
 abstract type Direction end
 struct EveryDirection <: Direction end
@@ -245,17 +244,22 @@ struct DiscontinuousSpectralElementGrid{
     minΔ::MINΔ
 
     """
-    Map to vertex degrees of freedom
+    Map to vertex degrees of freedom: `vertmap[v]` contains the degree of freedom located at vertex `v`.
     """
     vertmap::Union{DAI1, Nothing}
 
     """
-    Map to edge degrees of freedom `edgemap[edgdof, edgno, orient]`
+    Map to edge degrees of freedom: `edgemap[i, edgno, orient]` contains the element node index of 
+    the `i`th interior node on edge `edgno`, under orientation `orient`.
     """
     edgemap::Union{DAI3, Nothing}
 
     """
-    Map to face degrees of freedom `facemap[fcdof, fcno, orient]`
+    Map to face degrees of freedom: `facemap[ij, fcno, orient]` contains the element node index of the `ij`th 
+    interior node on face `fcno` under orientation `orient`.
+
+    Note that only the two orientations that are generated for stacked meshes are currently supported, i.e.,
+    mesh orientation `3` as defined by `BrickMesh` gets mapped to orientation `2` for this data structure.    
     """
     facemap::Union{DAI3, Nothing}
 
@@ -692,7 +696,7 @@ function init_vertex_edge_face_mappings(N)
         end
 
         Nf = Np .- 2
-        Nf_max = max(Nf[1] * Nf[2], Nf[1] * Nf[3])
+        Nf_max = maximum([Nf[1] * Nf[2], Nf[2] * Nf[3], Nf[1] * Nf[3]])
         if Nf_max ≥ 1
             facemap = -ones(Int64, Nf_max, 6, 2)
 
@@ -1292,7 +1296,5 @@ neighbors.
 
     min_neighbor_distance[ijk, e] = md
 end
-
-include("DSS.jl")
 
 end # module
