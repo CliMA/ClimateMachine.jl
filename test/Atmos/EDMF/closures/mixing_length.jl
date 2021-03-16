@@ -42,7 +42,8 @@ function mixing_length(
     N_up = n_updrafts(m.turbconv)
 
     z = altitude(m, aux)
-    _grav::FT = grav(m.param_set)
+    param_set = parameter_set(m)
+    _grav::FT = grav(param_set)
     ρinv = 1 / gm.ρ
 
     Shear² = diffusive.turbconv.S²
@@ -111,6 +112,6 @@ function mixing_length(
 
     l_mix =
         lamb_smooth_minimum(SVector(L_Nˢ, L_W, L_tke), ml.smin_ub, ml.smin_rm)
-    l_mix = FT(50)
+    
     return l_mix, ∂b∂z, Pr_t
 end;

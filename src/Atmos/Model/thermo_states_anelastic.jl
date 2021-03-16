@@ -38,9 +38,10 @@ function new_thermo_state_anelastic(
     state::Vars,
     aux::Vars,
 )
+    param_set = parameter_set(atmos)
     e_int = internal_energy(atmos, state, aux)
     p = aux.ref_state.p
-    return PhaseDry_pe(atmos.param_set, p, e_int)
+    return PhaseDry_pe(param_set, p, e_int)
 end
 
 function new_thermo_state_anelastic(
@@ -50,11 +51,12 @@ function new_thermo_state_anelastic(
     state::Vars,
     aux::Vars,
 )
+    param_set = parameter_set(atmos)
     e_int = internal_energy(atmos, state, aux)
     p = aux.ref_state.p
     ρ = density(atmos, state, aux)
     return PhaseEquil_peq(
-        atmos.param_set,
+        param_set,
         p,
         e_int,
         state.moisture.ρq_tot / ρ,
@@ -70,6 +72,7 @@ function new_thermo_state_anelastic(
     state::Vars,
     aux::Vars,
 )
+    param_set = parameter_set(atmos)
     e_int = internal_energy(atmos, state, aux)
     p = aux.ref_state.p
     ρ = density(atmos, state, aux)
@@ -79,5 +82,5 @@ function new_thermo_state_anelastic(
         state.moisture.ρq_ice / ρ,
     )
 
-    return PhaseNonEquil_peq(atmos.param_set, p, e_int, q)
+    return PhaseNonEquil_peq(param_set, p, e_int, q)
 end

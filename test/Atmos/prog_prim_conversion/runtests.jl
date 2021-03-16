@@ -56,8 +56,8 @@ function assign!(state, bl, nt, st::Prognostic)
     @unpack u, v, w, ρ, e_kin, e_pot, T, q_pt = nt
     state.ρ = ρ
     state.ρu = SVector(ρ * u, ρ * v, ρ * w)
-    state.energy.ρe =
-        state.ρ * total_energy(bl.param_set, e_kin, e_pot, T, q_pt)
+    param_set = parameter_set(bl)
+    state.energy.ρe = state.ρ * total_energy(param_set, e_kin, e_pot, T, q_pt)
     assign!(state, bl, bl.moisture, nt, st)
 end
 assign!(state, bl, moisture::DryModel, nt, ::Prognostic) = nothing

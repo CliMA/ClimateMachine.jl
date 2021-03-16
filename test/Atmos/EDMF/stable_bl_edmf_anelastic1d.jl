@@ -62,12 +62,13 @@ function init_state_prognostic!(
     N_up = n_updrafts(turbconv)
     # GCM setting - Initialize the grid mean profiles of prognostic variables (ρ,e_int,q_tot,u,v,w)
     z = altitude(m, aux)
+    param_set = parameter_set(m)
 
     # SCM setting - need to have separate cases coded and called from a folder - see what LES does
     # a thermo state is used here to convert the input θ to e_int profile
     e_int = internal_energy(m, state, aux)
 
-    ts = PhaseDry(m.param_set, e_int, state.ρ)
+    ts = PhaseDry(param_set, e_int, state.ρ)
     T = air_temperature(ts)
     p = air_pressure(ts)
     q = PhasePartition(ts)
@@ -82,25 +83,25 @@ function init_state_prognostic!(
     end
 
     # initialize environment covariance with zero for now
-    en.ρatke = gm.ρ*FT(0.4)*FT(1 - z / 400.0)
-    en.ρaθ_liq_cv = gm.ρ*FT(0.4)*FT(1 - z / 400.0)
-    # if z <= FT(250)
-    #     en.ρatke =
-    #         gm.ρ *
-    #         FT(0.4) *
-    #         FT(1 - z / 250.0) *
-    #         FT(1 - z / 250.0) *
-    #         FT(1 - z / 250.0)
-    #     en.ρaθ_liq_cv =
-    #         gm.ρ *
-    #         FT(0.4) *
-    #         FT(1 - z / 250.0) *
-    #         FT(1 - z / 250.0) *
-    #         FT(1 - z / 250.0)
-    # else
-    #     en.ρatke = FT(0)
-    #     en.ρaθ_liq_cv = FT(0)
-    # end
+    # en.ρatke = gm.ρ*FT(0.4)*FT(1 - z / 400.0)
+    # en.ρaθ_liq_cv = gm.ρ*FT(0.4)*FT(1 - z / 400.0)
+    if z <= FT(250)
+        en.ρatke =
+            gm.ρ *
+            FT(0.4) *
+            FT(1 - z / 250.0) *
+            FT(1 - z / 250.0) *
+            FT(1 - z / 250.0)
+        en.ρaθ_liq_cv =
+            gm.ρ *
+            FT(0.4) *
+            FT(1 - z / 250.0) *
+            FT(1 - z / 250.0) *
+            FT(1 - z / 250.0)
+    else
+        en.ρatke = FT(0)
+        en.ρaθ_liq_cv = FT(0)
+    end
     en.ρaq_tot_cv = FT(0)
     en.ρaθ_liq_q_tot_cv = FT(0)
     return nothing
@@ -117,7 +118,6 @@ function main(::Type{FT}) where {FT}
         metavar = "prescribed|bulk|custom_sbl"
         arg_type = String
         default = "custom_sbl"
-        # default = "prescribed"
     end
 
     cl_args = ClimateMachine.init(parse_clargs = true, custom_clargs = sbl_args)
@@ -125,8 +125,8 @@ function main(::Type{FT}) where {FT}
     surface_flux = cl_args["surface_flux"]
 
     # DG polynomial order
-    N = 4
-    nelem_vert = 10
+    N = 1
+    nelem_vert = 80
 
     # Prescribe domain parameters
     zmax = FT(400)
@@ -134,8 +134,8 @@ function main(::Type{FT}) where {FT}
     t0 = FT(0)
 
     # Simulation time
-    timeend = FT(15)
-    CFLmax  = FT(10)
+    timeend = FT(1800)
+    CFLmax  = FT(100)
 
     config_type = SingleStackConfigType
 
@@ -146,7 +146,7 @@ function main(::Type{FT}) where {FT}
     N_updrafts = 1
     N_quad = 3
     # turbconv = NoTurbConv()
-    turbconv = EDMF(FT, N_updrafts, N_quad)
+    turbconv = EDMF(FT, N_updrafts, N_quad, param_set)
     # compressibility = Compressible()
     compressibility = Anelastic1D()
 
@@ -155,7 +155,7 @@ function main(::Type{FT}) where {FT}
         config_type,
         zmax,
         surface_flux;
-        turbulence = ConstantKinematicViscosity(FT(0.1)),
+        turbulence = ConstantKinematicViscosity(FT(0)),
         # turbulence = SmagorinskyLilly{FT}(0.21),
         turbconv = turbconv,
         compressibility = compressibility,
@@ -325,7 +325,8 @@ function main(::Type{FT}) where {FT}
         solver_config;
         diagnostics_config = dgn_config,
         check_cons = check_cons,
-        user_callbacks = (cb_boyd, cb_data_vs_time, cb_print_step),
+        # user_callbacks = (cb_boyd, cb_data_vs_time, cb_print_step),
+        user_callbacks = (cb_data_vs_time, cb_print_step),
         check_euclidean_distance = true,
     )
 

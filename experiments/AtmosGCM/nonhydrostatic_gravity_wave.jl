@@ -42,13 +42,14 @@ function init_nonhydrostatic_gravity_wave!(problem, bl, state, aux, localgeo, t)
     z = altitude(bl, aux)
 
     # parameters
-    _grav::FT = grav(bl.param_set)
-    _cp::FT = cp_d(bl.param_set)
-    _Ω::FT = Omega(bl.param_set)
-    _a::FT = planet_radius(bl.param_set)
-    _R_d::FT = R_d(bl.param_set)
-    _kappa::FT = kappa_d(bl.param_set)
-    _p_eq::FT = MSLP(bl.param_set)
+    param_set = parameter_set(bl)
+    _grav::FT = grav(param_set)
+    _cp::FT = cp_d(param_set)
+    _Ω::FT = Omega(param_set)
+    _a::FT = planet_radius(param_set)
+    _R_d::FT = R_d(param_set)
+    _kappa::FT = kappa_d(param_set)
+    _p_eq::FT = MSLP(param_set)
 
     N::FT = 0.01
     u_0::FT = 0.0
@@ -94,7 +95,7 @@ function init_nonhydrostatic_gravity_wave!(problem, bl, state, aux, localgeo, t)
     T::FT = T_b + T′
 
     # density
-    ρ = air_density(bl.param_set, T_b, p)
+    ρ = air_density(param_set, T_b, p)
 
     # potential & kinetic energy
     e_pot = gravitational_potential(bl.orientation, aux)
@@ -102,7 +103,7 @@ function init_nonhydrostatic_gravity_wave!(problem, bl, state, aux, localgeo, t)
 
     state.ρ = ρ
     state.ρu = ρ * u_init
-    state.energy.ρe = ρ * total_energy(bl.param_set, e_kin, e_pot, T)
+    state.energy.ρe = ρ * total_energy(param_set, e_kin, e_pot, T)
 
     nothing
 end

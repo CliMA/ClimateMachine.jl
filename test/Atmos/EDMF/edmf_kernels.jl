@@ -231,7 +231,7 @@ eq_tends(
     pv::PV,
     m::EDMF,
     ::Flux{SecondOrder},
-) where {PV <: Union{Momentum, Energy, TotalMoisture}} =() # (SGSFlux{PV}(),)   # do _not_ add SGSFlux back to grid-mean
+) where {PV <: Union{Momentum, Energy, TotalMoisture}} =(SGSFlux{PV}(),)   # do _not_ add SGSFlux back to grid-mean
 # (SGSFlux{PV}(),) # add SGSFlux back to grid-mean
 
 # Turbconv tendencies
@@ -264,9 +264,9 @@ eq_tends(pv::PV, m::EDMF, ::Source) where {PV <: EDMFPrognosticVariable} = ()
 eq_tends(pv::PV, m::EDMF, ::Source) where {PV <: en_ρatke} = (
     # EntrDetr{PV}(),
     # PressSource{PV}(),
-    # ShearSource{PV}(),
-    # BuoySource{PV}(),
-    # DissSource{PV}(),
+    ShearSource{PV}(),
+    BuoySource{PV}(),
+    DissSource{PV}(),
 )
 
 eq_tends(
@@ -411,11 +411,11 @@ function compute_gradient_argument!(
 
     # Get environment variables
     env = environment_vars(state, N_up)
-
+    param_set = parameter_set(m)
     @unroll_map(N_up) do i
         up_tf[i].w = fix_void_up(up[i].ρa, up[i].ρaw / up[i].ρa)
     end
-    _grav::FT = grav(m.param_set)
+    _grav::FT = grav(param_set)
 
     ρ_inv = 1 / gm.ρ
     θ_liq_en = liquid_ice_pottemp(ts.en)
@@ -519,15 +519,16 @@ function compute_gradient_flux!(
         ts.en,
         env,
     )
-    en_dif.K_m = m.turbconv.mix_len.c_m * en_dif.l_mix * 0.1 #sqrt(tke_en)
+    en_dif.K_m = m.turbconv.mix_len.c_m * en_dif.l_mix * sqrt(tke_en)
     K_h = en_dif.K_m / Pr_t
     ρa₀ = gm.ρ * env.a
-    Diss₀ = m.turbconv.mix_len.c_d * 0.1 / en_dif.l_mix
+    Diss₀ = m.turbconv.mix_len.c_d * sqrt(tke_en) / en_dif.l_mix
 
     en_dif.shear = gm_dif.S² # tke Shear
     en_dif.shear_prod = ρa₀ * en_dif.K_m * gm_dif.S²  # tke Shear source
     en_dif.buoy_prod = -ρa₀ * K_h * ∂b∂z_env   # tke Buoyancy source
-    en_dif.tke_diss = -en.ρatke*Diss₀  # tke Dissipation
+    en_dif.tke_diss = -ρa₀ * Diss₀ * tke_en
+    # en_dif.tke_diss = -en.ρatke*Diss₀  # tke Dissipation
 
     ẑ = vertical_unit_vector(m, aux)
     en_dif.tke_diff = -gm.ρ * env.a * en_dif.K_m * en_dif.∇tke[3]
@@ -714,8 +715,8 @@ function source(::DissSource{en_ρatke}, atmos, args)
     en = args.state.turbconv.environment
     ρa₀ = gm.ρ * env.a
     tke_en = enforce_positivity(en.ρatke) / gm.ρ / env.a
-    # return -ρa₀ * Diss₀ * tke_en  # original tke Dissipation
-    return -en.ρatke * Diss₀ # Yair
+    return -ρa₀ * Diss₀ * tke_en  # original tke Dissipation
+    # return -en.ρatke * Diss₀ # Yair
 end
 
 function source(::DissSource{en_ρaθ_liq_cv}, atmos, args)
@@ -911,7 +912,7 @@ function precompute(::EDMF, bl, args, ts, ::Flux{SecondOrder})
 
     en = state.turbconv.environment
     tke_en = enforce_positivity(en.ρatke) / env.a / state.ρ
-    K_m = bl.turbconv.mix_len.c_m * l_mix * 0.1 #sqrt(tke_en)
+    K_m = bl.turbconv.mix_len.c_m * l_mix * sqrt(tke_en)
     K_h = K_m / Pr_t
     ρaw_up = vuntuple(i -> up[i].ρaw, N_up)
 
@@ -953,8 +954,9 @@ function compute_buoyancy(
     ref_state::Vars,
 )
     FT = eltype(state)
+    param_set = parameter_set(bl)
     N_up = n_updrafts(bl.turbconv)
-    _grav::FT = grav(bl.param_set)
+    _grav::FT = grav(param_set)
     gm = state
     ρ_inv = 1 / gm.ρ
     buoyancy_en = -_grav * (air_density(ts_en) - ref_state.ρ) * ρ_inv
@@ -1014,9 +1016,9 @@ function precompute(::EDMF, bl, args, ts, ::Source)
     en = state.turbconv.environment
     tke_en = enforce_positivity(en.ρatke) / env.a / state.ρ
 
-    K_m = bl.turbconv.mix_len.c_m * l_mix * 0.1 #sqrt(tke_en)
+    K_m = bl.turbconv.mix_len.c_m * l_mix * sqrt(tke_en)
     K_h = K_m / Pr_t
-    Diss₀ = bl.turbconv.mix_len.c_d  * 0.1/ l_mix
+    Diss₀ = bl.turbconv.mix_len.c_d  * sqrt(tke_en)/ l_mix
 
     return (;
         env,
@@ -1042,7 +1044,8 @@ function flux(::SGSFlux{Energy}, atmos, args)
     @unpack state, aux, diffusive = args
     @unpack env, K_h, ρa_up, ρaw_up, ts_up = args.precomputed.turbconv
     FT = eltype(state)
-    _grav::FT = grav(atmos.param_set)
+    param_set = parameter_set(atmos)
+    _grav::FT = grav(param_set)
     z = altitude(atmos, aux)
     en_dif = diffusive.turbconv.environment
     up = state.turbconv.updraft
@@ -1203,10 +1206,8 @@ function turbconv_boundary_state!(
     end
 
     a_en = environment_area(gm⁻, N_up)
-    en⁺.ρatke = gm⁻.ρ *FT(0.4) 
-    en⁺.ρaθ_liq_cv = gm⁻.ρ *FT(0.4) 
-    # en⁺.ρatke = gm⁻.ρ * a_en * surf_vals.tke
-    # en⁺.ρaθ_liq_cv = gm⁻.ρ * a_en * surf_vals.θ_liq_cv
+    en⁺.ρatke = gm⁻.ρ * a_en * surf_vals.tke
+    en⁺.ρaθ_liq_cv = gm⁻.ρ * a_en * surf_vals.θ_liq_cv
     if !(atmos.moisture isa DryModel)
         en⁺.ρaq_tot_cv = gm⁻.ρ * a_en * surf_vals.q_tot_cv
         en⁺.ρaθ_liq_q_tot_cv = gm⁻.ρ * a_en * surf_vals.θ_liq_q_tot_cv
@@ -1214,8 +1215,23 @@ function turbconv_boundary_state!(
         en⁺.ρaq_tot_cv = FT(0)
         en⁺.ρaθ_liq_q_tot_cv = FT(0)
     end
-    # @show(en⁺.ρatke, state⁻.turbconv.environment.ρatke)
 end;
+
+# The boundary conditions for second-order unknowns
+function turbconv_normal_boundary_flux_second_order!(
+    nf,
+    bc::EDMFBottomBC,
+    atmos::AtmosModel{FT},
+    fluxᵀn::Vars,
+    args,
+) where {FT}
+    nothing
+    # en_flx = fluxᵀn.turbconv.environment
+    # K_m = args.diffusive⁻.turbconv.environment.K_m
+    # en_flx.ρatke = args.state⁻.ρ * K_m * args.diffusive⁻.turbconv.environment.∇tke[3]
+    # en_flx.ρatke = FT(0)
+end;
+
 function turbconv_boundary_state!(
     nf,
     bc::EDMFTopBC,
@@ -1225,22 +1241,14 @@ function turbconv_boundary_state!(
 ) where {FT}
     N_up = n_updrafts(atmos.turbconv)
     up⁺ = state⁺.turbconv.updraft
+    en⁺ = state⁺.turbconv.environment
     @unroll_map(N_up) do i
         up⁺[i].ρaw = FT(0)
     end
 end;
 
 
-# The boundary conditions for second-order unknowns
-function turbconv_normal_boundary_flux_second_order!(
-    nf,
-    bc::EDMFBottomBC,
-    atmos::AtmosModel,
-    fluxᵀn::Vars,
-    _...,
-)
-    nothing
-end;
+
 function turbconv_normal_boundary_flux_second_order!(
     nf,
     bc::EDMFTopBC,
@@ -1262,5 +1270,6 @@ function turbconv_normal_boundary_flux_second_order!(
     en_flx.ρaθ_liq_cv = FT(0)
     en_flx.ρaq_tot_cv = FT(0)
     en_flx.ρaθ_liq_q_tot_cv = FT(0)
-
+    # K_m = args.diffusive⁻.turbconv.environment.K_m
+    # en_flx.ρatke = -args.state⁻.ρ * K_m * args.diffusive⁻.turbconv.environment.∇tke[3]
 end;

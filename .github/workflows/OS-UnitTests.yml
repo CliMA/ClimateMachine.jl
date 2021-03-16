@@ -49,7 +49,7 @@ jobs:
       uses: julia-actions/setup-julia@latest
       if: steps.filter.outputs.run_test == 'true'
       with:
-        version: 1.5.2
+        version: 1.5.4
 
     # https://discourse.julialang.org/t/recommendation-cache-julia-artifacts-in-ci-services/35484
     - name: Cache artifacts
@@ -74,9 +74,9 @@ jobs:
       if: steps.filter.outputs.run_test == 'true'
       continue-on-error: true
       run: |
-        julia --project=@. .dev/systemimage/climate_machine_image.jl ClimateMachine.so true
+        julia --project .dev/systemimage/climate_machine_image.jl ClimateMachine.so true
 
     - name: Run Unit Tests
       if: steps.filter.outputs.run_test == 'true'
       run: |
-        julia --project=@. -e 'using Pkg; Pkg.test()'
+        julia --project -J ClimateMachine.so -e 'using Pkg; Pkg.test()'

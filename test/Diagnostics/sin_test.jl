@@ -31,10 +31,11 @@ function init_sin_test!(problem, bl, state, aux, localgeo, t)
     (x, y, z) = localgeo.coord
 
     FT = eltype(state)
+    param_set = parameter_set(bl)
 
     z = FT(z)
-    _grav::FT = grav(bl.param_set)
-    _MSLP::FT = MSLP(bl.param_set)
+    _grav::FT = grav(param_set)
+    _MSLP::FT = MSLP(param_set)
 
     # These constants are those used by Stevens et al. (2005)
     qref = FT(9.0e-3)
@@ -72,7 +73,7 @@ function init_sin_test!(problem, bl, state, aux, localgeo, t)
     p = P_sfc * exp(-z / H)
 
     # Density, Temperature
-    ts = PhaseEquil_pθq(bl.param_set, p, θ_liq, q_tot)
+    ts = PhaseEquil_pθq(param_set, p, θ_liq, q_tot)
     #ρ = air_density(ts)
     ρ = one(FT)
 

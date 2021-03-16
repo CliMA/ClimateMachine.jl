@@ -216,10 +216,11 @@ function turbulence_tensors(
     aux,
     t,
 )
+    param_set = parameter_set(bl)
     ν, D_t, τ = turbulence_tensors(
         m,
         bl.orientation,
-        bl.param_set,
+        param_set,
         state,
         diffusive,
         aux,
@@ -799,7 +800,7 @@ Defines a default hyperdiffusion model with zero hyperdiffusive fluxes.
 struct NoHyperDiffusion <: HyperDiffusion end
 
 hyperviscosity_tensors(m::HyperDiffusion, bl::BalanceLaw, args...) =
-    hyperviscosity_tensors(m, bl.orientation, bl.param_set, args...)
+    hyperviscosity_tensors(m, bl.orientation, parameter_set(bl), args...)
 
 """
   EquilMoistBiharmonic{FT} <: HyperDiffusion
@@ -866,7 +867,8 @@ function transform_post_gradient_laplacian!(
     aux::Vars,
     t::Real,
 )
-    _inv_Pr_turb = eltype(state)(inv_Pr_turb(bl.param_set))
+    param_set = parameter_set(bl)
+    _inv_Pr_turb = eltype(state)(inv_Pr_turb(param_set))
     ∇Δu_h = hypertransform.hyperdiffusion.u_h
     ∇Δh_tot = hypertransform.hyperdiffusion.h_tot
     ∇Δq_tot = hypertransform.hyperdiffusion.q_tot
@@ -937,7 +939,8 @@ function transform_post_gradient_laplacian!(
     aux::Vars,
     t::Real,
 )
-    _inv_Pr_turb = eltype(state)(inv_Pr_turb(bl.param_set))
+    param_set = parameter_set(bl)
+    _inv_Pr_turb = eltype(state)(inv_Pr_turb(param_set))
     ∇Δu_h = hypertransform.hyperdiffusion.u_h
     ∇Δh_tot = hypertransform.hyperdiffusion.h_tot
     # Unpack
@@ -1004,7 +1007,8 @@ function sponge_viscosity_modifier(
     τ,
     aux::Vars,
 )
-    z = altitude(bl.orientation, bl.param_set, aux)
+    param_set = parameter_set(bl)
+    z = altitude(bl.orientation, param_set, aux)
     if z >= m.sponge
         r = (z - m.z_sponge) / (m.z_max - m.z_sponge)
         β_sponge = m.α_max * sinpi(r / 2)^m.γ

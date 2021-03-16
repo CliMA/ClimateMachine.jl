@@ -117,7 +117,7 @@ function gyre_init_state!(
     βᵖ = β * Lʸ / fₒ
     ϵ = γ / (Lˣ * β)
 
-    _grav::FT = grav(m.param_set)
+    _grav::FT = grav(parameter_set(m))
 
     uˢ(ϵ) = (τₒ * D(ϵ)) / (H * γ * π)
     hˢ(ϵ) = (fₒ * Lˣ * uˢ(ϵ)) / _grav
@@ -153,7 +153,7 @@ function gyre_init_state!(
     coords = local_geometry.coord
 
     FT = eltype(state.U)
-    _grav::FT = grav(m.param_set)
+    _grav::FT = grav(parameter_set(m))
 
     τₒ = p.τₒ
     fₒ = m.fₒ

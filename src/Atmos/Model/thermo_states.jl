@@ -59,8 +59,9 @@ function new_thermo_state(
     state::Vars,
     aux::Vars,
 )
+    param_set = parameter_set(atmos)
     e_int = internal_energy(atmos, state, aux)
-    return PhaseDry(atmos.param_set, e_int, state.ρ)
+    return PhaseDry(param_set, e_int, state.ρ)
 end
 
 function new_thermo_state(
@@ -71,8 +72,9 @@ function new_thermo_state(
     aux::Vars,
 )
     e_int = internal_energy(atmos, state, aux)
+    param_set = parameter_set(atmos)
     return PhaseEquil(
-        atmos.param_set,
+        param_set,
         e_int,
         state.ρ,
         state.moisture.ρq_tot / state.ρ,
@@ -88,6 +90,7 @@ function new_thermo_state(
     state::Vars,
     aux::Vars,
 )
+    param_set = parameter_set(atmos)
     e_int = internal_energy(atmos, state, aux)
     q = PhasePartition(
         state.moisture.ρq_tot / state.ρ,
@@ -95,8 +98,8 @@ function new_thermo_state(
         state.moisture.ρq_ice / state.ρ,
     )
 
-    return PhaseNonEquil{eltype(state), typeof(atmos.param_set)}(
-        atmos.param_set,
+    return PhaseNonEquil{eltype(state), typeof(param_set)}(
+        param_set,
         e_int,
         state.ρ,
         q,
@@ -110,8 +113,9 @@ function new_thermo_state(
     state::Vars,
     aux::Vars,
 )
+    param_set = parameter_set(atmos)
     θ_liq_ice = state.energy.ρθ_liq_ice / state.ρ
-    return PhaseDry_ρθ(atmos.param_set, state.ρ, θ_liq_ice)
+    return PhaseDry_ρθ(param_set, state.ρ, θ_liq_ice)
 end
 
 function new_thermo_state(
@@ -121,9 +125,10 @@ function new_thermo_state(
     state::Vars,
     aux::Vars,
 )
+    param_set = parameter_set(atmos)
     θ_liq_ice = state.energy.ρθ_liq_ice / state.ρ
     return PhaseEquil_ρθq(
-        atmos.param_set,
+        param_set,
         state.ρ,
         θ_liq_ice,
         state.moisture.ρq_tot / state.ρ,
@@ -139,6 +144,7 @@ function new_thermo_state(
     state::Vars,
     aux::Vars,
 )
+    param_set = parameter_set(atmos)
     θ_liq_ice = state.energy.ρθ_liq_ice / state.ρ
     q = PhasePartition(
         state.moisture.ρq_tot / state.ρ,
@@ -146,8 +152,8 @@ function new_thermo_state(
         state.moisture.ρq_ice / state.ρ,
     )
 
-    return PhaseNonEquil{eltype(state), typeof(atmos.param_set)}(
-        atmos.param_set,
+    return PhaseNonEquil{eltype(state), typeof(param_set)}(
+        param_set,
         state.ρ,
         θ_liq_ice,
         q,

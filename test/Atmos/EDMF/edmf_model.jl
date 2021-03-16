@@ -1,7 +1,8 @@
 #### EDMF model
 using DocStringExtensions
-
-#### Entrainment-Detrainment model
+using CLIMAParameters: AbstractEarthParameterSet
+using CLIMAParameters.Atmos.EDMF
+using CLIMAParameters.SubgridScale
 
 """
     EntrainmentDetrainment
@@ -14,27 +15,50 @@ $(DocStringExtensions.FIELDS)
 """
 Base.@kwdef struct EntrainmentDetrainment{FT <: AbstractFloat}
     "Entrainment TKE scale"
-    c_λ::FT = 0.3
+    c_λ::FT
     "Entrainment factor"
-    c_ε::FT = 0.13
+    c_ε::FT
     "Detrainment factor"
-    c_δ::FT = 0.52
+    c_δ::FT
     "Turbulent Entrainment factor"
-    c_t::FT = 0.1
+    c_t::FT
     "Detrainment RH power"
-    β::FT = 2
+    β::FT
     "Logistic function scale ‵[1/s]‵"
-    μ_0::FT = 0.0004
+    μ_0::FT
     "Updraft mixing fraction"
-    χ::FT = 0.25
+    χ::FT
     "Minimum updraft velocity"
-    w_min::FT = 0.1
+    w_min::FT
     "Exponential area limiter scale"
-    lim_ϵ::FT = 0.0001
+    lim_ϵ::FT
     "Exponential area limiter amplitude"
-    lim_amp::FT = 10
-    "Minimum value for turb entr"
-    H_up_min::FT = 1e-4
+    lim_amp::FT
+end
+
+"""
+    EntrainmentDetrainment{FT}(param_set) where {FT}
+
+Constructor for `EntrainmentDetrainment` for EDMF, given:
+ - `param_set`, an AbstractEarthParameterSet
+"""
+function EntrainmentDetrainment{FT}(
+    param_set::AbstractEarthParameterSet,
+) where {FT}
+    c_λ_ = c_λ(param_set)
+    c_ε_ = c_ε(param_set)
+    c_δ_ = c_δ(param_set)
+    c_t_ = c_t(param_set)
+    β_ = β(param_set)
+    μ_0_ = μ_0(param_set)
+    χ_ = χ(param_set)
+    w_min_ = w_min(param_set)
+    lim_ϵ_ = lim_ϵ(param_set)
+    lim_amp_ = lim_amp(param_set)
+
+    args = (c_λ_, c_ε_, c_δ_, c_t_, β_, μ_0_, χ_, w_min_, lim_ϵ_, lim_amp_)
+
+    return EntrainmentDetrainment{FT}(args...)
 end
 
 """
@@ -80,6 +104,15 @@ values and parameters needed by the model.
 $(DocStringExtensions.FIELDS)
 """
 Base.@kwdef struct SurfaceModel{FT <: AbstractFloat, SV}
+    "Area"
+    a::FT
+    "Surface covariance stability coefficient"
+    ψϕ_stab::FT
+    "Square ratio of rms turbulent velocity to friction velocity"
+    κ_star²::FT
+    "Scalar coefficient"
+    scalar_coeff::SV
+    # The following will be deleted after SurfaceFlux coupling
     "Temperature ‵[k]‵"
     T::FT = 300.4
     "Liquid water potential temperature ‵[k]‵"
@@ -90,37 +123,33 @@ Base.@kwdef struct SurfaceModel{FT <: AbstractFloat, SV}
     shf::FT = 9.5
     "Latent heat flux ‵[w/m^2]‵"
     lhf::FT = 147.2
-    "Area"
-    a::FT
-    "Scalar coefficient"
-    scalar_coeff::SV = 0
     "Friction velocity"
     ustar::FT = 0.28
     "Monin - Obukhov length"
     obukhov_length::FT = 0
-    "Surface covariance stability coefficient"
-    ψϕ_stab::FT = 8.3
-    "Square ratio of rms turbulent velocity to friction velocity"
-    κ_star²::FT = 3.75
     "Height of the lowest level"
     zLL::FT = 60
 end
 
 """
-    SurfaceModel{FT}(N_up) where {FT}
+    SurfaceModel{FT}(N_up, param_set) where {FT}
 
 Constructor for `SurfaceModel` for EDMF, given:
  - `N_up`, the number of updrafts
+ - `param_set`, an AbstractEarthParameterSet
 """
-function SurfaceModel{FT}(N_up;) where {FT}
-    a_surf::FT = 0.0
 
-    if a_surf>FT(0)
+function SurfaceModel{FT}(N_up, param_set::AbstractEarthParameterSet) where {FT}
+    a_surf_ = a_surf(param_set)
+    κ_star²_ = κ_star²(param_set)
+    ψϕ_stab_ = ψϕ_stab(param_set)
+
+    if a_surf_>FT(0)
         surface_scalar_coeff = SVector(
             ntuple(N_up) do i
                 percentile_bounds_mean_norm(
-                    1 - a_surf + (i - 1) * FT(a_surf / N_up),
-                    1 - a_surf + i * FT(a_surf / N_up),
+                    1 - a_surf_ + (i - 1) * FT(a_surf_ / N_up),
+                    1 - a_surf_ + i * FT(a_surf_ / N_up),
                     1000,
                 )
             end,
@@ -132,11 +161,12 @@ function SurfaceModel{FT}(N_up;) where {FT}
             end,
         )
     end
-
     SV = typeof(surface_scalar_coeff)
     return SurfaceModel{FT, SV}(;
         scalar_coeff = surface_scalar_coeff,
-        a = a_surf,
+        a = a_surf_,
+        κ_star² = κ_star²_,
+        ψϕ_stab = ψϕ_stab_,
     )
 end
 
@@ -152,13 +182,30 @@ $(DocStringExtensions.FIELDS)
 """
 Base.@kwdef struct PressureModel{FT <: AbstractFloat}
     "Pressure drag"
-    α_d::FT = 10.0
+    α_d::FT
     "Pressure advection"
-    α_a::FT = 0.1
+    α_a::FT
     "Pressure buoyancy"
-    α_b::FT = 0.12
-    "Default updraft height"
-    H_up::FT = 500
+    α_b::FT
+    "Minimum diagnostic updraft height for closures"
+    H_up_min::FT
+end
+
+"""
+    PressureModel{FT}(param_set) where {FT}
+
+Constructor for `PressureModel` for EDMF, given:
+ - `param_set`, an AbstractEarthParameterSet
+"""
+function PressureModel{FT}(param_set::AbstractEarthParameterSet) where {FT}
+    α_d_ = α_d(param_set)
+    α_a_ = α_a(param_set)
+    α_b_ = α_b(param_set)
+    H_up_min_ = H_up_min(param_set)
+
+    args = (α_d_, α_a_, α_b_, H_up_min_)
+
+    return PressureModel{FT}(args...)
 end
 
 """
@@ -172,31 +219,71 @@ $(DocStringExtensions.FIELDS)
 """
 Base.@kwdef struct MixingLengthModel{FT <: AbstractFloat}
     "dissipation coefficient"
-    c_d::FT = 0.22
+    c_d::FT
     "Eddy Viscosity"
-    c_m::FT = 0.14
+    c_m::FT
     "Static Stability coefficient"
-    c_b::FT = 0.63
+    c_b::FT
     "Empirical stability function coefficient"
-    a1::FT = 0.2
+    a1::FT
     "Empirical stability function coefficient"
-    a2::FT = 100
+    a2::FT
     "Von Karmen constant"
-    κ::FT = 0.4
-    "Maximum mixing length"
-    max_length::FT = 1e6
+    κ::FT
     "Prandtl number empirical coefficient"
-    ω_pr::FT = 53.0 / 13.0
+    ω_pr::FT
     "Prandtl number scale"
-    Pr_n::FT = 0.74
+    Pr_n::FT
     "Critical Richardson number"
-    Ri_c::FT = 0.25
-    "Random small number variable that should be addressed"
-    random_minval::FT = 1e-9
+    Ri_c::FT
     "smooth minimum's fractional upper bound"
-    smin_ub::FT = 0.1
+    smin_ub::FT
     "smooth minimum's regularization minimum"
-    smin_rm::FT = 1.5
+    smin_rm::FT
+    "Maximum mixing length"
+    max_length::FT
+    "Random small number variable that should be addressed"
+    random_minval::FT
+end
+
+"""
+    MixingLengthModel{FT}(param_set) where {FT}
+
+Constructor for `MixingLengthModel` for EDMF, given:
+ - `param_set`, an AbstractEarthParameterSet
+"""
+function MixingLengthModel{FT}(param_set::AbstractEarthParameterSet) where {FT}
+    c_d_ = c_d(param_set)
+    c_m_ = c_m(param_set)
+    c_b_ = c_b(param_set)
+    a1_ = a1(param_set)
+    a2_ = a2(param_set)
+    κ = von_karman_const(param_set)
+    ω_pr_ = ω_pr(param_set)
+    Pr_n_ = Pr_n(param_set)
+    Ri_c_ = Ri_c(param_set)
+    smin_ub_ = smin_ub(param_set)
+    smin_rm_ = smin_rm(param_set)
+    max_length = 1e6
+    random_minval = 1e-9
+
+    args = (
+        c_d_,
+        c_m_,
+        c_b_,
+        a1_,
+        a2_,
+        κ,
+        ω_pr_,
+        Pr_n_,
+        Ri_c_,
+        smin_ub_,
+        smin_rm_,
+        max_length,
+        random_minval,
+    )
+
+    return MixingLengthModel{FT}(args...)
 end
 
 abstract type AbstractStatisticalModel end
@@ -279,14 +366,14 @@ end
 
 """
     EDMF(
-        FT, N_up, N_quad;
+        FT, N_up, N_quad, param_set;
         updraft = ntuple(i -> Updraft{FT}(), N_up),
         environment = Environment{FT, N_quad}(),
-        entr_detr = EntrainmentDetrainment{FT}(),
-        pressure = PressureModel{FT}(),
-        surface = SurfaceModel{FT}(N_up),
+        entr_detr = EntrainmentDetrainment{FT}(param_set),
+        pressure = PressureModel{FT}(param_set),
+        surface = SurfaceModel{FT}(N_up, param_set),
         micro_phys = MicrophysicsModel(FT),
-        mix_len = MixingLengthModel{FT}(),
+        mix_len = MixingLengthModel{FT}(param_set),
         subdomain = SubdomainModel(FT, N_up),
     )
 Constructor for `EDMF` subgrid-scale scheme, given:
@@ -307,14 +394,15 @@ Constructor for `EDMF` subgrid-scale scheme, given:
 function EDMF(
     FT,
     N_up,
-    N_quad;
+    N_quad,
+    param_set;
     updraft = ntuple(i -> Updraft{FT}(), N_up),
     environment = Environment{FT, N_quad}(),
-    entr_detr = EntrainmentDetrainment{FT}(),
-    pressure = PressureModel{FT}(),
-    surface = SurfaceModel{FT}(N_up),
+    entr_detr = EntrainmentDetrainment{FT}(param_set),
+    pressure = PressureModel{FT}(param_set),
+    surface = SurfaceModel{FT}(N_up, param_set),
     micro_phys = MicrophysicsModel(FT),
-    mix_len = MixingLengthModel{FT}(),
+    mix_len = MixingLengthModel{FT}(param_set),
     subdomain = SubdomainModel(FT, N_up),
 )
     args = (

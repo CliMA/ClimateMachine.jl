@@ -28,8 +28,10 @@ if generate_tutorials
             "Dry Idealized GCM (Held-Suarez)" => "Atmos/heldsuarez.jl",
             "Single Element Stack Experiment (Burgers Equation)" =>
                 "Atmos/burgers_single_stack.jl",
-            "Single Element Stack Experiment (Burgers Equation)" =>
+            "Finite Volume Single Element Stack Experiment (Burgers Equation)" =>
                 "Atmos/burgers_single_stack_fvm.jl",
+            "HEVI Single Element Stack Experiment (Burgers Equation)" =>
+                "Atmos/burgers_single_stack_bjfnk.jl",
             "LES Experiment (Density Current)" => "Atmos/densitycurrent.jl",
             "LES Experiment (Rising Thermal Bubble)" =>
                 "Atmos/risingbubble.jl",

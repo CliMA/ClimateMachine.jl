@@ -69,7 +69,8 @@ Coriolis() = Coriolis{Momentum}()
 function source(s::Coriolis{Momentum}, m, args)
     @unpack state = args
     FT = eltype(state)
-    _Omega::FT = Omega(m.param_set)
+    param_set = parameter_set(m)
+    _Omega::FT = Omega(param_set)
     # note: this assumes a SphericalOrientation
     return -SVector(0, 0, 2 * _Omega) × state.ρu
 end

@@ -57,7 +57,7 @@ function test_run(mpicomm, Ne_horz, Ne_vert, N, FT, ArrayType, direction)
         FloatType = FT,
         DeviceArray = ArrayType,
         polynomialorder = N,
-        meshwarp = Topologies.cubedshellwarp,
+        meshwarp = Topologies.equiangular_cubed_sphere_warp,
     )
 
     model = GradSphereTestModel{direction}()

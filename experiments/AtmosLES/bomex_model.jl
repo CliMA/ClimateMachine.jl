@@ -237,7 +237,8 @@ function source(s::BomexTendencies{Energy}, m, args)
     FT = eltype(state)
     @unpack ρ∂qt∂t, ρ∂θ∂t, w_s, k̂ = params
     cvm = cv_m(ts)
-    _e_int_v0 = FT(e_int_v0(m.param_set))
+    param_set = parameter_set(m)
+    _e_int_v0 = FT(e_int_v0(param_set))
     term1 = cvm * ρ∂θ∂t * exner(ts) + _e_int_v0 * ρ∂qt∂t
     term2 = state.ρ * w_s * dot(k̂, diffusive.energy.∇h_tot)
     return term1 - term2
@@ -262,14 +263,15 @@ function init_bomex!(problem, bl, state, aux, localgeo, t)
 
     # Problem floating point precision
     FT = eltype(state)
+    param_set = parameter_set(bl)
 
     P_sfc::FT = 1.015e5 # Surface air pressure
     qg::FT = 22.45e-3 # Total moisture at surface
     q_pt_sfc = PhasePartition(qg) # Surface moisture partitioning
-    Rm_sfc = gas_constant_air(bl.param_set, q_pt_sfc) # Moist gas constant
+    Rm_sfc = gas_constant_air(param_set, q_pt_sfc) # Moist gas constant
     θ_liq_sfc = FT(299.1) # Prescribed θ_liq at surface
     T_sfc = FT(300.4) # Surface temperature
-    _grav = FT(grav(bl.param_set))
+    _grav = FT(grav(param_set))
 
     # Initialise speeds [u = Eastward, v = Northward, w = Vertical]
     u::FT = 0
@@ -320,7 +322,7 @@ function init_bomex!(problem, bl, state, aux, localgeo, t)
     P = P_sfc * exp(-z / H)
 
     # Establish thermodynamic state and moist phase partitioning
-    ts = PhaseEquil_pθq(bl.param_set, P, θ_liq, q_tot)
+    ts = PhaseEquil_pθq(param_set, P, θ_liq, q_tot)
     T = air_temperature(ts)
     ρ = air_density(ts)
 

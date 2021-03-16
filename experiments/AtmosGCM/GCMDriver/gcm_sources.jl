@@ -25,11 +25,12 @@ function held_suarez_forcing_coefficients(bl, args)
     # Parameters
     T_ref = FT(255)
 
-    _R_d = FT(R_d(bl.param_set))
-    _day = FT(day(bl.param_set))
-    _grav = FT(grav(bl.param_set))
-    _cp_d = FT(cp_d(bl.param_set))
-    _p0 = FT(MSLP(bl.param_set))
+    param_set = parameter_set(bl)
+    _R_d = FT(R_d(param_set))
+    _day = FT(day(param_set))
+    _grav = FT(grav(param_set))
+    _cp_d = FT(cp_d(param_set))
+    _p0 = FT(MSLP(param_set))
 
     # Held-Suarez parameters
     k_a = FT(1 / (40 * _day))
@@ -63,7 +64,8 @@ function source(s::HeldSuarezForcing{Energy}, m, args)
     @unpack ts = args.precomputed
     nt = held_suarez_forcing_coefficients(m, args)
     FT = eltype(state)
-    _cv_d = FT(cv_d(m.param_set))
+    param_set = parameter_set(bl)
+    _cv_d = FT(cv_d(param_set))
     @unpack k_T, T_equil = nt
     T = air_temperature(ts)
     return -k_T * state.ρ * _cv_d * (T - T_equil)
