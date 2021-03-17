@@ -7,7 +7,6 @@ using ClimateMachine
 using ClimateMachine.SystemSolvers
 using ClimateMachine.MPIStateArrays
 using CUDA
-using Random
 using KernelAbstractions
 
 import ClimateMachine.MPIStateArrays: array_device
@@ -40,59 +39,59 @@ ClimateMachine.init(; fix_rng_seed = true)
                     Random.seed!(42)
 
                     # Test 1: Basic Functionality
-                n = 100   # size of local (batch) matrix
-                ni = 100  # batch size
+                    n = 100   # size of local (batch) matrix
+                    ni = 100  # batch size
 
-                b = ArrayType(randn(n, ni))  # rhs
-                x = ArrayType(randn(n, ni))  # initial guess
-                x_ref = similar(x)
+                    b = ArrayType(randn(n, ni))  # rhs
+                    x = ArrayType(randn(n, ni))  # initial guess
+                    x_ref = similar(x)
 
-                A = ArrayType(randn((n, n, ni)) ./ sqrt(n))
-                for i in 1:n
-                    A[i, i, :] .+= 10i
-                end
-
-                ss = size(b)[1]
-
-                # Define the linear operator
-                function closure_linear_operator_multi!(A, n1, n2, n3)
-                    function linear_operator!(x, y)
-                        device = array_device(x)
-                        if isa(device, CPU)
-                            groupsize = Threads.nthreads()
-                        else # isa(device, CUDADevice)
-                            groupsize = 256
-                        end
-                        event = Event(device)
-                        event = mul_by_A!(device, groupsize)(
-                            x,
-                            A,
-                            y,
-                            n1,
-                            n2,
-                            ndrange = n3,
-                            dependencies = (event,),
-                        )
-                        wait(device, event)
-                        nothing
+                    A = ArrayType(randn((n, n, ni)) ./ sqrt(n))
+                    for i in 1:n
+                        A[i, i, :] .+= 10i
                     end
-                end
-                linear_operator! = closure_linear_operator_multi!(A, size(A)...)
 
-                bgmres = IterativeSolver(
-                    BatchedGeneralizedMinimalResidualAlgorithm(atol = ϵ, rtol = ϵ, M = ss),
-                    x, linear_operator!, b
-                )
+                    ss = size(b)[1]
 
-                # Now solve
-                bgmres(x, linear_operator!, b)
+                    # Define the linear operator
+                    function closure_linear_operator_multi!(A, n1, n2, n3)
+                        function linear_operator!(x, y)
+                            device = array_device(x)
+                            if isa(device, CPU)
+                                groupsize = Threads.nthreads()
+                            else # isa(device, CUDADevice)
+                                groupsize = 256
+                            end
+                            event = Event(device)
+                            event = mul_by_A!(device, groupsize)(
+                                x,
+                                A,
+                                y,
+                                n1,
+                                n2,
+                                ndrange = n3,
+                                dependencies = (event,),
+                            )
+                            wait(device, event)
+                            nothing
+                        end
+                    end
+                    linear_operator! = closure_linear_operator_multi!(A, size(A)...)
 
-                # reference solution
-                for i in 1:ni
-                    x_ref[:, i] = A[:, :, i] \ b[:, i]
-                end
+                    bgmres = IterativeSolver(
+                        BatchedGeneralizedMinimalResidualAlgorithm(atol = ϵ, rtol = ϵ, M = ss),
+                        x, linear_operator!, b
+                    )
 
-                @test norm(x - x_ref) < 3000ϵ
+                    # Now solve
+                    bgmres(x, linear_operator!, b)
+
+                    # reference solution
+                    for i in 1:ni
+                        x_ref[:, i] = A[:, :, i] \ b[:, i]
+                    end
+
+                    @test norm(x - x_ref) < 3000ϵ
                 end
 
                 ###
@@ -163,7 +162,7 @@ ClimateMachine.init(; fix_rng_seed = true)
                 ###
                 # Test 3: Columnwise test
                 ###
-                @testset "(Array, $T) Columnwise Test" begin
+                @testset "($ArrayType, $T) Columnwise Test" begin
 
                     Random.seed!(2424)
                     function closure_linear_operator_columwise!(A, tup)

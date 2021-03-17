@@ -26,6 +26,7 @@ LinearAlgebra.dot(A::MVector, B::MVector, weighted) = dot(A, B)
 LinearAlgebra.norm(A::AbstractVector, p::Real, weighted::Bool) = norm(A, p)
 LinearAlgebra.norm(A::AbstractVector, weighted::Bool) = norm(A, 2, weighted)
 LinearAlgebra.dot(A::AbstractVector, B::AbstractVector, weighted) = dot(A, B)
+LinearAlgebra.norm(A::CuVector, weighted::Bool) = CUDA.CUBLAS.nrm2(A)
 
 export linearsolve!,
     settolerance!, prefactorize, construct_preconditioner, preconditioner_solve!
