@@ -132,8 +132,6 @@ function solversetup(
     t0,
     diffusion_direction,
 )
-
-
     # All we need to do is create a DGModel for the
     # vertical acoustic waves (determined from the `implicit_model`)
     vdg = DGModel(
@@ -145,6 +143,7 @@ function solversetup(
         state_auxiliary = dg.state_auxiliary,
         direction = VerticalDirection(),
         diffusion_direction = VerticalDirection(),
+        check_for_crashes = dg.check_for_crashes,
     )
 
     # linear solver relative tolerance rtol which should be slightly smaller than the nonlinear solver tol
@@ -190,7 +189,6 @@ function solversetup(
         split_explicit_implicit = false,
         variant = NaiveVariant(),
     )
-
 
     return solver
 end
