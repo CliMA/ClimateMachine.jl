@@ -4,7 +4,7 @@
 ##### First order fluxes
 #####
 
-function flux(::PrecipitationFlux{Rain}, atmos, args)
+function flux(::Rain, ::PrecipitationFlux, atmos, args)
     @unpack state, aux = args
     FT = eltype(state)
     u = state.ρu / state.ρ
@@ -25,7 +25,7 @@ function flux(::PrecipitationFlux{Rain}, atmos, args)
     return state.precipitation.ρq_rai * (u - k̂ * v_term_rai)
 end
 
-function flux(::PrecipitationFlux{Snow}, atmos, args)
+function flux(::Snow, ::PrecipitationFlux, atmos, args)
     @unpack state, aux = args
     FT = eltype(state)
     u = state.ρu / state.ρ
@@ -50,14 +50,14 @@ end
 ##### Second order fluxes
 #####
 
-function flux(::Diffusion{Rain}, atmos, args)
+function flux(::Rain, ::Diffusion, atmos, args)
     @unpack state, diffusive = args
     @unpack D_t = args.precomputed.turbulence
     d_q_rai = (-D_t) .* diffusive.precipitation.∇q_rai
     return d_q_rai * state.ρ
 end
 
-function flux(::Diffusion{Snow}, atmos, args)
+function flux(::Snow, ::Diffusion, atmos, args)
     @unpack state, diffusive = args
     @unpack D_t = args.precomputed.turbulence
     d_q_sno = (-D_t) .* diffusive.precipitation.∇q_sno
@@ -69,17 +69,17 @@ end
 ##### Sources
 #####
 
-function source(s::WarmRain_1M{Rain}, m, args)
+function source(::Rain, s::WarmRain_1M, m, args)
     @unpack cache = args.precomputed.precipitation
     return cache.S_ρ_qr
 end
 
-function source(s::RainSnow_1M{Rain}, m, args)
+function source(::Rain, s::RainSnow_1M, m, args)
     @unpack cache = args.precomputed.precipitation
     return cache.S_ρ_qr
 end
 
-function source(s::RainSnow_1M{Snow}, m, args)
+function source(::Snow, s::RainSnow_1M, m, args)
     @unpack cache = args.precomputed.precipitation
     return cache.S_ρ_qs
 end

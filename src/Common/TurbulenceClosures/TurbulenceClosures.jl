@@ -1021,25 +1021,18 @@ end
 
 const Biharmonic = Union{EquilMoistBiharmonic, DryBiharmonic}
 
-struct HyperdiffEnthalpyFlux{PV} <: TendencyDef{Flux{SecondOrder}, PV} end
-struct HyperdiffViscousFlux{PV} <: TendencyDef{Flux{SecondOrder}, PV} end
+struct HyperdiffEnthalpyFlux <: TendencyDef{Flux{SecondOrder}} end
+struct HyperdiffViscousFlux <: TendencyDef{Flux{SecondOrder}} end
 
 # empty by default
 eq_tends(pv::PV, ::HyperDiffusion, ::AbstractTendencyType) where {PV} = ()
 
 # Enthalpy and viscous for Biharmonic model
-eq_tends(
-    pv::PV,
-    ::Biharmonic,
-    ::Flux{SecondOrder},
-) where {PV <: AbstractEnergy} =
-    (HyperdiffEnthalpyFlux{PV}(), HyperdiffViscousFlux{PV}())
+eq_tends(::AbstractEnergy, ::Biharmonic, ::Flux{SecondOrder}) =
+    (HyperdiffEnthalpyFlux(), HyperdiffViscousFlux())
 
 # Viscous for Biharmonic model
-eq_tends(
-    pv::PV,
-    ::Biharmonic,
-    ::Flux{SecondOrder},
-) where {PV <: AbstractMomentum} = (HyperdiffViscousFlux{PV}(),)
+eq_tends(::AbstractMomentum, ::Biharmonic, ::Flux{SecondOrder}) =
+    (HyperdiffViscousFlux(),)
 
 end #module TurbulenceClosures.jl

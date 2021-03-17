@@ -34,7 +34,7 @@ using ClimateMachine.TurbulenceClosures
 using ClimateMachine.VariableTemplates
 using ClimateMachine.BalanceLaws
 
-import ClimateMachine.BalanceLaws: source
+import ClimateMachine.BalanceLaws: source, prognostic_vars
 
 # [ClimateMachine parameters](https://github.com/CliMA/CLIMAParameters.jl) are
 # needed to have access to Earth's physical parameters.
@@ -46,16 +46,14 @@ struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet();
 
 """
-    HeldSuarezForcingTutorial{PV <: Union{Momentum,Energy}} <: TendencyDef{Source, PV}
+    HeldSuarezForcingTutorial <: TendencyDef{Source}
 
 Defines a forcing that parametrises radiative and frictional effects using
 Newtonian relaxation and Rayleigh friction, following Held and Suarez (1994)
 """
-struct HeldSuarezForcingTutorial{PV <: Union{Momentum, Energy}} <:
-       TendencyDef{Source, PV} end
+struct HeldSuarezForcingTutorial <: TendencyDef{Source} end
 
-HeldSuarezForcingTutorial() =
-    (HeldSuarezForcingTutorial{Momentum}(), HeldSuarezForcingTutorial{Energy}())
+prognostic_vars(::HeldSuarezForcingTutorial) = (Momentum(), Energy())
 
 function held_suarez_forcing_coefficients(bl, args)
     @unpack state, aux = args
@@ -99,7 +97,7 @@ function held_suarez_forcing_coefficients(bl, args)
     return (k_v = k_v, k_T = k_T, T_equil = T_equil)
 end
 
-function source(s::HeldSuarezForcingTutorial{Energy}, atmos, args)
+function source(::Energy, s::HeldSuarezForcingTutorial, atmos, args)
     @unpack state = args
     FT = eltype(state)
     @unpack ts = args.precomputed
@@ -111,7 +109,7 @@ function source(s::HeldSuarezForcingTutorial{Energy}, atmos, args)
     return -k_T * state.ρ * _cv_d * (T - T_equil)
 end
 
-function source(s::HeldSuarezForcingTutorial{Momentum}, atmos, args)
+function source(::Momentum, s::HeldSuarezForcingTutorial, atmos, args)
     @unpack state, aux = args
     nt = held_suarez_forcing_coefficients(atmos, args)
     return -nt.k_v * projection_tangential(atmos, aux, state.ρu)
@@ -174,7 +172,7 @@ z_sponge = FT(12e3)                    # height at which sponge begins (m)
 α_relax = FT(1 / 60 / 15)              # sponge relaxation rate (1/s)
 exponent = FT(2)                       # sponge exponent for squared-sinusoid profile
 u_relax = SVector(FT(0), FT(0), FT(0)) # relaxation velocity (m/s)
-sponge = RayleighSponge(FT, domain_height, z_sponge, α_relax, u_relax, exponent);
+sponge = RayleighSponge{FT}(domain_height, z_sponge, α_relax, u_relax, exponent);
 
 # ## Set up turbulence models
 # In order to produce a stable simulation, we need to dissipate energy and
@@ -197,7 +195,7 @@ model = AtmosModel{FT}(
     turbulence = turbulence_model,
     hyperdiffusion = hyperdiffusion_model,
     moisture = DryModel(),
-    source = (Gravity(), Coriolis(), HeldSuarezForcingTutorial()..., sponge),
+    source = (Gravity(), Coriolis(), HeldSuarezForcingTutorial(), sponge),
 );
 
 # This concludes the setup of the physical model!

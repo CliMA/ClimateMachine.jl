@@ -137,18 +137,9 @@ end
 ##### Tendency specifications
 #####
 
-eq_tends(pv::PV, ::RainModel, ::Flux{FirstOrder}) where {PV <: Rain} =
-    (PrecipitationFlux{PV}(),)
-eq_tends(pv::PV, ::RainModel, ::Flux{SecondOrder}) where {PV <: Rain} =
-    (Diffusion{PV}(),)
+eq_tends(::Rain, ::RainModel, ::Flux{FirstOrder}) = (PrecipitationFlux(),)
+eq_tends(::Rain, ::RainModel, ::Flux{SecondOrder}) = (Diffusion(),)
 
-eq_tends(
-    pv::PV,
-    ::RainSnowModel,
-    ::Flux{FirstOrder},
-) where {PV <: Precipitation} = (PrecipitationFlux{PV}(),)
-eq_tends(
-    pv::PV,
-    ::RainSnowModel,
-    ::Flux{SecondOrder},
-) where {PV <: Precipitation} = (Diffusion{PV}(),)
+eq_tends(::Precipitation, ::RainSnowModel, ::Flux{FirstOrder}) =
+    (PrecipitationFlux(),)
+eq_tends(::Precipitation, ::RainSnowModel, ::Flux{SecondOrder}) = (Diffusion(),)

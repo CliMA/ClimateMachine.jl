@@ -181,8 +181,5 @@ end
 ##### Tendency specification
 #####
 
-eq_tends(
-    pv::PV,
-    m::NTracers{N},
-    tt::Flux{SecondOrder},
-) where {N, PV <: Tracers{N}} = (Diffusion{PV}(),)
+eq_tends(pv::Tracers{N}, m::NTracers{N}, tt::Flux{SecondOrder}) where {N} =
+    (Diffusion(),)

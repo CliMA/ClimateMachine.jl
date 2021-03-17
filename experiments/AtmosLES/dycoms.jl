@@ -17,6 +17,7 @@ using ClimateMachine.VariableTemplates
 using ClimateMachine.BalanceLaws
 import ClimateMachine.BalanceLaws:
     vars_state,
+    prognostic_vars,
     flux,
     eq_tends,
     integral_load_auxiliary_state!,
@@ -91,15 +92,12 @@ struct DYCOMSRadiationModel{FT} <: RadiationModel
     equilibrium_moisture_model::Bool
 end
 
-struct DYCOMSRadiation{PV <: Energy} <: TendencyDef{Flux{FirstOrder}, PV} end
+struct DYCOMSRadiation <: TendencyDef{Flux{FirstOrder}} end
 
-eq_tends(
-    pv::PV,
-    ::DYCOMSRadiationModel,
-    ::Flux{FirstOrder},
-) where {PV <: Energy} = (DYCOMSRadiation{PV}(),)
+eq_tends(pv::Energy, ::DYCOMSRadiationModel, ::Flux{FirstOrder}) =
+    (DYCOMSRadiation(),)
 
-function flux(::DYCOMSRadiation{Energy}, atmos, args)
+function flux(::Energy, ::DYCOMSRadiation, atmos, args)
     @unpack state, aux = args
     m = atmos.radiation
     FT = eltype(state)
@@ -299,10 +297,10 @@ function config_dycoms(
     # Rayleigh damping
     zsponge = FT(1000.0)
     rayleigh_sponge =
-        RayleighSponge(FT, zmax, zsponge, c_sponge, u_relaxation, 2)
+        RayleighSponge{FT}(zmax, zsponge, c_sponge, u_relaxation, 2)
     # Geostrophic forcing
     geostrophic_forcing =
-        GeostrophicForcing(FT, f_coriolis, u_geostrophic, v_geostrophic)
+        GeostrophicForcing{FT}(f_coriolis, u_geostrophic, v_geostrophic)
 
     # Boundary conditions
     # SGS Filter constants
@@ -315,7 +313,7 @@ function config_dycoms(
     source = (
         Gravity(),
         rayleigh_sponge,
-        Subsidence(D_subsidence)...,
+        Subsidence{FT}(D_subsidence),
         geostrophic_forcing,
     )
 
@@ -323,7 +321,7 @@ function config_dycoms(
     if moisture_model == "equilibrium"
         moisture = EquilMoist{FT}(; maxiter = 4, tolerance = FT(1))
     elseif moisture_model == "nonequilibrium"
-        source = (source..., CreateClouds()...)
+        source = (source..., CreateClouds())
         moisture = NonEquilMoist()
     else
         @warn @sprintf(
@@ -338,7 +336,7 @@ function config_dycoms(
     if precipitation_model == "noprecipitation"
         precipitation = NoPrecipitation()
     elseif precipitation_model == "rain"
-        source = (source..., WarmRain_1M()...)
+        source = (source..., WarmRain_1M())
         precipitation = RainModel()
     else
         @warn @sprintf(

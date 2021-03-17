@@ -1,22 +1,24 @@
 ##### Moisture tendencies
 
+export CreateClouds
+
 #####
 ##### First order fluxes
 #####
 
-function flux(::Advect{TotalMoisture}, atmos, args)
+function flux(::TotalMoisture, ::Advect, atmos, args)
     @unpack state = args
     u = state.ρu / state.ρ
     return u * state.moisture.ρq_tot
 end
 
-function flux(::Advect{LiquidMoisture}, atmos, args)
+function flux(::LiquidMoisture, ::Advect, atmos, args)
     @unpack state = args
     u = state.ρu / state.ρ
     return u * state.moisture.ρq_liq
 end
 
-function flux(::Advect{IceMoisture}, atmos, args)
+function flux(::IceMoisture, ::Advect, atmos, args)
     @unpack state = args
     u = state.ρu / state.ρ
     return u * state.moisture.ρq_ice
@@ -26,28 +28,28 @@ end
 ##### Second order fluxes
 #####
 
-function flux(::MoistureDiffusion{TotalMoisture}, atmos, args)
+function flux(::TotalMoisture, ::MoistureDiffusion, atmos, args)
     @unpack state, diffusive = args
     @unpack D_t = args.precomputed.turbulence
     d_q_tot = (-D_t) .* diffusive.moisture.∇q_tot
     return d_q_tot * state.ρ
 end
 
-function flux(::MoistureDiffusion{LiquidMoisture}, atmos, args)
+function flux(::LiquidMoisture, ::MoistureDiffusion, atmos, args)
     @unpack state, diffusive = args
     @unpack D_t = args.precomputed.turbulence
     d_q_liq = (-D_t) .* diffusive.moisture.∇q_liq
     return d_q_liq * state.ρ
 end
 
-function flux(::MoistureDiffusion{IceMoisture}, atmos, args)
+function flux(::IceMoisture, ::MoistureDiffusion, atmos, args)
     @unpack state, diffusive = args
     @unpack D_t = args.precomputed.turbulence
     d_q_ice = (-D_t) .* diffusive.moisture.∇q_ice
     return d_q_ice * state.ρ
 end
 
-function flux(::HyperdiffViscousFlux{TotalMoisture}, atmos, args)
+function flux(::TotalMoisture, ::HyperdiffViscousFlux, atmos, args)
     @unpack state, hyperdiffusive = args
     return hyperdiffusive.hyperdiffusion.ν∇³q_tot * state.ρ
 end
@@ -56,7 +58,7 @@ end
 ##### Sources
 #####
 
-function source(s::Subsidence{TotalMoisture}, m, args)
+function source(::TotalMoisture, s::Subsidence, m, args)
     @unpack state, aux, diffusive = args
     z = altitude(m, aux)
     w_sub = subsidence_velocity(s, z)
@@ -64,20 +66,18 @@ function source(s::Subsidence{TotalMoisture}, m, args)
     return -state.ρ * w_sub * dot(k̂, diffusive.moisture.∇q_tot)
 end
 
-export CreateClouds
 """
-    CreateClouds{PV <: Union{LiquidMoisture,IceMoisture}} <: TendencyDef{Source, PV}
+    CreateClouds <: TendencyDef{Source}
 
 A source/sink to `q_liq` and `q_ice` implemented as a relaxation towards
 equilibrium in the Microphysics module.
 The default relaxation timescales are defined in CLIMAParameters.jl.
 """
-struct CreateClouds{PV <: Union{LiquidMoisture, IceMoisture}} <:
-       TendencyDef{Source, PV} end
+struct CreateClouds <: TendencyDef{Source} end
 
-CreateClouds() = (CreateClouds{LiquidMoisture}(), CreateClouds{IceMoisture}())
+prognostic_vars(::CreateClouds) = (LiquidMoisture(), IceMoisture())
 
-function source(s::CreateClouds{LiquidMoisture}, m, args)
+function source(::LiquidMoisture, s::CreateClouds, m, args)
     @unpack state = args
     @unpack ts = args.precomputed
     # get current temperature and phase partition
@@ -97,7 +97,7 @@ function source(s::CreateClouds{LiquidMoisture}, m, args)
     return state.ρ * S_q_liq
 end
 
-function source(s::CreateClouds{IceMoisture}, m, args)
+function source(::IceMoisture, s::CreateClouds, m, args)
     @unpack state = args
     @unpack ts = args.precomputed
     # get current temperature and phase partition
@@ -117,7 +117,7 @@ function source(s::CreateClouds{IceMoisture}, m, args)
     return state.ρ * S_q_ice
 end
 
-function source(s::RemovePrecipitation{TotalMoisture}, m, args)
+function source(::TotalMoisture, s::RemovePrecipitation, m, args)
     @unpack state = args
     @unpack ts = args.precomputed
     if has_condensate(ts)
@@ -129,27 +129,27 @@ function source(s::RemovePrecipitation{TotalMoisture}, m, args)
     end
 end
 
-function source(s::WarmRain_1M{TotalMoisture}, m, args)
+function source(::TotalMoisture, s::WarmRain_1M, m, args)
     @unpack cache = args.precomputed.precipitation
     return cache.S_ρ_qt
 end
 
-function source(s::WarmRain_1M{LiquidMoisture}, m, args)
+function source(::LiquidMoisture, s::WarmRain_1M, m, args)
     @unpack cache = args.precomputed.precipitation
     return cache.S_ρ_ql
 end
 
-function source(s::RainSnow_1M{TotalMoisture}, m, args)
+function source(::TotalMoisture, s::RainSnow_1M, m, args)
     @unpack cache = args.precomputed.precipitation
     return cache.S_ρ_qt
 end
 
-function source(s::RainSnow_1M{LiquidMoisture}, m, args)
+function source(::LiquidMoisture, s::RainSnow_1M, m, args)
     @unpack cache = args.precomputed.precipitation
     return cache.S_ρ_ql
 end
 
-function source(s::RainSnow_1M{IceMoisture}, m, args)
+function source(::IceMoisture, s::RainSnow_1M, m, args)
     @unpack cache = args.precomputed.precipitation
     return cache.S_ρ_qi
 end

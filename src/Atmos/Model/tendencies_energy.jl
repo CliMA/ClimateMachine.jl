@@ -4,17 +4,17 @@
 ##### First order fluxes
 #####
 
-function flux(::Advect{Energy}, atmos, args)
+function flux(::Energy, ::Advect, atmos, args)
     @unpack state = args
     return (state.ρu / state.ρ) * state.energy.ρe
 end
 
-function flux(::Advect{ρθ_liq_ice}, atmos, args)
+function flux(::ρθ_liq_ice, ::Advect, atmos, args)
     @unpack state = args
     return (state.ρu / state.ρ) * state.energy.ρθ_liq_ice
 end
 
-function flux(::Pressure{Energy}, atmos, args)
+function flux(::Energy, ::Pressure, atmos, args)
     @unpack state = args
     @unpack ts = args.precomputed
     return state.ρu / state.ρ * air_pressure(ts)
@@ -24,32 +24,31 @@ end
 ##### Second order fluxes
 #####
 
-struct ViscousFlux{PV <: Union{Energy, ρθ_liq_ice}} <:
-       TendencyDef{Flux{SecondOrder}, PV} end
-function flux(::ViscousFlux{Energy}, atmos, args)
+struct ViscousFlux <: TendencyDef{Flux{SecondOrder}} end
+function flux(::Energy, ::ViscousFlux, atmos, args)
     @unpack state = args
     @unpack τ = args.precomputed.turbulence
     return τ * state.ρu
 end
 
-function flux(::ViscousFlux{ρθ_liq_ice}, atmos, args)
+function flux(::ρθ_liq_ice, ::ViscousFlux, atmos, args)
     @unpack state, diffusive = args
     @unpack D_t = args.precomputed.turbulence
     return state.ρ * (-D_t) .* diffusive.energy.∇θ_liq_ice
 end
 
-function flux(::HyperdiffViscousFlux{Energy}, atmos, args)
+function flux(::Energy, ::HyperdiffViscousFlux, atmos, args)
     @unpack state, hyperdiffusive = args
     return hyperdiffusive.hyperdiffusion.ν∇³u_h * state.ρu
 end
 
-function flux(::HyperdiffEnthalpyFlux{Energy}, atmos, args)
+function flux(::Energy, ::HyperdiffEnthalpyFlux, atmos, args)
     @unpack state, hyperdiffusive = args
     return hyperdiffusive.hyperdiffusion.ν∇³h_tot * state.ρ
 end
 
-struct DiffEnthalpyFlux{PV <: Energy} <: TendencyDef{Flux{SecondOrder}, PV} end
-function flux(::DiffEnthalpyFlux{Energy}, atmos, args)
+struct DiffEnthalpyFlux <: TendencyDef{Flux{SecondOrder}} end
+function flux(::Energy, ::DiffEnthalpyFlux, atmos, args)
     @unpack state, diffusive = args
     @unpack D_t = args.precomputed.turbulence
     d_h_tot = -D_t .* diffusive.energy.∇h_tot
@@ -60,7 +59,7 @@ end
 ##### Sources
 #####
 
-function source(s::Subsidence{Energy}, m, args)
+function source(::Energy, s::Subsidence, m, args)
     @unpack state, aux, diffusive = args
     z = altitude(m, aux)
     w_sub = subsidence_velocity(s, z)
@@ -68,7 +67,7 @@ function source(s::Subsidence{Energy}, m, args)
     return -state.ρ * w_sub * dot(k̂, diffusive.energy.∇h_tot)
 end
 
-function source(s::RemovePrecipitation{Energy}, m, args)
+function source(::Energy, s::RemovePrecipitation, m, args)
     @unpack state = args
     @unpack ts = args.precomputed
     if has_condensate(ts)
@@ -80,12 +79,12 @@ function source(s::RemovePrecipitation{Energy}, m, args)
     end
 end
 
-function source(s::WarmRain_1M{Energy}, m, args)
+function source(::Energy, s::WarmRain_1M, m, args)
     @unpack cache = args.precomputed.precipitation
     return cache.S_ρ_e
 end
 
-function source(s::RainSnow_1M{Energy}, m, args)
+function source(::Energy, s::RainSnow_1M, m, args)
     @unpack cache = args.precomputed.precipitation
     return cache.S_ρ_e
 end
