@@ -15,6 +15,7 @@ using ClimateMachine.BalanceLaws:
 using ClimateMachine.DGMethods.NumericalFluxes
 using ClimateMachine.MPIStateArrays
 using ClimateMachine.VTK
+using ClimateMachine.Orientations
 
 using MPI
 using LinearAlgebra

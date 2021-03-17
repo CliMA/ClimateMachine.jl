@@ -44,6 +44,7 @@ function Config(
     model = CNSE3D{FT}(
         nothing,
         (domain.min_height, domain.max_height),
+        ClimateMachine.Orientations.SphericalOrientation(),
         NonLinearAdvectionTerm(),
         ConstantViscosity{FT}(μ = params.μ, ν = params.ν, κ = params.κ),
         nothing,

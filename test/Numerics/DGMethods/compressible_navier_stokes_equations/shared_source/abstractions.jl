@@ -89,7 +89,8 @@ polynomialorders(model::SpatialModel) = convention(
 
 abstract type ModelPhysics end
 
-Base.@kwdef struct FluidPhysics{𝒜, 𝒟, 𝒞, ℬ} <: ModelPhysics
+Base.@kwdef struct FluidPhysics{𝒪, 𝒜, 𝒟, 𝒞, ℬ} <: ModelPhysics
+    orientation::𝒪 = ClimateMachine.Orientations.FlatOrientation()
     advection::𝒜 = NonLinearAdvectionTerm()
     dissipation::𝒟 = nothing
     coriolis::𝒞 = nothing
