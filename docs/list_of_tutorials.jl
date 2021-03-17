@@ -107,17 +107,14 @@ if generate_tutorials
         mkpath(gen_dir)
 
         cd(gen_dir) do
-            # change the Edit on GitHub link
-            # path = relpath(inputfile)
+            # change the Edit on GitHub link:
             path = relpath(clima_dir, pwd())
-            # path = replace(path, "\\" => "/")
             content = """
             # ```@meta
             # EditURL = "https://github.com/CliMA/ClimateMachine.jl/$(path)"
             # ```
             """
             mdpre(str) = content * str
-            # get(config, "repo_root_path", pwd())::String
             input = abspath(tutorial)
             Literate.markdown(
                 input;
