@@ -236,7 +236,7 @@ function convective_bl_model(
         moisture = DryModel()
     elseif moisture_model == "equilibrium"
         source = source_default
-        moisture = EquilMoist{FT}(; maxiter = 5, tolerance = FT(0.1))
+        moisture = EquilMoist(; maxiter = 5, tolerance = FT(0.1))
     elseif moisture_model == "nonequilibrium"
         source = (source_default..., CreateClouds())
         moisture = NonEquilMoist()

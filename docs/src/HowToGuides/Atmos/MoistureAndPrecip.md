@@ -154,7 +154,7 @@ Because the partitioning is diagnosed, no additional source terms
 have to be specified:
 
 ```julia
-moisture = EquilMoist{FT}(; maxiter = 8, tolerance = FT(1e-1))
+moisture = EquilMoist(; maxiter = 8, tolerance = FT(1e-1))
 ```
 
 Alternatively, when using the `NonEquilMoist` model, an additional source term

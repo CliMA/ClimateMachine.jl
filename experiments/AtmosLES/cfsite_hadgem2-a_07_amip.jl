@@ -423,7 +423,7 @@ function config_cfsites(
             LargeScaleProcess(),
             LargeScaleSubsidence(),
         ),
-        moisture = EquilMoist{FT}(; maxiter = 5, tolerance = FT(2)),
+        moisture = EquilMoist(; maxiter = 5, tolerance = FT(2)),
         lsforcing = HadGEMVertical(),
     )
 

@@ -173,7 +173,7 @@ function config_baroclinic_wave(FT, poly_order, resolution, with_moisture)
     domain_height::FT = 30e3 # distance between surface and top of atmosphere (m)
     if with_moisture
         hyperdiffusion = EquilMoistBiharmonic(FT(8 * 3600))
-        moisture = EquilMoist{FT}()
+        moisture = EquilMoist()
         source = (Gravity(), Coriolis(), RemovePrecipitation(true)) # precipitation is default to NoPrecipitation() as 0M microphysics
     else
         hyperdiffusion = DryBiharmonic(FT(8 * 3600))

@@ -248,7 +248,7 @@ function AtmosModel{FT}(
     turbconv = NoTurbConv(),
     hyperdiffusion = NoHyperDiffusion(),
     viscoussponge = NoViscousSponge(),
-    moisture = EquilMoist{FT}(),
+    moisture = EquilMoist(),
     precipitation = NoPrecipitation(),
     radiation = NoRadiation(),
     source = (

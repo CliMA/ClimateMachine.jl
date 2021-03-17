@@ -240,7 +240,7 @@ function config_squall_line(
 
     # moisture model and its sources
     if moisture_model == "equilibrium"
-        moisture = EquilMoist{FT}(; maxiter = 20, tolerance = FT(1))
+        moisture = EquilMoist(; maxiter = 20, tolerance = FT(1))
     elseif moisture_model == "nonequilibrium"
         source = (source..., CreateClouds())
         moisture = NonEquilMoist()
