@@ -1,8 +1,9 @@
 using StaticArrays
-using Test
 using LinearAlgebra
-using Plots
 using ProgressMeter
+using Plots
+using Test
+using NLsolve
 
 using ClimateMachine
 ClimateMachine.init(parse_clargs = true, show_updates = "never")
@@ -21,6 +22,8 @@ using ClimateMachine.SingleStackUtils
 using ClimateMachine.GenericCallbacks
 using ClimateMachine.DGMethods: FVLinear
 using ClimateMachine.BalanceLaws: GradientFlux
+using ClimateMachine.Topologies: SingleExponentialStretching
+using ClimateMachine.Mesh.Elements: lglpoints
 
 using CLIMAParameters
 struct EarthParameterSet <: AbstractEarthParameterSet end
@@ -112,7 +115,8 @@ using RRTMGP.RTE:                    Solver
 using RRTMGP.GrayRTESolver:          solve_lw!
 using ClimateMachine.BalanceLaws: number_states, Prognostic
 using ClimateMachine.Thermodynamics: air_pressure, air_temperature,
-    q_vap_saturation, PhasePartition, vol_vapor_mixing_ratio
+    q_vap_saturation, PhasePartition, vol_vapor_mixing_ratio,
+    vapor_specific_humidity
 
 const nstreams = 1
 const ngpoints = 1
@@ -121,6 +125,7 @@ const lookup_filename = joinpath(@__DIR__, "rrtmgp-data-lw-g256-2018-12-04.nc")
 
 const temp_sfc = 290 # Surface temperature; used by both gray and full optics
 const temp_toa = 200 # Top-of-atmosphere temperature; only used by gray optics
+const max_relhum = 0.6 # Maximum relative humidity; only used by full optics
 
 struct GrayRRTMGPData{ST}
     solver::ST
@@ -436,29 +441,25 @@ end
     end
 end
 
-function relhum(FT, z)
-    z1 = FT(15e3)
-    z2 = FT(25e3)
-    relhum1 = FT(0.5)
-    relhum2 = FT(1e-4)
-    if z <= z1
-        return relhum1
-    elseif z <= z2
-        return relhum2 + (relhum1 - relhum2) * FT(z2 - z) / FT(z2 - z1)
-    else
-        return relhum2
-    end
-end
-
-function lev_set!(FT, bl, prog, aux, v, h, p_lev, p_lay, t_lev, t_lay, qvapmin)
+Base.@propagate_inbounds function lev_set!(
+    bl,
+    prog,
+    aux,
+    v,
+    h,
+    p_lev,
+    p_lay,
+    t_lev,
+    t_lay,
+    qvapmin,
+)
     thermo_state = recover_thermo_state(bl, prog, aux)
     p_lev[v, h] = air_pressure(thermo_state)
     t_lev[v, h] = air_temperature(thermo_state)
     return qvapmin
 end
 
-function lev_set!(
-    FT,
+Base.@propagate_inbounds function lev_set!(
     bl,
     prog,
     aux,
@@ -470,32 +471,42 @@ function lev_set!(
     t_lay,
     h2o_lev,
     h2o_lay,
-    qvapmin,
-)
+    qvapmin::FT,
+) where {FT}
     thermo_state = recover_thermo_state(bl, prog, aux)
     p_lev[v, h] = air_pressure(thermo_state)
     t_lev[v, h] = air_temperature(thermo_state)
-    qvap = relhum(FT, aux.coord[3]) * q_vap_saturation(thermo_state)
-    if qvap < qvapmin
-        qvapmin = qvap
-    else
-        qvap = qvapmin
+    qvap = FT(max_relhum) * q_vap_saturation(thermo_state)
+    if aux.coord[3] > FT(10000)
+        if qvap < qvapmin
+            qvapmin = qvap
+        else
+            qvap = qvapmin
+        end
     end
     h2o_lev[v, h] = vol_vapor_mixing_ratio(bl.param_set, PhasePartition(qvap))
     return qvapmin
 end
 
-function lev_avg!(FT, bl, prog, aux, v, h, p_lev, p_lay, t_lev, t_lay, qvapmin)
+Base.@propagate_inbounds function lev_avg!(
+    bl,
+    prog,
+    aux,
+    v,
+    h,
+    p_lev,
+    p_lay,
+    t_lev,
+    t_lay,
+    qvapmin::FT,
+) where {FT}
     thermo_state = recover_thermo_state(bl, prog, aux)
-    p_lev[v, h] += air_pressure(thermo_state)
-    p_lev[v, h] *= FT(0.5)
-    t_lev[v, h] += air_temperature(thermo_state)
-    t_lev[v, h] *= FT(0.5)
+    p_lev[v, h] = (p_lev[v, h] + air_pressure(thermo_state)) * FT(0.5)
+    t_lev[v, h] = (t_lev[v, h] + air_temperature(thermo_state)) * FT(0.5)
     return qvapmin
 end
 
-function lev_avg!(
-    FT,
+Base.@propagate_inbounds function lev_avg!(
     bl,
     prog,
     aux,
@@ -507,30 +518,48 @@ function lev_avg!(
     t_lay,
     h2o_lev,
     h2o_lay,
-    qvapmin,
-)
+    qvapmin::FT,
+) where {FT}
     thermo_state = recover_thermo_state(bl, prog, aux)
-    p_lev[v, h] += air_pressure(thermo_state)
-    p_lev[v, h] *= FT(0.5)
-    t_lev[v, h] += air_temperature(thermo_state)
-    t_lev[v, h] *= FT(0.5)
-    qvap = relhum(FT, aux.coord[3]) * q_vap_saturation(thermo_state)
-    if qvap < qvapmin
-        qvapmin = qvap
-    else
-        qvap = qvapmin
+    p_lev[v, h] = (p_lev[v, h] + air_pressure(thermo_state)) * FT(0.5)
+    t_lev[v, h] = (t_lev[v, h] + air_temperature(thermo_state)) * FT(0.5)
+    qvap = FT(max_relhum) * q_vap_saturation(thermo_state)
+    if aux.coord[3] > FT(10000)
+        if qvap < qvapmin
+            qvapmin = qvap
+        else
+            qvap = qvapmin
+        end
     end
-    h2o_lev[v, h] += vol_vapor_mixing_ratio(bl.param_set, PhasePartition(qvap))
-    h2o_lev[v, h] *= FT(0.5)
+    h2o_lev[v, h] = (
+        h2o_lev[v, h] +
+        vol_vapor_mixing_ratio(bl.param_set, PhasePartition(qvap))
+    ) * FT(0.5)
     return qvapmin
 end
 
-function lev_to_lay!(FT, v, h, p_lev, p_lay, t_lev, t_lay)
+Base.@propagate_inbounds function lev_to_lay!(
+    v,
+    h,
+    p_lev::AbstractArray{FT},
+    p_lay,
+    t_lev,
+    t_lay,
+) where {FT}
     p_lay[v, h] = (p_lev[v, h] + p_lev[v + 1, h]) * FT(0.5)
     t_lay[v, h] = (t_lev[v, h] + t_lev[v + 1, h]) * FT(0.5)
 end
 
-function lev_to_lay!(FT, v, h, p_lev, p_lay, t_lev, t_lay, h2o_lev, h2o_lay)
+Base.@propagate_inbounds function lev_to_lay!(
+    v,
+    h,
+    p_lev::AbstractArray{FT},
+    p_lay,
+    t_lev,
+    t_lay,
+    h2o_lev,
+    h2o_lay,
+) where {FT}
     p_lay[v, h] = (p_lev[v, h] + p_lev[v + 1, h]) * FT(0.5)
     t_lay[v, h] = (t_lev[v, h] + t_lev[v + 1, h]) * FT(0.5)
     h2o_lay[v, h] = (h2o_lev[v, h] + h2o_lev[v + 1, h]) * FT(0.5)
@@ -576,7 +605,6 @@ end
                 local_state_auxiliary[s] = state_auxiliary[ijk, s, e]
             end
             qvapmin = lev_set!(
-                FT,
                 balance_law,
                 prog,
                 aux,
@@ -589,7 +617,7 @@ end
 
         # Average the level data to obtain the layer data.
         for v in 1:nvertelem - 1
-            lev_to_lay!(FT, v, h, rrtmgp_arrays...)
+            lev_to_lay!(v, h, rrtmgp_arrays...)
         end
     end
 end
@@ -634,7 +662,6 @@ end
                 local_state_auxiliary[s] = state_auxiliary[ijk, s, e]
             end
             qvapmin = lev_set!(
-                FT,
                 balance_law,
                 prog,
                 aux,
@@ -660,7 +687,6 @@ end
                 local_state_auxiliary[s] = state_auxiliary[ijk, s, e]
             end
             qvapmin = lev_avg!(
-                FT,
                 balance_law,
                 prog,
                 aux,
@@ -680,7 +706,6 @@ end
                     local_state_auxiliary[s] = state_auxiliary[ijk, s, e]
                 end
                 qvapmin = lev_set!(
-                    FT,
                     balance_law,
                     prog,
                     aux,
@@ -694,7 +719,7 @@ end
 
         # Average the level data to obtain the layer data.
         for v in 1:(Nq3 - 1) * nvertelem
-            lev_to_lay!(FT, v, h, rrtmgp_arrays...)
+            lev_to_lay!(v, h, rrtmgp_arrays...)
         end
     end
 end
@@ -784,7 +809,7 @@ function cpad(x::Real, intdigits, decdigits, expectnegatives = false)
     end
 end
 
-function debug_arrays(Q, dg)
+function get_horizontal_mean_debug(Q, dg)
     balance_law = dg.balance_law
     state_auxiliary = dg.state_auxiliary
     grid = dg.grid
@@ -816,19 +841,25 @@ function debug_arrays(Q, dg)
     p_avg = Array{FT}(undef, nvert)
     t_avg = Array{FT}(undef, nvert)
     f_avg = Array{FT}(undef, nvert)
+    qvapsat_avg = Array{FT}(undef, nvert)
+    qvap_avg = Array{FT}(undef, nvert)
+    relhum_avg = Array{FT}(undef, nvert)
     h2o_avg = Array{FT}(undef, nvert)
-
     qvapmins = Array{FT}(undef, nhorz)
+
+    p_avg .= FT(0)
+    t_avg .= FT(0)
+    f_avg .= FT(0)
+    qvapsat_avg .= FT(0)
+    qvap_avg .= FT(0)
+    relhum_avg .= FT(0)
+    h2o_avg .= FT(0)
     qvapmins .= FT(Inf)
 
     if nhorz > 0
         for ev in 1:nvertelem
             for k in 1:Nq3
                 v = Nq3 * (ev - 1) + k
-                p_avg[v] = FT(0)
-                t_avg[v] = FT(0)
-                f_avg[v] = FT(0)
-                h2o_avg[v] = FT(0)
                 for eh in horzelems, i in 1:Nq1, j in 1:Nq2
                     e = nvertelem * (eh - 1) + ev
                     ijk = Nq1 * (Nq2 * (k - 1) + (j - 1)) + i
@@ -842,14 +873,18 @@ function debug_arrays(Q, dg)
                     p_avg[v] += air_pressure(thermo_state)
                     t_avg[v] += air_temperature(thermo_state)
                     f_avg[v] += aux.radiation.flux
-                    qvap = relhum(FT, aux.coord[3]) *
-                        q_vap_saturation(thermo_state)
-                    h = Nq1 * (Nq2 * (eh - horzelems[1]) + (j - 1)) + i
-                    if qvap < qvapmins[h]
-                        qvapmins[h] = qvap
-                    else
-                        qvap = qvapmins[h]
+                    qvap = FT(max_relhum) * q_vap_saturation(thermo_state)
+                    h = Nq1 * (Nq2 * (eh - 1) + (j - 1)) + i
+                    if aux.coord[3] > FT(10000)
+                        if qvap < qvapmins[h]
+                            qvapmins[h] = qvap
+                        else
+                            qvap = qvapmins[h]
+                        end
                     end
+                    qvapsat_avg[v] += q_vap_saturation(thermo_state)
+                    qvap_avg[v] += qvap
+                    relhum_avg[v] += qvap / q_vap_saturation(thermo_state)
                     h2o_avg[v] += vol_vapor_mixing_ratio(
                         balance_law.param_set,
                         PhasePartition(qvap),
@@ -859,34 +894,46 @@ function debug_arrays(Q, dg)
                 t_avg[v] /= nhorz
                 f_avg[v] /= nhorz
                 h2o_avg[v] /= nhorz
+                qvapsat_avg[v] /= nhorz
+                qvap_avg[v] /= nhorz
+                relhum_avg[v] /= nhorz
             end
         end
     end
     
-    return p_avg, t_avg, f_avg, h2o_avg
+    return Dict(
+        "P" => p_avg,
+        "T" => t_avg,
+        "F" => f_avg,
+        "qvap_sat" => qvapsat_avg,
+        "qvap" => qvap_avg,
+        "rel_hum" => relhum_avg,
+        "vmr_H2O" => h2o_avg,
+    )
 end
-function print_debug(Q, dg, t, rrtmgp_type)
+function print_debug(Q, dg, t, optics_symbol)
     println("z($(cpad(t, 4, 1))) = $(cpad(get_z(dg.grid), 5, 2))")
-    p_avg, t_avg, f_avg, h2o_avg = debug_arrays(Q, dg)
-    println("P($(cpad(t, 4, 1))) = $(cpad(p_avg, 3, 4))")
-    println("T($(cpad(t, 4, 1))) = $(cpad(t_avg, 3, 4))")
-    println("F($(cpad(t, 4, 1))) = $(cpad(f_avg, 3, 4))")
-    rrtmgp_type == :full &&
+    dict = get_horizontal_mean_debug(Q, dg)
+    println("P($(cpad(t, 4, 1))) = $(cpad(dict["P"], 3, 4))")
+    println("T($(cpad(t, 4, 1))) = $(cpad(dict["T"], 3, 4))")
+    println("F($(cpad(t, 4, 1))) = $(cpad(dict["F"], 3, 4))")
+    if optics_symbol == :full
         println("vmr_H2O($(cpad(t, 4, 1))) = $(cpad(h2o_avg, 3, 4))")
+    end
 end
 
 const year_to_s = 60 * 60 * 24 * 365.25636
-round_year(seconds) = round(seconds / year_to_s; digits = 2)
 function time_string(x)
-    x < 60 && return "$x s"
+    x < 60 && return "$(round(x; sigdigits = 3)) s"
     x /= 60
-    x < 59.995 && return "$(round(x; sigdigits = 4)) min"
+    x < 60 && return "$(round(x; sigdigits = 3)) min"
     x /= 60
-    x < 23.995 && return "$(round(x; sigdigits = 4)) hr"
+    x < 24 && return "$(round(x; sigdigits = 3)) hr"
     x /= 24
-    x < 365.25 && return "$(round(x; sigdigits = 4)) days"
+    x < 99.95 && return "$(round(x; sigdigits = 3)) days"
+    x < 365.25636 && return "$(round(Int, x)) days"
     x /= 365.25636
-    x < 99.995 && return "$(round(x; sigdigits = 4)) yr"
+    x < 99.95 && return "$(round(x; sigdigits = 3)) yr"
     return "$(round(Int, x)) yr"
 end
 
@@ -917,7 +964,8 @@ function driver_configuration(
     polyorder_vert,
     polyorder_horz,
     nelem_vert,
-    nelem_horz;
+    nelem_horz,
+    stretch;
     compressibility = Anelastic1D(),
 )
     model = AtmosModel{FT}(
@@ -936,11 +984,11 @@ function driver_configuration(
         ),
         ref_state = HydrostaticState(
             temp_profile,
-            FT(0); # relative humidity
+            FT(max_relhum);
             subtract_off = polyorder_vert == 0 ? false : true,
         ),
         turbulence = ConstantDynamicViscosity(FT(0)),
-        moisture = DryModel(),
+        moisture = NonEquilMoist(), # DryModel(),
         radiation = RRTMGPModel(),
         source = compressibility isa Compressible ? (Gravity(),) : (),
         compressibility = compressibility,
@@ -950,15 +998,14 @@ function driver_configuration(
         config_fun = ClimateMachine.SingleStackConfiguration
         config_args = (nelem_vert, domain_height, param_set, model)
         config_kwargs = (hmax = domain_width,)
+        nelem_horz == 1 || @warn "Only 1 element stack for SingleStack config"
+        stretch == 0 || @warn "No grid stretching for SingleStack config"
     elseif config_type isa AtmosLESConfigType
         config_fun = ClimateMachine.AtmosLESConfiguration
-        npoints_horz = nelem_horz * polyorder_horz
-        npoints_vert =
-            polyorder_vert == 0 ? nelem_vert : nelem_vert * polyorder_vert
         resolution = (
-            domain_width / npoints_horz,
-            domain_width / npoints_horz,
-            domain_height / npoints_vert,
+            domain_width / (nelem_horz * polyorder_horz),
+            domain_width / (nelem_horz * polyorder_horz),
+            domain_height / (nelem_vert * max(polyorder_vert, 1)),
         )
         config_args = (
             resolution,
@@ -966,12 +1013,20 @@ function driver_configuration(
             param_set,
             nothing,
         )
-        config_kwargs = (model = model,)
+        stretching_vert =
+            stretch == 0 ? nothing : SingleExponentialStretching(stretch)
+        config_kwargs = (
+            model = model,
+            grid_stretching = (nothing, nothing, stretching_vert),
+        )
     else # config_type isa AtmosGCMConfigType
         config_fun = ClimateMachine.AtmosGCMConfiguration
         config_args =
             ((nelem_horz, nelem_vert), domain_height, param_set, nothing)
-        config_kwargs = (model = model,)
+        stretching_vert =
+            stretch == 0 ? nothing : SingleExponentialStretching(stretch)
+        config_kwargs = (model = model, grid_stretching = (stretching_vert,))
+        isnothing(domain_width) || @warn "No domain width for GCM config"
     end
 
     return config_fun(
@@ -985,13 +1040,14 @@ function driver_configuration(
     )
 end
 
-function solve_and_plot!(
+function setup_solver(
     driver_config,
     FT,
-    rrtmgp_type,
+    optics_symbol,
     timestart,
     timeend,
-    timestep,
+    substep_duration,
+    substeps_per_step,
 )
     grid = driver_config.grid
 
@@ -999,60 +1055,91 @@ function solve_and_plot!(
         timestart,
         timeend,
         driver_config,
-        ode_dt = timestep,
+        ode_dt = substep_duration,
         Courant_number = FT(0.5), # irrelevant; lets us use LSRKEulerMethod
         timeend_dt_adjust = false, # prevents dt from getting modified
-        modeldata = (RRTMGPdata = RRTMGPData(grid, rrtmgp_type),),
+        modeldata = (RRTMGPdata = RRTMGPData(grid, optics_symbol),),
     )
 
     solver = solver_config.solver
-    dg = solver_config.dg
-    prog = solver_config.Q
-    gradflux = dg.state_gradient_flux
-    progvars = vars_state(driver_config.bl, Prognostic(), FT)
-    gradfluxvars = vars_state(driver_config.bl, GradientFlux(), FT)
+    Q = solver_config.Q
 
-    max_outputs = 11
+    function cb_set_timestep()
+        if getsteps(solver) == substeps_per_step
+            updatedt!(solver, substeps_per_step * substep_duration)
+        end
+    end
+    
+    progress = Progress(round(Int, timeend))
+    showvalues = () -> [(:simtime, gettime(solver)), (:normQ, norm(Q))]
+    cb_progress = GenericCallbacks.EveryXWallTimeSeconds(0.3, Q.mpicomm) do
+        update!(progress, round(Int, gettime(solver)); showvalues = showvalues)
+    end
+    function cb_progress_finish() # needs to get run before @sprintf in invoke!
+        gettime(solver) >= timeend && update!(progress, round(Int, timeend))
+    end
+
+    return solver_config, (cb_set_timestep, cb_progress, cb_progress_finish)
+end
+
+function solve_and_plot_detailed!(
+    driver_config,
+    FT,
+    optics_symbol,
+    timestart,
+    timeend,
+    substep_duration,
+    substeps_per_step,
+)
     elem_stack_avgs = []
     elem_stack_vars = []
     # elem_stack_vals = []
-    debug_array_avgs = []
+    elem_stack_debug_avgs = []
     times = []
+
+    solver_config, callbacks = setup_solver(
+        driver_config,
+        FT,
+        optics_symbol,
+        timestart,
+        timeend,
+        substep_duration,
+        substeps_per_step,
+    )
+
+    dg = solver_config.dg
+    grid = dg.grid
+    prog = solver_config.Q
+    progvars = vars_state(dg.balance_law, Prognostic(), eltype(prog))
+    gradflux = dg.state_gradient_flux
+    gradfluxvars = vars_state(dg.balance_law, GradientFlux(), eltype(prog))
+    solver = solver_config.solver
     merged_dicts(f) =
         merge(f(grid, prog, progvars), f(grid, gradflux, gradfluxvars))
-    function push_elem_stack_data()
+    function push_diagnostics_data()
         push!(elem_stack_avgs, merged_dicts(get_horizontal_mean))
         push!(elem_stack_vars, merged_dicts(get_horizontal_variance))
         # push!(elem_stack_vals, merged_dicts(get_vars_from_nodal_stack))
-        push!(debug_array_avgs, debug_arrays(prog, dg))
+        push!(elem_stack_debug_avgs, get_horizontal_mean_debug(prog, dg))
         push!(times, gettime(solver))
     end
-    push_elem_stack_data()
-    cb_diagnostics = GenericCallbacks.EveryXSimulationSteps(
-        push_elem_stack_data,
-        max(1, solver_config.numberofsteps ÷ (max_outputs - 1)),
-    )
+    next_push_step = 1
+    function cb_diagnostics()
+        if getsteps(solver) - substeps_per_step + 1 == next_push_step
+            push_diagnostics_data()
+            next_push_step *= 2
+        end
+    end
 
-    # cb_print = GenericCallbacks.EveryXSimulationSteps(1) do 
-    #     print_debug(prog, dg, gettime(solver), rrtmgp_type)
-    # end
-    # print_debug(prog, dg, gettime(solver), rrtmgp_type)
-    
-    progress = Progress(solver_config.numberofsteps)
-    showvalues = () -> [(:simtime, gettime(solver)), (:normQ, norm(prog))]
-    cb_progress = GenericCallbacks.EveryXWallTimeSeconds(0.3, prog.mpicomm) do
-        update!(progress, getsteps(solver); showvalues = showvalues)
-    end
-    cb_progress_end = GenericCallbacks.AtInitAndFini() do
-        getsteps(solver) == solver_config.numberofsteps && finish!(progress)
-    end
+    push_diagnostics_data()
     ClimateMachine.invoke!(
         solver_config;
-        user_callbacks = (cb_diagnostics, cb_progress, cb_progress_end),
+        user_callbacks = (callbacks..., cb_diagnostics),
     )
+    push_diagnostics_data()
 
     zs = get_z(grid; z_scale = 1e-3)
-    for (vars, var_label, filename_prefix, skip_first) in (
+    for (names, label, filename, skip_first) in (
         # (("ρ",), "density [kg/m^3]", "ρ", false),
         # (
         #     ("ρu[1]", "ρu[2]"),
@@ -1065,84 +1152,207 @@ function solve_and_plot!(
         #     "ρuv", false,
         # ),
         (("energy.ρe",), "energy density [J/m^3]", "ρe", false),
-        # (("moisture.ρq_tot",), "moisture density [kg/m^3]", "ρq", false),
-        # (("moisture.ρq_liq",), "liq density [kg/m^3]", "ρql", false),
-        # (("moisture.ρq_ice",), "ice density [kg/m^3]", "ρqi", false),
         # (
         #     ("energy.∇h_tot[1]", "energy.∇h_tot[2]"),
         #     "specific enthalpy gradient's horizontal components [J/kg/m]",
         #     "∇htoth", true,
         # ),
-        (
-            ("energy.∇h_tot[3]",),
-            "specific enthalpy gradient's vertical component [J/kg/m]",
-            "∇htotv", true,
-        ),
+        # (
+        #     ("energy.∇h_tot[3]",),
+        #     "specific enthalpy gradient's vertical component [J/kg/m]",
+        #     "∇htotv", true,
+        # ),
     )
-        for (data, data_label, filename_suffix) in (
-            (elem_stack_avgs, "Horizontal average", "avg"),
-            (elem_stack_vars, "Horizontal variance", "var"),
-            # (elem_stack_vals, "Value at southwest node", "val"),
+        for (data, label_prefix, filename_suffix) in (
+            (elem_stack_avgs, "", ""),
+            (elem_stack_vars, "horizontal variance of ", "_var"),
+            # (elem_stack_vals, "value at southwest node of ", "_val"),
         )
-            plot(
-                xlabel = "$data_label of $var_label",
-                ylabel = "z [km]",
+            plot(;
                 legend = :outertopright,
+                palette = :darkrainbow,
+                xlabel = "$label_prefix$label",
+                ylabel = "z [km]",
             )
-            for var in vars, (index, time) in enumerate(times)
+            for name in names, (index, time) in enumerate(times)
                 index == 1 && skip_first && continue
-                legend_entry = "$(round_year(time)) yr"
-                length(vars) > 1 && (legend_entry = "$var, $legend_entry")
-                plot!(data[index][var], zs, label = legend_entry)
+                label = time_string(time)
+                plot!(
+                    data[index][name],
+                    zs;
+                    seriescolor = (1 < index < length(times)) ? index : :black,
+                    label = length(names) > 1 ? "$name, $label" : label,
+                )
             end
-            savefig(joinpath(
-                @__DIR__,
-                "$(filename_prefix)_$(filename_suffix).png",
-            ))
+            savefig(joinpath(@__DIR__, "$(filename)$(filename_suffix).png"))
         end
     end
-    for (array_num, var_label, filename_prefix) in (
-        # (1, "pressure [Pa]", "P"),
-        (2, "temperature [K]", "T"),
-        (3, "net upward radiation energy flux [J/s/m^2]", "Fnet"),
-        (4, "water vapor volume mixing ratio []", "h2o"),
+    for (name, label, skip_first) in (
+        # ("P", "pressure [Pa]", false),
+        ("T", "temperature [K]", false),
+        ("F", "net upward radiation energy flux [W/m^2]", true),
+        ("qvap_sat", "water vapor specific humidity at saturation", false),
+        ("qvap", "water vapor specific humidity", false),
+        ("rel_hum", "water vapor relative humidity", false),
+        ("vmr_H2O", "water vapor volume mixing ratio", false),
     )
-        plot(
-            xlabel = "Horizontal average of $var_label",
-            ylabel = "z [km]",
+        plot(;
             legend = :outertopright,
+            palette = :darkrainbow,
+            xlabel = label,
+            ylabel = "z [km]",
         )
         for (index, time) in enumerate(times)
-            legend_entry = "$(round_year(time)) yr"
-            plot!(debug_array_avgs[index][array_num], zs, label = legend_entry)
+            index == 1 && skip_first && continue
+            plot!(
+                elem_stack_debug_avgs[index][name],
+                zs;
+                seriescolor = (1 < index < length(times)) ? index : :black,
+                label = time_string(time),
+            )
         end
-        savefig(joinpath(@__DIR__, "$(filename_prefix)_avg.png"))
+        savefig(joinpath(@__DIR__, "$name.png"))
+    end
+end
+
+function solve_and_plot_multiple!(
+    driver_configs,
+    FT,
+    optics_symbol,
+    timestart,
+    timeend,
+    substep_duration,
+    substeps_per_step,
+    ids,
+    id_name,
+    id_label,
+)
+    data = Dict(
+        "T_bot" => [],
+        "T_top" => [],
+        "T_avg" => [],
+        "F_avg" => [],
+        "T" => [],
+        "rel_hum" => [],
+        "nodal_z" => [],
+        "elem_z" => [],
+    )
+
+    for driver_config in driver_configs
+        solver_config, callbacks = setup_solver(
+            driver_config,
+            FT,
+            optics_symbol,
+            timestart,
+            timeend,
+            substep_duration,
+            substeps_per_step,
+        )
+        ClimateMachine.invoke!(solver_config; user_callbacks = callbacks)
+        debug =
+            get_horizontal_mean_debug(solver_config.Q, solver_config.dg)
+        zs = get_z(driver_config.grid; z_scale = 1e-3)
+        push!(data["T_bot"], debug["T"][1])
+        push!(data["T_top"], debug["T"][end])
+        push!(data["T_avg"], sum(debug["T"]) / length(debug["T"]))
+        push!(data["F_avg"], sum(debug["F"]) / length(debug["F"]))
+        push!(data["T"], debug["T"])
+        push!(data["rel_hum"], debug["rel_hum"])
+        push!(data["nodal_z"], zs)
+        push!(
+            data["elem_z"],
+            zs[[1:driver_config.polyorders[2] + 1:end..., end]],
+        )
     end
 
-    return prog
+    for (name, label) in (
+        ("T_bot", "temperature at bottom of domain [K]"),
+        ("T_top", "temperature at top of domain [K]"),
+        ("T_avg", "average temperature throughout domain [K]"),
+        ("F_avg", "net upward radiation energy flux [W/m^2]"),
+    )
+        plot(
+            ids,
+            data[name];
+            legend = false,
+            seriescolor = :black,
+            xlabel = id_label,
+            ylabel = label,
+        )
+        savefig(joinpath(@__DIR__, "$(name)s.png"))
+    end
+
+    for (scale, filename_suffix, select_func) in (
+        (:identity, "", array -> array),
+        (:log10, "_log", array -> array[2:end]),
+    )
+        for (name, label) in (
+            ("T", "temperature [K]"),
+            ("rel_hum", "water vapor relative humidity"),
+        )
+            plot(;
+                legend = :outertopright,
+                palette = :darkrainbow,
+                xlabel = label,
+                ylabel = "z [km]",
+                yscale = scale,
+            )
+            for (id_num, id) in enumerate(ids)
+                plot!(
+                    select_func(data[name][id_num]),
+                    select_func(data["nodal_z"][id_num]);
+                    label = "$id_name = $id",
+                )
+            end
+            savefig(joinpath(@__DIR__, "$(name)s$filename_suffix.png"))
+        end
+
+        xfuncs = Array{Any}(map(id_num -> z -> id_num, 1:length(ids)))
+        plot(
+            xfuncs,
+            map(select_func, data["nodal_z"]);
+            legend = false,
+            palette = :darkrainbow,
+            seriestype = :scatter,
+            markershape = :circle,
+            markersize = 2,
+            markerstrokewidth = 0,
+            xlabel = id_name,
+            xticks = (1:length(ids), ids),
+            ylabel = "z [km]",
+            yscale = scale,
+        )
+        plot!(
+            xfuncs,
+            map(select_func, data["elem_z"]);
+            seriescolor = :black,
+            seriestype = :scatter,
+            markershape = :hline,
+            markersize = 5,
+        )
+        savefig(joinpath(@__DIR__, "zs$filename_suffix.png"))
+    end
 end
 
 function main()
     FT = Float64
 
-    # max timesteps rounded down to multiples of 5:
-    #     gray model: (0, 4, 120) - 85 hr; (4, 4, 24) - 35 hr
-    #     full model: (0, 4, 120) - 80 hr; (4, 4, 24) - 35 hr
-
-    rrtmgp_type = :full
+    optics_symbol = :full
     timestart = FT(0)
-    timeend = FT(year_to_s * 1)
-    timestep = FT(35 * 60 * 60)
-    domain_height = FT(70e3)
-    domain_width = FT(70) # Ignored for AtmosGCMConfigType
+    timeend = FT(year_to_s * 0.2)
+    substep_duration = FT(5 * 60 * 60)
+    substeps_per_step = 5
+    domain_height = FT(50e3)
+    domain_width = FT(50) # Ignored for AtmosGCMConfigType
     polyorder_vert = 4
     polyorder_horz = 4
     nelem_vert = 24
     nelem_horz = 1 # Ignored for SingleStackConfigType
+    stretch = FT(0) # Ignored for SingleStackConfigType
 
     @testset for config_type in (
-        SingleStackConfigType(),
-        # AtmosLESConfigType(),
+        # SingleStackConfigType(),
+        AtmosLESConfigType(),
         # AtmosGCMConfigType(),
     )
         @testset for solver_type in (
@@ -1153,8 +1363,8 @@ function main()
             # HEVISolverType(FT; solver_method = ARK548L2SA2KennedyCarpenter),
         )
             @testset for numerical_flux in (
-                # CentralNumericalFluxFirstOrder(),
-                RusanovNumericalFlux(),
+                CentralNumericalFluxFirstOrder(),
+                # RusanovNumericalFlux(),
                 # RoeNumericalFlux(),
                 # HLLCNumericalFlux(),
             )
@@ -1162,30 +1372,75 @@ function main()
                     # IsothermalProfile(param_set, FT),
                     DecayingTemperatureProfile{FT}(param_set),
                 )
-                    driver_config = driver_configuration(
-                        FT,
-                        temp_profile,
-                        numerical_flux,
-                        solver_type,
-                        config_type,
-                        domain_height,
-                        domain_width,
-                        polyorder_vert,
-                        polyorder_horz,
-                        nelem_vert,
-                        nelem_horz,
-                    )
+                    # driver_config = driver_configuration(
+                    #     FT,
+                    #     temp_profile,
+                    #     numerical_flux,
+                    #     solver_type,
+                    #     config_type,
+                    #     domain_height,
+                    #     domain_width,
+                    #     polyorder_vert,
+                    #     polyorder_horz,
+                    #     nelem_vert,
+                    #     nelem_horz,
+                    #     stretch,
+                    # )
+                    # solve_and_plot_detailed!(
+                    #     driver_config,
+                    #     FT,
+                    #     optics_symbol,
+                    #     timestart,
+                    #     timeend,
+                    #     substep_duration,
+                    #     substeps_per_step,
+                    # )
 
-                    prog = solve_and_plot!(
-                        driver_config,
+                    nelem_verts = Array(12:6:42)
+                    driver_configs = []
+                    for nelem_vert in nelem_verts
+                        elemΔz_to_minnodeΔz = polyorder_vert == 0 ? 1 :
+                            (lglpoints(FT, polyorder_vert)[1][2] + FT(1)) / FT(2)
+                        function f!(F, x)
+                            stretch = x[1]
+                            if iszero(stretch)
+                                elemΔz = domain_height / nelem_vert
+                            else
+                                elemΔz = domain_height *
+                                    expm1(stretch / nelem_vert) / expm1(stretch)
+                            end
+                            F[1] = FT(200) - elemΔz * elemΔz_to_minnodeΔz
+                        end
+                        stretch = nlsolve(f!, FT[1]).zero[1]
+                        push!(driver_configs, driver_configuration(
+                            FT,
+                            temp_profile,
+                            numerical_flux,
+                            solver_type,
+                            config_type,
+                            domain_height,
+                            domain_width,
+                            polyorder_vert,
+                            polyorder_horz,
+                            nelem_vert,
+                            nelem_horz,
+                            stretch,
+                        ))
+                    end
+                    solve_and_plot_multiple!(
+                        driver_configs,
                         FT,
-                        rrtmgp_type,
+                        optics_symbol,
                         timestart,
                         timeend,
-                        timestep,
+                        substep_duration,
+                        substeps_per_step,
+                        nelem_verts,
+                        "N",
+                        "number of vertical elements",
                     )
 
-                    @test all(isfinite.(prog.data))
+                    @test true
                 end
             end
         end
