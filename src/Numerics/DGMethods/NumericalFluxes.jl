@@ -829,7 +829,7 @@ function numerical_boundary_flux_first_order!(
                 state_auxiliary_bottom1,
             ),
         )
-    end
+    end d -> throw(BoundsError(bcs, bctag))
 end
 
 function numerical_flux_second_order!(
@@ -926,7 +926,7 @@ function numerical_boundary_flux_second_order!(
                 state_auxiliary_bottom1,
             ),
         )
-    end
+    end d -> throw(BoundsError(bcs, bctag))
 end
 
 function numerical_boundary_flux_gradient!(
@@ -971,7 +971,7 @@ function numerical_boundary_flux_gradient!(
                 state_auxiliary_bottom1,
             ),
         )
-    end
+    end d -> throw(BoundsError(bcs, bctag))
 end
 
 end
