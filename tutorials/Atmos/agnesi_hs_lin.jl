@@ -78,7 +78,9 @@
 # },
 #
 using ClimateMachine
-ClimateMachine.init(parse_clargs = true)
+ClimateMachine.init(parse_clargs = true);
+nothing
+
 # Setting `parse_clargs=true` allows the use of command-line arguments (see API > Driver docs)
 # to control simulation update and output intervals.
 
