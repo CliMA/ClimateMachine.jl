@@ -53,9 +53,7 @@ AdvectionProblem <: ProblemType
 
 """
     Compute kernels
-    - compute_gradient_argument! - set up the variable to take the gradient of (`ρ` in this case)
-    - transform_post_gradient_laplacian! - collect the gradient of the Laplacian (`D∇³ρ`) into hyperdiffusion's aux 
-    - flux_second_order! - add the gradient of the Laplacian to the main BL's flux, the gradient of which will be taken after to obtain the tendency
+    - flux_first_order! - add the advection of the state variable to the first order flux, the gradient of which will be taken after to obtain the tendency
 """
 
 @inline function flux_first_order!(
@@ -88,6 +86,23 @@ end
 """
 @inline boundary_conditions(::AdvectionProblem, ::BalanceLaw) = ()
 @inline boundary_state!(nf, ::AdvectionProblem, ::BalanceLaw, _...) = nothing
+
+"""
+    Initial conditions
+    - this is temperarily set up const ρ=1.0 everywhere
+    - need to be changed later
+"""
+@inline function initial_condition!(
+    problem::AdvectionProblem,
+    state,
+    aux,
+    t,
+)
+    @inbounds begin
+        FT = eltype(aux) 
+        return 1.0 
+    end
+end
 
 
 """
