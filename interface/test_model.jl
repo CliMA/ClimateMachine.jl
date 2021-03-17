@@ -94,7 +94,7 @@ function vars_state(m::TestEquations, st::Auxiliary, FT)
         hyperdiffusion::vars_state(m.hyperdiffusion, st, FT)
         advection::vars_state(m.advection, st, FT)
         turbulence::vars_state(m.turbulence, st, FT)
-     end
+    end
 end
 function vars_state(m::TestEquations, st::Gradient, FT)
     @vars begin
@@ -240,11 +240,14 @@ function transform_post_gradient_laplacian!(
     t,
     )
 end
+
 function flux_first_order!(
     m::TestEquations,
     flux::Grad,
     state::Vars,
     aux::Vars,
+    t::Real,
+    directions,
 )
     if m.advection != nothing
         flux_first_order!(m.advection, flux, state, aux)
