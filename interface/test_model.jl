@@ -149,15 +149,15 @@ function init_state_prognostic!(
             t::Real,
         )
     end
-    if m.advection != nothing
-        init_state_prognostic!(
-            m.advection,
-            state::Vars,
-            aux::Vars,
-            localgeo,
-            t::Real,
-        )
-    end
+    # if m.advection != nothing
+    #     init_state_prognostic!(
+    #         m.advection,
+    #         state::Vars,
+    #         aux::Vars,
+    #         localgeo,
+    #         t::Real,
+    #     )
+    # end
 end
 
 function nodal_init_state_auxiliary!(
@@ -215,14 +215,22 @@ function compute_gradient_argument!(
     aux::Vars,
     t::Real,
 )
-    if m.hyperdiffusion != nothing
-        compute_gradient_argument!(m.hyperdiffusion, grad, state, aux, t)
-    end
-    if m.turbulence != nothing
-        compute_gradient_argument!(m.turbulence, grad, state, aux, t)
-    end
+    compute_gradient_argument!(m.hyperdiffusion, grad, state, aux, t)
+    compute_gradient_argument!(m.turbulence, grad, state, aux, t)
 end
-function compute_gradient_flux!(m::TestEquations, _...) end
+
+function compute_gradient_flux!(
+    m::TestEquations,
+    auxDG::Vars,
+    grad::Grad,
+    state::Vars,
+    aux::Vars,
+    t::Real,
+)
+    compute_gradient_flux!(m.turbulence, auxDG, grad, state, aux, t)
+end
+
+
 function transform_post_gradient_laplacian!(
     m::TestEquations,
     auxHDG::Vars,
@@ -249,9 +257,7 @@ function flux_first_order!(
     t::Real,
     directions,
 )
-    if m.advection != nothing
-        flux_first_order!(m.advection, flux, state, aux)
-    end
+    flux_first_order!(m.advection, flux, state, aux)
 end
 
 function flux_second_order!(
@@ -263,12 +269,8 @@ function flux_second_order!(
     aux::Vars,
     t::Real,
 )
-    if m.hyperdiffusion != nothing
-        flux_second_order!(m.hyperdiffusion, flux, state, gradflux, auxMISC, aux, t)
-    end
-    if m.turbulence != nothing
-        flux_second_order!(m.turbulence, flux, gradflux)
-    end
+    flux_second_order!(m.hyperdiffusion, flux, state, gradflux, auxMISC, aux, t)
+    flux_second_order!(m.turbulence, flux, gradflux)
 end
 @inline function source!(m::TestEquations, _...) end
 
@@ -323,3 +325,8 @@ vars_state(m::Union{ProblemType, Nothing}, st::Gradient, FT) = @vars()
 vars_state(m::Union{ProblemType, Nothing}, st::GradientFlux, FT) = @vars()
 vars_state(m::Union{ProblemType, Nothing}, st::GradientLaplacian, FT) = @vars()
 vars_state(m::Union{ProblemType, Nothing}, st::Hyperdiffusive, FT) = @vars()
+
+
+flux_first_order!(::Nothing, _...) = nothing
+flux_second_order!(::Nothing, _...) = nothing
+compute_gradient_argument!(::Nothing, _...) = nothing

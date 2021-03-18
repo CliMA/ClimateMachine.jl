@@ -86,6 +86,7 @@ vars_state(::DiffusionProblem, ::Hyperdiffusive, FT) = @vars()
     aux::Vars,
     t::Real,
 )
+
     transform.turbulence.ρ = state.ρ
 end
 
@@ -97,8 +98,10 @@ end
     aux::Vars,
     t::Real,
 )
+
     ∇ρ = gradvars.turbulence.ρ
-    auxDG.D∇ρ = D * ∇ρ
+    D = aux.turbulence.D * SMatrix{3,3,Float64}(I)
+    auxDG.turbulence.D∇ρ = D * ∇ρ
 end 
 
 @inline function flux_second_order!(::DiffusionProblem, flux::Grad, auxDG::Vars)
@@ -193,7 +196,7 @@ end
 """
 # hyperdiffusion-dependent timestep (only use for hyperdiffusion unit test) - may want to generalise for calculate_dt
 #@inline Δt(problem::DiffusionProblem, Δ_min) = Δ_min^4 / 25 / sum( D(problem, Δ_min) ) 
-@inline Δt(problem::DiffusionProblem, Δx; CFL=0.05) = (Δx /2 )^4 /2 / D(problem, Δx) * CFL 
+@inline Δt(problem::DiffusionProblem, Δx; CFL=0.05) = (Δx /2 )^2 /2 / D(problem, Δx) * CFL 
 #dt = CFL_wanted / CFL_max = CFL_wanted / max( D / dx^4 )
 
 # lengthscale-dependent hyperdiffusion coefficient

@@ -78,7 +78,7 @@ function main(::Type{FT}) where {FT}
     balance_law = TestEquations{FT}(
             Ω;
             advection = advection, # adv
-            turbulence = diffusion, # turb
+            turbulence = nothing, #diffusion, # turb
             hyperdiffusion = hyperdiffusion, # hyper
             coriolis = nothing, # cori
             params = nothing,

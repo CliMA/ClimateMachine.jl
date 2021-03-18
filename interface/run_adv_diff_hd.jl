@@ -24,7 +24,7 @@ include("callbacks.jl")
 include("test_model.jl") # umbrella model: TestEquations
 
 # BL and problem for this
-difffusion_params = (; τ = 8*60*60, l = 7, m = 4,) 
+difffusion_params = (; τ = 8*60*60 /10., l = 7, m = 4,) 
 
 hyperdiffusion = HyperDiffusionCubedSphereProblem{FT}(difffusion_params...,)
 
@@ -45,7 +45,7 @@ dx = min_node_distance(grid, HorizontalDirection())
 numerics = (; flux = CentralNumericalFluxFirstOrder() ) # add  , overintegration = 1
 
 # Timestepping
-Δt_ = Δt(hyperdiffusion, dx)
+Δt_ = min( Δt(hyperdiffusion, dx) , Δt(diffusion, dx) )
 timestepper = TimeStepper(method = LSRK54CarpenterKennedy, timestep = Δt_ )
 start_time, end_time = ( 0  , 2Δt_ )
 
@@ -69,9 +69,9 @@ callbacks = (
 # Specify RHS terms and any useful parameters
 balance_law = TestEquations{FT}(
     Ω;
-    advection = advection, # adv
-    turbulence = nothing, #diffusion, # turb
-    hyperdiffusion = hyperdiffusion, # hyper
+    advection = nothing, #advection, # adv
+    turbulence = diffusion, # turb
+    hyperdiffusion = nothing, #hyperdiffusion, # hyper
     coriolis = nothing, # cori
     params = nothing,
     param_set = param_set,
