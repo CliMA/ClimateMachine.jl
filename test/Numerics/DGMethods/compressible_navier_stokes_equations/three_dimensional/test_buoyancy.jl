@@ -101,6 +101,8 @@ ClimateMachine.init()
         for (key2, orientation) in orientations
             key = key1 * key2
 
+            println("running ", key)
+
             local_physics = FluidPhysics(;
                 orientation = orientation,
                 advection = physics.advection,
