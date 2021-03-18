@@ -176,7 +176,7 @@ function test_run(
     # determine the slow time step
     elementsize = minimum(step.(brickrange))
     slow_dt =
-        8 * elementsize / soundspeed_air(model.param_set, setup.T∞) /
+        8 * elementsize / soundspeed_air(param_set, setup.T∞) /
         polynomialorder^2
     nsteps = ceil(Int, timeend / slow_dt)
     slow_dt = timeend / nsteps

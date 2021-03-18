@@ -83,7 +83,7 @@ using ClimateMachine.Writers
 using ClimateMachine.DGMethods
 using ClimateMachine.DGMethods.NumericalFluxes
 using ClimateMachine.BalanceLaws:
-    BalanceLaw, Prognostic, Auxiliary, Gradient, GradientFlux
+    BalanceLaw, Prognostic, Auxiliary, Gradient, GradientFlux, parameter_set
 
 using ClimateMachine.Mesh.Geometry: LocalGeometry
 using ClimateMachine.MPIStateArrays
@@ -295,8 +295,9 @@ function compute_gradient_flux!(
     aux::Vars,
     t::Real,
 ) where {FT}
+    param_set = parameter_set(m)
     ∇ρu = ∇transform.ρu
-    ẑ = vertical_unit_vector(m.orientation, m.param_set, aux)
+    ẑ = vertical_unit_vector(m.orientation, param_set, aux)
     divergence = tr(∇ρu) - ẑ' * ∇ρu * ẑ
     diffusive.α∇ρcT = Diagonal(SVector(m.αh, m.αh, m.αv)) * ∇transform.ρcT
     diffusive.μ∇u = Diagonal(SVector(m.μh, m.μh, m.μv)) * ∇transform.u
@@ -316,7 +317,8 @@ function source!(
     aux::Vars,
     args...,
 ) where {FT}
-    ẑ = vertical_unit_vector(m.orientation, m.param_set, aux)
+    param_set = parameter_set(m)
+    ẑ = vertical_unit_vector(m.orientation, param_set, aux)
     z = aux.coord[3]
     ρ̄ū =
         state.ρ * SVector{3, FT}(
@@ -326,7 +328,7 @@ function source!(
         )
     ρu_p = state.ρu - ρ̄ū
     source.ρu -=
-        m.γ * projection_tangential(m.orientation, m.param_set, aux, ρu_p)
+        m.γ * projection_tangential(m.orientation, param_set, aux, ρu_p)
 end;
 
 # Compute advective flux.
@@ -411,6 +413,7 @@ function boundary_state!(
     m::BurgersEquation,
     state⁺::Vars,
     diff⁺::Vars,
+    hyperdiff⁺::Vars,
     aux⁺::Vars,
     n⁻,
     _...,
@@ -425,6 +428,7 @@ function boundary_state!(
     m::BurgersEquation,
     state⁺::Vars,
     diff⁺::Vars,
+    hyperdiff⁺::Vars,
     aux⁺::Vars,
     n⁻,
     _...,

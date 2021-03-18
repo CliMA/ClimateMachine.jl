@@ -18,7 +18,7 @@ Diagnostics.DiagnosticsGroup
 
 A `ClimateMachine` driver may use any number of the methods described below
 to create `DiagnosticsGroup`s which must be specified to the `ClimateMachine`
-in a `DiagnosticsConfiguration`.
+in a `DiagnosticsConfiguration` in order to be used.
 
 ```@docs
 Diagnostics.setup_atmos_default_diagnostics

@@ -17,6 +17,7 @@ using ClimateMachine.VariableTemplates
 using ClimateMachine.BalanceLaws
 import ClimateMachine.BalanceLaws:
     vars_state,
+    prognostic_vars,
     flux,
     eq_tends,
     integral_load_auxiliary_state!,
@@ -91,15 +92,12 @@ struct DYCOMSRadiationModel{FT} <: RadiationModel
     equilibrium_moisture_model::Bool
 end
 
-struct DYCOMSRadiation{PV <: Energy} <: TendencyDef{Flux{FirstOrder}, PV} end
+struct DYCOMSRadiation <: TendencyDef{Flux{FirstOrder}} end
 
-eq_tends(
-    pv::PV,
-    ::DYCOMSRadiationModel,
-    ::Flux{FirstOrder},
-) where {PV <: Energy} = (DYCOMSRadiation{PV}(),)
+eq_tends(pv::Energy, ::DYCOMSRadiationModel, ::Flux{FirstOrder}) =
+    (DYCOMSRadiation(),)
 
-function flux(::DYCOMSRadiation{Energy}, atmos, args)
+function flux(::Energy, ::DYCOMSRadiation, atmos, args)
     @unpack state, aux = args
     m = atmos.radiation
     FT = eltype(state)
@@ -108,9 +106,10 @@ function flux(::DYCOMSRadiation{Energy}, atmos, args)
     # Constants
     upward_flux_from_cloud = m.F_0 * exp(-aux.∫dnz.radiation.attenuation_coeff)
     upward_flux_from_sfc = m.F_1 * exp(-aux.∫dz.radiation.attenuation_coeff)
+    param_set = parameter_set(atmos)
     free_troposphere_flux =
         m.ρ_i *
-        FT(cp_d(atmos.param_set)) *
+        FT(cp_d(param_set)) *
         m.D_subsidence *
         m.α_z *
         cbrt(Δz_i) *
@@ -180,16 +179,17 @@ function init_dycoms!(problem, bl, state, aux, localgeo, t)
     FT = eltype(state)
 
     (x, y, z) = localgeo.coord
+    param_set = parameter_set(bl)
 
     z = altitude(bl, aux)
 
     # These constants are those used by Stevens et al. (2005)
     qref = FT(9.0e-3)
     q_pt_sfc = PhasePartition(qref)
-    Rm_sfc = gas_constant_air(bl.param_set, q_pt_sfc)
+    Rm_sfc = gas_constant_air(param_set, q_pt_sfc)
     T_sfc = FT(290.4)
-    _MSLP = FT(MSLP(bl.param_set))
-    _grav = FT(grav(bl.param_set))
+    _MSLP = FT(MSLP(param_set))
+    _grav = FT(grav(param_set))
 
     # Specify moisture profiles
     q_liq = FT(0)
@@ -221,7 +221,7 @@ function init_dycoms!(problem, bl, state, aux, localgeo, t)
 
     # Density, Temperature
 
-    ts = PhaseEquil_pθq(bl.param_set, p, θ_liq, q_tot)
+    ts = PhaseEquil_pθq(param_set, p, θ_liq, q_tot)
     ρ = air_density(ts)
 
     e_kin = FT(1 / 2) * FT((u^2 + v^2 + w^2))
@@ -297,10 +297,10 @@ function config_dycoms(
     # Rayleigh damping
     zsponge = FT(1000.0)
     rayleigh_sponge =
-        RayleighSponge(FT, zmax, zsponge, c_sponge, u_relaxation, 2)
+        RayleighSponge{FT}(zmax, zsponge, c_sponge, u_relaxation, 2)
     # Geostrophic forcing
     geostrophic_forcing =
-        GeostrophicForcing(FT, f_coriolis, u_geostrophic, v_geostrophic)
+        GeostrophicForcing{FT}(f_coriolis, u_geostrophic, v_geostrophic)
 
     # Boundary conditions
     # SGS Filter constants
@@ -313,15 +313,15 @@ function config_dycoms(
     source = (
         Gravity(),
         rayleigh_sponge,
-        Subsidence(D_subsidence)...,
+        Subsidence{FT}(D_subsidence),
         geostrophic_forcing,
     )
 
     # moisture model and its sources
     if moisture_model == "equilibrium"
-        moisture = EquilMoist{FT}(; maxiter = 4, tolerance = FT(1))
+        moisture = EquilMoist(; maxiter = 4, tolerance = FT(1))
     elseif moisture_model == "nonequilibrium"
-        source = (source..., CreateClouds()...)
+        source = (source..., CreateClouds())
         moisture = NonEquilMoist()
     else
         @warn @sprintf(
@@ -329,14 +329,14 @@ function config_dycoms(
 %s: unrecognized moisture_model in source terms, using the defaults""",
             moisture_model,
         )
-        moisture = EquilMoist{FT}(; maxiter = 4, tolerance = FT(1))
+        moisture = EquilMoist(; maxiter = 4, tolerance = FT(1))
     end
 
     # precipitation model and its sources
     if precipitation_model == "noprecipitation"
         precipitation = NoPrecipitation()
     elseif precipitation_model == "rain"
-        source = (source..., WarmRain_1M()...)
+        source = (source..., WarmRain_1M())
         precipitation = RainModel()
     else
         @warn @sprintf(

@@ -14,6 +14,7 @@ import ClimateMachine.BalanceLaws:
     boundary_state!
 import ClimateMachine.DGMethods: DGModel
 import ClimateMachine.NumericalFluxes: numerical_flux_first_order!
+import ClimateMachine.Orientations: vertical_unit_vector
 
 """
     ThreeDimensionalCompressibleNavierStokesEquations <: BalanceLaw
@@ -28,6 +29,7 @@ struct Fluid3D <: AbstractFluid3D end
 struct ThreeDimensionalCompressibleNavierStokesEquations{
     I,
     D,
+    O,
     A,
     T,
     C,
@@ -37,6 +39,7 @@ struct ThreeDimensionalCompressibleNavierStokesEquations{
 } <: AbstractFluid3D
     initial_value_problem::I
     domain::D
+    orientation::O
     advection::A
     turbulence::T
     coriolis::C
@@ -47,6 +50,7 @@ struct ThreeDimensionalCompressibleNavierStokesEquations{
     function ThreeDimensionalCompressibleNavierStokesEquations{FT}(
         initial_value_problem::I,
         domain::D,
+        orientation::O,
         advection::A,
         turbulence::T,
         coriolis::C,
@@ -54,10 +58,11 @@ struct ThreeDimensionalCompressibleNavierStokesEquations{
         boundary_conditions::BC;
         cₛ = FT(sqrt(10)),  # m/s
         ρₒ = FT(1),  #kg/m³
-    ) where {FT <: AbstractFloat, I, D, A, T, C, F, BC}
-        return new{I, D, A, T, C, F, BC, FT}(
+    ) where {FT <: AbstractFloat, I, D, O, A, T, C, F, BC}
+        return new{I, D, O, A, T, C, F, BC, FT}(
             initial_value_problem,
             domain,
+            orientation,
             advection,
             turbulence,
             coriolis,
@@ -120,27 +125,112 @@ function cnse_init_state!(
     return nothing
 end
 
-function vars_state(m::CNSE3D, ::Auxiliary, T)
+function vars_state(m::CNSE3D, st::Auxiliary, T)
     @vars begin
         x::T
         y::T
         z::T
+        orientation::vars_state(m.orientation, st, T)
     end
 end
 
 function init_state_auxiliary!(
-    model::CNSE3D,
+    m::CNSE3D,
     state_auxiliary::MPIStateArray,
     grid,
     direction,
 )
+    # update the geopotential Φ in state_auxiliary.orientation.Φ
     init_state_auxiliary!(
-        model,
-        (model, aux, tmp, geom) -> cnse_init_aux!(model, aux, geom),
+        m,
+        (m, aux, tmp, geom) ->
+            orientation_nodal_init_aux!(m.orientation, m.domain, aux, geom),
         state_auxiliary,
         grid,
         direction,
     )
+
+    # update ∇Φ in state_auxiliary.orientation.∇Φ
+    orientation_gradient(m, m.orientation, state_auxiliary, grid, direction)
+
+    # store coordinates and potentially other stuff
+    init_state_auxiliary!(
+        m,
+        (m, aux, tmp, geom) -> cnse_init_aux!(m, aux, geom),
+        state_auxiliary,
+        grid,
+        direction,
+    )
+
+    return nothing
+end
+
+function orientation_gradient(
+    model::CNSE3D,
+    ::Orientation,
+    state_auxiliary,
+    grid,
+    direction,
+)
+    auxiliary_field_gradient!(
+        model,
+        state_auxiliary,
+        ("orientation.∇Φ",),
+        state_auxiliary,
+        ("orientation.Φ",),
+        grid,
+        direction,
+    )
+
+    return nothing
+end
+
+function orientation_gradient(::CNSE3D, ::NoOrientation, _...)
+    return nothing
+end
+
+function orientation_nodal_init_aux!(
+    ::SphericalOrientation,
+    domain::Tuple,
+    aux::Vars,
+    geom::LocalGeometry,
+)
+    norm_R = norm(geom.coord)
+    @inbounds aux.orientation.Φ = norm_R - domain[1]
+
+    return nothing
+end
+
+"""
+function orientation_nodal_init_aux!(
+    ::SuperSphericalOrientation,
+    domain::Tuple,
+    aux::Vars,
+    geom::LocalGeometry,
+)
+    norm_R = norm(geom.coord)
+    @inbounds aux.orientation.Φ = 1 / norm_R^2 
+end
+"""
+
+function orientation_nodal_init_aux!(
+    ::FlatOrientation,
+    domain::Tuple,
+    aux::Vars,
+    geom::LocalGeometry,
+)
+    @inbounds aux.orientation.Φ = geom.coord[3]
+
+    return nothing
+end
+
+function orientation_nodal_init_aux!(
+    ::NoOrientation,
+    domain::Tuple,
+    aux::Vars,
+    geom::LocalGeometry,
+)
+    return nothing
 end
 
 function cnse_init_aux!(::CNSE3D, aux, geom)
@@ -358,11 +448,16 @@ forcing_term!(::CNSE3D, ::Nothing, _...) = nothing
     g = buoy.g
     ρθ = state.ρθ
 
-    B = α * g * ρθ
+    # as temperature increase, density decreases
+    B = -α * g * ρθ
+    k̂ = vertical_unit_vector(model.orientation, aux)
 
-    # only in a box, need to generalize for sphere
-    source.ρu += @SVector [-0, -0, B]
+    # gravity points downward
+    source.ρu -= B * k̂
 end
+
+@inline vertical_unit_vector(::Orientation, aux) = aux.orientation.∇Φ
+@inline vertical_unit_vector(::NoOrientation, aux) = @SVector [0, 0, 1]
 
 @inline wavespeed(m::CNSE3D, _...) = m.cₛ
 
@@ -525,6 +620,7 @@ function DGModel(
     balance_law = CNSE3D{FT}(
         initial_conditions,
         (Lˣ, Lʸ, Lᶻ),
+        physics.orientation,
         physics.advection,
         physics.dissipation,
         physics.coriolis,

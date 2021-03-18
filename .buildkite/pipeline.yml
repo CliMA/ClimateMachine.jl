@@ -111,6 +111,15 @@ steps:
       queue: central
       slurm_ntasks: 3
 
+  - label: "cpu_hyperdiffusion_bc"
+    key: "cpu_hyperdiffusion_bc"
+    command:
+      - "mpiexec julia --color=yes --project test/Numerics/DGMethods/advection_diffusion/hyperdiffusion_bc.jl "
+    agents:
+      config: cpu
+      queue: central
+      slurm_ntasks: 3
+
   - label: "cpu_diffusion_hyperdiffusion_sphere"
     key: "cpu_diffusion_hyperdiffusion_sphere"
     command:
@@ -1398,6 +1407,16 @@ steps:
       slurm_ntasks: 3
       slurm_gres: "gpu:1"
 
+  - label: "gpu_cnse_buoyancy_3D"
+    key: "gpu_cnse_buoyancy_3D"
+    command:
+      - "mpiexec julia --color=yes --project test/Numerics/DGMethods/compressible_navier_stokes_equations/three_dimensional/test_buoyancy.jl "
+    agents:
+      config: gpu
+      queue: central
+      slurm_ntasks: 3
+      slurm_gres: "gpu:1"
+
   - label: "gpu_cnse_sphere_3D"
     key: "gpu_cnse_sphere_3D"
     command:
@@ -1412,6 +1431,16 @@ steps:
     key: "gpu_periodic_3D_hyperdiffusion"
     command:
       - "mpiexec julia --color=yes --project test/Numerics/DGMethods/advection_diffusion/periodic_3D_hyperdiffusion.jl --integration-testing"
+    agents:
+      config: gpu
+      queue: central
+      slurm_ntasks: 3
+      slurm_gres: "gpu:1"
+
+  - label: "gpu_hyperdiffusion_bc"
+    key: "gpu_hyperdiffusion_bc"
+    command:
+      - "mpiexec julia --color=yes --project test/Numerics/DGMethods/advection_diffusion/hyperdiffusion_bc.jl --integration-testing"
     agents:
       config: gpu
       queue: central
@@ -1531,7 +1560,7 @@ steps:
   - label: "gpu_heldsuarez"
     key: "gpu_heldsuarez"
     command:
-      - "mpiexec julia --color=yes --project experiments/AtmosGCM/heldsuarez.jl --fix-rng-seed "
+      - "mpiexec julia --color=yes --project experiments/AtmosGCM/heldsuarez.jl --diagnostics=default --fix-rng-seed "
     agents:
       config: gpu
       queue: central

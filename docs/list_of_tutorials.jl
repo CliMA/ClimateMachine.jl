@@ -28,8 +28,10 @@ if generate_tutorials
             "Dry Idealized GCM (Held-Suarez)" => "Atmos/heldsuarez.jl",
             "Single Element Stack Experiment (Burgers Equation)" =>
                 "Atmos/burgers_single_stack.jl",
-            "Single Element Stack Experiment (Burgers Equation)" =>
+            "Finite Volume Single Element Stack Experiment (Burgers Equation)" =>
                 "Atmos/burgers_single_stack_fvm.jl",
+            "HEVI Single Element Stack Experiment (Burgers Equation)" =>
+                "Atmos/burgers_single_stack_bjfnk.jl",
             "LES Experiment (Density Current)" => "Atmos/densitycurrent.jl",
             "LES Experiment (Rising Thermal Bubble)" =>
                 "Atmos/risingbubble.jl",
@@ -99,14 +101,29 @@ if generate_tutorials
     println("Building literate tutorials...")
 
     @everywhere function generate_tutorial(tutorials_dir, tutorial)
-        gen_dir =
-            joinpath(GENERATED_DIR, relpath(dirname(tutorial), tutorials_dir))
-        input = abspath(tutorial)
-        script = Literate.script(input, gen_dir)
-        code = strip(read(script, String))
-        mdpost(str) = replace(str, "@__CODE__" => code)
-        Literate.markdown(input, gen_dir, postprocess = mdpost)
-        Literate.notebook(input, gen_dir, execute = true)
+        rpath = relpath(dirname(tutorial), tutorials_dir)
+        rpath = rpath == "." ? "" : rpath
+        gen_dir = joinpath(GENERATED_DIR, rpath)
+        mkpath(gen_dir)
+
+        cd(gen_dir) do
+            # change the Edit on GitHub link:
+            path = relpath(clima_dir, pwd())
+            content = """
+            # ```@meta
+            # EditURL = "https://github.com/CliMA/ClimateMachine.jl/$(path)"
+            # ```
+            """
+            mdpre(str) = content * str
+            input = abspath(tutorial)
+            Literate.markdown(
+                input;
+                execute = true,
+                documenter = false,
+                preprocess = mdpre,
+            )
+            Literate.notebook(input)
+        end
     end
 
     tutorials_dir = joinpath(@__DIR__, "..", "tutorials")

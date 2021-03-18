@@ -127,5 +127,4 @@ function atmos_momentum_normal_boundary_flux_second_order!(
     τn = C * normu_int⁻_tan * u_int⁻_tan
     # both sides involve projections of normals, so signs are consistent
     fluxᵀn.ρu += state⁻.ρ * τn
-    fluxᵀn.energy.ρe += state⁻.ρu' * τn
 end

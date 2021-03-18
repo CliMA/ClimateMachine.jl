@@ -338,7 +338,7 @@ function test_run(
     problem =
         AtmosProblem(boundaryconditions = (), init_state_prognostic = setup)
     if NumericalFlux isa RoeNumericalFluxMoist
-        moisture = EquilMoist{FT}()
+        moisture = EquilMoist()
     else
         moisture = DryModel()
     end
@@ -365,9 +365,7 @@ function test_run(
 
     # determine the time step
     elementsize = minimum(step.(brickrange))
-    dt =
-        elementsize / soundspeed_air(model.param_set, setup.T∞) /
-        polynomialorder^2
+    dt = elementsize / soundspeed_air(param_set, setup.T∞) / polynomialorder^2
     nsteps = ceil(Int, timeend / dt)
     dt = timeend / nsteps
 

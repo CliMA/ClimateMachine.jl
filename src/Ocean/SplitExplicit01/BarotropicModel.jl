@@ -5,6 +5,8 @@ struct BarotropicModel{M} <: AbstractOceanModel
     end
 end
 
+parameter_set(m::BarotropicModel) = parameter_set(m.baroclinic)
+
 function vars_state(m::BarotropicModel, ::Prognostic, T)
     @vars begin
         U::SVector{2, T}

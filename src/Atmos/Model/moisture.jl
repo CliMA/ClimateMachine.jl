@@ -1,4 +1,4 @@
-export DryModel, EquilMoist, NonEquilMoist
+export MoistureModel, DryModel, EquilMoist, NonEquilMoist
 
 #### Moisture component in atmosphere model
 abstract type MoistureModel end
@@ -72,15 +72,10 @@ end
 
 Assumes the moisture components are computed via thermodynamic equilibrium.
 """
-struct EquilMoist{FT} <: MoistureModel
-    maxiter::Int
-    tolerance::FT
+Base.@kwdef struct EquilMoist{FT, IT} <: MoistureModel
+    maxiter::IT = nothing
+    tolerance::FT = nothing
 end
-EquilMoist{FT}(;
-    maxiter::IT = 3,
-    tolerance::FT = FT(1e-1),
-) where {FT <: AbstractFloat, IT <: Int} = EquilMoist{FT}(maxiter, tolerance)
-
 
 vars_state(::EquilMoist, ::Prognostic, FT) = @vars(ρq_tot::FT)
 vars_state(::EquilMoist, ::Primitive, FT) = @vars(q_tot::FT)

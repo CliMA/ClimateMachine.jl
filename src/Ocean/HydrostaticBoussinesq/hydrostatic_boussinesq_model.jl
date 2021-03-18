@@ -455,7 +455,7 @@ end
         -0 -0
     ]
 
-    F.u += grav(m.param_set) * η * Iʰ
+    F.u += grav(parameter_set(m)) * η * Iʰ
 
     return nothing
 end
@@ -467,7 +467,7 @@ end
         -0 1
         -0 -0
     ]
-    F.u += grav(m.param_set) * pkin * Iʰ
+    F.u += grav(parameter_set(m)) * pkin * Iʰ
 
     return nothing
 end
@@ -800,10 +800,12 @@ dispatches to a function in OceanBoundaryConditions.jl based on bytype defined b
     ocean,
     Q⁺,
     D⁺,
+    HD⁺,
     A⁺,
     n,
     Q⁻,
     D⁻,
+    HD⁻,
     A⁻,
     bctype,
     t,

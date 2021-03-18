@@ -17,6 +17,7 @@ using ..Checkpoint
 using ..SystemSolvers
 using ..ConfigTypes
 using ..Diagnostics
+using ..DiagnosticsMachine
 using ..DGMethods
 using ..BalanceLaws
 using ..DGMethods: remainder_DGModel, SpaceDiscretization
@@ -66,6 +67,7 @@ Base.@kwdef mutable struct ClimateMachine_Settings
     checkpoint::String = "never"
     checkpoint_keep_one::Bool = true
     checkpoint_at_end::Bool = false
+    checkpoint_on_crash::Bool = false
     checkpoint_dir::String = "checkpoint"
     restart_from_num::Int = -1
     fix_rng_seed::Bool = false
@@ -254,6 +256,11 @@ function parse_commandline(
         action = :store_const
         constant = true
         default = get_setting(:checkpoint_at_end, defaults, global_defaults)
+        "--checkpoint-on-crash"
+        help = "create a checkpoint on a kernel crash (hurts performance!)"
+        action = :store_const
+        constant = true
+        default = get_setting(:checkpoint_on_crash, defaults, global_defaults)
         "--checkpoint-dir"
         help = "the directory in which to store checkpoints"
         metavar = "<path>"
@@ -314,7 +321,7 @@ function parse_commandline(
         arg_type = NTuple{2, Int}
         default = get_setting(:degree, defaults, global_defaults)
         "--cutoff-degree"
-        help = "tuple of horizontal and vertical polynomial degrees for cutoff filter (no space before/after comma)"
+        help = "tuple of horizontal and vertical polynomial degrees to keep when applying a cutoff filter (no space before/after comma)"
         metavar = "<horizontal>,<vertical>"
         arg_type = NTuple{2, Int}
         default = get_setting(:cutoff_degree, defaults, global_defaults)
@@ -397,9 +404,11 @@ Recognized keyword arguments are:
 - `checkpoint::String = "never"`:
         interval at which to write a checkpoint
 - `checkpoint_keep_one::Bool = true`: (interval)
-        keep all checkpoints (instead of just the most recent)"
+        keep all checkpoints (instead of just the most recent)
 - `checkpoint_at_end::Bool = false`:
         create a checkpoint at the end of the simulation
+- `checkpoint_on_crash::Bool = false`:
+    create a checkpoint on a kernel crash (hurts performance!)
 - `checkpoint_dir::String = "checkpoint"`:
         absolute or relative path to checkpoint directory
 - `restart_from_num::Int = -1`:
@@ -663,7 +672,9 @@ function invoke!(
         if Settings.diagnostics != "never" || Settings.vtk != "never"
             mkpath(Settings.output_dir)
         end
-        if Settings.checkpoint != "never" || Settings.checkpoint_at_end
+        if Settings.checkpoint != "never" ||
+           Settings.checkpoint_at_end ||
+           Settings.checkpoint_on_crash
             mkpath(Settings.checkpoint_dir)
         end
     end
@@ -686,6 +697,15 @@ function invoke!(
     if Settings.diagnostics != "never" && !isnothing(diagnostics_config)
         dgn_starttime = replace(string(now()), ":" => ".")
         Diagnostics.init(
+            mpicomm,
+            solver_config.param_set,
+            dg,
+            Q,
+            dgn_starttime,
+            Settings.output_dir,
+            Settings.no_overwrite,
+        )
+        DiagnosticsMachine.init(
             mpicomm,
             solver_config.param_set,
             dg,
@@ -776,15 +796,28 @@ function invoke!(
     )
 
     # run the simulation
-    @tic solve!
-    solve!(
-        Q,
-        solver;
-        timeend = timeend,
-        callbacks = callbacks,
-        adjustfinalstep = adjustfinalstep,
-    )
-    @toc solve!
+    try
+        @tic solve!
+        solve!(
+            Q,
+            solver;
+            timeend = timeend,
+            callbacks = callbacks,
+            adjustfinalstep = adjustfinalstep,
+        )
+        @toc solve!
+    catch exc
+        if Settings.checkpoint_on_crash
+            Callbacks.write_checkpoint(
+                solver_config,
+                Settings.checkpoint_dir,
+                solver_config.name,
+                mpicomm,
+                solver_config.numberofsteps,
+            )
+        end
+        rethrow()
+    end
 
     # write end checkpoint if requested
     if Settings.checkpoint_at_end

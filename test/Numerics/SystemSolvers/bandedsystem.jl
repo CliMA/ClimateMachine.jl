@@ -118,7 +118,9 @@ let
                     β = FT(1 // 100)
                     μ = FT(-1 // 2)
                     δ = FT(1 // 10)
-                    model = AdvectionDiffusion{dim}(Pseudo1D{n, α, β, μ, δ}())
+                    bcs = (HomogeneousBC{0}(),)
+                    model =
+                        AdvectionDiffusion{dim}(Pseudo1D{n, α, β, μ, δ}(), bcs)
 
                     for (N, fvmethod) in (
                         ((4, 4), nothing),

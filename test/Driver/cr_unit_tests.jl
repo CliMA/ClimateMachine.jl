@@ -43,8 +43,9 @@ function (setup::AcousticWaveSetup)(problem, bl, state, aux, localgeo, t)
     g = sin(setup.nv * FT(π) * z / setup.domain_height)
     Δp = setup.γ * f * g
     p = aux.ref_state.p + Δp
+    param_set = parameter_set(bl)
 
-    ts = PhaseDry_pT(bl.param_set, p, setup.T_ref)
+    ts = PhaseDry_pT(param_set, p, setup.T_ref)
     q_pt = PhasePartition(ts)
     e_pot = gravitational_potential(bl.orientation, aux)
     e_int = internal_energy(ts)
@@ -78,14 +79,12 @@ function main()
 
     setup = AcousticWaveSetup{FT}()
     T_profile = IsothermalProfile(param_set, setup.T_ref)
-    orientation = SphericalOrientation()
     ref_state = HydrostaticState(T_profile)
     turbulence = ConstantDynamicViscosity(FT(0))
     model = AtmosModel{FT}(
         AtmosGCMConfigType,
         param_set;
         init_state_prognostic = setup,
-        orientation = orientation,
         ref_state = ref_state,
         turbulence = turbulence,
         moisture = DryModel(),

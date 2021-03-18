@@ -1,7 +1,5 @@
 ##### Get prognostic variable list
 
-import ..BalanceLaws: prognostic_vars, get_prog_state
-
 prognostic_vars(::EnergyModel) = (Energy(),)
 prognostic_vars(::θModel) = (ρθ_liq_ice(),)
 

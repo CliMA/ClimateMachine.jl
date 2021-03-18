@@ -45,8 +45,9 @@ function perturbation_pressure(
 
     nh_press_buoy = press.α_b * buoy.up[i]
     nh_pressure_adv = -press.α_a * w_up_i * up_dif[i].∇w[3]
+    # TO DO: Add updraft height dependency (non-local)
     nh_pressure_drag =
-        press.α_d * (w_up_i - env.w) * abs(w_up_i - env.w) / press.H_up
+        press.α_d * (w_up_i - env.w) * abs(w_up_i - env.w) / press.H_up_min
 
     dpdz = nh_press_buoy + nh_pressure_adv + nh_pressure_drag
 

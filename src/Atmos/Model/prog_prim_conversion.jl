@@ -75,7 +75,7 @@ function prognostic_to_primitive!(
     prog::Vars,
     e_int::AbstractFloat,
 )
-    ts = PhaseDry(atmos.param_set, e_int, prog.ρ)
+    ts = PhaseDry(parameter_set(atmos), e_int, prog.ρ)
     prim.ρ = prog.ρ
     prim.u = prog.ρu ./ prog.ρ
     prim.p = air_pressure(ts)
@@ -90,7 +90,7 @@ function prognostic_to_primitive!(
 )
     FT = eltype(prim)
     ts = PhaseEquil(
-        atmos.param_set,
+        parameter_set(atmos),
         e_int,
         prog.ρ,
         prog.moisture.ρq_tot / prog.ρ,
@@ -115,7 +115,7 @@ function prognostic_to_primitive!(
         prog.moisture.ρq_liq / prog.ρ,
         prog.moisture.ρq_ice / prog.ρ,
     )
-    ts = PhaseNonEquil(atmos.param_set, e_int, prog.ρ, q_pt)
+    ts = PhaseNonEquil(parameter_set(atmos), e_int, prog.ρ, q_pt)
     prim.ρ = prog.ρ
     prim.u = prog.ρu ./ prog.ρ
     prim.p = air_pressure(ts)
@@ -136,7 +136,7 @@ function primitive_to_prognostic!(
     e_pot::AbstractFloat,
 )
     atmos.energy isa EnergyModel || error("EnergyModel only supported")
-    ts = PhaseDry_ρp(atmos.param_set, prim.ρ, prim.p)
+    ts = PhaseDry_ρp(parameter_set(atmos), prim.ρ, prim.p)
     e_kin = prim.u' * prim.u / 2
 
     prog.ρ = prim.ρ
@@ -153,7 +153,7 @@ function primitive_to_prognostic!(
 )
     atmos.energy isa EnergyModel || error("EnergyModel only supported")
     ts = PhaseEquil_ρpq(
-        atmos.param_set,
+        parameter_set(atmos),
         prim.ρ,
         prim.p,
         prim.moisture.q_tot,
@@ -180,7 +180,7 @@ function primitive_to_prognostic!(
         prim.moisture.q_liq,
         prim.moisture.q_ice,
     )
-    ts = PhaseNonEquil_ρpq(atmos.param_set, prim.ρ, prim.p, q_pt)
+    ts = PhaseNonEquil_ρpq(parameter_set(atmos), prim.ρ, prim.p, q_pt)
     e_kin = prim.u' * prim.u / 2
 
     prog.ρ = prim.ρ
@@ -198,7 +198,8 @@ function construct_face_auxiliary_state!(
     aux_cell::AbstractArray,
     Δz::FT,
 ) where {FT <: Real}
-    _grav = FT(grav(bl.param_set))
+    param_set = parameter_set(bl)
+    _grav = FT(grav(param_set))
     var_aux = Vars{vars_state(bl, Auxiliary(), FT)}
     aux_face .= aux_cell
 

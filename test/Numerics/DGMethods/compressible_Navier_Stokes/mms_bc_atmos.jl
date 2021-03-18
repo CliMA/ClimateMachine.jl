@@ -23,7 +23,7 @@ using ClimateMachine.Thermodynamics
 using ClimateMachine.TurbulenceClosures
 using ClimateMachine.VTK
 
-import ClimateMachine.BalanceLaws: source
+import ClimateMachine.BalanceLaws: source, prognostic_vars
 
 using CLIMAParameters
 struct EarthParameterSet <: AbstractEarthParameterSet end
@@ -59,19 +59,16 @@ function mms2_init_state!(problem, bl, state::Vars, aux::Vars, localgeo, t)
     state.energy.ρe = E_g(t, x1, x2, x3, Val(2))
 end
 
-struct MMSSource{PV <: Union{Mass, Momentum, Energy}, N} <:
-       TendencyDef{Source, PV} end
+struct MMSSource{N} <: TendencyDef{Source} end
 
-MMSSource(N::Int) =
-    (MMSSource{Mass, N}(), MMSSource{Momentum, N}(), MMSSource{Energy, N}())
+prognostic_vars(::MMSSource{N}) where {N} = (Mass(), Momentum(), Energy())
 
-
-function source(s::MMSSource{Mass, N}, m, args) where {N}
+function source(::Mass, s::MMSSource{N}, m, args) where {N}
     @unpack aux, t = args
     x1, x2, x3 = aux.coord
     return Sρ_g(t, x1, x2, x3, Val(N))
 end
-function source(s::MMSSource{Momentum, N}, m, args) where {N}
+function source(::Momentum, s::MMSSource{N}, m, args) where {N}
     @unpack aux, t = args
     x1, x2, x3 = aux.coord
     return SVector(
@@ -80,7 +77,7 @@ function source(s::MMSSource{Momentum, N}, m, args) where {N}
         SW_g(t, x1, x2, x3, Val(N)),
     )
 end
-function source(s::MMSSource{Energy, N}, m, args) where {N}
+function source(::Energy, s::MMSSource{N}, m, args) where {N}
     @unpack aux, t = args
     x1, x2, x3 = aux.coord
     return SE_g(t, x1, x2, x3, Val(N))
@@ -125,7 +122,7 @@ function test_run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, FT, dt)
                 WithDivergence(),
             ),
             moisture = DryModel(),
-            source = (MMSSource(2)...,),
+            source = (MMSSource{2}(),),
         )
     else
         problem = AtmosProblem(
@@ -143,7 +140,7 @@ function test_run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, FT, dt)
                 WithDivergence(),
             ),
             moisture = DryModel(),
-            source = (MMSSource(3)...,),
+            source = (MMSSource{3}(),),
         )
     end
     show_tendencies(model)

@@ -13,17 +13,17 @@ data_file = Dataset(joinpath(PyCLES_output_dataset_path, "Bomex.nc"), "r")
 
 #! format: off
 best_mse = OrderedDict()
-best_mse["prog_ρ"] = 3.4917543567412931e-02
-best_mse["prog_ρu_1"] = 3.0715061616086091e+03
-best_mse["prog_ρu_2"] = 1.2895273328644243e-03
-best_mse["prog_moisture_ρq_tot"] = 4.1330591681431862e-02
-best_mse["prog_turbconv_environment_ρatke"] = 6.7419793087180005e+02
-best_mse["prog_turbconv_environment_ρaθ_liq_cv"] = 8.5667222913342755e+01
-best_mse["prog_turbconv_environment_ρaq_tot_cv"] = 1.6435778026434528e+02
-best_mse["prog_turbconv_updraft_1_ρa"] = 7.9568648163256995e+01
-best_mse["prog_turbconv_updraft_1_ρaw"] = 8.4292074562603486e-02
-best_mse["prog_turbconv_updraft_1_ρaθ_liq"] = 9.0094974216941637e+00
-best_mse["prog_turbconv_updraft_1_ρaq_tot"] = 1.0768452320369121e+01
+best_mse["prog_ρ"] = 3.4917662870525668e-02
+best_mse["prog_ρu_1"] = 3.0715053983126782e+03
+best_mse["prog_ρu_2"] = 1.2895738234436555e-03
+best_mse["prog_moisture_ρq_tot"] = 4.1331426262591536e-02
+best_mse["prog_turbconv_environment_ρatke"] = 6.7533398950377637e+02
+best_mse["prog_turbconv_environment_ρaθ_liq_cv"] = 8.5667223118537208e+01
+best_mse["prog_turbconv_environment_ρaq_tot_cv"] = 1.6435769054934644e+02
+best_mse["prog_turbconv_updraft_1_ρa"] = 7.9507446326773803e+01
+best_mse["prog_turbconv_updraft_1_ρaw"] = 8.4143288691582691e-02
+best_mse["prog_turbconv_updraft_1_ρaθ_liq"] = 9.0080835465027622e+00
+best_mse["prog_turbconv_updraft_1_ρaq_tot"] = 1.0766760607493566e+01
 #! format: on
 
 computed_mse = compute_mse(

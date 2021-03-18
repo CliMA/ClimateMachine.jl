@@ -154,7 +154,7 @@ Because the partitioning is diagnosed, no additional source terms
 have to be specified:
 
 ```julia
-moisture = EquilMoist{FT}(; maxiter = 8, tolerance = FT(1e-1))
+moisture = EquilMoist(; maxiter = 8, tolerance = FT(1e-1))
 ```
 
 Alternatively, when using the `NonEquilMoist` model, an additional source term
@@ -166,7 +166,7 @@ cloud condensate sources for cloud liquid water and cloud ice.
 
 ```julia
 moisture = NonEquilMoist()
-source = (source..., CreateClouds()...)
+source = (source..., CreateClouds())
 ```
 
 If choosing the `NoPrecipitation` model we can either define no additional
@@ -180,14 +180,14 @@ The flag set to `false` results in saturation excess threshold.
 
 ```julia
 precipitation = NoPrecipitation()
-source = (source..., RemovePrecipitation(true)...)
+source = (source..., RemovePrecipitation(true))
 ```
 
 If using the `RainModel`, the `WarmRain_1M` source terms have to be chosen:
 
 ```julia
 precipitation = RainModel()
-source = (source..., WarmRain_1M()...)
+source = (source..., WarmRain_1M())
 ```
 
 Alternatively, if using the `RainSnowModel`, the `RainSnow_1M` source terms
@@ -195,7 +195,7 @@ have to be chosen:
 
 ```julia
 precipitation = RainSnowModel()
-source = (source..., RainSnow_1M()...)
+source = (source..., RainSnow_1M())
 ```
 
 As in the previous tutorials, all of the `source`, `moisture`, `precipitation`

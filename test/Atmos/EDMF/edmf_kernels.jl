@@ -204,84 +204,69 @@ get_prog_state(state, ::up_ρaθ_liq{i}) where {i} =
 get_prog_state(state, ::up_ρaq_tot{i}) where {i} =
     (state.turbconv.updraft[i], :ρaq_tot)
 
-struct EntrDetr{PV} <: TendencyDef{Source, PV} end
-struct PressSource{PV} <: TendencyDef{Source, PV} end
-struct BuoySource{PV} <: TendencyDef{Source, PV} end
-struct ShearSource{PV} <: TendencyDef{Source, PV} end
-struct DissSource{PV} <: TendencyDef{Source, PV} end
-struct GradProdSource{PV} <: TendencyDef{Source, PV} end
+struct EntrDetr{N_up} <: TendencyDef{Source} end
+struct PressSource{N_up} <: TendencyDef{Source} end
+struct BuoySource{N_up} <: TendencyDef{Source} end
+struct ShearSource <: TendencyDef{Source} end
+struct DissSource <: TendencyDef{Source} end
+struct GradProdSource <: TendencyDef{Source} end
 
-EntrDetr(N_up) = (
-    vuntuple(i -> EntrDetr{up_ρa{i}}(), N_up)...,
-    vuntuple(i -> EntrDetr{up_ρaw{i}}(), N_up)...,
-    vuntuple(i -> EntrDetr{up_ρaθ_liq{i}}(), N_up)...,
-    vuntuple(i -> EntrDetr{up_ρaq_tot{i}}(), N_up)...,
-    EntrDetr{en_ρatke}(),
-    EntrDetr{en_ρaθ_liq_cv}(),
-    EntrDetr{en_ρaq_tot_cv}(),
-    EntrDetr{en_ρaθ_liq_q_tot_cv}(),
+prognostic_vars(::EntrDetr{N_up}) where {N_up} = (
+    vuntuple(i -> up_ρa{i}, N_up)...,
+    vuntuple(i -> up_ρaw{i}, N_up)...,
+    vuntuple(i -> up_ρaθ_liq{i}, N_up)...,
+    vuntuple(i -> up_ρaq_tot{i}, N_up)...,
+    en_ρatke(),
+    en_ρaθ_liq_cv(),
+    en_ρaq_tot_cv(),
+    en_ρaθ_liq_q_tot_cv(),
 )
-PressSource(N_up) = vuntuple(i -> PressSource{up_ρaw{i}}(), N_up)
-BuoySource(N_up) = vuntuple(i -> BuoySource{up_ρaw{i}}(), N_up)
+prognostic_vars(::PressSource{N_up}) where {N_up} =
+    vuntuple(i -> up_ρaw{i}(), N_up)
+
+prognostic_vars(::BuoySource{N_up}) where {N_up} =
+    vuntuple(i -> up_ρaw{i}(), N_up)
+
+EntrDetr(m::EDMF) = EntrDetr{n_updrafts(m)}()
+BuoySource(m::EDMF) = BuoySource{n_updrafts(m)}()
+PressSource(m::EDMF) = PressSource{n_updrafts(m)}()
 
 # Dycore tendencies
 eq_tends(
-    pv::PV,
+    pv::Union{Momentum, Energy, TotalMoisture},
     m::EDMF,
     ::Flux{SecondOrder},
-) where {PV <: Union{Momentum, Energy, TotalMoisture}} = ()  # do _not_ add SGSFlux back to grid-mean
-# (SGSFlux{PV}(),) # add SGSFlux back to grid-mean
+) = ()  # do _not_ add SGSFlux back to grid-mean
+# (SGSFlux(),) # add SGSFlux back to grid-mean
 
 # Turbconv tendencies
-eq_tends(
-    pv::PV,
-    m::AtmosModel,
-    tt::Flux{O},
-) where {O, PV <: EDMFPrognosticVariable} = eq_tends(pv, m.turbconv, tt)
+eq_tends(pv::EDMFPrognosticVariable, m::AtmosModel, tt::Flux{O}) where {O} =
+    eq_tends(pv, m.turbconv, tt)
 
-eq_tends(pv::PV, m::EDMF, ::Flux{O}) where {O, PV <: EDMFPrognosticVariable} =
-    ()
+eq_tends(::EDMFPrognosticVariable, m::EDMF, ::Flux{O}) where {O} = ()
 
-eq_tends(
-    pv::PV,
-    m::EDMF,
-    ::Flux{SecondOrder},
-) where {PV <: EnvironmentPrognosticVariable} = (Diffusion{PV}(),)
+eq_tends(::EnvironmentPrognosticVariable, m::EDMF, ::Flux{SecondOrder}) =
+    (Diffusion(),)
 
-eq_tends(
-    pv::PV,
-    m::EDMF,
-    ::Flux{FirstOrder},
-) where {PV <: EDMFPrognosticVariable} = (Advect{PV}(),)
+eq_tends(pv::EDMFPrognosticVariable, m::EDMF, ::Flux{FirstOrder}) = (Advect(),)
 
 eq_tends(pv::PV, m::EDMF, ::Source) where {PV} = ()
 
-eq_tends(pv::PV, m::EDMF, ::Source) where {PV <: EDMFPrognosticVariable} =
-    (EntrDetr{PV}(),)
+eq_tends(::EDMFPrognosticVariable, m::EDMF, ::Source) = (EntrDetr(m),)
 
-eq_tends(pv::PV, m::EDMF, ::Source) where {PV <: en_ρatke} = (
-    EntrDetr{PV}(),
-    PressSource{PV}(),
-    ShearSource{PV}(),
-    BuoySource{PV}(),
-    DissSource{PV}(),
-)
+eq_tends(pv::en_ρatke, m::EDMF, ::Source) =
+    (EntrDetr(m), PressSource(m), BuoySource(m), ShearSource(), DissSource())
 
 eq_tends(
-    pv::PV,
+    ::Union{en_ρaθ_liq_cv, en_ρaq_tot_cv, en_ρaθ_liq_q_tot_cv},
     m::EDMF,
     ::Source,
-) where {PV <: Union{en_ρaθ_liq_cv, en_ρaq_tot_cv, en_ρaθ_liq_q_tot_cv}} =
-    (EntrDetr{PV}(), DissSource{PV}(), GradProdSource{PV}())
+) = (EntrDetr(m), DissSource(), GradProdSource())
 
-eq_tends(pv::PV, m::EDMF, ::Source) where {PV <: up_ρaw} = (
-    EntrDetr{PV}(),
-    PressSource(n_updrafts(m))...,
-    BuoySource(n_updrafts(m))...,
-)
+eq_tends(::up_ρaw, m::EDMF, ::Source) =
+    (EntrDetr(m), PressSource(m), BuoySource(m))
 
-struct SGSFlux{PV <: Union{Momentum, Energy, TotalMoisture}} <:
-       TendencyDef{Flux{SecondOrder}, PV} end
+struct SGSFlux <: TendencyDef{Flux{SecondOrder}} end
 
 """
     init_aux_turbconv!(
@@ -406,11 +391,11 @@ function compute_gradient_argument!(
 
     # Get environment variables
     env = environment_vars(state, N_up)
-
+    param_set = parameter_set(m)
     @unroll_map(N_up) do i
         up_tf[i].w = fix_void_up(up[i].ρa, up[i].ρaw / up[i].ρa)
     end
-    _grav::FT = grav(m.param_set)
+    _grav::FT = grav(param_set)
 
     ρ_inv = 1 / gm.ρ
     θ_liq_en = liquid_ice_pottemp(ts.en)
@@ -521,12 +506,12 @@ function compute_gradient_flux!(
     en_dif.tke_diss = -ρa₀ * Diss₀ * tke_en  # tke Dissipation
 end;
 
-function source(::EntrDetr{up_ρa{i}}, atmos, args) where {i}
+function source(::up_ρa{i}, ::EntrDetr, atmos, args) where {i}
     @unpack E_dyn, Δ_dyn, ρa_up = args.precomputed.turbconv
     return fix_void_up(ρa_up[i], E_dyn[i] - Δ_dyn[i])
 end
 
-function source(::EntrDetr{up_ρaw{i}}, atmos, args) where {i}
+function source(::up_ρaw{i}, ::EntrDetr, atmos, args) where {i}
     @unpack E_dyn, Δ_dyn, E_trb, env, ρa_up, w_up = args.precomputed.turbconv
     up = args.state.turbconv.updraft
     entr = fix_void_up(ρa_up[i], (E_dyn[i] + E_trb[i]) * env.w)
@@ -535,7 +520,7 @@ function source(::EntrDetr{up_ρaw{i}}, atmos, args) where {i}
     return entr - detr
 end
 
-function source(::EntrDetr{up_ρaθ_liq{i}}, atmos, args) where {i}
+function source(::up_ρaθ_liq{i}, ::EntrDetr, atmos, args) where {i}
     @unpack E_dyn, Δ_dyn, E_trb, env, ρa_up, ts_en = args.precomputed.turbconv
     up = args.state.turbconv.updraft
     θ_liq_en = liquid_ice_pottemp(ts_en)
@@ -546,7 +531,7 @@ function source(::EntrDetr{up_ρaθ_liq{i}}, atmos, args) where {i}
     return entr - detr
 end
 
-function source(::EntrDetr{up_ρaq_tot{i}}, atmos, args) where {i}
+function source(::up_ρaq_tot{i}, ::EntrDetr, atmos, args) where {i}
     @unpack E_dyn, Δ_dyn, E_trb, env, ρa_up, ts_en = args.precomputed.turbconv
     up = args.state.turbconv.updraft
     q_tot_en = total_specific_humidity(ts_en)
@@ -557,7 +542,7 @@ function source(::EntrDetr{up_ρaq_tot{i}}, atmos, args) where {i}
     return entr - detr
 end
 
-function source(::EntrDetr{en_ρatke}, atmos, args)
+function source(::en_ρatke, ::EntrDetr, atmos, args)
     @unpack E_dyn, Δ_dyn, E_trb, env, ρa_up, w_up = args.precomputed.turbconv
     @unpack state = args
     up = state.turbconv.updraft
@@ -578,7 +563,7 @@ function source(::EntrDetr{en_ρatke}, atmos, args)
     return sum(entr_detr)
 end
 
-function source(::EntrDetr{en_ρaθ_liq_cv}, atmos, args)
+function source(::en_ρaθ_liq_cv, ::EntrDetr, atmos, args)
     @unpack E_dyn, Δ_dyn, E_trb, ρa_up, ts_en = args.precomputed.turbconv
     @unpack state = args
     ts_gm = args.precomputed.ts
@@ -606,7 +591,7 @@ function source(::EntrDetr{en_ρaθ_liq_cv}, atmos, args)
     return sum(entr_detr)
 end
 
-function source(::EntrDetr{en_ρaq_tot_cv}, atmos, args)
+function source(::en_ρaq_tot_cv, ::EntrDetr, atmos, args)
     @unpack E_dyn, Δ_dyn, E_trb, ρa_up, ts_en = args.precomputed.turbconv
     @unpack state = args
     FT = eltype(state)
@@ -636,7 +621,7 @@ function source(::EntrDetr{en_ρaq_tot_cv}, atmos, args)
     return sum(entr_detr)
 end
 
-function source(::EntrDetr{en_ρaθ_liq_q_tot_cv}, atmos, args)
+function source(::en_ρaθ_liq_q_tot_cv, ::EntrDetr, atmos, args)
     @unpack E_dyn, Δ_dyn, E_trb, ρa_up, ts_en = args.precomputed.turbconv
     @unpack state = args
     FT = eltype(state)
@@ -669,7 +654,7 @@ function source(::EntrDetr{en_ρaθ_liq_q_tot_cv}, atmos, args)
     return sum(entr_detr)
 end
 
-function source(::PressSource{en_ρatke}, atmos, args)
+function source(::en_ρatke, ::PressSource, atmos, args)
     @unpack env, ρa_up, dpdz, w_up = args.precomputed.turbconv
     up = args.state.turbconv.updraft
     N_up = n_updrafts(atmos.turbconv)
@@ -679,7 +664,7 @@ function source(::PressSource{en_ρatke}, atmos, args)
     return sum(press_tke)
 end
 
-function source(::ShearSource{en_ρatke}, atmos, args)
+function source(::en_ρatke, ::ShearSource, atmos, args)
     @unpack env, K_m = args.precomputed.turbconv
     gm = args.state
     Shear² = args.diffusive.turbconv.S²
@@ -688,14 +673,14 @@ function source(::ShearSource{en_ρatke}, atmos, args)
     return ρa₀ * K_m * Shear² # tke Shear source
 end
 
-function source(::BuoySource{en_ρatke}, atmos, args)
+function source(::en_ρatke, ::BuoySource, atmos, args)
     @unpack env, K_h, ∂b∂z_env = args.precomputed.turbconv
     gm = args.state
     ρa₀ = gm.ρ * env.a
     return -ρa₀ * K_h * ∂b∂z_env   # tke Buoyancy source
 end
 
-function source(::DissSource{en_ρatke}, atmos, args)
+function source(::en_ρatke, ::DissSource, atmos, args)
     @unpack env, l_mix, Diss₀ = args.precomputed.turbconv
     gm = args.state
     en = args.state.turbconv.environment
@@ -704,7 +689,7 @@ function source(::DissSource{en_ρatke}, atmos, args)
     return -ρa₀ * Diss₀ * tke_en  # tke Dissipation
 end
 
-function source(::DissSource{en_ρaθ_liq_cv}, atmos, args)
+function source(::en_ρaθ_liq_cv, ::DissSource, atmos, args)
     @unpack env, K_h, Diss₀ = args.precomputed.turbconv
     gm = args.state
     en = args.state.turbconv.environment
@@ -712,7 +697,7 @@ function source(::DissSource{en_ρaθ_liq_cv}, atmos, args)
     return -ρa₀ * Diss₀ * en.ρaθ_liq_cv
 end
 
-function source(::DissSource{en_ρaq_tot_cv}, atmos, args)
+function source(::en_ρaq_tot_cv, ::DissSource, atmos, args)
     @unpack env, K_h, Diss₀ = args.precomputed.turbconv
     gm = args.state
     en = args.state.turbconv.environment
@@ -720,7 +705,7 @@ function source(::DissSource{en_ρaq_tot_cv}, atmos, args)
     return -ρa₀ * Diss₀ * en.ρaq_tot_cv
 end
 
-function source(::DissSource{en_ρaθ_liq_q_tot_cv}, atmos, args)
+function source(::en_ρaθ_liq_q_tot_cv, ::DissSource, atmos, args)
     @unpack env, K_h, Diss₀ = args.precomputed.turbconv
     gm = args.state
     en = args.state.turbconv.environment
@@ -728,7 +713,7 @@ function source(::DissSource{en_ρaθ_liq_q_tot_cv}, atmos, args)
     return -ρa₀ * Diss₀ * en.ρaθ_liq_q_tot_cv
 end
 
-function source(::GradProdSource{en_ρaθ_liq_cv}, atmos, args)
+function source(::en_ρaθ_liq_cv, ::GradProdSource, atmos, args)
     @unpack env, K_h, Diss₀ = args.precomputed.turbconv
     gm = args.state
     en_dif = args.diffusive.turbconv.environment
@@ -736,7 +721,7 @@ function source(::GradProdSource{en_ρaθ_liq_cv}, atmos, args)
     return ρa₀ * (2 * K_h * en_dif.∇θ_liq[3] * en_dif.∇θ_liq[3])
 end
 
-function source(::GradProdSource{en_ρaq_tot_cv}, atmos, args)
+function source(::en_ρaq_tot_cv, ::GradProdSource, atmos, args)
     @unpack env, K_h, Diss₀ = args.precomputed.turbconv
     gm = args.state
     en_dif = args.diffusive.turbconv.environment
@@ -744,7 +729,7 @@ function source(::GradProdSource{en_ρaq_tot_cv}, atmos, args)
     return ρa₀ * (2 * K_h * en_dif.∇q_tot[3] * en_dif.∇q_tot[3])
 end
 
-function source(::GradProdSource{en_ρaθ_liq_q_tot_cv}, atmos, args)
+function source(::en_ρaθ_liq_q_tot_cv, ::GradProdSource, atmos, args)
     @unpack env, K_h, Diss₀ = args.precomputed.turbconv
     gm = args.state
     en_dif = args.diffusive.turbconv.environment
@@ -752,13 +737,13 @@ function source(::GradProdSource{en_ρaθ_liq_q_tot_cv}, atmos, args)
     return ρa₀ * (2 * K_h * en_dif.∇θ_liq[3] * en_dif.∇q_tot[3])
 end
 
-function source(::BuoySource{up_ρaw{i}}, atmos, args) where {i}
+function source(::up_ρaw{i}, ::BuoySource, atmos, args) where {i}
     @unpack buoy = args.precomputed.turbconv
     up = args.state.turbconv.updraft
     return up[i].ρa * buoy.up[i]
 end
 
-function source(::PressSource{up_ρaw{i}}, atmos, args) where {i}
+function source(::up_ρaw{i}, ::PressSource, atmos, args) where {i}
     @unpack dpdz = args.precomputed.turbconv
     up = args.state.turbconv.updraft
     return -up[i].ρa * dpdz[i]
@@ -779,14 +764,14 @@ function compute_ρa_up(atmos, state, aux)
     return ρa_up
 end
 
-function flux(::Advect{up_ρa{i}}, atmos, args) where {i}
+function flux(::up_ρa{i}, ::Advect, atmos, args) where {i}
     @unpack state, aux = args
     @unpack ρa_up = args.precomputed.turbconv
     up = state.turbconv.updraft
     ẑ = vertical_unit_vector(atmos, aux)
     return fix_void_up(ρa_up[i], up[i].ρaw) * ẑ
 end
-function flux(::Advect{up_ρaw{i}}, atmos, args) where {i}
+function flux(::up_ρaw{i}, ::Advect, atmos, args) where {i}
     @unpack state, aux = args
     @unpack ρa_up, w_up = args.precomputed.turbconv
     up = state.turbconv.updraft
@@ -794,7 +779,7 @@ function flux(::Advect{up_ρaw{i}}, atmos, args) where {i}
     return fix_void_up(ρa_up[i], up[i].ρaw * w_up[i]) * ẑ
 
 end
-function flux(::Advect{up_ρaθ_liq{i}}, atmos, args) where {i}
+function flux(::up_ρaθ_liq{i}, ::Advect, atmos, args) where {i}
     @unpack state, aux = args
     @unpack ρa_up, w_up = args.precomputed.turbconv
     up = state.turbconv.updraft
@@ -802,7 +787,7 @@ function flux(::Advect{up_ρaθ_liq{i}}, atmos, args) where {i}
     return fix_void_up(ρa_up[i], w_up[i] * up[i].ρaθ_liq) * ẑ
 
 end
-function flux(::Advect{up_ρaq_tot{i}}, atmos, args) where {i}
+function flux(::up_ρaq_tot{i}, ::Advect, atmos, args) where {i}
     @unpack state, aux = args
     @unpack ρa_up, w_up = args.precomputed.turbconv
     up = state.turbconv.updraft
@@ -811,28 +796,28 @@ function flux(::Advect{up_ρaq_tot{i}}, atmos, args) where {i}
 
 end
 
-function flux(::Advect{en_ρatke}, atmos, args)
+function flux(::en_ρatke, ::Advect, atmos, args)
     @unpack state, aux = args
     @unpack env = args.precomputed.turbconv
     en = state.turbconv.environment
     ẑ = vertical_unit_vector(atmos, aux)
     return en.ρatke * env.w * ẑ
 end
-function flux(::Advect{en_ρaθ_liq_cv}, atmos, args)
+function flux(::en_ρaθ_liq_cv, ::Advect, atmos, args)
     @unpack state, aux = args
     @unpack env = args.precomputed.turbconv
     en = state.turbconv.environment
     ẑ = vertical_unit_vector(atmos, aux)
     return en.ρaθ_liq_cv * env.w * ẑ
 end
-function flux(::Advect{en_ρaq_tot_cv}, atmos, args)
+function flux(::en_ρaq_tot_cv, ::Advect, atmos, args)
     @unpack state, aux = args
     @unpack env = args.precomputed.turbconv
     en = state.turbconv.environment
     ẑ = vertical_unit_vector(atmos, aux)
     return en.ρaq_tot_cv * env.w * ẑ
 end
-function flux(::Advect{en_ρaθ_liq_q_tot_cv}, atmos, args)
+function flux(::en_ρaθ_liq_q_tot_cv, ::Advect, atmos, args)
     @unpack state, aux = args
     @unpack env = args.precomputed.turbconv
     en = state.turbconv.environment
@@ -939,8 +924,9 @@ function compute_buoyancy(
     ref_state::Vars,
 )
     FT = eltype(state)
+    param_set = parameter_set(bl)
     N_up = n_updrafts(bl.turbconv)
-    _grav::FT = grav(bl.param_set)
+    _grav::FT = grav(param_set)
     gm = state
     ρ_inv = 1 / gm.ρ
     buoyancy_en = -_grav * (air_density(ts_en) - ref_state.ρ) * ρ_inv
@@ -1023,11 +1009,12 @@ function precompute(::EDMF, bl, args, ts, ::Source)
     )
 end
 
-function flux(::SGSFlux{Energy}, atmos, args)
+function flux(::Energy, ::SGSFlux, atmos, args)
     @unpack state, aux, diffusive = args
     @unpack env, K_h, ρa_up, ρaw_up, ts_up = args.precomputed.turbconv
     FT = eltype(state)
-    _grav::FT = grav(atmos.param_set)
+    param_set = parameter_set(atmos)
+    _grav::FT = grav(param_set)
     z = altitude(atmos, aux)
     en_dif = diffusive.turbconv.environment
     up = state.turbconv.updraft
@@ -1056,7 +1043,7 @@ function flux(::SGSFlux{Energy}, atmos, args)
     return SVector{3, FT}(0, 0, ρe_sgs_flux)
 end
 
-function flux(::SGSFlux{TotalMoisture}, atmos, args)
+function flux(::TotalMoisture, ::SGSFlux, atmos, args)
     @unpack state, diffusive = args
     @unpack env, K_h, ρa_up, ρaw_up = args.precomputed.turbconv
     FT = eltype(state)
@@ -1084,7 +1071,7 @@ function flux(::SGSFlux{TotalMoisture}, atmos, args)
     return SVector{3, FT}(0, 0, ρq_tot_sgs_flux)
 end
 
-function flux(::SGSFlux{Momentum}, atmos, args)
+function flux(::Momentum, ::SGSFlux, atmos, args)
     @unpack state, diffusive = args
     @unpack env, K_m, ρa_up, ρaw_up = args.precomputed.turbconv
     FT = eltype(state)
@@ -1123,7 +1110,7 @@ function flux(::SGSFlux{Momentum}, atmos, args)
     )
 end
 
-function flux(::Diffusion{en_ρaθ_liq_cv}, atmos, args)
+function flux(::en_ρaθ_liq_cv, ::Diffusion, atmos, args)
     @unpack state, aux, diffusive = args
     @unpack env, l_mix, Pr_t, K_h = args.precomputed.turbconv
     en_dif = diffusive.turbconv.environment
@@ -1131,7 +1118,7 @@ function flux(::Diffusion{en_ρaθ_liq_cv}, atmos, args)
     ẑ = vertical_unit_vector(atmos, aux)
     return -gm.ρ * env.a * K_h * en_dif.∇θ_liq_cv[3] * ẑ
 end
-function flux(::Diffusion{en_ρaq_tot_cv}, atmos, args)
+function flux(::en_ρaq_tot_cv, ::Diffusion, atmos, args)
     @unpack state, aux, diffusive = args
     @unpack env, l_mix, Pr_t, K_h = args.precomputed.turbconv
     en_dif = diffusive.turbconv.environment
@@ -1139,7 +1126,7 @@ function flux(::Diffusion{en_ρaq_tot_cv}, atmos, args)
     ẑ = vertical_unit_vector(atmos, aux)
     return -gm.ρ * env.a * K_h * en_dif.∇q_tot_cv[3] * ẑ
 end
-function flux(::Diffusion{en_ρaθ_liq_q_tot_cv}, atmos, args)
+function flux(::en_ρaθ_liq_q_tot_cv, ::Diffusion, atmos, args)
     @unpack state, aux, diffusive = args
     @unpack env, l_mix, Pr_t, K_h = args.precomputed.turbconv
     en_dif = diffusive.turbconv.environment
@@ -1147,7 +1134,7 @@ function flux(::Diffusion{en_ρaθ_liq_q_tot_cv}, atmos, args)
     ẑ = vertical_unit_vector(atmos, aux)
     return -gm.ρ * env.a * K_h * en_dif.∇θ_liq_q_tot_cv[3] * ẑ
 end
-function flux(::Diffusion{en_ρatke}, atmos, args)
+function flux(::en_ρatke, ::Diffusion, atmos, args)
     @unpack state, aux, diffusive = args
     @unpack env, K_m = args.precomputed.turbconv
     gm = state
