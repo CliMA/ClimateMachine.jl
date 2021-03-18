@@ -46,14 +46,15 @@ include("spherical_harmonics_kernels.jl")
 abstract type AbstractEquations <: BalanceLaw end
 abstract type AbstractEquations3D <: AbstractEquations end
 
-struct TestEquations{FT,D,A,T,HD,C,F,BC,P,PS} <: AbstractEquations3D
+struct TestEquations{FT,D,A,T,HD,C,F,IC,BC,P,PS} <: AbstractEquations3D
     domain::D
     advection::A
     turbulence::T
     hyperdiffusion::HD
     coriolis::C
     forcing::F
-    boundary_conditions::BC
+    initial_value_problem::IC
+    boundary_problem::BC
     params::P
     param_set::PS
 end
@@ -65,7 +66,8 @@ function TestEquations{FT}(
     hyperdiffusion::Union{ProblemType, Nothing} = nothing,
     coriolis::Union{ProblemType, Nothing} = nothing,
     forcing::Union{ProblemType, Nothing} = nothing,
-    boundary_conditions::Union{ProblemType, Nothing} = nothing,
+    initial_value_problem::Union{AbstractInitialValueProblem, Nothing}= nothing,
+    boundary_problem::Union{AbstractBoundaryProblem, Nothing} = nothing,
     params::Union{FT, Nothing} = nothing,
     param_set::Union{AbstractEarthParameterSet, Nothing},
 ) where {FT <: AbstractFloat, D}
@@ -76,7 +78,8 @@ function TestEquations{FT}(
         hyperdiffusion,
         coriolis,
         forcing,
-        boundary_conditions,
+        initial_value_problem,
+        boundary_problem,
         params,
         param_set
     )
@@ -131,33 +134,15 @@ function init_state_prognostic!(
     localgeo,
     t::Real,
 )
-    if m.hyperdiffusion != nothing
-        init_state_prognostic!(
-            m.hyperdiffusion,
-            state::Vars,
-            aux::Vars,
-            localgeo,
-            t::Real,
-        )
-    end
-    if m.turbulence != nothing
-        init_state_prognostic!(
-            m.turbulence,
-            state::Vars,
-            aux::Vars,
-            localgeo,
-            t::Real,
-        )
-    end
-    # if m.advection != nothing
-    #     init_state_prognostic!(
-    #         m.advection,
-    #         state::Vars,
-    #         aux::Vars,
-    #         localgeo,
-    #         t::Real,
-    #     )
-    # end
+    x = aux.coord[1]
+    y = aux.coord[2]
+    z = aux.coord[3]
+
+    params = m.initial_value_problem.params
+    ic = m.initial_value_problem.initial_conditions
+
+    #state.ρ = ic.ρ(params, x, y, z)
+    state.ρ = ic.ρ(m.hyperdiffusion, state, aux, t)
 end
 
 function nodal_init_state_auxiliary!(
@@ -169,8 +154,18 @@ function nodal_init_state_auxiliary!(
     # @show m
     # @show m.turbulence
     aux.coord = geom.coord
+    
     FT = eltype(aux)
-    aux.u = (FT(1),FT(1),FT(0))
+
+    # From initial conditions
+    #aux.u = (FT(1),FT(1),FT(0))
+    x = aux.coord[1]
+    y = aux.coord[2]
+    z = aux.coord[3]
+    params = m.initial_value_problem.params
+    ic = m.initial_value_problem.initial_conditions
+    aux.u = ic.u(params, x, y, z)
+
     if m.turbulence != nothing
         nodal_init_state_auxiliary!(
             m.turbulence,
@@ -330,3 +325,4 @@ vars_state(m::Union{ProblemType, Nothing}, st::Hyperdiffusive, FT) = @vars()
 flux_first_order!(::Nothing, _...) = nothing
 flux_second_order!(::Nothing, _...) = nothing
 compute_gradient_argument!(::Nothing, _...) = nothing
+compute_gradient_flux!(::Nothing, _...) = nothing

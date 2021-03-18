@@ -32,6 +32,33 @@ diffusion = DiffusionCubedSphereProblem{FT}(difffusion_params...,)
 
 advection = AdvectionCubedSphereProblem()
 
+# Initial conditions
+#   Earth Spherical Representation
+#       longitude: λ ∈ [-π, π), λ = 0 is the Greenwich meridian
+#       latitude:  ϕ ∈ [-π/2, π/2], ϕ = 0 is the equator
+#       radius:    r ∈ [Rₑ - hᵐⁱⁿ, Rₑ + hᵐᵃˣ], Rₑ = Radius of earth; hᵐⁱⁿ, hᵐᵃˣ ≥ 0
+ρ₀(p, λ, ϕ, r)    = FT(1)
+uʳᵃᵈ(p, λ, ϕ, r) = 0
+uˡᵃᵗ(p, λ, ϕ, r) = 0
+uˡᵒⁿ(p, λ, ϕ, r) = 10 * cos(ϕ) #2 * FT(π) * cos(ϕ) * r
+# Cartesian Representation (boiler plate really)
+ρ₀ᶜᵃʳᵗ(p, x...) = ρ₀(p, lon(x...), lat(x...), rad(x...))
+
+ρ₀ᶜᵃʳᵗ(problem, state...) = initial_condition!(problem, state...) 
+u⃗₀ᶜᵃʳᵗ(p, x...) = (   uʳᵃᵈ(p, lon(x...), lat(x...), rad(x...)) * r̂(x...) 
+                    + uˡᵃᵗ(p, lon(x...), lat(x...), rad(x...)) * ϕ̂(x...)
+                    + uˡᵒⁿ(p, lon(x...), lat(x...), rad(x...)) * λ̂(x...) ) 
+
+initial_problem = InitialValueProblem(difffusion_params, (ρ = ρ₀ᶜᵃʳᵗ, u = u⃗₀ᶜᵃʳᵗ))
+
+
+# Boundary conditions
+ρu_bcs = (
+    #bottom = Impenetrable(FreeSlip()),
+    #top = Impenetrable(FreeSlip()),
+)
+boundary_problem = BoundaryProblem()
+
 # Domain
 Ω = AtmosDomain(radius = FT(planet_radius(param_set)), height = FT(30e3))
 
@@ -48,8 +75,6 @@ numerics = (; flux = CentralNumericalFluxFirstOrder() ) # add  , overintegration
 Δt_ = min( Δt(hyperdiffusion, dx) , Δt(diffusion, dx) )
 timestepper = TimeStepper(method = LSRK54CarpenterKennedy, timestep = Δt_ )
 start_time, end_time = ( 0  , 2Δt_ )
-
-# initial condition
 
 # Callbacks (TODO)
 callbacks = (
@@ -69,12 +94,14 @@ callbacks = (
 # Specify RHS terms and any useful parameters
 balance_law = TestEquations{FT}(
     Ω;
-    advection = nothing, #advection, # adv
-    turbulence = diffusion, # turb
-    hyperdiffusion = nothing, #hyperdiffusion, # hyper
+    advection = advection, #advection, 
+    turbulence = diffusion, # diffusion
+    hyperdiffusion = hyperdiffusion, #hyperdiffusion
     coriolis = nothing, # cori
     params = nothing,
     param_set = param_set,
+    initial_value_problem = initial_problem,
+    boundary_problem = boundary_problem,
 )
 
 # Collect all spatial info of the model
@@ -82,7 +109,6 @@ model = SpatialModel(
     balance_law = balance_law,
     numerics = numerics,
     grid = grid,
-    boundary_conditions = nothing,
 )
 
 # Initialize simulation with time info
@@ -102,3 +128,15 @@ cbvector = create_callbacks(simulation, simulation.odesolver)
             timeend = end_time,
             callbacks = cbvector,
         )
+
+#  TODO
+# This PR:
+# - debug to get right values + check against analytical solution
+# - Generalise dt caclulation
+
+# Next PR
+# - put all spatial model & simulation info in one struct
+# - add over-integration callback
+# - Viz
+# - add Maciek's h-d boundary condtions
+# - cleanup

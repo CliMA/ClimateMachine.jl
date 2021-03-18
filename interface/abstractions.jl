@@ -3,119 +3,39 @@
 #######
 
 """
-Advection terms
-
-right now really only non-linear or ::Nothing
-"""
-abstract type AdvectionTerm end
-struct NonLinearAdvectionTerm <: AdvectionTerm end
-
-"""
-Turbulence Closures
-
-ways to handle drag and diffusion and such
-"""
-abstract type TurbulenceClosure end
-
-struct LinearDrag{T} <: TurbulenceClosure
-    λ::T
-end
-
-struct ConstantViscosity{T} <: TurbulenceClosure
-    μ::T
-    ν::T
-    κ::T
-    function ConstantViscosity{T}(;
-        μ = T(1e-6),   # m²/s
-        ν = T(1e-6),   # m²/s
-        κ = T(1e-6),   # m²/s
-    ) where {T <: AbstractFloat}
-        return new{T}(μ, ν, κ)
-    end
-end
-
-"""
-Forcings
-
-ways to add body terms and sources
-"""
-abstract type Forcing end
-abstract type CoriolisForce <: Forcing end
-
-struct fPlaneCoriolis{T} <: CoriolisForce
-    fₒ::T
-    β::T
-    function fPlaneCoriolis{T}(;
-        fₒ = T(1e-4), # Hz
-        β = T(1e-11), # Hz/m
-    ) where {T <: AbstractFloat}
-        return new{T}(fₒ, β)
-    end
-end
-
-struct WindStress{T} <: Forcing
-    τₒ::T
-    function WindStress{T}(; τₒ = T(1e-4)) where {T <: AbstractFloat}
-        return new{T}(τₒ)
-    end
-end
-
-struct Buoyancy{T} <: Forcing
-    α::T # 1/K
-    g::T # m/s²
-    function Buoyancy{T}(; α = T(2e-4), g = T(10)) where {T <: AbstractFloat}
-        return new{T}(α, g)
-    end
-end
-
-"""
 Grouping structs
 """
 abstract type AbstractModel end
 
-Base.@kwdef struct SpatialModel{𝒜, 𝒞, 𝒟, ℰ} <: AbstractModel
+Base.@kwdef struct SpatialModel{𝒜, ℬ, 𝒞} <: AbstractModel
     balance_law::𝒜
-    #physics::ℬ
-    numerics::𝒞
-    grid::𝒟
-    boundary_conditions::ℰ
-    #parameters::ℱ
+    numerics::ℬ
+    grid::𝒞
 end
+
 
 polynomialorders(s::SpatialModel) = convention(
     model.grid.resolution.polynomialorder,
     Val(ndims(model.grid.domain)),
 )
 
-abstract type ModelPhysics end
-
-Base.@kwdef struct FluidPhysics{A, D, H, C, B} <: ModelPhysics
-    advection::A = NonLinearAdvectionTerm()
-    dissipation::D = nothing
-    hyperdiffusion::H = nothing
-    coriolis::C = nothing
-    buoyancy::B = nothing
-end
-
 abstract type AbstractSimulation end
 
-struct Simulation{𝒜, ℬ, 𝒞, 𝒟, ℰ, ℱ, O, DG,N} <: AbstractSimulation
+struct Simulation{𝒜, ℬ, 𝒞, 𝒟, ℰ, ℱ, 𝒢, ℋ} <: AbstractSimulation
     model::𝒜
     state::ℬ
     timestepper::𝒞
-    initial_conditions::𝒟
-    callbacks::ℰ
-    simulation_time::ℱ
-    odesolver::O
-    dgmodel::DG
-    name::N
+    callbacks::𝒟
+    simulation_time::ℰ
+    odesolver::ℱ
+    dgmodel::𝒢
+    name::ℋ
 end
 
 function Simulation(;
     model = nothing,
     state = nothing,
     timestepper = nothing,
-    initial_conditions = nothing,
     callbacks = nothing,
     simulation_time = nothing,
     odesolver = nothing,
@@ -139,7 +59,6 @@ function Simulation(;
         model,
         state,
         timestepper,
-        initial_conditions,
         callbacks,
         simulation_time,
         odesolver,
@@ -185,6 +104,20 @@ function calculate_dt(
     end
     return cfl * minimum(Δts)
 end
+
+abstract type AbstractInitialValueProblem end
+
+Base.@kwdef struct InitialValueProblem{𝒫, ℐ𝒱} <: AbstractInitialValueProblem
+    params::𝒫 = nothing
+    initial_conditions::ℐ𝒱 = nothing
+end
+
+abstract type AbstractBoundaryProblem end
+
+Base.@kwdef struct BoundaryProblem{ℬ𝒞} <: AbstractBoundaryProblem
+    boundary_conditions::ℬ𝒞 = nothing
+end
+
 
 #=
 function calculate_dt(
