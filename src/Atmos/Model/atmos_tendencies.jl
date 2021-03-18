@@ -7,7 +7,7 @@
 #####
 
 eq_tends(pv::PrognosticVariable, m::AtmosModel, tt::Source) =
-    (dispatch(m.source, pv)..., eq_tends(pv, m.turbconv, tt)...)
+    (m.source[pv]..., eq_tends(pv, m.turbconv, tt)...)
 
 #####
 ##### First order fluxes

@@ -203,9 +203,9 @@ uuid = "b552c78f-8df3-52c6-915a-8e097449b14b"
 version = "1.0.2"
 
 [[DispatchedTuples]]
-git-tree-sha1 = "1211eeaf862c7960f14f48009f5f7c224b97c6a3"
+git-tree-sha1 = "4ccc236f2e2f6e4a15b093d76184ffded23d211f"
 uuid = "508c55e1-51b4-41fd-a5ca-7eb0327d070d"
-version = "0.1.5"
+version = "0.2.0"
 
 [[Distances]]
 deps = ["LinearAlgebra", "Statistics"]
