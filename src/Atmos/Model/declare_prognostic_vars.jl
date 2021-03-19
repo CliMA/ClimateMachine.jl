@@ -2,7 +2,7 @@
 
 export Mass, Momentum, Energy, ρθ_liq_ice
 export AbstractMoisture, TotalMoisture, LiquidMoisture, IceMoisture
-export Precipitation, Rain, Snow
+export AbstractPrecipitation, Rain, Snow
 export Tracers
 
 struct Mass <: PrognosticVariable end
@@ -15,7 +15,7 @@ struct TotalMoisture <: AbstractMoisture end
 struct LiquidMoisture <: AbstractMoisture end
 struct IceMoisture <: AbstractMoisture end
 
-struct Rain <: Precipitation end
-struct Snow <: Precipitation end
+struct Rain <: AbstractPrecipitation end
+struct Snow <: AbstractPrecipitation end
 
 struct Tracers{N} <: AbstractTracers{N} end

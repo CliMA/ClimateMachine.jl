@@ -21,7 +21,7 @@ export PrognosticVariable,
     AbstractMomentum,
     AbstractEnergy,
     AbstractMoisture,
-    Precipitation,
+    AbstractPrecipitation,
     AbstractTracers
 
 export FirstOrder, SecondOrder
@@ -41,7 +41,7 @@ abstract type PrognosticVariable end
 abstract type AbstractMomentum <: PrognosticVariable end
 abstract type AbstractEnergy <: PrognosticVariable end
 abstract type AbstractMoisture <: PrognosticVariable end
-abstract type Precipitation <: PrognosticVariable end
+abstract type AbstractPrecipitation <: PrognosticVariable end
 abstract type AbstractTracers{N} <: PrognosticVariable end
 
 

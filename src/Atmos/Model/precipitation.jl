@@ -140,6 +140,7 @@ end
 eq_tends(::Rain, ::RainModel, ::Flux{FirstOrder}) = (PrecipitationFlux(),)
 eq_tends(::Rain, ::RainModel, ::Flux{SecondOrder}) = (Diffusion(),)
 
-eq_tends(::Precipitation, ::RainSnowModel, ::Flux{FirstOrder}) =
+eq_tends(::AbstractPrecipitation, ::RainSnowModel, ::Flux{FirstOrder}) =
     (PrecipitationFlux(),)
-eq_tends(::Precipitation, ::RainSnowModel, ::Flux{SecondOrder}) = (Diffusion(),)
+eq_tends(::AbstractPrecipitation, ::RainSnowModel, ::Flux{SecondOrder}) =
+    (Diffusion(),)

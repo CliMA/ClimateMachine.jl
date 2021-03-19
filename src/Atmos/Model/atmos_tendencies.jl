@@ -45,8 +45,8 @@ eq_tends(pv::AbstractEnergy, m::AtmosModel, tt::Flux{FirstOrder}) =
 # AbstractMoisture
 eq_tends(::AbstractMoisture, ::AtmosModel, ::Flux{FirstOrder}) = (Advect(),)
 
-# Precipitation
-eq_tends(pv::Precipitation, m::AtmosModel, tt::Flux{FirstOrder}) =
+# AbstractPrecipitation
+eq_tends(pv::AbstractPrecipitation, m::AtmosModel, tt::Flux{FirstOrder}) =
     (eq_tends(pv, m.precipitation, tt)...,)
 
 # Tracers
@@ -99,8 +99,8 @@ eq_tends(pv::AbstractMoisture, m::AtmosModel, tt::Flux{SecondOrder}) = (
     eq_tends(pv, m.hyperdiffusion, tt)...,
 )
 
-# Precipitation
-eq_tends(pv::Precipitation, m::AtmosModel, tt::Flux{SecondOrder}) =
+# AbstractPrecipitation
+eq_tends(pv::AbstractPrecipitation, m::AtmosModel, tt::Flux{SecondOrder}) =
     (eq_tends(pv, m.precipitation, tt)...,)
 
 # Tracers
