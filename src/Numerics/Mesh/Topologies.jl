@@ -154,16 +154,11 @@ struct BoxElementTopology{dim, T, nb} <: AbstractTopology{dim, T, nb}
     origsendorder::Array{Int64, 1}
 
     """
-    Tuple of boundary to element. `bndytoelem[b][i]` is the element which faces
-    the `i`th boundary element of boundary `b`.
+    A `Tuple` of `Tuple` of boundary faces: `bndyfaces[b][f]` will contain either
+    - an array of indices of `realelems` for which face `f` has boundary tag `b`, or
+    - `nothing` if there are no such elements.
     """
-    bndytoelem::NTuple{nb, Array{Int64, 1}}
-
-    """
-    Tuple of boundary to element face. `bndytoface[b][i]` is the face number of
-    the element which faces the `i`th boundary element of boundary `b`.
-    """
-    bndytoface::NTuple{nb, Array{Int64, 1}}
+    bndyfaces::NTuple{nb, Array{Int64, 1}}
 
     function BoxElementTopology{dim, T, nb}(
         mpicomm,
@@ -182,8 +177,7 @@ struct BoxElementTopology{dim, T, nb} <: AbstractTopology{dim, T, nb}
         nabrtorecv,
         nabrtosend,
         origsendorder,
-        bndytoelem,
-        bndytoface,
+        bndyfaces,
     ) where {dim, T, nb}
 
         exteriorelems = sort(unique(sendelems))
@@ -208,8 +202,7 @@ struct BoxElementTopology{dim, T, nb} <: AbstractTopology{dim, T, nb}
             nabrtorecv,
             nabrtosend,
             origsendorder,
-            bndytoelem,
-            bndytoface,
+            bndyfaces,
         )
     end
 end
@@ -421,14 +414,14 @@ function BrickTopology(
         connectivity == :face ?
         BrickMesh.connectmesh(mpicomm, topology[1:4]...) :
         BrickMesh.connectmeshfull(mpicomm, topology[1:4]...)
-    bndytoelem, bndytoface = BrickMesh.enumerateboundaryfaces!(
-        topology.elemtoelem,
+    bndyfaces = BrickMesh.boundaryfaces!(
+        topology.realelems,
         topology.elemtobndy,
         periodicity,
         boundary,
     )
 
-    nb = length(bndytoelem)
+    nb = length(bndyfaces)
     dim = length(elemrange)
     T = eltype(topology.elemtocoord)
     return BrickTopology{dim, T, nb}(BoxElementTopology{dim, T, nb}(
@@ -448,8 +441,7 @@ function BrickTopology(
         topology.nabrtorecv,
         topology.nabrtosend,
         origsendorder,
-        bndytoelem,
-        bndytoface,
+        bndyfaces,
     ))
 end
 
@@ -720,13 +712,13 @@ function StackedBrickTopology(
         ) for n in 1:length(nabrtorank)
     ]
 
-    bndytoelem, bndytoface = BrickMesh.enumerateboundaryfaces!(
-        elemtoelem,
+    bndyfaces = BrickMesh.boundaryfaces(
+        realelems,
         elemtobndy,
         periodicity,
         boundary,
     )
-    nb = length(bndytoelem)
+    nb = length(bndyfaces)
 
     T = eltype(basetopo.elemtocoord)
 
@@ -748,8 +740,7 @@ function StackedBrickTopology(
             nabrtorecv,
             nabrtosend,
             basetopo.origsendorder,
-            bndytoelem,
-            bndytoface,
+            bndyfaces,
         ),
         stacksize,
         periodicity[end],
@@ -1250,13 +1241,13 @@ function StackedCubedSphereTopology(
         ) for n in 1:length(nabrtorank)
     ]
 
-    bndytoelem, bndytoface = BrickMesh.enumerateboundaryfaces!(
-        elemtoelem,
+    bndyfaces = BrickMesh.boundaryfaces(
+        realelems,
         elemtobndy,
         (false,),
         (boundary,),
     )
-    nb = length(bndytoelem)
+    nb = length(bndyfaces)
 
     StackedCubedSphereTopology{T, nb}(
         BoxElementTopology{3, T, nb}(
@@ -1276,8 +1267,7 @@ function StackedCubedSphereTopology(
             nabrtorecv,
             nabrtosend,
             basetopo.origsendorder,
-            bndytoelem,
-            bndytoface,
+            bndyfaces,
         ),
         stacksize,
     )
@@ -1375,11 +1365,11 @@ end
 """
     compute_lat_long(X,Y,δ,faceid)
 Helper function to allow computation of latitute and longitude coordinates
-given the cubed sphere coordinates X, Y, δ, faceid 
+given the cubed sphere coordinates X, Y, δ, faceid
 """
 function compute_lat_long(X, Y, δ, faceid)
     if faceid == 1
-        λ = atan(X)                     # longitude 
+        λ = atan(X)                     # longitude
         ϕ = atan(cos(λ) * Y)            # latitude
     elseif faceid == 2
         λ = atan(X) + π / 2
@@ -1403,8 +1393,8 @@ end
 
 """
     AnalyticalTopography
-Abstract type to allow dispatch over different analytical topography prescriptions 
-in experiments. 
+Abstract type to allow dispatch over different analytical topography prescriptions
+in experiments.
 """
 abstract type AnalyticalTopography end
 
@@ -1421,15 +1411,15 @@ end
 
 """
     NoTopography <: AnalyticalTopography
-Allows definition of fallback methods in case cubedshelltopowarp is used with 
-no prescribed topography function. 
+Allows definition of fallback methods in case cubedshelltopowarp is used with
+no prescribed topography function.
 """
 struct NoTopography <: AnalyticalTopography end
 
-### DCMIP Mountain 
+### DCMIP Mountain
 """
     DCMIPMountain <: AnalyticalTopography
-Topography description based on standard DCMIP experiments. 
+Topography description based on standard DCMIP experiments.
 """
 struct DCMIPMountain <: AnalyticalTopography end
 function compute_analytical_topography(
@@ -1447,7 +1437,7 @@ function compute_analytical_topography(
     φ_m = 0
     λ_m = π * 3 / 2
     r_m = acos(sin(φ_m) * sin(ϕ) + cos(φ_m) * cos(ϕ) * cos(λ - λ_m))
-    # Define mesh decay profile 
+    # Define mesh decay profile
     Δ = (r_outer - abs(sR)) / (r_outer - r_inner)
     if r_m < R_m
         zs =
@@ -1464,15 +1454,15 @@ function compute_analytical_topography(
 end
 
 """
-    cubedshelltopowarp(a, b, c, R = max(abs(a), abs(b), abs(c)); 
+    cubedshelltopowarp(a, b, c, R = max(abs(a), abs(b), abs(c));
                        r_inner = _planet_radius,
                        r_outer = _planet_radius + domain_height,
                        topography = NoTopography())
 
 Given points `(a, b, c)` on the surface of a cube, warp the points out to a
 spherical shell of radius `R` based on the equiangular gnomonic grid proposed by
-[Ronchi1996](@cite). Assumes a user specified modified radius using the 
-compute_analytical_topography function. Defaults to smooth cubed sphere unless otherwise specified 
+[Ronchi1996](@cite). Assumes a user specified modified radius using the
+compute_analytical_topography function. Defaults to smooth cubed sphere unless otherwise specified
 via the AnalyticalTopography type.
 """
 function cubedshelltopowarp(

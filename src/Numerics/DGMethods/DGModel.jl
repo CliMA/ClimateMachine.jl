@@ -2162,6 +2162,215 @@ function launch_interface_tendency!(
     return comp_stream
 end
 
+
+"""
+    launch_boundary_tendency!(spacedisc, state_prognostic, t; surface::Symbol, dependencies)
+
+Launches horizontal and vertical boundary kernels for computing tendencies (sources, sinks, etc).
+"""
+function launch_boundary_tendency!(
+    spacedisc,
+    tendency,
+    state_prognostic,
+    t,
+    α,
+    β;
+    dependencies,
+)
+
+    dim = dimensionality(spacedisc.grid)
+    if dim == 2
+        if spacedisc.direction isa EveryDirection
+            faces = 1:4
+        elseif spacedisc.direction isa HorizontalDirection
+            faces = 1:2
+        else
+            faces = 3:4
+        end
+    else
+        if spacedisc.direction isa EveryDirection
+            faces = 1:6
+        elseif spacedisc.direction isa HorizontalDirection
+            faces = 1:4
+        else
+            faces = 5:6
+        end
+    end
+
+    comp_stream = dependencies
+
+    for f in faces
+        for (b,bc) in enumerate(boundaryconditions(spacedisc.balance_law))
+            if grid.bndyfaces[b][f] !== nothing
+                comp_stream = dgsem_boundary_tendency!(info.device, workgroup)(
+                    spacedisc.balance_law,
+                    bc,
+                    Val(info),
+                    HorizontalDirection(),
+                    spacedisc.numerical_flux_first_order,
+                    numerical_flux_second_order,
+                    tendency.data,
+                    state_prognostic.data,
+                    grad_flux_data,
+                    Qhypervisc_grad_data,
+                    spacedisc.state_auxiliary.data,
+                    spacedisc.boundary_auxiliary[b][f],
+                    nothing, # boundary_tendency[b][f],
+                    spacedisc.grid.vgeo,
+                    spacedisc.grid.sgeo,
+                    t,
+                    spacedisc.grid.vmap⁻,
+                    spacedisc.grid.vmap⁺,
+                    spacedisc.grid.elemtobndy,
+                    elems,
+                    α;
+                    ndrange = ndrange,
+                    dependencies = comp_stream,
+                )
+            end
+        end
+    end
+
+
+    # XXX: This is until FVM with diffusion is implemented
+    if spacedisc isa DGFVModel
+        @assert 0 == number_states(spacedisc.balance_law, Hyperdiffusive())
+        Qhypervisc_grad_data = nothing
+    elseif spacedisc isa DGModel
+        Qhypervisc_grad_data = spacedisc.states_higher_order[1].data
+    end
+    grad_flux_data = spacedisc.state_gradient_flux.data
+    numerical_flux_second_order = spacedisc.numerical_flux_second_order
+
+    info = basic_launch_info(spacedisc)
+
+    if
+
+    # If the model direction is EveryDirection, we need to perform
+    # both horizontal AND vertical kernel calls; otherwise, we only
+    # call the kernel corresponding to the model direction
+    # `spacedisc.diffusion_direction`
+    if spacedisc.direction isa EveryDirection ||
+       spacedisc.direction isa HorizontalDirection
+
+        # Hoirzontal polynomial order (assumes same for both horizontal
+        # directions)
+        horizontal_polyorder = info.N[1]
+
+        comp_stream = dgsem_interface_tendency!(info.device, workgroup)(
+            spacedisc.balance_law,
+            Val(info),
+            HorizontalDirection(),
+            spacedisc.numerical_flux_first_order,
+            numerical_flux_second_order,
+            tendency.data,
+            state_prognostic.data,
+            grad_flux_data,
+            Qhypervisc_grad_data,
+            spacedisc.state_auxiliary.data,
+            spacedisc.grid.vgeo,
+            spacedisc.grid.sgeo,
+            t,
+            spacedisc.grid.vmap⁻,
+            spacedisc.grid.vmap⁺,
+            spacedisc.grid.elemtobndy,
+            elems,
+            α;
+            ndrange = ndrange,
+            dependencies = comp_stream,
+        )
+    end
+
+    # Vertical kernel call
+    if spacedisc.direction isa EveryDirection ||
+       spacedisc.direction isa VerticalDirection
+        elems =
+            surface === :interior ? elems = spacedisc.grid.interiorelems :
+            spacedisc.grid.exteriorelems
+
+        if spacedisc isa DGModel
+            workgroup = info.Nfp_h
+            ndrange = workgroup * length(elems)
+
+            # Vertical polynomial degree
+            vertical_polyorder = info.N[info.dim]
+
+            comp_stream = dgsem_interface_tendency!(info.device, workgroup)(
+                spacedisc.balance_law,
+                Val(info),
+                VerticalDirection(),
+                spacedisc.numerical_flux_first_order,
+                numerical_flux_second_order,
+                tendency.data,
+                state_prognostic.data,
+                grad_flux_data,
+                Qhypervisc_grad_data,
+                spacedisc.state_auxiliary.data,
+                spacedisc.grid.vgeo,
+                spacedisc.grid.sgeo,
+                t,
+                spacedisc.grid.vmap⁻,
+                spacedisc.grid.vmap⁺,
+                spacedisc.grid.elemtobndy,
+                elems,
+                α;
+                ndrange = ndrange,
+                dependencies = comp_stream,
+            )
+        elseif spacedisc isa DGFVModel
+            # Make sure FVM in the vertical
+            @assert info.N[info.dim] == 0
+
+            # The FVM will only work on stacked grids!
+            @assert isstacked(spacedisc.grid.topology)
+
+            # Figute out the stacking of the mesh
+            nvertelem = spacedisc.grid.topology.stacksize
+            nhorzelem = div(length(elems), nvertelem)
+            periodicstack = spacedisc.grid.topology.periodicstack
+
+            # 2-D workgroup
+            workgroup = info.Nfp_h
+            ndrange = workgroup * nhorzelem
+
+            # XXX: This will need to be updated to diffusion
+            comp_stream = vert_fvm_interface_tendency!(info.device, workgroup)(
+                spacedisc.balance_law,
+                Val(info),
+                Val(nvertelem),
+                Val(periodicstack),
+                VerticalDirection(),
+                spacedisc.fv_reconstruction,
+                spacedisc.numerical_flux_first_order,
+                numerical_flux_second_order,
+                tendency.data,
+                state_prognostic.data,
+                grad_flux_data,
+                spacedisc.state_auxiliary.data,
+                spacedisc.grid.vgeo,
+                spacedisc.grid.sgeo,
+                t,
+                spacedisc.grid.elemtobndy,
+                elems,
+                α,
+                β,
+                # If we are computing in every direction, we need to
+                # increment after we compute the horizontal values
+                spacedisc.direction isa EveryDirection,
+                # If we are computing in vertical direction, we need to
+                # add sources here
+                spacedisc.direction isa VerticalDirection,
+                ndrange = ndrange,
+                dependencies = comp_stream,
+            )
+        else
+            error("unknown spatial discretization: $(typeof(spacedisc))")
+        end
+    end
+
+    return comp_stream
+end
+
 function fvm_balance!(
     balance_func,
     m::BalanceLaw,

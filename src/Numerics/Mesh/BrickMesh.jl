@@ -1087,12 +1087,16 @@ function connectmesh(
 end
 
 """
-    (bndytoelem, bndytoface) = enumerateboundaryfaces!(elemtoelem, elemtobndy, periodicity, boundary)
+    bndyfaces = boundaryfaces(elemtoelem, elemtobndy, periodicity, boundary)
 
-Update the `elemtoelem` array based on the boundary faces specified in
-`elemtobndy`. Builds the `bndytoelem` and `bndytoface` tuples.
+A Tuple of Tuple of boundary faces: `bndyfaces[b][f]` will contain either
+ - an array of indices of `realelems` for which face `f` has boundary tag `b`, or
+ - `nothing` if there are no such elements.
+
+We split out the faces to avoid race conditions: in most cases, only one or two of the tuple elements will not be `nothing`.
 """
-function enumerateboundaryfaces!(elemtoelem, elemtobndy, periodicity, boundary)
+function boundaryfaces(realelems, elemtobndy, periodicity, boundary)
+    # find number of unique boundaries
     nb = 0
     for i in 1:length(periodicity)
         if !periodicity[i]
@@ -1103,27 +1107,15 @@ function enumerateboundaryfaces!(elemtoelem, elemtobndy, periodicity, boundary)
     # (should never be violated unless more general unstructured meshes are used
     # since cube meshes only have 6 faces in 3D, and only 1 bcs is currently allowed
     # per face)
-
     @assert nb <= 6
+    nface = size(elemtobndy, 1)
 
-    bndytoelem = ntuple(b -> Vector{Int64}(), nb)
-    bndytoface = ntuple(b -> Vector{Int64}(), nb)
-
-    nface, nelem = size(elemtoelem)
-
-    N = zeros(Int, nb)
-    for e in 1:nelem
-        for f in 1:nface
-            d = elemtobndy[f, e]
-            @assert 0 <= d <= nb
-            if d != 0
-                elemtoelem[f, e] = N[d] += 1
-                push!(bndytoelem[d], e)
-                push!(bndytoface[d], f)
-            end
+    ntuple(nb) do b
+        ntuple(nface) do f
+            elemlist = [e for e in realelems if elemtobndy[f, e] = b]
+            isempty(elemlist) ? nothing : elemlist
         end
     end
-    return (bndytoelem, bndytoface)
 end
 
 """
@@ -1131,8 +1123,8 @@ end
                 faceconnections)
 
 This function takes in a mesh (as returned for example by `brickmesh`) and
-returns a corner connected mesh. It is similar to [`connectmesh`](@ref) but returns 
-a corner connected mesh, i.e. `ghostelems` will also include remote elements 
+returns a corner connected mesh. It is similar to [`connectmesh`](@ref) but returns
+a corner connected mesh, i.e. `ghostelems` will also include remote elements
 that are only connected by vertices. This returns a `NamedTuple` of:
 
  - `elems` the range of element indices
@@ -1463,16 +1455,16 @@ Returns the face mask for mapping element vertices to face vertices.
 
 ex: for 2D element with vertices (1, 2, 3, 4)
 
-       3---4  
-       |   |  
-       1---2 
+       3---4
+       |   |
+       1---2
 
 the function returns the face mask
-f1 | f2 | f3 | f4 
+f1 | f2 | f3 | f4
 =================
  1 |  2 |  1 | 3
  3 |  4 |  2 | 4
-================= 
+=================
 """
 function build_fmask(dim)
     nvert = 2^dim

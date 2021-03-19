@@ -218,6 +218,13 @@ struct DiscontinuousSpectralElementGrid{
     "Array of real elements that have at least one ghost element as a neighbor"
     exteriorelems::Any
 
+    """
+    A `Tuple` of `Tuple` of boundary faces: `bndyfaces[b][f]` will contain either
+    - an array of indices of `realelems` for which face `f` has boundary tag `b`, or
+    - `nothing` if there are no such elements.
+    """
+    bndyfaces::Any
+
     "Array indicating if a degree of freedom (real or ghost) is active"
     activedofs::Any
 
@@ -315,6 +322,12 @@ struct DiscontinuousSpectralElementGrid{
         vmap⁺ = DeviceArray(vmap⁺)
         vmapsend = DeviceArray(vmapsend)
         vmaprecv = DeviceArray(vmaprecv)
+        bndyfaces = map(topology.bndyfaces) do bndy
+            map(bndy) do elems
+                isnothing(elems) ? elems : DeviceArray(elems)
+            end
+        end
+
         activedofs = DeviceArray(activedofs)
         ω = DeviceArray.(ω)
         D = DeviceArray.(D)
@@ -367,6 +380,7 @@ struct DiscontinuousSpectralElementGrid{
             nabrtovmapsend,
             DeviceArray(topology.interiorelems),
             DeviceArray(topology.exteriorelems),
+            bndyfaces,
             activedofs,
             ω,
             D,
