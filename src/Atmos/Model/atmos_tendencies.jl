@@ -42,8 +42,8 @@ eq_tends(::ρθ_liq_ice, m::θModel, tt::Flux{FirstOrder}) = (Advect(),)
 eq_tends(pv::AbstractEnergy, m::AtmosModel, tt::Flux{FirstOrder}) =
     (eq_tends(pv, m.energy, tt)..., eq_tends(pv, m.radiation, tt)...)
 
-# Moisture
-eq_tends(::Moisture, ::AtmosModel, ::Flux{FirstOrder}) = (Advect(),)
+# AbstractMoisture
+eq_tends(::AbstractMoisture, ::AtmosModel, ::Flux{FirstOrder}) = (Advect(),)
 
 # Precipitation
 eq_tends(pv::Precipitation, m::AtmosModel, tt::Flux{FirstOrder}) =
@@ -57,10 +57,13 @@ eq_tends(pv::Tracers{N}, ::AtmosModel, ::Flux{FirstOrder}) where {N} =
 ##### Second order fluxes
 #####
 
-eq_tends(::Union{Mass, Momentum, Moisture}, ::DryModel, ::Flux{SecondOrder}) =
-    ()
 eq_tends(
-    ::Union{Mass, Momentum, Moisture},
+    ::Union{Mass, Momentum, AbstractMoisture},
+    ::DryModel,
+    ::Flux{SecondOrder},
+) = ()
+eq_tends(
+    ::Union{Mass, Momentum, AbstractMoisture},
     ::AbstractMoistureModel,
     ::Flux{SecondOrder},
 ) = (MoistureDiffusion(),)
@@ -89,8 +92,8 @@ eq_tends(pv::AbstractEnergy, m::AtmosModel, tt::Flux{SecondOrder}) = (
     eq_tends(pv, m.hyperdiffusion, tt)...,
 )
 
-# Moisture
-eq_tends(pv::Moisture, m::AtmosModel, tt::Flux{SecondOrder}) = (
+# AbstractMoisture
+eq_tends(pv::AbstractMoisture, m::AtmosModel, tt::Flux{SecondOrder}) = (
     eq_tends(pv, m.moisture, tt)...,
     eq_tends(pv, m.turbconv, tt)...,
     eq_tends(pv, m.hyperdiffusion, tt)...,

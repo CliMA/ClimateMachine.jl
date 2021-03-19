@@ -18,7 +18,11 @@
 using DispatchedTuples
 
 export PrognosticVariable,
-    AbstractMomentum, AbstractEnergy, Moisture, Precipitation, AbstractTracers
+    AbstractMomentum,
+    AbstractEnergy,
+    AbstractMoisture,
+    Precipitation,
+    AbstractTracers
 
 export FirstOrder, SecondOrder
 export AbstractTendencyType, Flux, Source
@@ -36,7 +40,7 @@ abstract type PrognosticVariable end
 
 abstract type AbstractMomentum <: PrognosticVariable end
 abstract type AbstractEnergy <: PrognosticVariable end
-abstract type Moisture <: PrognosticVariable end
+abstract type AbstractMoisture <: PrognosticVariable end
 abstract type Precipitation <: PrognosticVariable end
 abstract type AbstractTracers{N} <: PrognosticVariable end
 
@@ -143,8 +147,8 @@ variable type `pv`.
 # Example
 
 ```julia
-get_prog_state(state, ::Moisture) = (state.moisture, :ρq_tot)
-var, name = get_prog_state(state, Moisture())
+get_prog_state(state, ::TotalMoisture) = (state.moisture, :ρq_tot)
+var, name = get_prog_state(state, TotalMoisture())
 @test getproperty(var, name) == state.moisture.ρq_tot
 ```
 """
