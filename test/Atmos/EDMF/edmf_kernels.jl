@@ -411,14 +411,14 @@ function compute_gradient_argument!(
     en_tf.q_tot = q_tot_en
     en_tf.w = env.w
 
-    en_tf.tke = enforce_positivity(en.ρatke) / (env.a * gm.ρ)
-    en_tf.θ_liq_cv = enforce_positivity(en.ρaθ_liq_cv) / (env.a * gm.ρ)
+    en_tf.tke = en.ρatke / (env.a * gm.ρ)
+    en_tf.θ_liq_cv = en.ρaθ_liq_cv / (env.a * gm.ρ)
 
     if m.moisture isa DryModel
         en_tf.q_tot_cv = FT(0)
         en_tf.θ_liq_q_tot_cv = FT(0)
     else
-        en_tf.q_tot_cv = enforce_positivity(en.ρaq_tot_cv) / (env.a * gm.ρ)
+        en_tf.q_tot_cv = en.ρaq_tot_cv / (env.a * gm.ρ)
         en_tf.θ_liq_q_tot_cv = en.ρaθ_liq_q_tot_cv / (env.a * gm.ρ)
     end
 
@@ -456,7 +456,8 @@ function compute_gradient_flux!(
         up_dif[i].∇w = up_∇tf[i].w
     end
 
-    ρ_inv = 1 / gm.ρ
+    env = environment_vars(state, N_up)
+    ρa₀ = gm.ρ * env.a
     # first moment grid mean coming from environment gradients only
     en_dif.∇θ_liq = en_∇tf.θ_liq
     en_dif.∇q_tot = en_∇tf.q_tot
@@ -478,8 +479,7 @@ function compute_gradient_flux!(
     # Recompute l_mix, K_m and tke budget terms for output.
     ts = recover_thermo_state_all(m, state, aux)
 
-    env = environment_vars(state, N_up)
-    tke_en = enforce_positivity(en.ρatke) * ρ_inv / env.a
+    tke_en = enforce_positivity(en.ρatke) / ρa₀
 
     buoy = compute_buoyancy(m, state, env, ts.en, ts.up, aux.ref_state)
 
@@ -498,7 +498,6 @@ function compute_gradient_flux!(
 
     en_dif.K_m = m.turbconv.mix_len.c_m * en_dif.l_mix * sqrt(tke_en)
     K_h = en_dif.K_m / Pr_t
-    ρa₀ = gm.ρ * env.a
     Diss₀ = m.turbconv.mix_len.c_d * sqrt(tke_en) / en_dif.l_mix
 
     en_dif.shear_prod = ρa₀ * en_dif.K_m * gm_dif.S² # tke Shear source
@@ -532,7 +531,7 @@ function source(::up_ρaθ_liq{i}, ::EntrDetr, atmos, args) where {i}
 end
 
 function source(::up_ρaq_tot{i}, ::EntrDetr, atmos, args) where {i}
-    @unpack E_dyn, Δ_dyn, E_trb, env, ρa_up, ts_en = args.precomputed.turbconv
+    @unpack E_dyn, Δ_dyn, E_trb, ρa_up, ts_en = args.precomputed.turbconv
     up = args.state.turbconv.updraft
     q_tot_en = total_specific_humidity(ts_en)
     entr = fix_void_up(ρa_up[i], (E_dyn[i] + E_trb[i]) * q_tot_en)
@@ -681,40 +680,31 @@ function source(::en_ρatke, ::BuoySource, atmos, args)
 end
 
 function source(::en_ρatke, ::DissSource, atmos, args)
-    @unpack env, l_mix, Diss₀ = args.precomputed.turbconv
-    gm = args.state
+    @unpack Diss₀ = args.precomputed.turbconv
     en = args.state.turbconv.environment
-    ρa₀ = gm.ρ * env.a
-    tke_en = enforce_positivity(en.ρatke) / gm.ρ / env.a
-    return -ρa₀ * Diss₀ * tke_en  # tke Dissipation
+    return -Diss₀ * en.ρatke  # tke Dissipation
 end
 
 function source(::en_ρaθ_liq_cv, ::DissSource, atmos, args)
-    @unpack env, K_h, Diss₀ = args.precomputed.turbconv
-    gm = args.state
+    @unpack Diss₀ = args.precomputed.turbconv
     en = args.state.turbconv.environment
-    ρa₀ = gm.ρ * env.a
-    return -ρa₀ * Diss₀ * en.ρaθ_liq_cv
+    return -Diss₀ * en.ρaθ_liq_cv
 end
 
 function source(::en_ρaq_tot_cv, ::DissSource, atmos, args)
-    @unpack env, K_h, Diss₀ = args.precomputed.turbconv
-    gm = args.state
+    @unpack Diss₀ = args.precomputed.turbconv
     en = args.state.turbconv.environment
-    ρa₀ = gm.ρ * env.a
-    return -ρa₀ * Diss₀ * en.ρaq_tot_cv
+    return -Diss₀ * en.ρaq_tot_cv
 end
 
 function source(::en_ρaθ_liq_q_tot_cv, ::DissSource, atmos, args)
-    @unpack env, K_h, Diss₀ = args.precomputed.turbconv
-    gm = args.state
+    @unpack Diss₀ = args.precomputed.turbconv
     en = args.state.turbconv.environment
-    ρa₀ = gm.ρ * env.a
-    return -ρa₀ * Diss₀ * en.ρaθ_liq_q_tot_cv
+    return -Diss₀ * en.ρaθ_liq_q_tot_cv
 end
 
 function source(::en_ρaθ_liq_cv, ::GradProdSource, atmos, args)
-    @unpack env, K_h, Diss₀ = args.precomputed.turbconv
+    @unpack env, K_h = args.precomputed.turbconv
     gm = args.state
     en_dif = args.diffusive.turbconv.environment
     ρa₀ = gm.ρ * env.a
@@ -722,7 +712,7 @@ function source(::en_ρaθ_liq_cv, ::GradProdSource, atmos, args)
 end
 
 function source(::en_ρaq_tot_cv, ::GradProdSource, atmos, args)
-    @unpack env, K_h, Diss₀ = args.precomputed.turbconv
+    @unpack env, K_h = args.precomputed.turbconv
     gm = args.state
     en_dif = args.diffusive.turbconv.environment
     ρa₀ = gm.ρ * env.a
@@ -730,7 +720,7 @@ function source(::en_ρaq_tot_cv, ::GradProdSource, atmos, args)
 end
 
 function source(::en_ρaθ_liq_q_tot_cv, ::GradProdSource, atmos, args)
-    @unpack env, K_h, Diss₀ = args.precomputed.turbconv
+    @unpack env, K_h = args.precomputed.turbconv
     gm = args.state
     en_dif = args.diffusive.turbconv.environment
     ρa₀ = gm.ρ * env.a
