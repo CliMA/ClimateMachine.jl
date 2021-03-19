@@ -68,41 +68,11 @@ AdvectionProblem <: ProblemType
 end
 
 """
-    Initialize prognostic and auxiliary variables (per each spatial point = node)
-"""
-@inline function init_state_prognostic!(
-    problem::AdvectionProblem,
-    state::Vars,
-    aux::Vars,
-    localgeo,
-    t::Real,
-)
-    state.ρ = initial_condition!(problem, state, aux, t)
-end
-
-"""
     Boundary conditions 
     - nothing if diffusion_direction (or direction) = HorizotalDirection()
 """
 @inline boundary_conditions(::AdvectionProblem, ::BalanceLaw) = ()
 @inline boundary_state!(nf, ::AdvectionProblem, ::BalanceLaw, _...) = nothing
-
-"""
-    Initial conditions
-    - this is temperarily set up const ρ=1.0 everywhere
-    - need to be changed later
-"""
-@inline function initial_condition!(
-    problem::AdvectionProblem,
-    state,
-    aux,
-    t,
-)
-    @inbounds begin
-        FT = eltype(aux) 
-        return 1.0 
-    end
-end
 
 
 """

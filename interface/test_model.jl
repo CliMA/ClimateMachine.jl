@@ -92,11 +92,16 @@ function vars_state(m::TestEquations, st::Auxiliary, FT)
     @vars begin
         coord::SVector{3, FT}
         u::SVector{3, FT}
-        #ρ_analytical::FT
         
         hyperdiffusion::vars_state(m.hyperdiffusion, st, FT)
         advection::vars_state(m.advection, st, FT)
         turbulence::vars_state(m.turbulence, st, FT)
+
+        ρ_analytical::FT
+        D::FT
+        H::FT
+        cD::FT
+        cH::FT
     end
 end
 function vars_state(m::TestEquations, st::Gradient, FT)
@@ -141,8 +146,7 @@ function init_state_prognostic!(
     params = m.initial_value_problem.params
     ic = m.initial_value_problem.initial_conditions
 
-    #state.ρ = ic.ρ(params, x, y, z)
-    state.ρ = ic.ρ(m.hyperdiffusion, state, aux, t)
+    state.ρ = ic.state.ρ(params, x, y, z)
 end
 
 function nodal_init_state_auxiliary!(
@@ -151,37 +155,37 @@ function nodal_init_state_auxiliary!(
     tmp::Vars,
     geom::LocalGeometry,
 )
-    # @show m
-    # @show m.turbulence
-    aux.coord = geom.coord
-    
     FT = eltype(aux)
-
-    # From initial conditions
-    #aux.u = (FT(1),FT(1),FT(0))
+    aux.coord = geom.coord
     x = aux.coord[1]
     y = aux.coord[2]
     z = aux.coord[3]
+    
+    # From initial conditions
     params = m.initial_value_problem.params
     ic = m.initial_value_problem.initial_conditions
-    aux.u = ic.u(params, x, y, z)
+    aux.u = ic.aux.u(params, x, y, z)
 
-    if m.turbulence != nothing
-        nodal_init_state_auxiliary!(
-            m.turbulence,
-            aux,
-            tmp,
-            geom,
+    nodal_init_state_auxiliary!(
+        m.turbulence,
+        aux,
+        tmp,
+        geom,
         )
-    end
-    if m.hyperdiffusion != nothing
-        nodal_init_state_auxiliary!(
-            m.hyperdiffusion,
-            aux,
-            tmp,
-            geom,
-        )
-    end
+    nodal_init_state_auxiliary!(
+        m.hyperdiffusion,
+        aux,
+        tmp,
+        geom,
+    )
+    # φ = latitude(SphericalOrientation(), aux)
+    # λ = longitude(SphericalOrientation(), aux)
+    # if φ == 0.0 && λ == 0.0
+    #     @show aux.D
+    #     @show aux.H 
+    #     @show aux.cD
+    #     @show aux.cH
+    # end
 end
 
 
@@ -307,11 +311,30 @@ function nodal_update_auxiliary_state!(
     aux::Vars,
     t::Real,
 )
-    #get_analytical(m, state, aux, t)
+
+    x = aux.coord[1]
+    y = aux.coord[2]
+    z = aux.coord[3]
+
+    params = m.initial_value_problem.params
+    ic = m.initial_value_problem.initial_conditions
+
+    D = aux.D
+    cD = aux.cD
+    H = aux.H
+    cH = aux.cH
+
+    aux.ρ_analytical = ic.state.ρ(params, x, y, z) * exp(- (D*cD+H*cH)*t)
+
+    # φ = latitude(SphericalOrientation(), aux)
+    # λ = longitude(SphericalOrientation(), aux)
+    # if φ == 0.0 && λ == 0.0
+    #     @show aux.ρ_analytical
+    # end
 end
-function get_analytical(m, state, aux, t)
-    aux.ρ_analytical = initial_condition!(m.hyperdiffusion, state, aux, t)
-end
+# function get_analytical(m, state, aux, t)
+#     aux.ρ_analytical = initial_condition!(m.hyperdiffusion, state, aux, t)
+# end
 
 # Defaults
 vars_state(m::Union{ProblemType, Nothing}, st::Prognostic, FT) = @vars()
@@ -326,3 +349,4 @@ flux_first_order!(::Nothing, _...) = nothing
 flux_second_order!(::Nothing, _...) = nothing
 compute_gradient_argument!(::Nothing, _...) = nothing
 compute_gradient_flux!(::Nothing, _...) = nothing
+nodal_init_state_auxiliary!(::Nothing, _...) = nothing

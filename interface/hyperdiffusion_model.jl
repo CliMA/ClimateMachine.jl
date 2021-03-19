@@ -111,17 +111,8 @@ end
 end
 
 """
-    Initialize prognostic and auxiliary variables (per each spatial point = node)
+    Initialize auxiliary variables (per each spatial point = node)
 """
-@inline function init_state_prognostic!(
-    problem::HyperDiffusionProblem,
-    state::Vars,
-    aux::Vars,
-    localgeo,
-    t::Real,
-)
-    state.ρ = initial_condition!(problem, state, aux, t)
-end
 @inline function nodal_init_state_auxiliary!(
     problem::HyperDiffusionCubedSphereProblem,
     aux::Vars,
@@ -133,10 +124,13 @@ end
     
     r = norm(aux.coord)
     l = problem.l
-    aux.hyperdiffusion.c = get_c(l, r)
+    aux.hyperdiffusion.c = ( get_c(l, r) )^2
     
     Δ_hor = lengthscale_horizontal(geom)
-    aux.hyperdiffusion.H = H(problem, Δ_hor)  
+    aux.hyperdiffusion.H = H(problem, Δ_hor) 
+    aux.H = aux.hyperdiffusion.H
+    aux.cH = aux.hyperdiffusion.c
+    nothing  
 end
 @inline function nodal_init_state_auxiliary!(
     problem::HyperDiffusionBoxProblem,
@@ -147,7 +141,9 @@ end
     FT = eltype(aux)
     Δ = lengthscale(geom)
 
-    aux.hyperdiffusion.H = H(problem, Δ)  
+    aux.hyperdiffusion.H = H(problem, Δ) 
+    aux.H = aux.hyperdiffusion.H
+    nothing  
 end
 
 """
@@ -157,37 +153,6 @@ end
 @inline boundary_conditions(::HyperDiffusionProblem, ::BalanceLaw) = ()
 @inline boundary_state!(nf, ::HyperDiffusionProblem, ::BalanceLaw, _...) = nothing
 
-"""
-    Initial conditions
-    - initial condition is given by ρ0 = Y{m,l}(θ, λ)
-    - test: ∇^4_horz ρ0 = l^2(l+1)^2/r^4 ρ0 where r=a+z
-"""
-@inline function initial_condition!(
-    problem::HyperDiffusionCubedSphereProblem,
-    state,
-    aux,
-    t,
-)
-    @inbounds begin
-        FT = eltype(aux) 
-        # import planet paraset
-        _a::FT = planet_radius(param_set)
-
-        φ = latitude(SphericalOrientation(), aux)
-        λ = longitude(SphericalOrientation(), aux)
-        r = norm(aux.coord)
-        
-        z = r - _a
-
-        l = Int64(problem.l)
-        m = Int64(problem.m)
-
-        c = get_c(l, r)
-        H = aux.hyperdiffusion.H
-        
-        return calc_Ylm(φ, λ, l, m) * exp(- H*c*t) # - H*c*t
-    end
-end
 
 """
     Other useful functions

@@ -169,7 +169,8 @@ end
 # end
 
 
-get_c(l,r) = l^2*(l+1)^2/r^4
+# get_c(l,r) = l^2*(l+1)^2/r^4
+get_c(l,r) = l*(l+1)/r^2
 
 calc_Plm(φ, l, m) = Compute_Legendre!(m, l, sin(φ), length(φ))
 

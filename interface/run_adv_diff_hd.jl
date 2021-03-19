@@ -37,20 +37,25 @@ advection = AdvectionCubedSphereProblem()
 #       longitude: λ ∈ [-π, π), λ = 0 is the Greenwich meridian
 #       latitude:  ϕ ∈ [-π/2, π/2], ϕ = 0 is the equator
 #       radius:    r ∈ [Rₑ - hᵐⁱⁿ, Rₑ + hᵐᵃˣ], Rₑ = Radius of earth; hᵐⁱⁿ, hᵐᵃˣ ≥ 0
-ρ₀(p, λ, ϕ, r)    = FT(1)
+
+# ρ₀(p, λ, ϕ, r) = calc_Ylm(ϕ, λ, difffusion_params.l, difffusion_params.m)
+ρ₀(p, λ, ϕ, r) = FT(1)
+
 uʳᵃᵈ(p, λ, ϕ, r) = 0
 uˡᵃᵗ(p, λ, ϕ, r) = 0
 uˡᵒⁿ(p, λ, ϕ, r) = 10 * cos(ϕ) #2 * FT(π) * cos(ϕ) * r
 # Cartesian Representation (boiler plate really)
 ρ₀ᶜᵃʳᵗ(p, x...) = ρ₀(p, lon(x...), lat(x...), rad(x...))
 
-ρ₀ᶜᵃʳᵗ(problem, state...) = initial_condition!(problem, state...) 
+# ρ₀ᶜᵃʳᵗ(problem, state...) = initial_condition!(problem, state...) 
 u⃗₀ᶜᵃʳᵗ(p, x...) = (   uʳᵃᵈ(p, lon(x...), lat(x...), rad(x...)) * r̂(x...) 
                     + uˡᵃᵗ(p, lon(x...), lat(x...), rad(x...)) * ϕ̂(x...)
                     + uˡᵒⁿ(p, lon(x...), lat(x...), rad(x...)) * λ̂(x...) ) 
 
-initial_problem = InitialValueProblem(difffusion_params, (ρ = ρ₀ᶜᵃʳᵗ, u = u⃗₀ᶜᵃʳᵗ))
-
+aux = (u=u⃗₀ᶜᵃʳᵗ, )
+init_state = (ρ=ρ₀ᶜᵃʳᵗ,)
+initial_conditions = (state=init_state, aux=aux)
+initial_problem = InitialValueProblem(difffusion_params, initial_conditions)
 
 # Boundary conditions
 ρu_bcs = (

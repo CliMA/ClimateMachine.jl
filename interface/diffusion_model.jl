@@ -110,24 +110,14 @@ end
 
 
 """
-    Initialize prognostic and auxiliary variables (per each spatial point = node)
+    Initialize auxiliary variables (per each spatial point = node)
 """
-@inline function init_state_prognostic!(
-    problem::DiffusionProblem,
-    state::Vars,
-    aux::Vars,
-    localgeo,
-    t::Real,
-)
-    state.ρ = initial_condition!(problem, state, aux, t)
-end
 @inline function nodal_init_state_auxiliary!(
     problem::DiffusionCubedSphereProblem,
     aux::Vars,
     tmp::Vars,
     geom::LocalGeometry,
 )
-    
     FT = eltype(aux)
     
     r = norm(aux.coord)
@@ -136,7 +126,10 @@ end
     aux.turbulence.c = get_c(l, r)
     
     Δ_hor = lengthscale_horizontal(geom)
-    aux.turbulence.D = D(problem, Δ_hor)  
+    aux.turbulence.D = D(problem, Δ_hor)
+    aux.D = aux.turbulence.D
+    aux.cD = aux.turbulence.c
+    nothing 
 end
 @inline function nodal_init_state_auxiliary!(
     problem::DiffusionBoxProblem,
@@ -147,7 +140,9 @@ end
     FT = eltype(aux)
     Δ = lengthscale(geom)
 
-    aux.turbulence.D = D(problem, Δ)  
+    aux.turbulence.D = D(problem, Δ)
+    aux.D = aux.turbulence.D
+    nothing   
 end
 
 """
@@ -156,40 +151,6 @@ end
 """
 @inline boundary_conditions(::DiffusionProblem, ::BalanceLaw) = ()
 @inline boundary_state!(nf, ::DiffusionProblem, ::BalanceLaw, _...) = nothing
-
-"""
-    Initial conditions
-    - initial condition is given by ρ0 = Y{m,l}(θ, λ)
-    - test: ∇^2_horz ρ0 = l(l+1)/r^2 ρ0 where r=a+z
-
-    ∇^2 ( ∇^2_horz Y{m,l}(θ, λ) ) =  l(l+1)/r^2 ( l(l+1)/r^2 Y{m,l} )
-"""
-@inline function initial_condition!(
-    problem::DiffusionCubedSphereProblem,
-    state,
-    aux,
-    t,
-)
-    @inbounds begin
-        FT = eltype(aux) 
-        # import planet paraset
-        _a::FT = planet_radius(param_set)
-
-        φ = latitude(SphericalOrientation(), aux)
-        λ = longitude(SphericalOrientation(), aux)
-        r = norm(aux.coord)
-        
-        z = r - _a
-
-        l = Int64(problem.l)
-        m = Int64(problem.m)
-
-        c = get_c(l, r)
-        D = aux.turbulence.D
-        
-        return calc_Ylm(φ, λ, l, m) * exp(- D*c*t) # - D*c*t
-    end
-end
 
 """
     Other useful functions
