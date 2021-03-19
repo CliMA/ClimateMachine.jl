@@ -247,15 +247,6 @@ struct Anelastic1D <: Compressibilty end
 
 Constructor for `AtmosModel` (where `AtmosModel <: BalanceLaw`).
 """
-
-pressure(atmos::AtmosModel, state::Vars, aux::Vars) =
-    pressure(atmos.compressibility, state, aux)
-function pressure(::Compressible, state, aux)
-        ts = recover_thermo_state(atmos, state, aux)
-        return air_pressure(ts)
-end
-pressure(::Anelastic1D, state, aux) = aux.ref_state.p
-
 function AtmosModel{FT}(
     orientation::Orientation,
     param_set::AbstractParameterSet;
