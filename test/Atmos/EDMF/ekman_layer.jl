@@ -95,13 +95,13 @@ function main(::Type{FT}, cl_args) where {FT}
     compressibility = Anelastic1D()
     str_comp = compressibility == Compressible() ? "COMPRESS" : "ANELASTIC"
     # Choice of SGS model
-    # turbconv = NoTurbConv()
-    N_updrafts = 1
-    N_quad = 3
-    turbconv = EDMF(FT, N_updrafts, N_quad, param_set)
+    turbconv = NoTurbConv()
+    # N_updrafts = 1
+    # N_quad = 3
+    # turbconv = EDMF(FT, N_updrafts, N_quad, param_set)
 
     C_smag_ = C_smag(param_set)
-    turbulence = ConstantKinematicViscosity(FT(0))
+    turbulence = ConstantKinematicViscosity(FT(0.1))
     # turbulence = SmagorinskyLilly{FT}(C_smag_)
 
     # Prescribe domain parameters
