@@ -39,7 +39,7 @@ ClimateMachine.init()
     # Define timestepping parameters
     ########
     start_time = 0
-    end_time = 200.0
+    end_time = 100.0
     Δt = 0.004
     method = SSPRK22Heuns
 
