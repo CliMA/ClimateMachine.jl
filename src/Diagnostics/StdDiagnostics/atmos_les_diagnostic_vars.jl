@@ -146,7 +146,13 @@ end
     "total specific energy",
     "specific_dry_energy_of_air",
     rho,
-) do (energy::EnergyModel, atmos::AtmosModel, states::States, curr_time, cache)
+) do (
+    energy::TotalEnergyModel,
+    atmos::AtmosModel,
+    states::States,
+    curr_time,
+    cache,
+)
     states.prognostic.energy.ρe
 end
 
@@ -171,7 +177,13 @@ end
     "specific enthalpy based on total energy",
     "",
     rho,
-) do (energy::EnergyModel, atmos::AtmosModel, states::States, curr_time, cache)
+) do (
+    energy::TotalEnergyModel,
+    atmos::AtmosModel,
+    states::States,
+    curr_time,
+    cache,
+)
     ts = get!(cache, :ts) do
         recover_thermo_state(atmos, states.prognostic, states.auxiliary)
     end
@@ -200,7 +212,13 @@ end
     "vertical sgs flux of total specific enthalpy",
     "",
     rho,
-) do (energy::EnergyModel, atmos::AtmosModel, states::States, curr_time, cache)
+) do (
+    energy::TotalEnergyModel,
+    atmos::AtmosModel,
+    states::States,
+    curr_time,
+    cache,
+)
     D_t = get!(cache, :D_t) do
         _, D_t, _ = turbulence_tensors(
             atmos,

@@ -31,7 +31,7 @@ eq_tends(pv::Momentum, m::AtmosModel, tt::Flux{FirstOrder}) =
     (Advect(), eq_tends(pv, m.compressibility, tt)...)
 
 # Energy
-eq_tends(::Energy, m::EnergyModel, tt::Flux{FirstOrder}) =
+eq_tends(::Energy, m::TotalEnergyModel, tt::Flux{FirstOrder}) =
     (Advect(), Pressure())
 
 eq_tends(::ρθ_liq_ice, m::θModel, tt::Flux{FirstOrder}) = (Advect(),)
@@ -78,7 +78,7 @@ eq_tends(pv::Momentum, m::AtmosModel, tt::Flux{SecondOrder}) = (
 )
 
 # Energy
-eq_tends(::Energy, m::EnergyModel, tt::Flux{SecondOrder}) =
+eq_tends(::Energy, m::TotalEnergyModel, tt::Flux{SecondOrder}) =
     (ViscousFlux(), DiffEnthalpyFlux())
 
 eq_tends(::ρθ_liq_ice, m::θModel, tt::Flux{SecondOrder}) = (ViscousFlux(),)

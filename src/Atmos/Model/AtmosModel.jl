@@ -252,7 +252,7 @@ function AtmosModel{FT}(
     param_set::AbstractParameterSet;
     init_state_prognostic = nothing,
     problem = AtmosProblem(init_state_prognostic = init_state_prognostic),
-    energy = EnergyModel(),
+    energy = TotalEnergyModel(),
     ref_state = HydrostaticState(DecayingTemperatureProfile{FT}(param_set),),
     turbulence = SmagorinskyLilly{FT}(C_smag(param_set)),
     turbconv = NoTurbConv(),

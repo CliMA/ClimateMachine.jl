@@ -580,7 +580,8 @@ function atmos_les_default_collect(dgngrp::DiagnosticsGroup, currtime)
     nvertelem = topl_info.nvertelem
     nhorzelem = topl_info.nhorzrealelem
 
-    atmos.energy isa EnergyModel || error("EnergyModel only supported")
+    atmos.energy isa TotalEnergyModel ||
+        error("TotalEnergyModel only supported")
 
     # get needed arrays onto the CPU
     if array_device(Q) isa CPU
