@@ -27,6 +27,8 @@ include("edmf_model.jl")
 include("edmf_kernels.jl")
 
 CLIMAParameters.Planet.T_surf_ref(::EarthParameterSet) = 290.0
+using ClimateMachine.Atmos: altitude, recover_thermo_state, density, pressure
+
 function set_clima_parameters(filename)
     eval(:(include($filename)))
 end
@@ -92,15 +94,14 @@ function main(::Type{FT}, cl_args) where {FT}
     # compressibility = Compressible()
     compressibility = Anelastic1D()
     str_comp = compressibility == Compressible() ? "COMPRESS" : "ANELASTIC"
-
     # Choice of SGS model
-    turbconv = NoTurbConv()
-    # N_updrafts = 1
-    # N_quad = 3
-    # turbconv = EDMF(FT, N_updrafts, N_quad, param_set)
+    # turbconv = NoTurbConv()
+    N_updrafts = 1
+    N_quad = 3
+    turbconv = EDMF(FT, N_updrafts, N_quad, param_set)
 
     C_smag_ = C_smag(param_set)
-    turbulence = ConstantKinematicViscosity(FT(0.1))
+    turbulence = ConstantKinematicViscosity(FT(0))
     # turbulence = SmagorinskyLilly{FT}(C_smag_)
 
     # Prescribe domain parameters
@@ -126,8 +127,8 @@ function main(::Type{FT}, cl_args) where {FT}
         output_prefix = string("EL_", str_comp, "_FVM")
         fv_reconstruction = FVLinear()
     else
-        N = 4
-        nelem_vert = 20
+        N = 1
+        nelem_vert = 80
         ref_state = HydrostaticState(DryAdiabaticProfile{FT}(param_set),)
         output_prefix = string("EL_", str_comp, "_DG")
         fv_reconstruction = nothing

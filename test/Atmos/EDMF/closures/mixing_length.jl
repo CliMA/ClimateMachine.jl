@@ -57,7 +57,7 @@ function mixing_length(
     ∂b∂z, Nˢ_eff = compute_buoyancy_gradients(m, args, ts_gm, ts_en)
     Grad_Ri = ∇Richardson_number(∂b∂z, Shear², 1 / ml.max_length, ml.Ri_c)
     Pr_t = turbulent_Prandtl_number(ml.Pr_n, Grad_Ri, ml.ω_pr)
-
+    Pr_t = FT(1)
     # compute L1
     Nˢ_fact = (sign(Nˢ_eff - eps(FT)) + 1) / 2
     coeff = min(ml.c_b * sqrt(tke_en) / Nˢ_eff, ml.max_length)
