@@ -61,7 +61,7 @@ eq_tends(::Union{Mass, Momentum, Moisture}, ::DryModel, ::Flux{SecondOrder}) =
     ()
 eq_tends(
     ::Union{Mass, Momentum, Moisture},
-    ::MoistureModel,
+    ::AbstractMoistureModel,
     ::Flux{SecondOrder},
 ) = (MoistureDiffusion(),)
 

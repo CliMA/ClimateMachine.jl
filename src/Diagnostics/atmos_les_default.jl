@@ -1,5 +1,5 @@
 using ..Atmos
-using ..Atmos: MoistureModel, PrecipitationModel, recover_thermo_state
+using ..Atmos: AbstractMoistureModel, PrecipitationModel, recover_thermo_state
 using ..Mesh.Topologies
 using ..Mesh.Grids
 using ..Thermodynamics
@@ -113,7 +113,7 @@ function vars_atmos_les_default_simple(m::AtmosModel, FT)
         precipitation::vars_atmos_les_default_simple(m.precipitation, FT)
     end
 end
-vars_atmos_les_default_simple(::MoistureModel, FT) = @vars()
+vars_atmos_les_default_simple(::AbstractMoistureModel, FT) = @vars()
 function vars_atmos_les_default_simple(m::Union{EquilMoist, NonEquilMoist}, FT)
     @vars begin
         qt::FT                  # q_tot
@@ -190,7 +190,7 @@ function atmos_les_default_simple_sums!(
     return nothing
 end
 function atmos_les_default_simple_sums!(
-    ::MoistureModel,
+    ::AbstractMoistureModel,
     state,
     gradflux,
     thermo,
@@ -260,7 +260,7 @@ function atmos_les_default_simple_sums!(
 end
 
 function atmos_les_default_clouds(
-    ::MoistureModel,
+    ::AbstractMoistureModel,
     thermo,
     idx,
     qc_gt_0_z,
@@ -312,7 +312,7 @@ function vars_atmos_les_default_ho(m::AtmosModel, FT)
         precipitation::vars_atmos_les_default_ho(m.precipitation, FT)
     end
 end
-vars_atmos_les_default_ho(::MoistureModel, FT) = @vars()
+vars_atmos_les_default_ho(::AbstractMoistureModel, FT) = @vars()
 function vars_atmos_les_default_ho(m::Union{EquilMoist, NonEquilMoist}, FT)
     @vars begin
         var_qt::FT              # q_tot′q_tot′
@@ -401,7 +401,7 @@ function atmos_les_default_ho_sums!(
     return nothing
 end
 function atmos_les_default_ho_sums!(
-    ::MoistureModel,
+    ::AbstractMoistureModel,
     state,
     thermo,
     MH,
