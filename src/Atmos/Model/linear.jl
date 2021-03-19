@@ -213,7 +213,7 @@ init_state_prognostic!(
 struct AtmosAcousticLinearModel{M} <: AtmosLinearModel
     atmos::M
     function AtmosAcousticLinearModel(atmos::M) where {M}
-        if atmos.ref_state === NoReferenceState()
+        if reference_state(atmos) === NoReferenceState()
             error("AtmosAcousticLinearModel needs a model with a reference state")
         end
         new{M}(atmos)
@@ -246,7 +246,7 @@ end
 struct AtmosAcousticGravityLinearModel{M} <: AtmosLinearModel
     atmos::M
     function AtmosAcousticGravityLinearModel(atmos::M) where {M}
-        if atmos.ref_state === NoReferenceState()
+        if reference_state(atmos) === NoReferenceState()
             error("AtmosAcousticGravityLinearModel needs a model with a reference state")
         end
         new{M}(atmos)
