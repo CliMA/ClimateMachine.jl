@@ -68,7 +68,7 @@ end
 function create_topology(::Box{dim}, mpicomm, Ne, FT) where {dim}
     brickrange = ntuple(j -> range(FT(0); length = Ne + 1, stop = 1), dim)
     periodicity = ntuple(j -> false, dim)
-    bc = ntuple(j -> (3, 3), dim)
+    bc = ntuple(j -> (1, 1), dim)
     connectivity = dim == 3 ? :full : :face
     StackedBrickTopology(
         mpicomm,
@@ -81,7 +81,7 @@ end
 
 function create_topology(::Sphere, mpicomm, Ne, FT)
     vert_range = grid1d(FT(1), FT(2), nelem = Ne)
-    StackedCubedSphereTopology(mpicomm, Ne, vert_range, boundary = (3, 3))
+    StackedCubedSphereTopology(mpicomm, Ne, vert_range, boundary = (1, 1))
 end
 
 create_dg(model, grid, direction) = DGModel(
@@ -120,7 +120,8 @@ function test_run(
         hp = TestProblem{adv, diff, HorizontalDirection(), topo()}(),
     )
 
-    models = map(AdvectionDiffusion{3}, problems)
+    bcs = (HomogeneousBC{0}(),)
+    models = map(p -> AdvectionDiffusion{3}(p, bcs), problems)
 
     dgmodels = map(models) do m
         (

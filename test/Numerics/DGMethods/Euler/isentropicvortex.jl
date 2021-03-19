@@ -338,7 +338,7 @@ function test_run(
     problem =
         AtmosProblem(boundaryconditions = (), init_state_prognostic = setup)
     if NumericalFlux isa RoeNumericalFluxMoist
-        moisture = EquilMoist{FT}()
+        moisture = EquilMoist()
     else
         moisture = DryModel()
     end

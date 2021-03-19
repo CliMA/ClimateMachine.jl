@@ -103,7 +103,7 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax, with_moisture)
     _C_smag = FT(C_smag(param_set))
 
     if with_moisture
-        moisture = EquilMoist{FT}()
+        moisture = EquilMoist()
     else
         moisture = DryModel()
     end

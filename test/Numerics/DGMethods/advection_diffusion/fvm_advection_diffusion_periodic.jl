@@ -66,7 +66,7 @@ function initial_condition!(
     state.ρ = (ρ1, ρ2)
 end
 
-Dirichlet_data!(P::Pseudo1D, x...) = initial_condition!(P, x...)
+inhomogenous_data!(::Val{0}, P::Pseudo1D, x...) = initial_condition!(P, x...)
 
 
 function do_output(mpicomm, vtkdir, vtkstep, dgfvm, Q, Qe, model, testname)

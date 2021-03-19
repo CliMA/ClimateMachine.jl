@@ -227,8 +227,18 @@ struct Compressible <: Compressibilty end
 
 Dispatch on Anelastic1D model
 
- - Density is constant in time
- - Remove momentum z-component tendencies
+ - The state density is taken constant in time and equal to the reference density. This
+    constant density profile is used in all equations and conversions from conservative to specific
+    variables per unit mass. The density can be accessed using the dispatch function
+    `density(atmos, state, aux)`.
+ - The thermodynamic state is constructed from the reference pressure (constant in time),
+    and the internal energy (which evolves in time).
+ - The state density is not consistent with the thermodynamic state, since we neglect 
+    buoyancy perturbations on all equations except in the vertical buoyancy flux.
+ - The density obtained from the thermodynamic state, `air_density(ts)`, recovers the full density, which
+    should only be used to compute buoyancy and buoyancy fluxes, and in the FV reconstruction.
+ - Removes momentum z-component tendencies, assuming balance between the pressure gradient and buoyancy
+    forces.
 """
 struct Anelastic1D <: Compressibilty end
 
@@ -257,7 +267,7 @@ function AtmosModel{FT}(
     turbconv = NoTurbConv(),
     hyperdiffusion = NoHyperDiffusion(),
     viscoussponge = NoViscousSponge(),
-    moisture = EquilMoist{FT}(),
+    moisture = EquilMoist(),
     precipitation = NoPrecipitation(),
     radiation = NoRadiation(),
     source = (
@@ -488,18 +498,27 @@ turbulence_tensors(atmos::AtmosModel, args...) =
 """
     density(atmos::AtmosModel, state::Vars, aux::Vars)
 
-In the Anelastic1D state, `state.ρ` that is used to
-extract intrinsic values (i.e. `e=state.energy.ρe/state.ρ`)
-is time invariant (by eliminating the tendencies) while
-`ref_state.ρ` is used to construct a thermodynamic state.
-`density` will get the `ref_state.ρ` for thermodynamic state
-when the model is Anelastic1D.
+Density used in the conservative form of the prognostic equations.
+In the Compressible case, it is equal to the prognostic density,
+whereas in the Anelastic1D case it is the reference density,
+which is constant in time.
 """
 density(atmos::AtmosModel, state::Vars, aux::Vars) =
     density(atmos.compressibility, state, aux)
 density(::Compressible, state, aux) = state.ρ
 density(::Anelastic1D, state, aux) = aux.ref_state.ρ
 
+"""
+    pressure(atmos::AtmosModel, ts, aux::Vars)
+
+Diagnostic pressure consistent with the given thermodynamic state ts.
+In the Anelastic1D case it is the reference pressure,
+which is constant in time.
+"""
+pressure(atmos::AtmosModel, ts, aux::Vars) =
+    pressure(atmos.compressibility, ts, aux)
+pressure(::Compressible, ts, aux) = air_pressure(ts)
+pressure(::Anelastic1D, ts, aux) = aux.ref_state.p
 
 include("declare_prognostic_vars.jl") # declare prognostic variables
 include("multiphysics_types.jl")      # types for multi-physics tendencies

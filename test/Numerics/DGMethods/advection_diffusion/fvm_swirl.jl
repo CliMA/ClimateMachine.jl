@@ -135,7 +135,8 @@ function test_run(
         polynomialorder = N,
     )
 
-    model = AdvectionDiffusion{2}(problem, diffusion = false)
+    bcs = (HomogeneousBC{0}(),)
+    model = AdvectionDiffusion{2}(problem, bcs, diffusion = false)
 
     dg = DGFVModel(
         model,
@@ -272,7 +273,7 @@ let
                 topology = StackedBrickTopology(
                     mpicomm,
                     brickrange,
-                    boundary = ((3, 3), (3, 3)),
+                    boundary = ((1, 1), (1, 1)),
                     connectivity = :face,
                 )
 
