@@ -13,7 +13,7 @@ using ..SystemSolvers
 using ..MPIStateArrays: array_device, realview
 using ..GenericCallbacks
 
-export solve!, updatedt!, gettime, getsteps
+export AbstractODESolver, solve!, updatedt!, gettime, getsteps
 
 abstract type AbstractODESolver end
 

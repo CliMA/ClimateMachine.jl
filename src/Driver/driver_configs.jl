@@ -75,6 +75,15 @@ function ArgParse.parse_item(::Type{NTuple{3, Float64}}, s::AbstractString)
 end
 
 """
+    ArgParse.parse_item
+
+Parses custom command line option for `DateTime`s.
+"""
+function ArgParse.parse_item(::Type{DateTime}, s::AbstractString)
+    DateTime(s, "yyyy-mm-ddTHH:MM:SS")
+end
+
+"""
     get_polyorders
 
 Utility function that gets the polynomial orders for the given configuration

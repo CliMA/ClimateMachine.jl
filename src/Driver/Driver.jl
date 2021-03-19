@@ -57,6 +57,7 @@ end
 Base.@kwdef mutable struct ClimateMachine_Settings
     disable_gpu::Bool = false
     show_updates::String = "60secs"
+    start_datetime::DateTime = DateTime(2000, 1, 1, 12)
     diagnostics::String = "never"
     no_overwrite::Bool = false
     vtk::String = "never"
@@ -101,6 +102,16 @@ line, from an environment variable, or from experiment code) after
 array_type() = Settings.array_type
 
 """
+    ClimateMachine.datetime(solver::AbstractODESolver)
+
+Return the current simulation date and time.
+"""
+function datetime(solver::AbstractODESolver)
+    simtime = gettime(solver)
+    return Settings.start_datetime + Second(round(Int, simtime))
+end
+
+"""
     get_setting(setting_name::Symbol, settings, defaults)
 
 Define fallback behavior for driver settings, first accessing overloaded
@@ -122,7 +133,8 @@ function get_setting(setting_name::Symbol, settings, defaults)
         if setting_type == String
             v = env_val
         elseif setting_type == NTuple{2, Int} ||
-               setting_type == NTuple{3, Float64}
+               setting_type == NTuple{3, Float64} ||
+               setting_type == DateTime
             v = ArgParse.parse_item(setting_type, env_val)
         else
             v = tryparse(setting_type, env_val)
@@ -203,6 +215,11 @@ function parse_commandline(
         metavar = "<interval>"
         arg_type = String
         default = get_setting(:show_updates, defaults, global_defaults)
+        "--start-datetime"
+        help = "specify simulation start date/time as 'yyyy-mm-ddTHH:MM:SS'"
+        metavar = "<date/time>"
+        arg_type = DateTime
+        default = get_setting(:start_datetime, defaults, global_defaults)
         "--diagnostics"
         help = "interval at which to collect diagnostics"
         metavar = "<interval>"
@@ -387,6 +404,8 @@ Recognized keyword arguments are:
         do not use the GPU
 - `show_updates::String = "60secs"`:
         interval at which to show simulation updates
+- `start_datetime::DateTime = DateTime(2000, 1, 1, 12)`:
+        date/time at which the simulation starts
 - `diagnostics::String = "never"`:
         interval at which to collect diagnostics"
 - `no_overwrite::Bool = false`:
