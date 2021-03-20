@@ -14,9 +14,10 @@ eq_tends(::Momentum, ::AtmosLinearModel, ::Flux{FirstOrder}) =
 eq_tends(::Energy, m::AtmosLinearModel, tt::Flux{FirstOrder}) =
     (LinearEnergyFlux(),)
 
-# AbstractMoisture
+# AbstractMoistureVariable
 # TODO: Is this right?
-eq_tends(::AbstractMoisture, ::AtmosLinearModel, ::Flux{FirstOrder}) = ()
+eq_tends(::AbstractMoistureVariable, ::AtmosLinearModel, ::Flux{FirstOrder}) =
+    ()
 
 # Tracers
 eq_tends(::Tracers{N}, ::AtmosLinearModel, ::Flux{FirstOrder}) where {N} = ()

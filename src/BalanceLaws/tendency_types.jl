@@ -18,11 +18,11 @@
 using DispatchedTuples
 
 export PrognosticVariable,
-    AbstractMomentum,
-    AbstractEnergy,
-    AbstractMoisture,
-    AbstractPrecipitation,
-    AbstractTracers
+    AbstractMomentumVariable,
+    AbstractEnergyVariable,
+    AbstractMoistureVariable,
+    AbstractPrecipitationVariable,
+    AbstractTracersVariable
 
 export FirstOrder, SecondOrder
 export AbstractTendencyType, Flux, Source
@@ -38,11 +38,11 @@ each prognostic variable.
 """
 abstract type PrognosticVariable end
 
-abstract type AbstractMomentum <: PrognosticVariable end
-abstract type AbstractEnergy <: PrognosticVariable end
-abstract type AbstractMoisture <: PrognosticVariable end
-abstract type AbstractPrecipitation <: PrognosticVariable end
-abstract type AbstractTracers{N} <: PrognosticVariable end
+abstract type AbstractMomentumVariable <: PrognosticVariable end
+abstract type AbstractEnergyVariable <: PrognosticVariable end
+abstract type AbstractMoistureVariable <: PrognosticVariable end
+abstract type AbstractPrecipitationVariable <: PrognosticVariable end
+abstract type AbstractTracersVariable{N} <: PrognosticVariable end
 
 
 """
