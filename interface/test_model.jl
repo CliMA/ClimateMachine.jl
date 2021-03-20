@@ -92,16 +92,18 @@ function vars_state(m::TestEquations, st::Auxiliary, FT)
     @vars begin
         coord::SVector{3, FT}
         u::SVector{3, FT}
-        
-        hyperdiffusion::vars_state(m.hyperdiffusion, st, FT)
-        advection::vars_state(m.advection, st, FT)
-        turbulence::vars_state(m.turbulence, st, FT)
-
+       
         ρ_analytical::FT
         D::FT
         H::FT
         cD::FT
         cH::FT
+        uˡᵒⁿ::FT
+
+        hyperdiffusion::vars_state(m.hyperdiffusion, st, FT)
+        advection::vars_state(m.advection, st, FT)
+        turbulence::vars_state(m.turbulence, st, FT)
+
     end
 end
 function vars_state(m::TestEquations, st::Gradient, FT)
@@ -160,11 +162,16 @@ function nodal_init_state_auxiliary!(
     x = aux.coord[1]
     y = aux.coord[2]
     z = aux.coord[3]
+
+    φ = latitude(SphericalOrientation(), aux)
+    λ = longitude(SphericalOrientation(), aux)
+    r = norm(aux.coord)
     
     # From initial conditions
     params = m.initial_value_problem.params
     ic = m.initial_value_problem.initial_conditions
     aux.u = ic.aux.u(params, x, y, z)
+    aux.uˡᵒⁿ=ic.aux.uˡᵒⁿ(params, λ, φ, r)
 
     nodal_init_state_auxiliary!(
         m.turbulence,
@@ -178,13 +185,14 @@ function nodal_init_state_auxiliary!(
         tmp,
         geom,
     )
-    # φ = latitude(SphericalOrientation(), aux)
-    # λ = longitude(SphericalOrientation(), aux)
+
     # if φ == 0.0 && λ == 0.0
-    #     @show aux.D
-    #     @show aux.H 
-    #     @show aux.cD
-    #     @show aux.cH
+        # @show aux.u
+        # @show ic.aux.u(params, x, y, z)
+        # @show aux.D
+        # @show aux.H 
+        # @show aux.cD
+        # @show aux.cH
     # end
 end
 
@@ -281,25 +289,6 @@ end
 @inline boundary_state!(nf, ::TestEquations, _...) = nothing
 
 
-"""
-    DGModel constructor - move somewhere general
-"""
-function DGModel(m::SpatialModel{BL}) where {BL <: BalanceLaw}
-    
-    numerical_flux_first_order = m.numerics.flux # should be a function
-
-    rhs = DGModel(
-        m.balance_law,
-        m.grid,
-        numerical_flux_first_order,
-        CentralNumericalFluxSecondOrder(),
-        CentralNumericalFluxGradient(),
-        direction=HorizontalDirection(),
-        diffusion_direction=HorizontalDirection(),
-    )
-    
-    return rhs
-end
 
 """
     nodal_update_auxiliary_state! 
@@ -321,16 +310,28 @@ function nodal_update_auxiliary_state!(
 
     D = aux.D
     cD = aux.cD
+    
     H = aux.H
     cH = aux.cH
 
-    aux.ρ_analytical = ic.state.ρ(params, x, y, z) * exp(- (D*cD+H*cH)*t)
+    CC = 0
 
-    # φ = latitude(SphericalOrientation(), aux)
-    # λ = longitude(SphericalOrientation(), aux)
-    # if φ == 0.0 && λ == 0.0
-    #     @show aux.ρ_analytical
-    # end
+    # aux.ρ_analytical = ic.state.ρ(params, x, y, z) * exp(- (D*cD+H*cH)*t)
+    compute_analytical_coeff!(m.advection, CC, params.m, aux.uˡᵒⁿ)
+    compute_analytical_coeff!(m.turbulence, CC, D, cD)
+    compute_analytical_coeff!(m.hyperdiffusion, CC, H, cH)
+
+
+    # aux.ρ_analytical = ic.state.ρ(params, x, y, z) * exp(- (-params.m*aux.uˡᵒⁿ+D*cD+H*cH)*t)
+    aux.ρ_analytical = ic.state.ρ(params, x, y, z) * exp(- CC*t)
+
+    φ = latitude(SphericalOrientation(), aux)
+    λ = longitude(SphericalOrientation(), aux)
+    if λ == 0.0 
+        @show φ
+        @show aux.uˡᵒⁿ
+        @show params.m
+    end
 end
 # function get_analytical(m, state, aux, t)
 #     aux.ρ_analytical = initial_condition!(m.hyperdiffusion, state, aux, t)
@@ -350,3 +351,65 @@ flux_second_order!(::Nothing, _...) = nothing
 compute_gradient_argument!(::Nothing, _...) = nothing
 compute_gradient_flux!(::Nothing, _...) = nothing
 nodal_init_state_auxiliary!(::Nothing, _...) = nothing
+
+compute_analytical_coeff!(::Nothing, _...) = nothing
+function compute_analytical_coeff!(problem::HyperDiffusionCubedSphereProblem, CC, H, cH)
+    CC = CC+H*cH
+end
+function compute_analytical_coeff!(problem::DiffusionCubedSphereProblem, CC, D, cD)
+    CC = CC+D*cD
+end
+function compute_analytical_coeff!(problem::AdvectionCubedSphereProblem, CC, m, u)
+    CC = CC - m*u
+end
+
+
+
+"""
+    DGModel constructor - move somewhere general
+"""
+function DGModel(m::SpatialModel{BL}) where {BL <: BalanceLaw}
+    
+    numerical_flux_first_order = m.numerics.flux # should be a function
+
+    rhs = DGModel(
+        m.balance_law,
+        m.grid,
+        numerical_flux_first_order,
+        CentralNumericalFluxSecondOrder(),
+        CentralNumericalFluxGradient(),
+        direction=HorizontalDirection(),
+        diffusion_direction=HorizontalDirection(),
+    )
+    
+    return rhs
+end
+
+"""
+    construct the simulation errors as oppose to analytical solution
+"""
+abstract type sim_errors end
+
+struct TestEquationsSimErrors{A} <: sim_errors
+    Qt::A
+    rhs::A
+end
+
+function TestEquationsSimErrors(simulation::AbstractSimulation)
+    # err of Qt
+    Qend = simulation.state.ρ
+    Qana = simulation.dgmodel.state_auxiliary.ρ_analytical
+    errQt = norm(Qend.-Qana)/norm(Qend)
+
+    # err of RHS
+    rhsDG = similar(simulation.init_state)
+    simulation.dgmodel(rhsDG, simulation.init_state, nothing, 0)
+    DD = simulation.dgmodel.state_auxiliary.D 
+    HH = simulation.dgmodel.state_auxiliary.H 
+    cD = simulation.dgmodel.state_auxiliary.cD 
+    cH = simulation.dgmodel.state_auxiliary.cH
+    rhsAna = .- (DD.*cD .+ HH.*cH) .* simulation.init_state.ρ
+    errRHS = norm(rhsDG .- rhsAna)/norm(rhsDG)
+    
+    return TestEquationsSimErrors(errQt, errRHS) 
+end

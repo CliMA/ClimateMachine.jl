@@ -24,7 +24,9 @@ include("callbacks.jl")
 include("test_model.jl") # umbrella model: TestEquations
 
 # BL and problem for this
-difffusion_params = (; τ = 8*60*60 /10., l = 7, m = 4,) 
+
+# difffusion_params = (; τ = 3600, l = 7, m = 4,) 
+difffusion_params = (; D = 1, l = 7, m = 4,) 
 
 hyperdiffusion = HyperDiffusionCubedSphereProblem{FT}(difffusion_params...,)
 
@@ -38,8 +40,8 @@ advection = AdvectionCubedSphereProblem()
 #       latitude:  ϕ ∈ [-π/2, π/2], ϕ = 0 is the equator
 #       radius:    r ∈ [Rₑ - hᵐⁱⁿ, Rₑ + hᵐᵃˣ], Rₑ = Radius of earth; hᵐⁱⁿ, hᵐᵃˣ ≥ 0
 
-# ρ₀(p, λ, ϕ, r) = calc_Ylm(ϕ, λ, difffusion_params.l, difffusion_params.m)
-ρ₀(p, λ, ϕ, r) = FT(1)
+ρ₀(p, λ, ϕ, r) = calc_Ylm(ϕ, λ, difffusion_params.l, difffusion_params.m)
+# ρ₀(p, λ, ϕ, r) = FT(1)
 
 uʳᵃᵈ(p, λ, ϕ, r) = 0
 uˡᵃᵗ(p, λ, ϕ, r) = 0
@@ -52,7 +54,7 @@ u⃗₀ᶜᵃʳᵗ(p, x...) = (   uʳᵃᵈ(p, lon(x...), lat(x...), rad(x...)) 
                     + uˡᵃᵗ(p, lon(x...), lat(x...), rad(x...)) * ϕ̂(x...)
                     + uˡᵒⁿ(p, lon(x...), lat(x...), rad(x...)) * λ̂(x...) ) 
 
-aux = (u=u⃗₀ᶜᵃʳᵗ, )
+aux = (u=u⃗₀ᶜᵃʳᵗ, uˡᵒⁿ=uˡᵒⁿ,)
 init_state = (ρ=ρ₀ᶜᵃʳᵗ,)
 initial_conditions = (state=init_state, aux=aux)
 initial_problem = InitialValueProblem(difffusion_params, initial_conditions)
@@ -68,7 +70,7 @@ boundary_problem = BoundaryProblem()
 Ω = AtmosDomain(radius = FT(planet_radius(param_set)), height = FT(30e3))
 
 # Grid
-nelem = (;horizontal = 8, vertical = 4)
+nelem = (;horizontal = 8, vertical = 3)
 polynomialorder = (;horizontal = 5, vertical = 5)
 grid = DiscontinuousSpectralElementGrid(Ω, nelem, polynomialorder)
 dx = min_node_distance(grid, HorizontalDirection())
@@ -88,12 +90,12 @@ callbacks = (
     #    filepath ="output/tmp.jld2",
     #    overwrite = true
     #    )...,),
-    VTKOutput((
-         interation = string(Δt_)*"ssecs" ,
-         overdir ="output",
-         overwrite = true,
-         number_sample_points = 0
-         )...,),
+    # VTKOutput((
+    #      interation = string(Δt_)*"ssecs" ,
+    #      overdir ="output",
+    #      overwrite = true,
+    #      number_sample_points = 0
+    #      )...,),
     )
 
 # Specify RHS terms and any useful parameters
@@ -125,6 +127,8 @@ simulation = Simulation(
     name = "HyperdiffusionUnitTest"
 )
 
+# Qinit = simulation.init_state
+
 cbvector = create_callbacks(simulation, simulation.odesolver)
 
 @time solve!(
@@ -133,6 +137,23 @@ cbvector = create_callbacks(simulation, simulation.odesolver)
             timeend = end_time,
             callbacks = cbvector,
         )
+
+errors = TestEquationsSimErrors(simulation)
+# # err of Q
+# Qend = simulation.state.ρ
+# Qana = simulation.dgmodel.state_auxiliary.ρ_analytical
+
+# errQ = norm(Qend.-Qana)/norm(Qend)
+
+# # err of RHS
+# rhsDG = similar(Qinit)
+# simulation.dgmodel(rhsDG, Qinit, nothing, 0)
+# DD = simulation.dgmodel.state_auxiliary.D 
+# HH = simulation.dgmodel.state_auxiliary.H 
+# cD = simulation.dgmodel.state_auxiliary.cD 
+# cH = simulation.dgmodel.state_auxiliary.cH
+# rhsAna = .- (DD.*cD .+ HH.*cH) .* Qinit.ρ
+# errRHS = norm(rhsDG .- rhsAna)/norm(rhsDG)
 
 #  TODO
 # This PR:

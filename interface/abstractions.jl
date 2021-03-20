@@ -21,7 +21,7 @@ polynomialorders(s::SpatialModel) = convention(
 
 abstract type AbstractSimulation end
 
-struct Simulation{𝒜, ℬ, 𝒞, 𝒟, ℰ, ℱ, 𝒢, ℋ} <: AbstractSimulation
+struct Simulation{𝒜, ℬ, 𝒞, 𝒟, ℰ, ℱ, 𝒢, ℋ, ℐ𝒞} <: AbstractSimulation
     model::𝒜
     state::ℬ
     timestepper::𝒞
@@ -30,6 +30,7 @@ struct Simulation{𝒜, ℬ, 𝒞, 𝒟, ℰ, ℱ, 𝒢, ℋ} <: AbstractSimulat
     odesolver::ℱ
     dgmodel::𝒢
     name::ℋ
+    init_state::ℐ𝒞
 end
 
 function Simulation(;
@@ -41,6 +42,7 @@ function Simulation(;
     odesolver = nothing,
     dgmodel = nothing,
     name = nothing,
+    init_state = nothing,
 )
     # initialize DGModel (rhs)
     dgmodel = DGModel(model) # DGModel --> KernelModel, to be more general? 
@@ -52,6 +54,7 @@ function Simulation(;
         state = init_ode_state(dgmodel, FT(0); init_on_cpu = true)
     end
 
+    init_state = init_ode_state(dgmodel, FT(0); init_on_cpu = true)
     # initialize timestepper
     odesolver = timestepper.method( dgmodel, state; dt = timestepper.timestep, t0 = simulation_time[1] )
 
@@ -64,6 +67,7 @@ function Simulation(;
         odesolver,
         dgmodel,
         name,
+        init_state,
     )
 end
 

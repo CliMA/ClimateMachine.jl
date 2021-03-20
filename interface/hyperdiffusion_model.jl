@@ -36,7 +36,8 @@ abstract type HyperDiffusionProblem <: ProblemType end
 
 # struct 
 struct HyperDiffusionCubedSphereProblem{FT} <: HyperDiffusionProblem
-    τ::FT
+    # τ::FT
+    H::FT
     l::FT
     m::FT
 end
@@ -127,7 +128,8 @@ end
     aux.hyperdiffusion.c = ( get_c(l, r) )^2
     
     Δ_hor = lengthscale_horizontal(geom)
-    aux.hyperdiffusion.H = H(problem, Δ_hor) 
+    # aux.hyperdiffusion.H = H(problem, Δ_hor) 
+    aux.hyperdiffusion.H = problem.H 
     aux.H = aux.hyperdiffusion.H
     aux.cH = aux.hyperdiffusion.c
     nothing  
@@ -141,7 +143,8 @@ end
     FT = eltype(aux)
     Δ = lengthscale(geom)
 
-    aux.hyperdiffusion.H = H(problem, Δ) 
+    # aux.hyperdiffusion.H = H(problem, Δ)
+    aux.hyperdiffusion.H = problem.H
     aux.H = aux.hyperdiffusion.H
     nothing  
 end
@@ -159,9 +162,10 @@ end
 """
 # hyperdiffusion-dependent timestep (only use for hyperdiffusion unit test) - may want to generalise for calculate_dt
 #@inline Δt(problem::HyperDiffusionProblem, Δ_min) = Δ_min^4 / 25 / sum( H(problem, Δ_min) ) 
-@inline Δt(problem::HyperDiffusionProblem, Δx; CFL=0.05) = (Δx /2)^4/2 / H(problem, Δx) * CFL 
+# @inline Δt(problem::HyperDiffusionProblem, Δx; CFL=0.05) = (Δx /2)^4/2 / H(problem, Δx) * CFL 
+@inline Δt(problem::HyperDiffusionProblem, Δx; CFL=0.05) = (Δx /2)^4/2 / problem.H * CFL 
 #dt = CFL_wanted / CFL_max = CFL_wanted / max( H / dx^4 )
 
 # lengthscale-dependent hyperdiffusion coefficient
-@inline H(problem::HyperDiffusionProblem, Δx ) = (Δx /2)^4/2 / problem.τ
+# @inline H(problem::HyperDiffusionProblem, Δx ) = (Δx /2)^4/2 / problem.τ
 
