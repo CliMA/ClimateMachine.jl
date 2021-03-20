@@ -221,7 +221,7 @@ struct DiscontinuousSpectralElementGrid{
     "Array indicating if a degree of freedom (real or ghost) is active"
     activedofs::Any
 
-    "1-D lgl weights on the device (one for each dimension)"
+    "1-D LGL weights on the device (one for each dimension)"
     ω::DAT1
 
     "1-D derivative operator on the device (one for each dimension)"
@@ -829,6 +829,66 @@ function computegeometry_fvm(elemtocoord, D, ξ, ω, meshwarp)
     (vgeo, sgeo, x_vtk)
 end
 
+struct VolumeGeometry{Nq, A<:AbstractArray}
+    ξ1x1::A
+    ξ2x1::A
+    ξ3x1::A
+    ξ1x2::A
+    ξ2x2::A
+    ξ3x2::A
+    ξ1x3::A
+    ξ2x3::A
+    ξ3x3::A
+    MJ::A
+    MJI::A
+    MHJH::A
+    x1::A
+    x2::A
+    x3::A
+    JcV::A
+    function VolumeGeometry{Nq}(args::A...) where {Nq, A<:AbstractArray}
+        new{Nq,A}(args...)
+    end
+end
+
+"""
+    VolumeGeometry(FT, Nq::Tuple, nelems::Integer)
+
+Construct an empty `VolumeGeometry` object, in `FT` precision.
+- `Nq` is a tuple containing the number of quadrature points in each direction.
+- `nelem` is the number of elements.
+"""
+function VolumeGeometry(FT, Nq::NTuple{N,Int}, nelem::Int) where {N}
+    array = zeros(FT, prod(Nq), fieldcount(VolumeGeometry), nelem)
+    VolumeGeometry{Nq}(ntuple(j -> @view(array[:, j, :]), fieldcount(VolumeGeometry))...)
+end
+
+struct SurfaceGeometry{Nq, A<:AbstractArray}
+    n1::A
+    n2::A
+    n3::A
+    sMJ::A
+    vMJI::A
+    function SurfaceGeometry{Nq}(args::A...) where {Nq, A<:AbstractArray}
+        new{Nq,A}(args...)
+    end
+end
+
+"""
+SurfaceGeometry(FT, Nq::Tuple, nface::Integer, nelem::Integer)
+
+Construct an empty `SurfaceGeometry` object, in `FT` precision.
+- `Nq` is a tuple containing the number of quadrature points in each direction.
+- `nface` is the number of faces.
+- `nelem` is the number of elements.
+"""
+function SurfaceGeometry(FT, Nq::NTuple{N,Int}, nface::Int, nelem::Int) where {N}
+    Np = prod(Nq)
+    Nfp = div.(Np, Nq)
+    array = zeros(FT, maximum(Nfp), fieldcount(SurfaceGeometry), nface, nelem)
+    SurfaceGeometry{Nfp}(ntuple(j -> @view(array[:, j, :, :]), fieldcount(SurfaceGeometry))...)
+end
+
 function computegeometry(elemtocoord, D, ξ, ω, meshwarp)
     dim = length(D)
     nface = 2dim
@@ -846,56 +906,31 @@ function computegeometry(elemtocoord, D, ξ, ω, meshwarp)
 
     FT = eltype(D[1])
 
-    vgeo = zeros(FT, Np, _nvgeo, nelem)
-    sgeo = zeros(FT, _nsgeo, maximum(Nfp), nface, nelem)
+    vgeo = VolumeGeometry(FT, Nq, nelem)
 
-    (
-        #! format: off
-        ξ1x1, ξ2x1, ξ3x1, ξ1x2, ξ2x2, ξ3x2, ξ1x3, ξ2x3, ξ3x3,
-        MJ, MJI, MHJH,
-        x1, x2, x3,
-        JcV,
-       #! format: on
-    ) = ntuple(j -> (@view vgeo[:, j, :]), _nvgeo)
-    J = similar(x1)
-    (n1, n2, n3, sMJ, vMJI) = ntuple(j -> (@view sgeo[j, :, :, :]), _nsgeo)
-    sJ = similar(sMJ)
+    sgeo = SurfaceGeometry(FT, Nq, nface, nelem)
 
+    # (n1, n2, n3, sMJ, vMJI) = ntuple(j -> (@view sgeo[j, :, :, :]), _nsgeo)
+    vgeo.sMJ = similar(sMJ)
+
+    # reference element -> topology coordinates
     X = ntuple(j -> (@view vgeo[:, _x1 + j - 1, :]), dim)
     Metrics.creategrid!(X..., elemtocoord, ξ...)
 
+    # topology coordinates -> physical coordinates
     @inbounds for j in 1:length(x1)
-        (x1[j], x2[j], x3[j]) = meshwarp(x1[j], x2[j], x3[j])
+        (vgeo.x1[j], vgeo.x2[j], vgeo.x3[j]) = meshwarp(vgeo.x1[j], vgeo.x2[j], vgeo.x3[j])
     end
+
+    Metrics.computemetric!(vgeo, sgeo, D...)
 
     # Compute the metric terms
     p = reshape(1:Np, Nq)
     if dim == 1
-        Metrics.computemetric!(x1, J, JcV, ξ1x1, sJ, n1, D...)
         fmask = (p[1:1], p[Nq[1]:Nq[1]])
     elseif dim == 2
-        Metrics.computemetric!(
-            #! format: off
-            x1, x2,
-            J, JcV,
-            ξ1x1, ξ2x1, ξ1x2, ξ2x2,
-            sJ,
-            n1, n2,
-            D...,
-            #! format: on
-        )
         fmask = (p[1, :][:], p[Nq[1], :][:], p[:, 1][:], p[:, Nq[2]][:])
     elseif dim == 3
-        Metrics.computemetric!(
-            #! format: off
-            x1, x2, x3,
-            J, JcV,
-            ξ1x1, ξ2x1, ξ3x1, ξ1x2, ξ2x2, ξ3x2, ξ1x3, ξ2x3, ξ3x3,
-            sJ,
-            n1, n2, n3,
-            D...,
-            #! format: on
-        )
         fmask = (
             p[1, :, :][:],
             p[Nq[1], :, :][:],
@@ -909,15 +944,15 @@ function computegeometry(elemtocoord, D, ξ, ω, meshwarp)
     # since `ξ1` is the fastest dimension and `ξdim` the slowest the tensor
     # product order is reversed
     M = kron(1, reverse(ω)...)
-    MJ .= M .* J
-    MJI .= 1 ./ MJ
+    vgeo.MJ .= M .*vgeo.MJ
+    vgeo.MJI .= 1 ./ vgeo.MJ
     for d in 1:dim
         for f in (2d - 1):(2d)
-            vMJI[1:Nfp[d], f, :] .= MJI[fmask[f], :]
+            sgeo.vMJI[1:Nfp[d], f, :] .= vgeo.MJI[fmask[f], :]
         end
     end
 
-    sM = fill!(similar(sJ, maximum(Nfp), nface), NaN)
+    sM = fill!(similar(sgeo.sMJ, maximum(Nfp), nface), NaN)
     for d in 1:dim
         for f in (2d - 1):(2d)
             ωf = ntuple(j -> ω[mod1(d + j, dim)], dim - 1)
@@ -928,14 +963,14 @@ function computegeometry(elemtocoord, D, ξ, ω, meshwarp)
             sM[1:Nfp[d], f] .= dim > 1 ? kron(1, ωf...) : one(FT)
         end
     end
-    sMJ .= sM .* sJ
+    sgeo.sMJ .= sM .* sgeo.sMJ
 
     # compute MH and JvC
     horizontal_metrics(vgeo, Nq, ω)
 
     # This is mainly done to support FVM plotting when N=0 (since we need cell
     # edge values)
-    x_vtk = (vgeo[:, _x1, :], vgeo[:, _x2, :], vgeo[:, _x3, :])
+    x_vtk = (vgeo.x1, vgeo.x2, vgeo.x3)
 
     (vgeo, sgeo, x_vtk)
 end

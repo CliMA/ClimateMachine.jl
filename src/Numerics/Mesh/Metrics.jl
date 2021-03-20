@@ -98,9 +98,14 @@ function creategrid!(x1, x2, x3, e2c, ξ1, ξ2, ξ3)
 end
 
 """
-    computemetric!(x1, J, JcV, ξ1x1, sJ, n1, D)
+    computemetric!(vgeo::VolumeGeometry{NTuple{1,Int}, <:AbstractArray}, sgeo::SurfaceGeometry{NTuple{1,Int}, <:AbstractArray}, D)
 
-Compute the 1-D metric terms from the element grid arrays `x1`. All the arrays
+Input arguments:
+- vgeo::VolumeGeometry, a struct containing the volumetric geometric factors
+- sgeo::SurfaceGeometry, a struct containing the surface geometric factors
+- D::DAT2, 1-D derivative operator on the device
+
+Compute the 1-D metric terms from the element grid arrays `vgeo.x1`. All the arrays
 are preallocated by the user and the (square) derivative matrix `D` should be
 consistent with the reference grid `ξ1` used in [`creategrid!`](@ref).
 
@@ -108,117 +113,119 @@ If `Nq = size(D, 1)` and `nelem = div(length(x1), Nq)` then the volume arrays
 `x1`, `J`, and `ξ1x1` should all have length `Nq * nelem`.  Similarly, the face
 arrays `sJ` and `n1` should be of length `nface * nelem` with `nface = 2`.
 """
-function computemetric!(x1, J, JcV, ξ1x1, sJ, n1, D)
+function computemetric!(
+    vgeo::VolumeGeometry{NTuple{1,Int}, <:AbstractArray},
+    sgeo::SurfaceGeometry{NTuple{1,Int}, <:AbstractArray},
+    D)
+
     Nq = size(D, 1)
-    nelem = div(length(J), Nq)
-    x1 = reshape(x1, (Nq, nelem))
-    J = reshape(J, (Nq, nelem))
-    JcV = reshape(JcV, (Nq, nelem))
-    ξ1x1 = reshape(ξ1x1, (Nq, nelem))
+    nelem = div(length(vgeo.MJ), Nq)
+    vgeo.x1 = reshape(vgeo.x1, (Nq, nelem))
+    vgeo.MJ = reshape(vgeo.MJ, (Nq, nelem))
+    vgeo.JcV = reshape(vgeo.JcV, (Nq, nelem))
+    vgeo.ξ1x1 = reshape(vgeo.ξ1x1, (Nq, nelem))
     nface = 2
-    n1 = reshape(n1, (1, nface, nelem))
-    sJ = reshape(sJ, (1, nface, nelem))
+    sgeo.n1 = reshape(sgeo.n1, (1, nface, nelem))
+    sgeo.sMJ = reshape(sgeo.sMJ, (1, nface, nelem))
 
     @inbounds for e in 1:nelem
-        JcV[:, e] = J[:, e] = D * x1[:, e]
+        vgeo.JcV[:, e] = vgeo.MJ[:, e] = D * vgeo.x1[:, e]
     end
-    ξ1x1 .= 1 ./ J
+    vgeo.ξ1x1 .= 1 ./ vgeo.MJ
 
-    n1[1, 1, :] .= -sign.(J[1, :])
-    n1[1, 2, :] .= sign.(J[Nq, :])
-    sJ .= 1
+    sgeo.n1[1, 1, :] .= -sign.(vgeo.MJ[1, :])
+    sgeo.n1[1, 2, :] .= sign.(vgeo.MJ[Nq, :])
+    sgeo.sMJ .= 1
     nothing
 end
 
 """
-    computemetric!(x1, x2, J, JcV, ξ1x1, ξ2x1, ξ1x2, ξ2x2, sJ, n1, n2, D1, D2)
+    computemetric!(vgeo::VolumeGeometry{NTuple{2,Int}, <:AbstractArray}, sgeo::SurfaceGeometry{NTuple{2,Int}, <:AbstractArray}, D1, D2)
 
-Compute the 2-D metric terms from the element grid arrays `x1` and `x2`. All the
+Input arguments:
+- vgeo::VolumeGeometry, a struct containing the volumetric geometric factors
+- sgeo::SurfaceGeometry, a struct containing the surface geometric factors
+- D1::DAT2, 1-D derivative operator on the device in the first dimension
+- D2::DAT2, 1-D derivative operator on the device in the second dimension
+
+Compute the 2-D metric terms from the element grid arrays `vgeo.x1` and `vgeo.x2`. All the
 arrays are preallocated by the user and the (square) derivative matrice `D1` and
-D2 should be consistent with the reference grid `ξ1` and `ξ2` used in
+`D2` should be consistent with the reference grid `ξ1` and `ξ2` used in
 [`creategrid!`](@ref).
 
-If `Nq = (size(D1, 1), size(D2, 1))` and `nelem = div(length(x1), prod(Nq))`
-then the volume arrays `x1`, `x2`, `J`, `ξ1x1`, `ξ2x1`, `ξ1x2`, and `ξ2x2`
-should all be of size `(Nq..., nelem)`.  Similarly, the face arrays `sJ`, `n1`,
-and `n2` should be of size `(maximum(Nq), nface, nelem)` with `nface = 4`
+If `Nq = (size(D1, 1), size(D2, 1))` and `nelem = div(length(vgeo.x1), prod(Nq))`
+then the volume arrays `vgeo.x1`, `vgeo.x2`, `vgeo.MJ`, `vgeo.ξ1x1`, `vgeo.ξ2x1`, `vgeo.ξ1x2`, and `vgeo.ξ2x2`
+should all be of size `(Nq..., nelem)`.  Similarly, the face arrays `sgeo.sMJ`, `sgeo.n1`,
+and `sgeo.n2` should be of size `(maximum(Nq), nface, nelem)` with `nface = 4`
+
 """
 function computemetric!(
-    x1,
-    x2,
-    J,
-    JcV,
-    ξ1x1,
-    ξ2x1,
-    ξ1x2,
-    ξ2x2,
-    sJ,
-    n1,
-    n2,
+    vgeo::VolumeGeometry{NTuple{2,Int}, <:AbstractArray},
+    sgeo::SurfaceGeometry{NTuple{2,Int}, <:AbstractArray},
     D1,
     D2,
 )
-    T = eltype(x1)
+    T = eltype(vgeo.x1)
     Nq = (size(D1, 1), size(D2, 1))
-    nelem = div(length(J), prod(Nq))
-    x1 = reshape(x1, (Nq..., nelem))
-    x2 = reshape(x2, (Nq..., nelem))
-    J = reshape(J, (Nq..., nelem))
-    JcV = reshape(JcV, (Nq..., nelem))
-    ξ1x1 = reshape(ξ1x1, (Nq..., nelem))
-    ξ2x1 = reshape(ξ2x1, (Nq..., nelem))
-    ξ1x2 = reshape(ξ1x2, (Nq..., nelem))
-    ξ2x2 = reshape(ξ2x2, (Nq..., nelem))
+    nelem = div(length(vgeo.MJ), prod(Nq))
+    vgeo.x1 = reshape(vgeo.x1, (Nq..., nelem))
+    vgeo.x2 = reshape(vgeo.x2, (Nq..., nelem))
+    vgeo.MJ = reshape(vgeo.MJ, (Nq..., nelem))
+    vgeo.JcV = reshape(vgeo.JcV, (Nq..., nelem))
+    vgeo.ξ1x1 = reshape(vgeo.ξ1x1, (Nq..., nelem))
+    vgeo.ξ2x1 = reshape(vgeo.ξ2x1, (Nq..., nelem))
+    vgeo.ξ1x2 = reshape(vgeo.ξ1x2, (Nq..., nelem))
+    vgeo.ξ2x2 = reshape(vgeo.ξ2x2, (Nq..., nelem))
     nface = 4
     Nfp = div.(prod(Nq), Nq)
-    n1 = reshape(n1, (maximum(Nfp), nface, nelem))
-    n2 = reshape(n2, (maximum(Nfp), nface, nelem))
-    sJ = reshape(sJ, (maximum(Nfp), nface, nelem))
+    sgeo.n1 = reshape(sgeo.n1, (maximum(Nfp), nface, nelem))
+    sgeo.n2 = reshape(sgeo.n2, (maximum(Nfp), nface, nelem))
+    sgeo.sMJ = reshape(sgeo.sMJ, (maximum(Nfp), nface, nelem))
 
     for e in 1:nelem
         for j in 1:Nq[2], i in 1:Nq[1]
-            x1ξ1 = x1ξ2 = zero(T)
-            x2ξ1 = x2ξ2 = zero(T)
+            vgeo.x1ξ1 = vgeo.x1ξ2 = zero(T)
+            vgeo.x2ξ1 = vgeo.x2ξ2 = zero(T)
             for n in 1:Nq[1]
-                x1ξ1 += D1[i, n] * x1[n, j, e]
-                x2ξ1 += D1[i, n] * x2[n, j, e]
+                vgeo.x1ξ1 += D1[i, n] * vgeo.x1[n, j, e]
+                vgeo.x2ξ1 += D1[i, n] * vgeo.x2[n, j, e]
             end
             for n in 1:Nq[2]
-                x1ξ2 += D2[j, n] * x1[i, n, e]
-                x2ξ2 += D2[j, n] * x2[i, n, e]
+                vgeo.x1ξ2 += D2[j, n] * vgeo.x1[i, n, e]
+                vgeo.x2ξ2 += D2[j, n] * vgeo.x2[i, n, e]
             end
-            JcV[i, j, e] = hypot(x1ξ2, x2ξ2)
-            J[i, j, e] = x1ξ1 * x2ξ2 - x2ξ1 * x1ξ2
-            ξ1x1[i, j, e] = x2ξ2 / J[i, j, e]
-            ξ2x1[i, j, e] = -x2ξ1 / J[i, j, e]
-            ξ1x2[i, j, e] = -x1ξ2 / J[i, j, e]
-            ξ2x2[i, j, e] = x1ξ1 / J[i, j, e]
+            vgeo.JcV[i, j, e] = hypot(vgeo.x1ξ2, vgeo.x2ξ2)
+            vgeo.MJ[i, j, e] = vgeo.x1ξ1 * vgeo.x2ξ2 - vgeo.x2ξ1 * vgeo.x1ξ2
+            vgeo.ξ1x1[i, j, e] =  vgeo.x2ξ2 / vgeo.MJ[i, j, e]
+            vgeo.ξ2x1[i, j, e] = -vgeo.x2ξ1 / vgeo.MJ[i, j, e]
+            vgeo.ξ1x2[i, j, e] = -vgeo.x1ξ2 / vgeo.MJ[i, j, e]
+            vgeo.ξ2x2[i, j, e] =  vgeo.x1ξ1 / vgeo.MJ[i, j, e]
         end
 
         for i in 1:maximum(Nfp)
             if i <= Nfp[1]
-                n1[i, 1, e] = -J[1, i, e] * ξ1x1[1, i, e]
-                n2[i, 1, e] = -J[1, i, e] * ξ1x2[1, i, e]
-                n1[i, 2, e] = J[Nq[1], i, e] * ξ1x1[Nq[1], i, e]
-                n2[i, 2, e] = J[Nq[1], i, e] * ξ1x2[Nq[1], i, e]
+                sgeo.n1[i, 1, e] = -vgeo.MJ[1, i, e] * vgeo.ξ1x1[1, i, e]
+                sgeo.n2[i, 1, e] = -vgeo.MJ[1, i, e] * vgeo.ξ1x2[1, i, e]
+                sgeo.n1[i, 2, e] =  vgeo.MJ[Nq[1], i, e] * vgeo.ξ1x1[Nq[1], i, e]
+                sgeo.n2[i, 2, e] =  vgeo.MJ[Nq[1], i, e] * vgeo.ξ1x2[Nq[1], i, e]
             else
-                n1[i, 1:2, e] .= NaN
-                n2[i, 1:2, e] .= NaN
+                sgeo.n1[i, 1:2, e] .= NaN
+                sgeo.n2[i, 1:2, e] .= NaN
             end
             if i <= Nfp[2]
-                n1[i, 3, e] = -J[i, 1, e] * ξ2x1[i, 1, e]
-                n2[i, 3, e] = -J[i, 1, e] * ξ2x2[i, 1, e]
-                n1[i, 4, e] = J[i, Nq[2], e] * ξ2x1[i, Nq[2], e]
-                n2[i, 4, e] = J[i, Nq[2], e] * ξ2x2[i, Nq[2], e]
+                sgeo.n1[i, 3, e] = -vgeo.MJ[i, 1, e] * vgeo.ξ2x1[i, 1, e]
+                sgeo.n2[i, 3, e] = -vgeo.MJ[i, 1, e] * vgeo.ξ2x2[i, 1, e]
+                sgeo.n1[i, 4, e] =  vgeo.MJ[i, Nq[2], e] * vgeo.ξ2x1[i, Nq[2], e]
+                sgeo.n2[i, 4, e] =  vgeo.MJ[i, Nq[2], e] * vgeo.ξ2x2[i, Nq[2], e]
             else
-                n1[i, 3:4, e] .= NaN
-                n2[i, 3:4, e] .= NaN
+                sgeo.n1[i, 3:4, e] .= NaN
+                sgeo.n2[i, 3:4, e] .= NaN
             end
 
             for n in 1:nface
-                sJ[i, n, e] = hypot(n1[i, n, e], n2[i, n, e])
-                n1[i, n, e] /= sJ[i, n, e]
-                n2[i, n, e] /= sJ[i, n, e]
+                sgeo.sMJ[i, n, e] = hypot(sgeo.n1[i, n, e], sgeo.n2[i, n, e])
+                sgeo.n1[i, n, e] /= sgeo.sMJ[i, n, e]
+                sgeo.n2[i, n, e] /= sgeo.sMJ[i, n, e]
             end
         end
     end
@@ -227,18 +234,24 @@ function computemetric!(
 end
 
 """
-    computemetric!(x1, x2, x3, J, JcV, ξ1x1, ξ2x1, ξ3x1, ξ1x2, ξ2x2, ξ3x2, ξ1x3,
-                   ξ2x3, ξ3x3, sJ, n1, n2, n3, D)
+    computemetric!(vgeo::VolumeGeometry{NTuple{3,Int}, <:AbstractArray}, sgeo::SurfaceGeometry{NTuple{3,Int}, <:AbstractArray}, D1, D2, D3)
 
-Compute the 3-D metric terms from the element grid arrays `x1`, `x2`, and `x3`.
-All the arrays are preallocated by the user and the (square) derivative matrix
-`D` should be consistent with the reference grid `ξ1` used in
+- vgeo::VolumeGeometry, a struct containing the volumetric geometric factors
+- sgeo::SurfaceGeometry, a struct containing the surface geometric factors
+- D1::DAT2, 1-D derivative operator on the device in the first dimension
+- D2::DAT2, 1-D derivative operator on the device in the second dimension
+- D3::DAT2, 1-D derivative operator on the device in the third dimension
+
+Compute the 3-D metric terms from the element grid arrays `vgeo.x1`, `vgeo.x2`, and `vgeo.x3`.
+All the arrays are preallocated by the user and the (square) derivative matrice `D1`,
+`D2`, and `D3` should be consistent with the reference grid `ξ1`, `ξ2`, and `ξ3` used in
 [`creategrid!`](@ref).
 
-If `Nq = size(D, 1)` and `nelem = div(length(x1), Nq^3)` then the volume arrays
-`x1`, `x2`, `x3`, `J`, `ξ1x1`, `ξ2x1`, `ξ3x1`, `ξ1x2`, `ξ2x2`, `ξ3x2`, `ξ1x3`,
-`ξ2x3`, and `ξ3x3` should all be of length `Nq^3 * nelem`.  Similarly, the face
-arrays `sJ`, `n1`, `n2`, and `n3` should be of size `Nq^2 * nface * nelem` with
+If `Nq = size(D1, 1)` and `nelem = div(length(vgeo.x1), Nq^3)` then the volume arrays
+`vgeo.x1`, `vgeo.x2`, `vgeo.x3`, `vgeo.MJ`, `vgeo.ξ1x1`, `vgeo.ξ2x1`, `vgeo.ξ3x1`,
+`vgeo.ξ1x2`, `vgeo.ξ2x2`, `vgeo.ξ3x2`, `vgeo.ξ1x3`,`vgeo.ξ2x3`, and `vgeo.ξ3x3`
+should all be of length `Nq^3 * nelem`.  Similarly, the face
+arrays `sgeo.sMJ`, `sgeo.n1`, `sgeo.n2`, and `sgeo.n3` should be of size `Nq^2 * nface * nelem` with
 `nface = 6`.
 
 The curl invariant formulation of Kopriva (2006), equation 37, is used.
@@ -247,198 +260,182 @@ Reference:
  - [Kopriva2006](@cite)
 """
 function computemetric!(
-    x1,
-    x2,
-    x3,
-    J,
-    JcV,
-    ξ1x1,
-    ξ2x1,
-    ξ3x1,
-    ξ1x2,
-    ξ2x2,
-    ξ3x2,
-    ξ1x3,
-    ξ2x3,
-    ξ3x3,
-    sJ,
-    n1,
-    n2,
-    n3,
+    vgeo::VolumeGeometry{NTuple{3,Int}, <:AbstractArray},
+    sgeo::SurfaceGeometry{NTuple{3,Int}, <:AbstractArray},
     D1,
     D2,
     D3,
 )
-    T = eltype(x1)
+    T = eltype(vgeo.x1)
 
     Nq = (size(D1, 1), size(D2, 1), size(D3, 1))
     Np = prod(Nq)
     Nfp = div.(Np, Nq)
-    nelem = div(length(J), Np)
+    nelem = div(length(vgeo.MJ), Np)
 
-    x1 = reshape(x1, (Nq..., nelem))
-    x2 = reshape(x2, (Nq..., nelem))
-    x3 = reshape(x3, (Nq..., nelem))
-    J = reshape(J, (Nq..., nelem))
-    JcV = reshape(JcV, (Nq..., nelem))
-    ξ1x1 = reshape(ξ1x1, (Nq..., nelem))
-    ξ2x1 = reshape(ξ2x1, (Nq..., nelem))
-    ξ3x1 = reshape(ξ3x1, (Nq..., nelem))
-    ξ1x2 = reshape(ξ1x2, (Nq..., nelem))
-    ξ2x2 = reshape(ξ2x2, (Nq..., nelem))
-    ξ3x2 = reshape(ξ3x2, (Nq..., nelem))
-    ξ1x3 = reshape(ξ1x3, (Nq..., nelem))
-    ξ2x3 = reshape(ξ2x3, (Nq..., nelem))
-    ξ3x3 = reshape(ξ3x3, (Nq..., nelem))
+    vgeo.x1 = reshape(vgeo.x1, (Nq..., nelem))
+    vgeo.x2 = reshape(vgeo.x2, (Nq..., nelem))
+    vgeo.x3 = reshape(vgeo.x3, (Nq..., nelem))
+    vgeo.MJ = reshape(vgeo.MJ, (Nq..., nelem))
+    vgeo.JcV = reshape(vgeo.JcV, (Nq..., nelem))
+    vgeo.ξ1x1 = reshape(vgeo.ξ1x1, (Nq..., nelem))
+    vgeo.ξ2x1 = reshape(vgeo.ξ2x1, (Nq..., nelem))
+    vgeo.ξ3x1 = reshape(vgeo.ξ3x1, (Nq..., nelem))
+    vgeo.ξ1x2 = reshape(vgeo.ξ1x2, (Nq..., nelem))
+    vgeo.ξ2x2 = reshape(vgeo.ξ2x2, (Nq..., nelem))
+    vgeo.ξ3x2 = reshape(vgeo.ξ3x2, (Nq..., nelem))
+    vgeo.ξ1x3 = reshape(vgeo.ξ1x3, (Nq..., nelem))
+    vgeo.ξ2x3 = reshape(vgeo.ξ2x3, (Nq..., nelem))
+    vgeo.ξ3x3 = reshape(vgeo.ξ3x3, (Nq..., nelem))
 
     nface = 6
-    n1 = reshape(n1, maximum(Nfp), nface, nelem)
-    n2 = reshape(n2, maximum(Nfp), nface, nelem)
-    n3 = reshape(n3, maximum(Nfp), nface, nelem)
-    sJ = reshape(sJ, maximum(Nfp), nface, nelem)
+    sgeo.n1 = reshape(sgeo.n1, maximum(Nfp), nface, nelem)
+    sgeo.n2 = reshape(sgeo.n2, maximum(Nfp), nface, nelem)
+    sgeo.n3 = reshape(sgeo.n3, maximum(Nfp), nface, nelem)
+    sgeo.sMJ = reshape(sgeo.sMJ, maximum(Nfp), nface, nelem)
 
-    JI2 = similar(J, Nq...)
+    JI2 = similar(vgeo.MJ, Nq...)
     (yzr, yzs, yzt) = (similar(JI2), similar(JI2), similar(JI2))
     (zxr, zxs, zxt) = (similar(JI2), similar(JI2), similar(JI2))
     (xyr, xys, xyt) = (similar(JI2), similar(JI2), similar(JI2))
 
-    ξ1x1 .= zero(T)
-    ξ2x1 .= zero(T)
-    ξ3x1 .= zero(T)
-    ξ1x2 .= zero(T)
-    ξ2x2 .= zero(T)
-    ξ3x2 .= zero(T)
-    ξ1x3 .= zero(T)
-    ξ2x3 .= zero(T)
-    ξ3x3 .= zero(T)
+    vgeo.ξ1x1 .= zero(T)
+    vgeo.ξ2x1 .= zero(T)
+    vgeo.ξ3x1 .= zero(T)
+    vgeo.ξ1x2 .= zero(T)
+    vgeo.ξ2x2 .= zero(T)
+    vgeo.ξ3x2 .= zero(T)
+    vgeo.ξ1x3 .= zero(T)
+    vgeo.ξ2x3 .= zero(T)
+    vgeo.ξ3x3 .= zero(T)
 
-    fill!(n1, NaN)
-    fill!(n2, NaN)
-    fill!(n3, NaN)
-    fill!(sJ, NaN)
+    fill!(sgeo.n1, NaN)
+    fill!(sgeo.n2, NaN)
+    fill!(sgeo.n3, NaN)
+    fill!(sgeo.sMJ, NaN)
 
     @inbounds for e in 1:nelem
         for k in 1:Nq[3], j in 1:Nq[2], i in 1:Nq[1]
-            x1ξ1 = x1ξ2 = x1ξ3 = zero(T)
-            x2ξ1 = x2ξ2 = x2ξ3 = zero(T)
-            x3ξ1 = x3ξ2 = x3ξ3 = zero(T)
+            vgeo.x1ξ1 = vgeo.x1ξ2 = vgeo.x1ξ3 = zero(T)
+            vgeo.x2ξ1 = vgeo.x2ξ2 = vgeo.x2ξ3 = zero(T)
+            vgeo.x3ξ1 = vgeo.x3ξ2 = vgeo.x3ξ3 = zero(T)
             for n in 1:Nq[1]
-                x1ξ1 += D1[i, n] * x1[n, j, k, e]
-                x2ξ1 += D1[i, n] * x2[n, j, k, e]
-                x3ξ1 += D1[i, n] * x3[n, j, k, e]
+                vgeo.x1ξ1 += D1[i, n] * vgeo.x1[n, j, k, e]
+                vgeo.x2ξ1 += D1[i, n] * vgeo.x2[n, j, k, e]
+                vgeo.x3ξ1 += D1[i, n] * vgeo.x3[n, j, k, e]
             end
             for n in 1:Nq[2]
-                x1ξ2 += D2[j, n] * x1[i, n, k, e]
-                x2ξ2 += D2[j, n] * x2[i, n, k, e]
-                x3ξ2 += D2[j, n] * x3[i, n, k, e]
+                vgeo.x1ξ2 += D2[j, n] * vgeo.x1[i, n, k, e]
+                vgeo.x2ξ2 += D2[j, n] * vgeo.x2[i, n, k, e]
+                vgeo.x3ξ2 += D2[j, n] * vgeo.x3[i, n, k, e]
             end
             for n in 1:Nq[3]
-                x1ξ3 += D3[k, n] * x1[i, j, n, e]
-                x2ξ3 += D3[k, n] * x2[i, j, n, e]
-                x3ξ3 += D3[k, n] * x3[i, j, n, e]
+                vgeo.x1ξ3 += D3[k, n] * vgeo.x1[i, j, n, e]
+                vgeo.x2ξ3 += D3[k, n] * vgeo.x2[i, j, n, e]
+                vgeo.x3ξ3 += D3[k, n] * vgeo.x3[i, j, n, e]
             end
-            JcV[i, j, k, e] = hypot(x1ξ3, x2ξ3, x3ξ3)
+            vgeo.JcV[i, j, k, e] = hypot(vgeo.x1ξ3, vgeo.x2ξ3, vgeo.x3ξ3)
             J[i, j, k, e] = (
-                x1ξ1 * (x2ξ2 * x3ξ3 - x3ξ2 * x2ξ3) +
-                x2ξ1 * (x3ξ2 * x1ξ3 - x1ξ2 * x3ξ3) +
-                x3ξ1 * (x1ξ2 * x2ξ3 - x2ξ2 * x1ξ3)
+                vgeo.x1ξ1 * (vgeo.x2ξ2 * vgeo.x3ξ3 - vgeo.x3ξ2 * vgeo.x2ξ3) +
+                vgeo.x2ξ1 * (vgeo.x3ξ2 * vgeo.x1ξ3 - vgeo.x1ξ2 * vgeo.x3ξ3) +
+                vgeo.x3ξ1 * (vgeo.x1ξ2 * vgeo.x2ξ3 - vgeo.x2ξ2 * vgeo.x1ξ3)
             )
 
-            JI2[i, j, k] = 1 / (2 * J[i, j, k, e])
+            JI2[i, j, k] = 1 / (2 * vgeo.MJ[i, j, k, e])
 
-            yzr[i, j, k] = x2[i, j, k, e] * x3ξ1 - x3[i, j, k, e] * x2ξ1
-            yzs[i, j, k] = x2[i, j, k, e] * x3ξ2 - x3[i, j, k, e] * x2ξ2
-            yzt[i, j, k] = x2[i, j, k, e] * x3ξ3 - x3[i, j, k, e] * x2ξ3
-            zxr[i, j, k] = x3[i, j, k, e] * x1ξ1 - x1[i, j, k, e] * x3ξ1
-            zxs[i, j, k] = x3[i, j, k, e] * x1ξ2 - x1[i, j, k, e] * x3ξ2
-            zxt[i, j, k] = x3[i, j, k, e] * x1ξ3 - x1[i, j, k, e] * x3ξ3
-            xyr[i, j, k] = x1[i, j, k, e] * x2ξ1 - x2[i, j, k, e] * x1ξ1
-            xys[i, j, k] = x1[i, j, k, e] * x2ξ2 - x2[i, j, k, e] * x1ξ2
-            xyt[i, j, k] = x1[i, j, k, e] * x2ξ3 - x2[i, j, k, e] * x1ξ3
+            yzr[i, j, k] = vgeo.x2[i, j, k, e] * vgeo.x3ξ1 - vgeo.x3[i, j, k, e] * vgeo.x2ξ1
+            yzs[i, j, k] = vgeo.x2[i, j, k, e] * vgeo.x3ξ2 - vgeo.x3[i, j, k, e] * vgeo.x2ξ2
+            yzt[i, j, k] = vgeo.x2[i, j, k, e] * vgeo.x3ξ3 - vgeo.x3[i, j, k, e] * vgeo.x2ξ3
+            zxr[i, j, k] = vgeo.x3[i, j, k, e] * vgeo.x1ξ1 - vgeo.x1[i, j, k, e] * vgeo.x3ξ1
+            zxs[i, j, k] = vgeo.x3[i, j, k, e] * vgeo.x1ξ2 - vgeo.x1[i, j, k, e] * vgeo.x3ξ2
+            zxt[i, j, k] = vgeo.x3[i, j, k, e] * vgeo.x1ξ3 - vgeo.x1[i, j, k, e] * vgeo.x3ξ3
+            xyr[i, j, k] = vgeo.x1[i, j, k, e] * vgeo.x2ξ1 - vgeo.x2[i, j, k, e] * vgeo.x1ξ1
+            xys[i, j, k] = vgeo.x1[i, j, k, e] * vgeo.x2ξ2 - vgeo.x2[i, j, k, e] * vgeo.x1ξ2
+            xyt[i, j, k] = vgeo.x1[i, j, k, e] * vgeo.x2ξ3 - vgeo.x2[i, j, k, e] * vgeo.x1ξ3
         end
 
         for k in 1:Nq[3], j in 1:Nq[2], i in 1:Nq[1]
             for n in 1:Nq[1]
-                ξ2x1[i, j, k, e] -= D1[i, n] * yzt[n, j, k]
-                ξ3x1[i, j, k, e] += D1[i, n] * yzs[n, j, k]
-                ξ2x2[i, j, k, e] -= D1[i, n] * zxt[n, j, k]
-                ξ3x2[i, j, k, e] += D1[i, n] * zxs[n, j, k]
-                ξ2x3[i, j, k, e] -= D1[i, n] * xyt[n, j, k]
-                ξ3x3[i, j, k, e] += D1[i, n] * xys[n, j, k]
+                vgeo.ξ2x1[i, j, k, e] -= D1[i, n] * yzt[n, j, k]
+                vgeo.ξ3x1[i, j, k, e] += D1[i, n] * yzs[n, j, k]
+                vgeo.ξ2x2[i, j, k, e] -= D1[i, n] * zxt[n, j, k]
+                vgeo.ξ3x2[i, j, k, e] += D1[i, n] * zxs[n, j, k]
+                vgeo.ξ2x3[i, j, k, e] -= D1[i, n] * xyt[n, j, k]
+                vgeo.ξ3x3[i, j, k, e] += D1[i, n] * xys[n, j, k]
             end
             for n in 1:Nq[2]
-                ξ1x1[i, j, k, e] += D2[j, n] * yzt[i, n, k]
-                ξ3x1[i, j, k, e] -= D2[j, n] * yzr[i, n, k]
-                ξ1x2[i, j, k, e] += D2[j, n] * zxt[i, n, k]
-                ξ3x2[i, j, k, e] -= D2[j, n] * zxr[i, n, k]
-                ξ1x3[i, j, k, e] += D2[j, n] * xyt[i, n, k]
-                ξ3x3[i, j, k, e] -= D2[j, n] * xyr[i, n, k]
+                vgeo.ξ1x1[i, j, k, e] += D2[j, n] * yzt[i, n, k]
+                vgeo.ξ3x1[i, j, k, e] -= D2[j, n] * yzr[i, n, k]
+                vgeo.ξ1x2[i, j, k, e] += D2[j, n] * zxt[i, n, k]
+                vgeo.ξ3x2[i, j, k, e] -= D2[j, n] * zxr[i, n, k]
+                vgeo.ξ1x3[i, j, k, e] += D2[j, n] * xyt[i, n, k]
+                vgeo.ξ3x3[i, j, k, e] -= D2[j, n] * xyr[i, n, k]
             end
             for n in 1:Nq[3]
-                ξ1x1[i, j, k, e] -= D3[k, n] * yzs[i, j, n]
-                ξ2x1[i, j, k, e] += D3[k, n] * yzr[i, j, n]
-                ξ1x2[i, j, k, e] -= D3[k, n] * zxs[i, j, n]
-                ξ2x2[i, j, k, e] += D3[k, n] * zxr[i, j, n]
-                ξ1x3[i, j, k, e] -= D3[k, n] * xys[i, j, n]
-                ξ2x3[i, j, k, e] += D3[k, n] * xyr[i, j, n]
+                vgeo.ξ1x1[i, j, k, e] -= D3[k, n] * yzs[i, j, n]
+                vgeo.ξ2x1[i, j, k, e] += D3[k, n] * yzr[i, j, n]
+                vgeo.ξ1x2[i, j, k, e] -= D3[k, n] * zxs[i, j, n]
+                vgeo.ξ2x2[i, j, k, e] += D3[k, n] * zxr[i, j, n]
+                vgeo.ξ1x3[i, j, k, e] -= D3[k, n] * xys[i, j, n]
+                vgeo.ξ2x3[i, j, k, e] += D3[k, n] * xyr[i, j, n]
             end
-            ξ1x1[i, j, k, e] *= JI2[i, j, k]
-            ξ2x1[i, j, k, e] *= JI2[i, j, k]
-            ξ3x1[i, j, k, e] *= JI2[i, j, k]
-            ξ1x2[i, j, k, e] *= JI2[i, j, k]
-            ξ2x2[i, j, k, e] *= JI2[i, j, k]
-            ξ3x2[i, j, k, e] *= JI2[i, j, k]
-            ξ1x3[i, j, k, e] *= JI2[i, j, k]
-            ξ2x3[i, j, k, e] *= JI2[i, j, k]
-            ξ3x3[i, j, k, e] *= JI2[i, j, k]
+            vgeo.ξ1x1[i, j, k, e] *= JI2[i, j, k]
+            vgeo.ξ2x1[i, j, k, e] *= JI2[i, j, k]
+            vgeo.ξ3x1[i, j, k, e] *= JI2[i, j, k]
+            vgeo.ξ1x2[i, j, k, e] *= JI2[i, j, k]
+            vgeo.ξ2x2[i, j, k, e] *= JI2[i, j, k]
+            vgeo.ξ3x2[i, j, k, e] *= JI2[i, j, k]
+            vgeo.ξ1x3[i, j, k, e] *= JI2[i, j, k]
+            vgeo.ξ2x3[i, j, k, e] *= JI2[i, j, k]
+            vgeo.ξ3x3[i, j, k, e] *= JI2[i, j, k]
         end
 
         # faces 1 & 2
         for k in 1:Nq[3], j in 1:Nq[2]
             n = j + (k - 1) * Nq[2]
-            n1[n, 1, e] = -J[1, j, k, e] * ξ1x1[1, j, k, e]
-            n2[n, 1, e] = -J[1, j, k, e] * ξ1x2[1, j, k, e]
-            n3[n, 1, e] = -J[1, j, k, e] * ξ1x3[1, j, k, e]
-            n1[n, 2, e] = J[Nq[1], j, k, e] * ξ1x1[Nq[1], j, k, e]
-            n2[n, 2, e] = J[Nq[1], j, k, e] * ξ1x2[Nq[1], j, k, e]
-            n3[n, 2, e] = J[Nq[1], j, k, e] * ξ1x3[Nq[1], j, k, e]
+            sgeo.n1[n, 1, e] = -vgeo.MJ[1, j, k, e] * vgeo.ξ1x1[1, j, k, e]
+            sgeo.n2[n, 1, e] = -vgeo.MJ[1, j, k, e] * vgeo.ξ1x2[1, j, k, e]
+            sgeo.n3[n, 1, e] = -vgeo.MJ[1, j, k, e] * vgeo.ξ1x3[1, j, k, e]
+            sgeo.n1[n, 2, e] =  vgeo.MJ[Nq[1], j, k, e] * vgeo.ξ1x1[Nq[1], j, k, e]
+            sgeo.n2[n, 2, e] =  vgeo.MJ[Nq[1], j, k, e] * vgeo.ξ1x2[Nq[1], j, k, e]
+            sgeo.n3[n, 2, e] =  vgeo.MJ[Nq[1], j, k, e] * vgeo.ξ1x3[Nq[1], j, k, e]
             for f in 1:2
-                sJ[n, f, e] = hypot(n1[n, f, e], n2[n, f, e], n3[n, f, e])
-                n1[n, f, e] /= sJ[n, f, e]
-                n2[n, f, e] /= sJ[n, f, e]
-                n3[n, f, e] /= sJ[n, f, e]
+                sgeo.sMJ[n, f, e] = hypot(sgeo.n1[n, f, e], sgeo.n2[n, f, e], sgeo.n3[n, f, e])
+                sgeo.n1[n, f, e] /= sgeo.sMJ[n, f, e]
+                sgeo.n2[n, f, e] /= sgeo.sMJ[n, f, e]
+                sgeo.n3[n, f, e] /= sgeo.sMJ[n, f, e]
             end
         end
         # faces 3 & 4
         for k in 1:Nq[3], i in 1:Nq[1]
             n = i + (k - 1) * Nq[1]
-            n1[n, 3, e] = -J[i, 1, k, e] * ξ2x1[i, 1, k, e]
-            n2[n, 3, e] = -J[i, 1, k, e] * ξ2x2[i, 1, k, e]
-            n3[n, 3, e] = -J[i, 1, k, e] * ξ2x3[i, 1, k, e]
-            n1[n, 4, e] = J[i, Nq[2], k, e] * ξ2x1[i, Nq[2], k, e]
-            n2[n, 4, e] = J[i, Nq[2], k, e] * ξ2x2[i, Nq[2], k, e]
-            n3[n, 4, e] = J[i, Nq[2], k, e] * ξ2x3[i, Nq[2], k, e]
+            sgeo.n1[n, 3, e] = -vgeo.MJ[i, 1, k, e] * vgeo.ξ2x1[i, 1, k, e]
+            sgeo.n2[n, 3, e] = -vgeo.MJ[i, 1, k, e] * vgeo.ξ2x2[i, 1, k, e]
+            sgeo.n3[n, 3, e] = -vgeo.MJ[i, 1, k, e] * vgeo.ξ2x3[i, 1, k, e]
+            sgeo.n1[n, 4, e] =  vgeo.MJ[i, Nq[2], k, e] * vgeo.ξ2x1[i, Nq[2], k, e]
+            sgeo.n2[n, 4, e] =  vgeo.MJ[i, Nq[2], k, e] * vgeo.ξ2x2[i, Nq[2], k, e]
+            sgeo.n3[n, 4, e] =  vgeo.MJ[i, Nq[2], k, e] * vgeo.ξ2x3[i, Nq[2], k, e]
             for f in 3:4
-                sJ[n, f, e] = hypot(n1[n, f, e], n2[n, f, e], n3[n, f, e])
-                n1[n, f, e] /= sJ[n, f, e]
-                n2[n, f, e] /= sJ[n, f, e]
-                n3[n, f, e] /= sJ[n, f, e]
+                sgeo.sMJ[n, f, e] = hypot(sgeo.n1[n, f, e], sgeo.n2[n, f, e], sgeo.n3[n, f, e])
+                sgeo.n1[n, f, e] /= sgeo.sMJ[n, f, e]
+                sgeo.n2[n, f, e] /= sgeo.sMJ[n, f, e]
+                sgeo.n3[n, f, e] /= sgeo.sMJ[n, f, e]
             end
         end
         # faces 5 & 6
         for j in 1:Nq[2], i in 1:Nq[1]
             n = i + (j - 1) * Nq[1]
-            n1[n, 5, e] = -J[i, j, 1, e] * ξ3x1[i, j, 1, e]
-            n2[n, 5, e] = -J[i, j, 1, e] * ξ3x2[i, j, 1, e]
-            n3[n, 5, e] = -J[i, j, 1, e] * ξ3x3[i, j, 1, e]
-            n1[n, 6, e] = J[i, j, Nq[3], e] * ξ3x1[i, j, Nq[3], e]
-            n2[n, 6, e] = J[i, j, Nq[3], e] * ξ3x2[i, j, Nq[3], e]
-            n3[n, 6, e] = J[i, j, Nq[3], e] * ξ3x3[i, j, Nq[3], e]
+            sgeo.n1[n, 5, e] = -vgeo.MJ[i, j, 1, e] * vgeo.ξ3x1[i, j, 1, e]
+            sgeo.n2[n, 5, e] = -vgeo.MJ[i, j, 1, e] * vgeo.ξ3x2[i, j, 1, e]
+            sgeo.n3[n, 5, e] = -vgeo.MJ[i, j, 1, e] * vgeo.ξ3x3[i, j, 1, e]
+            sgeo.n1[n, 6, e] =  vgeo.MJ[i, j, Nq[3], e] * vgeo.ξ3x1[i, j, Nq[3], e]
+            sgeo.n2[n, 6, e] =  vgeo.MJ[i, j, Nq[3], e] * vgeo.ξ3x2[i, j, Nq[3], e]
+            sgeo.n3[n, 6, e] =  vgeo.MJ[i, j, Nq[3], e] * vgeo.ξ3x3[i, j, Nq[3], e]
             for f in 5:6
-                sJ[n, f, e] = hypot(n1[n, f, e], n2[n, f, e], n3[n, f, e])
-                n1[n, f, e] /= sJ[n, f, e]
-                n2[n, f, e] /= sJ[n, f, e]
-                n3[n, f, e] /= sJ[n, f, e]
+                sgeo.sMJ[n, f, e] = hypot(sgeo.n1[n, f, e], sgeo.n2[n, f, e], sgeo.n3[n, f, e])
+                sgeo.n1[n, f, e] /= sgeo.sMJ[n, f, e]
+                sgeo.n2[n, f, e] /= sgeo.sMJ[n, f, e]
+                sgeo.n3[n, f, e] /= sgeo.sMJ[n, f, e]
             end
         end
     end
