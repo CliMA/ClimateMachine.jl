@@ -248,6 +248,7 @@ function vars_state(m::CNSE3D, ::Gradient, T)
         ∇ρ::T
         ∇u::SVector{3, T}
         ∇θ::T
+        ∇p::T
     end
 end
 
@@ -258,6 +259,12 @@ function compute_gradient_argument!(
     aux::Vars,
     t::Real,
 )
+    ρ = state.ρ
+    cₛ = model.cₛ
+    ρₒ = model.ρₒ
+
+    grad.∇p = (cₛ * ρ)^2 / (2 * ρₒ)
+
     compute_gradient_argument!(model.turbulence, grad, state, aux, t)
 end
 
@@ -287,6 +294,7 @@ function vars_state(m::CNSE3D, ::GradientFlux, T)
         μ∇ρ::SVector{3, T}
         ν∇u::SMatrix{3, 3, T, 9}
         κ∇θ::SVector{3, T}
+        ∇p::SVector{3, T}
     end
 end
 
@@ -298,6 +306,9 @@ function compute_gradient_flux!(
     aux::Vars,
     t::Real,
 )
+
+    gradflux.∇p = grad.∇p
+
     compute_gradient_flux!(
         model,
         model.turbulence,
@@ -345,7 +356,7 @@ end
     ρₒ = model.ρₒ
 
     flux.ρ += ρu
-    flux.ρu += (cₛ * ρ)^2 / (2 * ρₒ) * I
+    # flux.ρu += (cₛ * ρ)^2 / (2 * ρₒ) * I
 
     advective_flux!(model, model.advection, flux, state, aux, t)
 
@@ -409,6 +420,9 @@ end
     t::Real,
     direction,
 )
+
+    source.ρu -= gradflux.∇p
+
     coriolis_force!(model, model.coriolis, source, state, aux, t)
     forcing_term!(model, model.forcing, source, state, aux, t)
 
