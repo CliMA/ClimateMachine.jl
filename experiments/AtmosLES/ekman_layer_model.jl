@@ -140,7 +140,8 @@ function init_problem!(problem, bl, state, aux, localgeo, t)
     p = aux.ref_state.p
     TS = PhaseDry_pθ(param_set, p, θ)
 
-    ρ = bl.compressibility isa Compressible ? air_density(TS) : aux.ref_state.ρ
+    compress = compressibility_model(bl) isa Compressible
+    ρ = compress ? air_density(TS) : aux.ref_state.ρ
     # Compute momentum contributions
     ρu = ρ * u
     ρv = ρ * v
