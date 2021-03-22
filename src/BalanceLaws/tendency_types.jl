@@ -17,7 +17,7 @@
 
 using DispatchedTuples
 
-export PrognosticVariable,
+export AbstractPrognosticVariable,
     AbstractMomentumVariable,
     AbstractEnergyVariable,
     AbstractMoistureVariable,
@@ -31,18 +31,18 @@ export prognostic_var_source_map
 export eq_tends, prognostic_vars
 
 """
-    PrognosticVariable
+    AbstractPrognosticVariable
 
 Subtypes are used for specifying
 each prognostic variable.
 """
-abstract type PrognosticVariable end
+abstract type AbstractPrognosticVariable end
 
-abstract type AbstractMomentumVariable <: PrognosticVariable end
-abstract type AbstractEnergyVariable <: PrognosticVariable end
-abstract type AbstractMoistureVariable <: PrognosticVariable end
-abstract type AbstractPrecipitationVariable <: PrognosticVariable end
-abstract type AbstractTracersVariable{N} <: PrognosticVariable end
+abstract type AbstractMomentumVariable <: AbstractPrognosticVariable end
+abstract type AbstractEnergyVariable <: AbstractPrognosticVariable end
+abstract type AbstractMoistureVariable <: AbstractPrognosticVariable end
+abstract type AbstractPrecipitationVariable <: AbstractPrognosticVariable end
+abstract type AbstractTracersVariable{N} <: AbstractPrognosticVariable end
 
 
 """
@@ -100,10 +100,10 @@ each tendency definition.
 abstract type TendencyDef{TT <: AbstractTendencyType} end
 
 """
-    eq_tends(::PrognosticVariable, ::BalanceLaw, ::AbstractTendencyType)
+    eq_tends(::AbstractPrognosticVariable, ::BalanceLaw, ::AbstractTendencyType)
 
 A tuple of `TendencyDef`s given
- - `PrognosticVariable` prognostic variable
+ - `AbstractPrognosticVariable` prognostic variable
  - `AbstractTendencyType` tendency type
  - `BalanceLaw` balance law
 
@@ -118,10 +118,10 @@ function eq_tends end
 """
     prognostic_vars(::BalanceLaw)
 
-A tuple of `PrognosticVariable`s given
+A tuple of `AbstractPrognosticVariable`s given
 the `BalanceLaw`.
 
-i.e., a tuple of `PrognosticVariable`s
+i.e., a tuple of `AbstractPrognosticVariable`s
 corresponding to the column-vector `Yᵢ` in:
 
     `∂_t Yᵢ + (∇•F₁(Y))ᵢ + (∇•F₂(Y,G)))ᵢ = (S(Y,G))ᵢ`
@@ -137,7 +137,7 @@ Return identity by defualt
 projection(pv::PV, bl, ::TendencyDef{TT}, args, x) where {TT, PV} = x
 
 """
-    var, name = get_prog_state(state::Union{Vars, Grad}, pv::PrognosticVariable)
+    var, name = get_prog_state(state::Union{Vars, Grad}, pv::AbstractPrognosticVariable)
 
 Returns a tuple of two elements. `var` is a `Vars` or `Grad`
 object, and `name` is a Symbol. They should be linked such that
@@ -187,7 +187,7 @@ function prognostic_var_source_map(driver_sources::Tuple)
 end
 
 # Flatten "tuple of tuple of tuples" to "tuple of tuples"
-tuple_of_tuples(a::Tuple{PrognosticVariable, T}) where {T} = (a,)
+tuple_of_tuples(a::Tuple{AbstractPrognosticVariable, T}) where {T} = (a,)
 tuple_of_tuples(a, b...) =
     tuple(tuple_of_tuples(a)..., tuple_of_tuples(b...)...)
 tuple_of_tuples(a::Tuple) = tuple_of_tuples(a...)

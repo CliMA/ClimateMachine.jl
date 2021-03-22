@@ -6,7 +6,7 @@
 ##### Sources
 #####
 
-eq_tends(pv::PrognosticVariable, m::AtmosModel, tt::Source) =
+eq_tends(pv::AbstractPrognosticVariable, m::AtmosModel, tt::Source) =
     (m.source[pv]..., eq_tends(pv, m.turbconv, tt)...)
 
 #####

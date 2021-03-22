@@ -161,7 +161,7 @@ function vars_state(m::EDMF, st::GradientFlux, FT)
     )
 end
 
-abstract type EDMFPrognosticVariable <: PrognosticVariable end
+abstract type EDMFPrognosticVariable <: AbstractPrognosticVariable end
 
 abstract type EnvironmentPrognosticVariable <: EDMFPrognosticVariable end
 struct en_ρatke <: EnvironmentPrognosticVariable end

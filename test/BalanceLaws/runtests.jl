@@ -9,8 +9,8 @@ const BL = BalanceLaws
 import ClimateMachine.BalanceLaws: vars_state, eq_tends, prognostic_vars
 
 struct TestBL <: BalanceLaw end
-struct X <: PrognosticVariable end
-struct Y <: PrognosticVariable end
+struct X <: AbstractPrognosticVariable end
+struct Y <: AbstractPrognosticVariable end
 struct F1 <: TendencyDef{Flux{FirstOrder}} end
 struct F2 <: TendencyDef{Flux{SecondOrder}} end
 struct S <: TendencyDef{Source} end

@@ -5,7 +5,7 @@ export AbstractMoistureVariable, TotalMoisture, LiquidMoisture, IceMoisture
 export AbstractPrecipitationVariable, Rain, Snow
 export Tracers
 
-struct Mass <: PrognosticVariable end
+struct Mass <: AbstractPrognosticVariable end
 struct Momentum <: AbstractMomentumVariable end
 
 struct Energy <: AbstractEnergyVariable end
