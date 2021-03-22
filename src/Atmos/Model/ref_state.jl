@@ -75,7 +75,8 @@ function ref_state_init_pρ!(
 )
     param_set = parameter_set(atmos)
     z = altitude(atmos, aux)
-    T_virt, p = atmos.ref_state.virtual_temperature_profile(param_set, z)
+    ref_state = reference_state(atmos)
+    T_virt, p = ref_state.virtual_temperature_profile(param_set, z)
     aux.ref_state.p = p
     aux.ref_state.ρ = p / (T_virt * R_d(param_set))
 end
@@ -105,7 +106,8 @@ function ref_state_finalize_init!(
     p = aux.ref_state.p
     T_virt = p / (ρ * FT(R_d(param_set)))
 
-    RH = atmos.ref_state.relative_humidity
+    ref_state = reference_state(atmos)
+    RH = ref_state.relative_humidity
     phase_type = PhaseEquil
     (T, q_pt) = TD.temperature_and_humidity_given_TᵥρRH(
         param_set,
@@ -162,7 +164,8 @@ function atmos_init_aux!(
         # pᵢ - pᵢ₊₁ =  g ρᵢ₊₁ Δzᵢ₊₁/2 + g ρᵢ Δzᵢ/2
         fvm_balance!(fvm_balance_init!, atmos, state_auxiliary, grid)
     else
-        ∇p = ∇reference_pressure(atmos.ref_state, state_auxiliary, grid)
+        ref_state = reference_state(atmos)
+        ∇p = ∇reference_pressure(ref_state, state_auxiliary, grid)
         init_state_auxiliary!(
             atmos,
             ref_state_init_density_from_pressure!,

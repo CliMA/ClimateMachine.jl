@@ -20,7 +20,8 @@ function flux(::Momentum, ::PressureGradient, atmos, args)
     @unpack ts = args.precomputed
     s = state.ρu * state.ρu'
     pad = SArray{Tuple{size(s)...}}(ntuple(i -> 0, length(s)))
-    if atmos.ref_state isa HydrostaticState && atmos.ref_state.subtract_off
+    ref_state = reference_state(atmos)
+    if ref_state isa HydrostaticState && ref_state.subtract_off
         return pad + (air_pressure(ts) - aux.ref_state.p) * I
     else
         return pad + air_pressure(ts) * I
@@ -62,7 +63,8 @@ prognostic_vars(::Gravity) = (Momentum(),)
 
 function source(::Momentum, ::Gravity, m, args)
     @unpack state, aux = args
-    if m.ref_state isa HydrostaticState && m.ref_state.subtract_off
+    ref_state = reference_state(m)
+    if ref_state isa HydrostaticState && ref_state.subtract_off
         return -(state.ρ - aux.ref_state.ρ) * aux.orientation.∇Φ
     else
         return -state.ρ * aux.orientation.∇Φ

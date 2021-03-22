@@ -9,6 +9,7 @@ export AtmosModel,
     LMARSNumericalFlux,
     Compressible,
     Anelastic1D,
+    reference_state,
     parameter_set
 
 using UnPack
@@ -120,9 +121,11 @@ An `AtmosPhysics` for atmospheric physics
 # Fields
 $(DocStringExtensions.FIELDS)
 """
-struct AtmosPhysics{FT, PS}
+struct AtmosPhysics{FT, PS, RS}
     "Parameter Set (type to dispatch on, e.g., planet parameters. See CLIMAParameters.jl package)"
     param_set::PS
+    "Reference State (For initial conditions, or for linearisation when using implicit solvers)"
+    ref_state::RS
 end
 
 """
@@ -153,26 +156,8 @@ default values for each field.
 # Fields
 $(DocStringExtensions.FIELDS)
 """
-struct AtmosModel{
-    FT,
-    PH,
-    PR,
-    O,
-    E,
-    RS,
-    T,
-    TC,
-    HD,
-    VS,
-    M,
-    P,
-    R,
-    S,
-    TR,
-    LF,
-    C,
-    DC,
-} <: BalanceLaw
+struct AtmosModel{FT, PH, PR, O, E, T, TC, HD, VS, M, P, R, S, TR, LF, C, DC} <:
+       BalanceLaw
     "Atmospheric physics"
     physics::PH
     "Problem (initial and boundary conditions)"
@@ -181,8 +166,6 @@ struct AtmosModel{
     orientation::O
     "Energy sub-model, can be energy-based or θ_liq_ice-based"
     energy::E
-    "Reference State (For initial conditions, or for linearisation when using implicit solvers)"
-    ref_state::RS
     "Turbulence Closure (Equations for dynamics of under-resolved turbulent flows)"
     turbulence::T
     "Turbulence Convection Closure (e.g., EDMF)"
@@ -210,6 +193,7 @@ struct AtmosModel{
 end
 
 parameter_set(atmos::AtmosModel) = atmos.physics.param_set
+reference_state(atmos::AtmosModel) = atmos.physics.ref_state
 
 abstract type Compressibilty end
 
@@ -273,12 +257,12 @@ function AtmosModel{FT}(
     data_config = nothing,
 ) where {FT <: AbstractFloat}
 
+    phys_args = (param_set, ref_state)
     atmos = (
-        AtmosPhysics{FT, typeof(param_set)}(param_set),
+        AtmosPhysics{FT, typeof.(phys_args)...}(phys_args...),
         problem,
         orientation,
         energy,
-        ref_state,
         turbulence,
         turbconv,
         hyperdiffusion,
@@ -436,7 +420,7 @@ function vars_state(m::AtmosModel, st::Auxiliary, FT)
         ∫dnz::vars_state(m, DownwardIntegrals(), FT)
         coord::SVector{3, FT}
         orientation::vars_state(m.orientation, st, FT)
-        ref_state::vars_state(m.ref_state, st, FT)
+        ref_state::vars_state(reference_state(m), st, FT)
         turbulence::vars_state(m.turbulence, st, FT)
         turbconv::vars_state(m.turbconv, st, FT)
         hyperdiffusion::vars_state(m.hyperdiffusion, st, FT)
@@ -853,7 +837,7 @@ function init_state_auxiliary!(
 )
     # update the geopotential Φ in state_auxiliary.orientation.Φ
     init_aux!(m, m.orientation, state_auxiliary, grid, direction)
-    atmos_init_aux!(m, m.ref_state, state_auxiliary, grid, direction)
+    atmos_init_aux!(m, reference_state(m), state_auxiliary, grid, direction)
 
     init_state_auxiliary!(
         m,
@@ -1166,8 +1150,8 @@ function numerical_flux_first_order!(
 
     # Compute p * D = p * (0, n₁, n₂, n₃, S⁰)
     pD = @MVector zeros(FT, num_state_prognostic)
-    if balance_law.ref_state isa HydrostaticState &&
-       balance_law.ref_state.subtract_off
+    ref_state = reference_state(balance_law)
+    if ref_state isa HydrostaticState && ref_state.subtract_off
         # pressure should be continuous but it doesn't hurt to average
         ref_p⁻ = state_auxiliary⁻.ref_state.p
         ref_p⁺ = state_auxiliary⁺.ref_state.p
@@ -1468,8 +1452,8 @@ function numerical_flux_first_order!(
     e⁻ = ρe⁻ / ρ⁻
     uᵀn⁻ = u⁻' * normal_vector
     p⁻ = air_pressure(ts⁻)
-    if balance_law.ref_state isa HydrostaticState &&
-       balance_law.ref_state.subtract_off
+    ref_state = reference_state(balance_law)
+    if ref_state isa HydrostaticState && ref_state.subtract_off
         p⁻ -= state_auxiliary⁻.ref_state.p
     end
     c⁻ = soundspeed_air(ts⁻)
@@ -1483,8 +1467,7 @@ function numerical_flux_first_order!(
     e⁺ = ρe⁺ / ρ⁺
     uᵀn⁺ = u⁺' * normal_vector
     p⁺ = air_pressure(ts⁺)
-    if balance_law.ref_state isa HydrostaticState &&
-       balance_law.ref_state.subtract_off
+    if ref_state isa HydrostaticState && ref_state.subtract_off
         p⁺ -= state_auxiliary⁺.ref_state.p
     end
     c⁺ = soundspeed_air(ts⁺)
