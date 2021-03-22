@@ -84,7 +84,7 @@ function init_baroclinicwave!(problem, bl, state, aux, localgeo, t)
   (x,y,z) = localgeo.coord
   ### Problem float-type
   FT = eltype(state)
-  param_set = bl.param_set
+  #param_set = bl.param_set
   ### Unpack CLIMAParameters
   _planet_radius = FT(planet_radius(param_set))
   gravity        = FT(grav(param_set))
@@ -317,8 +317,8 @@ function test_run(mpicomm, ArrayType, topl, N, FT, brickrange)
         nothing
     end
 
-    solve!(Q, ode_solver; timeend = timeend, callbacks = (cbinfo, 
-                                                          cbfilter))
+    solve!(Q, ode_solver; timeend = timeend, callbacks = (cbinfo,))
+                                                          #cbfilter))
 
     # Print some end of the simulation information
     engf = norm(Q)
@@ -343,7 +343,7 @@ let
     mpicomm = MPI.COMM_WORLD
 
     # DG polynomial order
-    N = (7,8)
+    N = (5,3)
     FT = Float64
     # Domain resolution and size
     Δx = FT(200e3) 
