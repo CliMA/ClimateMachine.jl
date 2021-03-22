@@ -66,11 +66,39 @@ function boundary_state!(
 end
 
 function boundary_state!(
-    nf::Union{CentralNumericalFluxHigherOrder, CentralNumericalFluxDivergence},
+    nf::CentralNumericalFluxHigherOrder,
     bc::AtmosBC,
     m::AtmosModel,
     x...,
 )
+    nothing
+end
+
+function boundary_state!(
+    nf::CentralNumericalFluxDivergence,
+    bc::AtmosBC,
+    m::AtmosModel,
+    grad⁺::Grad,
+    aux⁺::Vars,
+    n⁻::SVector,
+    grad⁻::Grad,
+    aux⁻::Vars,
+    t,
+)
+    if m.hyperdiffusion isa HyperDiffusion
+      #grad⁺.hyperdiffusion.u_h = zeros(typeof(grad⁺.hyperdiffusion.u_h))
+      #grad⁺.hyperdiffusion.u_h = -grad⁻.hyperdiffusion.u_h
+      grad⁺.hyperdiffusion.u_h -= 2 * n⁻ .* (n⁻' * grad⁻.hyperdiffusion.u_h)
+
+      #grad⁺.hyperdiffusion.h_tot = zeros(typeof(grad⁺.hyperdiffusion.h_tot))
+      #grad⁺.hyperdiffusion.h_tot = -grad⁺.hyperdiffusion.h_tot 
+      grad⁺.hyperdiffusion.h_tot -= 2 * n⁻ .* dot(grad⁻.hyperdiffusion.h_tot, n⁻)
+      if m.hyperdiffusion isa EquilMoistBiharmonic
+        #grad⁺.hyperdiffusion.q_tot = zeros(typeof(grad⁺.hyperdiffusion.q_tot))
+        #grad⁺.hyperdiffusion.q_tot = -grad⁺.hyperdiffusion.q_tot
+        grad⁺.hyperdiffusion.q_tot -= 2 * n⁻ .* dot(grad⁻.hyperdiffusion.q_tot, n⁻)
+      end
+    end
     nothing
 end
 
