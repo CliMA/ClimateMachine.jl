@@ -439,19 +439,20 @@ end
 """
     effective_saturation(
         porosity::FT,
-        ϑ_l::FT
+        ϑ_l::FT,
+        θ_r::FT,
     ) where {FT}
 
 Compute the effective saturation of soil.
 
-`ϑ_l` is defined to be zero or positive. If `ϑ_l` is negative, 
+`ϑ_l` is defined to be larger than `θ_r`. If `ϑ_l-θ_r` is negative, 
 hydraulic functions that take it as an argument will return 
 imaginary numbers, resulting in domain errors. Exit in this 
 case with an error.
 """
-function effective_saturation(porosity::FT, ϑ_l::FT) where {FT}
-    ϑ_l < 0 && error("Effective saturation is negative")
-    S_l = ϑ_l / porosity
+function effective_saturation(porosity::FT, ϑ_l::FT, θ_r::FT) where {FT}
+    ϑ_l < θ_r && error("Effective saturation is negative")
+    S_l = (ϑ_l - θ_r) / (porosity - θ_r)
     return S_l
 end
 
@@ -459,11 +460,11 @@ end
 """
     pressure_head(
         model::AbstractHydraulicsModel{FT},
-        porosity::FT,
+        param_functions::PS,
         S_s::FT,
         ϑ_l::FT,
         θ_i::FT,
-    ) where {FT}
+    ) where {FT,PS}
 
 Determine the pressure head in both saturated and unsaturated soil. 
 
@@ -476,15 +477,16 @@ is treated as unaffected by the presence of ice.
 """
 function pressure_head(
     model::AbstractHydraulicsModel{FT},
-    porosity::FT,
-    S_s::FT,
+    param_functions::PS,
     ϑ_l::FT,
     θ_i::FT,
-) where {FT}
+) where {FT, PS}
+    porosity = param_functions.porosity
+    S_s = param_functions.S_s
+    θ_r = param_functions.θ_r
     eff_porosity = porosity - θ_i
-    S_l_eff = effective_saturation(eff_porosity, ϑ_l)
-    if S_l_eff < 1
-        S_l = effective_saturation(porosity, ϑ_l)
+    if ϑ_l < eff_porosity
+        S_l = effective_saturation(porosity, ϑ_l, θ_r)
         ψ = matric_potential(model, S_l)
     else
         ψ = (ϑ_l - eff_porosity) / S_s

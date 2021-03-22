@@ -94,9 +94,10 @@ function compute_surface_grad_bc(
     incident_water_flux = precip_model(t)
     Δz = runoff_model.Δz
     water = soil.water
+    param_functions = soil.param_functions
     hydraulics = water.hydraulics
-    ν = soil.param_functions.porosity
-    specific_storage = soil.param_functions.S_s
+    ν = param_functions.porosity
+
 
     T = get_temperature(soil.heat, aux⁻, t)
     θ_i = state⁻.soil.water.θ_i
@@ -109,8 +110,8 @@ function compute_surface_grad_bc(
     ∂h∂z =
         FT(1) +
         (
-            pressure_head(hydraulics, ν, specific_storage, ϑ_bc, θ_i) -
-            pressure_head(hydraulics, ν, specific_storage, ϑ_below, θ_i)
+            pressure_head(hydraulics, param_functions, ϑ_bc, θ_i) -
+            pressure_head(hydraulics, param_functions, ϑ_below, θ_i)
         ) / Δz
 
     K =
@@ -120,7 +121,7 @@ function compute_surface_grad_bc(
             water.moisture_factor,
             hydraulics,
             θ_i,
-            soil.param_functions.porosity,
+            param_functions.porosity,
             T,
             ϑ_bc / ν,# when ice is present, K still measured with ν, not νeff.
         )

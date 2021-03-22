@@ -70,8 +70,10 @@ function land_source!(
     # appropriate temperature range (T < _Tfreeze)
     ψ = -abs(_LH_f0 / _g / _Tfreeze * (T - _Tfreeze))
     hydraulics = land.soil.water.hydraulics
+    θ_r = land.soil.param_functions.θ_r
     θstar =
-        land.soil.param_functions.porosity *
+        θ_r +
+        (land.soil.param_functions.porosity - θ_r) *
         inverse_matric_potential(hydraulics, ψ)
 
     τft = max(source_type.Δt, source_type.τLTE)
