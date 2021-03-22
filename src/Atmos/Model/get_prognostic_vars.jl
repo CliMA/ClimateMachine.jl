@@ -1,6 +1,6 @@
 ##### Get prognostic variable list
 
-prognostic_vars(::EnergyModel) = (Energy(),)
+prognostic_vars(::TotalEnergyModel) = (Energy(),)
 prognostic_vars(::θModel) = (ρθ_liq_ice(),)
 
 prognostic_vars(::DryModel) = ()

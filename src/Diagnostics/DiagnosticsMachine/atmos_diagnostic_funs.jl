@@ -6,7 +6,7 @@ using ..TurbulenceConvection
 # of `AtmosModel`.
 
 const AtmosComponentTypes = Union{
-    MoistureModel,
+    AbstractMoistureModel,
     PrecipitationModel,
     RadiationModel,
     TracerModel,

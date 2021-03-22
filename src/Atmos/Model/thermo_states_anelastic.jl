@@ -33,7 +33,7 @@ recover_thermo_state_anelastic(atmos::AtmosModel, state::Vars, aux::Vars) =
 
 function new_thermo_state_anelastic(
     atmos::AtmosModel,
-    energy::EnergyModel,
+    energy::TotalEnergyModel,
     moist::DryModel,
     state::Vars,
     aux::Vars,
@@ -46,7 +46,7 @@ end
 
 function new_thermo_state_anelastic(
     atmos::AtmosModel,
-    energy::EnergyModel,
+    energy::TotalEnergyModel,
     moist::EquilMoist,
     state::Vars,
     aux::Vars,
@@ -67,7 +67,7 @@ end
 
 function new_thermo_state_anelastic(
     atmos::AtmosModel,
-    energy::EnergyModel,
+    energy::TotalEnergyModel,
     moist::NonEquilMoist,
     state::Vars,
     aux::Vars,

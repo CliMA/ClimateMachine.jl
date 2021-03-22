@@ -47,7 +47,13 @@ end
     "J kg^-1",
     "total specific energy",
     "specific_dry_energy_of_air",
-) do (energy::EnergyModel, atmos::AtmosModel, states::States, curr_time, cache)
+) do (
+    energy::TotalEnergyModel,
+    atmos::AtmosModel,
+    states::States,
+    curr_time,
+    cache,
+)
     states.prognostic.energy.ρe / states.prognostic.ρ
 end
 
@@ -109,7 +115,13 @@ end
     "J kg^-1",
     "specific enthalpy based on total energy",
     "",
-) do (energy::EnergyModel, atmos::AtmosModel, states::States, curr_time, cache)
+) do (
+    energy::TotalEnergyModel,
+    atmos::AtmosModel,
+    states::States,
+    curr_time,
+    cache,
+)
     ts = get!(cache, :ts) do
         recover_thermo_state(atmos, states.prognostic, states.auxiliary)
     end

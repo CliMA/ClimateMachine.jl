@@ -918,11 +918,11 @@ struct HyperdiffViscousFlux <: TendencyDef{Flux{SecondOrder}} end
 eq_tends(pv::PV, ::HyperDiffusion, ::AbstractTendencyType) where {PV} = ()
 
 # Enthalpy and viscous for Biharmonic model
-eq_tends(::AbstractEnergy, ::Biharmonic, ::Flux{SecondOrder}) =
+eq_tends(::AbstractEnergyVariable, ::Biharmonic, ::Flux{SecondOrder}) =
     (HyperdiffEnthalpyFlux(), HyperdiffViscousFlux())
 
 # Viscous for Biharmonic model
-eq_tends(::AbstractMomentum, ::Biharmonic, ::Flux{SecondOrder}) =
+eq_tends(::AbstractMomentumVariable, ::Biharmonic, ::Flux{SecondOrder}) =
     (HyperdiffViscousFlux(),)
 
 end #module TurbulenceClosures.jl

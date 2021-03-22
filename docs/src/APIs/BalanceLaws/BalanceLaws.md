@@ -13,7 +13,7 @@ BalanceLaw
 ## Tendency types and methods
 
 ```@docs
-PrognosticVariable
+AbstractPrognosticVariable
 AbstractOrder
 FirstOrder
 SecondOrder

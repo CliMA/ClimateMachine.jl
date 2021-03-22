@@ -22,7 +22,8 @@ function prognostic_to_primitive!(
     prog::Vars,
     aux,
 )
-    atmos.energy isa EnergyModel || error("EnergyModel only supported")
+    atmos.energy isa TotalEnergyModel ||
+        error("TotalEnergyModel only supported")
     prognostic_to_primitive!(atmos, atmos.moisture, prim, prog, aux)
     prognostic_to_primitive!(atmos.turbconv, atmos, atmos.moisture, prim, prog)
 end
@@ -105,7 +106,8 @@ function primitive_to_prognostic!(
     prim::Vars,
     aux::Vars,
 )
-    atmos.energy isa EnergyModel || error("EnergyModel only supported")
+    atmos.energy isa TotalEnergyModel ||
+        error("TotalEnergyModel only supported")
     ts = PhaseDry_ρp(parameter_set(atmos), prim.ρ, prim.p)
     e_kin = prim.u' * prim.u / 2
     ρ = density(atmos, prim, aux)
@@ -123,7 +125,8 @@ function primitive_to_prognostic!(
     prim::Vars,
     aux::Vars,
 )
-    atmos.energy isa EnergyModel || error("EnergyModel only supported")
+    atmos.energy isa TotalEnergyModel ||
+        error("TotalEnergyModel only supported")
     ts = PhaseEquil_ρpq(
         parameter_set(atmos),
         prim.ρ,
@@ -148,7 +151,8 @@ function primitive_to_prognostic!(
     prim::Vars,
     aux::Vars,
 )
-    atmos.energy isa EnergyModel || error("EnergyModel only supported")
+    atmos.energy isa TotalEnergyModel ||
+        error("TotalEnergyModel only supported")
     q_pt = PhasePartition(
         prim.moisture.q_tot,
         prim.moisture.q_liq,
