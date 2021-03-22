@@ -163,8 +163,8 @@ function nodal_init_state_auxiliary!(
     y = aux.coord[2]
     z = aux.coord[3]
 
-    φ = latitude(SphericalOrientation(), aux)
-    λ = longitude(SphericalOrientation(), aux)
+    φ = latitude(m.domain.orientation, aux)
+    λ = longitude(m.domain.orientation, aux)
     r = norm(aux.coord)
     
     # From initial conditions
@@ -186,14 +186,6 @@ function nodal_init_state_auxiliary!(
         geom,
     )
 
-    # if φ == 0.0 && λ == 0.0
-        # @show aux.u
-        # @show ic.aux.u(params, x, y, z)
-        # @show aux.D
-        # @show aux.H 
-        # @show aux.cD
-        # @show aux.cH
-    # end
 end
 
 
@@ -304,7 +296,6 @@ function nodal_update_auxiliary_state!(
     x = aux.coord[1]
     y = aux.coord[2]
     z = aux.coord[3]
-
     params = m.initial_value_problem.params
     ic = m.initial_value_problem.initial_conditions
 
@@ -313,29 +304,10 @@ function nodal_update_auxiliary_state!(
     
     H = aux.H
     cH = aux.cH
-
-    CC = 0
-
-    # aux.ρ_analytical = ic.state.ρ(params, x, y, z) * exp(- (D*cD+H*cH)*t)
-    compute_analytical_coeff!(m.advection, CC, params.m, aux.uˡᵒⁿ)
-    compute_analytical_coeff!(m.turbulence, CC, D, cD)
-    compute_analytical_coeff!(m.hyperdiffusion, CC, H, cH)
-
-
-    # aux.ρ_analytical = ic.state.ρ(params, x, y, z) * exp(- (-params.m*aux.uˡᵒⁿ+D*cD+H*cH)*t)
-    aux.ρ_analytical = ic.state.ρ(params, x, y, z) * exp(- CC*t)
-
-    φ = latitude(SphericalOrientation(), aux)
-    λ = longitude(SphericalOrientation(), aux)
-    if λ == 0.0 
-        @show φ
-        @show aux.uˡᵒⁿ
-        @show params.m
-    end
+    
+    aux.ρ_analytical = ic.state.ρ(params, x, y, z) * exp(- (D*cD+H*cH)*t)
+    
 end
-# function get_analytical(m, state, aux, t)
-#     aux.ρ_analytical = initial_condition!(m.hyperdiffusion, state, aux, t)
-# end
 
 # Defaults
 vars_state(m::Union{ProblemType, Nothing}, st::Prognostic, FT) = @vars()
@@ -352,16 +324,7 @@ compute_gradient_argument!(::Nothing, _...) = nothing
 compute_gradient_flux!(::Nothing, _...) = nothing
 nodal_init_state_auxiliary!(::Nothing, _...) = nothing
 
-compute_analytical_coeff!(::Nothing, _...) = nothing
-function compute_analytical_coeff!(problem::HyperDiffusionCubedSphereProblem, CC, H, cH)
-    CC = CC+H*cH
-end
-function compute_analytical_coeff!(problem::DiffusionCubedSphereProblem, CC, D, cD)
-    CC = CC+D*cD
-end
-function compute_analytical_coeff!(problem::AdvectionCubedSphereProblem, CC, m, u)
-    CC = CC - m*u
-end
+
 
 
 

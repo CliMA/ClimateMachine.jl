@@ -36,7 +36,7 @@ abstract type HyperDiffusionProblem <: ProblemType end
 
 # struct 
 struct HyperDiffusionCubedSphereProblem{FT} <: HyperDiffusionProblem
-    # τ::FT
+    D::FT
     H::FT
     l::FT
     m::FT
@@ -52,7 +52,7 @@ end
     - specifies which variable and compute kernels to use to compute the tendency due to hyperdiffusion
 
     ∂ρ_hyperdiff.
-    --            = - ∇ • (D∇³ρ) = - ∇ • F
+    --            = - ∇ • (H∇³ρ) = - ∇ • F
     ∂t
 
 """
@@ -70,12 +70,12 @@ vars_state(::HyperDiffusionProblem, ::GradientLaplacian, FT) = @vars(ρ::FT)
 vars_state(::HyperDiffusionProblem, ::GradientFlux, FT) = @vars()
 
 # The hyperdiffusion DG auxiliary variable: H ∇ Δρ
-vars_state(::HyperDiffusionProblem, ::Hyperdiffusive, FT) = @vars(D∇³ρ::SVector{3, FT})
+vars_state(::HyperDiffusionProblem, ::Hyperdiffusive, FT) = @vars(H∇³ρ::SVector{3, FT})
 
 """
     Compute kernels
     - compute_gradient_argument! - set up the variable to take the gradient of (`ρ` in this case)
-    - transform_post_gradient_laplacian! - collect the gradient of the Laplacian (`D∇³ρ`) into hyperdiffusion's aux 
+    - transform_post_gradient_laplacian! - collect the gradient of the Laplacian (`H∇³ρ`) into hyperdiffusion's aux 
     - flux_second_order! - add the gradient of the Laplacian to the main BL's flux, the gradient of which will be taken after to obtain the tendency
 """
 @inline function compute_gradient_argument!(
@@ -97,7 +97,7 @@ end
 )
     ∇Δρ = gradvars.hyperdiffusion.ρ
     H = aux.hyperdiffusion.H * SMatrix{3,3,Float64}(I)
-    auxHDG.hyperdiffusion.D∇³ρ = H * ∇Δρ
+    auxHDG.hyperdiffusion.H∇³ρ = H * ∇Δρ
 end
 @inline function flux_second_order!(
     ::HyperDiffusionProblem,
@@ -108,7 +108,7 @@ end
     aux::Vars,
     t::Real,
 )
-    flux.ρ += auxHDG.hyperdiffusion.D∇³ρ
+    flux.ρ += auxHDG.hyperdiffusion.H∇³ρ
 end
 
 """
@@ -160,11 +160,8 @@ end
 """
     Other useful functions
 """
-# hyperdiffusion-dependent timestep (only use for hyperdiffusion unit test) - may want to generalise for calculate_dt
-#@inline Δt(problem::HyperDiffusionProblem, Δ_min) = Δ_min^4 / 25 / sum( H(problem, Δ_min) ) 
-# @inline Δt(problem::HyperDiffusionProblem, Δx; CFL=0.05) = (Δx /2)^4/2 / H(problem, Δx) * CFL 
+# hyperdiffusion-dependent timestep - may want to generalise for calculate_dt
 @inline Δt(problem::HyperDiffusionProblem, Δx; CFL=0.05) = (Δx /2)^4/2 / problem.H * CFL 
-#dt = CFL_wanted / CFL_max = CFL_wanted / max( H / dx^4 )
 
 # lengthscale-dependent hyperdiffusion coefficient
 # @inline H(problem::HyperDiffusionProblem, Δx ) = (Δx /2)^4/2 / problem.τ

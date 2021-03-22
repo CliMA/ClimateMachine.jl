@@ -43,7 +43,7 @@ function main(::Type{FT}) where {FT}
     advection = AdvectionCubedSphereProblem()
     
     # Domain
-    Ω = AtmosDomain(radius = FT(planet_radius(param_set)), height = FT(30e3))
+    Ω = AtmosGCMDomain(radius = FT(planet_radius(param_set)), height = FT(30e3))
 
     # Grid
     nelem = (;horizontal = 8, vertical = 4)
@@ -62,12 +62,12 @@ function main(::Type{FT}) where {FT}
     # Callbacks (TODO)
     callbacks = (
                 #JLD2State((
-                #    interation = 1,
+                #    iteration = 1,
                 #    filepath ="output/tmp.jld2",
                 #    overwrite = true
                 #    )...,),
                 VTKOutput((
-                     interation = string(Δt_)*"ssecs" ,
+                     iteration = string(Δt_)*"ssecs" ,
                      overdir ="output",
                      overwrite = true,
                      number_sample_points = 0

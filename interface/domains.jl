@@ -97,14 +97,15 @@ end
 CubedSphere for GCM 
 ```
 
-struct AtmosDomain{S} <: AbstractDomain
+struct AtmosGCMDomain{S,O} <: AbstractDomain
     radius::S
     height::S
+    orientation::O
 
-    function AtmosDomain(; radius = nothing, height = nothing )
+    function AtmosGCMDomain(; radius = nothing, height = nothing, orientation = SphericalOrientation() )
         radius, height = promote(radius, height)
 
-        return new{typeof(radius)}(radius, height)
+        return new{typeof(radius),typeof(orientation)}(radius, height, orientation)
     end
 end
 

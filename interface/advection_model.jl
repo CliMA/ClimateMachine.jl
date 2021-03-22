@@ -78,7 +78,5 @@ end
 """
     Other useful functions
 """
-# hyperdiffusion-dependent timestep (only use for hyperdiffusion unit test) - may want to generalise for calculate_dt
-#@inline Δt(problem::AdvectionProblem, Δ_min) = Δ_min^4 / 25 / sum( D(problem, Δ_min) ) 
-@inline Δt(problem::AdvectionProblem, Δx; CFL=0.05) = (Δx /2 ) /2  * CFL 
-#dt = CFL_wanted / CFL_max = CFL_wanted / max( D / dx^4 )
+@inline Δt(problem::AdvectionProblem, Δx; u = 0, CFL=0.1) = Δx  * CFL  / u 
+

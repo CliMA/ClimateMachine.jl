@@ -27,9 +27,6 @@ using ClimateMachine.Mesh.Geometry: LocalGeometry, lengthscale, lengthscale_hori
 using ClimateMachine.DGMethods.NumericalFluxes:
     NumericalFluxFirstOrder, NumericalFluxSecondOrder
 
-# diffusion-specific functions
-#include("spherical_harmonics_kernels.jl")
-
 """
     DiffusionProblem 
     - collects parameters for diffusion
@@ -38,8 +35,8 @@ abstract type DiffusionProblem <: ProblemType end
 
 # struct 
 struct DiffusionCubedSphereProblem{FT} <: DiffusionProblem
-    # τ::FT
     D::FT
+    H::FT
     l::FT
     m::FT
 end
@@ -127,7 +124,6 @@ end
     aux.turbulence.c = get_c(l, r)
     
     Δ_hor = lengthscale_horizontal(geom)
-    # aux.turbulence.D = D(problem, Δ_hor)
     aux.turbulence.D = problem.D
     aux.D = aux.turbulence.D
     aux.cD = aux.turbulence.c
@@ -142,7 +138,6 @@ end
     FT = eltype(aux)
     Δ = lengthscale(geom)
 
-    # aux.turbulence.D = D(problem, Δ)
     aux.turbulence.D = problem.D
     aux.D = aux.turbulence.D
     nothing   
@@ -158,11 +153,8 @@ end
 """
     Other useful functions
 """
-# hyperdiffusion-dependent timestep (only use for hyperdiffusion unit test) - may want to generalise for calculate_dt
-#@inline Δt(problem::DiffusionProblem, Δ_min) = Δ_min^4 / 25 / sum( D(problem, Δ_min) ) 
-# @inline Δt(problem::DiffusionProblem, Δx; CFL=0.05) = (Δx /2 )^2 /2 / D(problem, Δx) * CFL 
+# diffusion-dependent timestep - may want to generalise for calculate_dt
 @inline Δt(problem::DiffusionProblem, Δx; CFL=0.05) = (Δx /2 )^2 /2 / problem.D * CFL 
-#dt = CFL_wanted / CFL_max = CFL_wanted / max( D / dx^4 )
 
 # lengthscale-dependent hyperdiffusion coefficient
 # @inline D(problem::DiffusionProblem, Δx ) = (Δx /2 )^2 /2 / problem.τ

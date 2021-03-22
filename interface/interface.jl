@@ -113,7 +113,7 @@ for CubedSphere
 # ```
 
 function DiscontinuousSpectralElementGrid(
-    Ω::AtmosDomain{FT},
+    Ω::AtmosGCMDomain{FT},
     elements,
     polynomialorder,
     mpicomm = MPI.COMM_WORLD,
