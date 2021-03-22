@@ -8,7 +8,7 @@ mainly useful for cases where the problem has an explicit solution.
 # TODO: This should be fixed later once BCs are figured out (likely want
 # different things here?)
 """
-struct InitStateBC end
+struct InitStateBC <: AbstractAtmosBC end
 function boundary_state!(
     ::Union{NumericalFluxFirstOrder, NumericalFluxGradient},
     bc::InitStateBC,
@@ -43,4 +43,13 @@ function boundary_state!(
 )
     # Put coord in a NamedTuple to mimmic LocalGeometry
     init_state_prognostic!(m, state⁺, aux⁺, (coord = aux⁺.coord,), t)
+end
+
+function boundary_state!(
+    nf::CentralNumericalFluxHigherOrder,
+    bc::InitStateBC,
+    m::AtmosModel,
+    x...,
+)
+    nothing
 end
