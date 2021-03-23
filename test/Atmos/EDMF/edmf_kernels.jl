@@ -153,7 +153,7 @@ end
 
 function vars_state(m::EDMF, st::GradientFlux, FT)
     @vars(
-        S²::FT, # should be conditionally grabbed from atmos.turbulence
+        S²::FT, # should be conditionally grabbed from turbulence_model(atmos)
         environment::vars_state(m.environment, st, FT),
         updraft::vars_state(m.updraft, st, FT),
         ∇u::SVector{3, FT},
@@ -241,7 +241,7 @@ eq_tends(
 
 # Turbconv tendencies
 eq_tends(pv::EDMFPrognosticVariable, m::AtmosModel, tt::Flux{O}) where {O} =
-    eq_tends(pv, m.turbconv, tt)
+    eq_tends(pv, turbconv_model(m), tt)
 
 eq_tends(::EDMFPrognosticVariable, m::EDMF, ::Flux{O}) where {O} = ()
 
@@ -485,9 +485,10 @@ function compute_gradient_flux!(
 
     E_dyn, Δ_dyn, E_trb = entr_detr(m, state, aux, ts.up, ts.en, env, buoy)
 
+    turbconv = turbconv_model(m)
     en_dif.l_mix, ∂b∂z_env, Pr_t = mixing_length(
         m,
-        m.turbconv.mix_len,
+        turbconv.mix_len,
         args,
         Δ_dyn,
         E_trb,
@@ -496,9 +497,9 @@ function compute_gradient_flux!(
         env,
     )
 
-    en_dif.K_m = m.turbconv.mix_len.c_m * en_dif.l_mix * sqrt(tke_en)
+    en_dif.K_m = turbconv.mix_len.c_m * en_dif.l_mix * sqrt(tke_en)
     K_h = en_dif.K_m / Pr_t
-    Diss₀ = m.turbconv.mix_len.c_d * sqrt(tke_en) / en_dif.l_mix
+    Diss₀ = turbconv.mix_len.c_d * sqrt(tke_en) / en_dif.l_mix
 
     en_dif.shear_prod = ρa₀ * en_dif.K_m * gm_dif.S² # tke Shear source
     en_dif.buoy_prod = -ρa₀ * K_h * ∂b∂z_env   # tke Buoyancy source
@@ -547,7 +548,7 @@ function source(::en_ρatke, ::EntrDetr, atmos, args)
     up = state.turbconv.updraft
     en = state.turbconv.environment
     gm = state
-    N_up = n_updrafts(atmos.turbconv)
+    N_up = n_updrafts(turbconv_model(atmos))
     ρ_inv = 1 / gm.ρ
     tke_en = enforce_positivity(en.ρatke) * ρ_inv / env.a
 
@@ -568,7 +569,7 @@ function source(::en_ρaθ_liq_cv, ::EntrDetr, atmos, args)
     ts_gm = args.precomputed.ts
     up = state.turbconv.updraft
     en = state.turbconv.environment
-    N_up = n_updrafts(atmos.turbconv)
+    N_up = n_updrafts(turbconv_model(atmos))
     θ_liq = liquid_ice_pottemp(ts_gm)
     θ_liq_en = liquid_ice_pottemp(ts_en)
 
@@ -597,7 +598,7 @@ function source(::en_ρaq_tot_cv, ::EntrDetr, atmos, args)
     up = state.turbconv.updraft
     en = state.turbconv.environment
     gm = state
-    N_up = n_updrafts(atmos.turbconv)
+    N_up = n_updrafts(turbconv_model(atmos))
     q_tot_en = total_specific_humidity(ts_en)
     ρ_inv = 1 / gm.ρ
     ρq_tot = atmos.moisture isa DryModel ? FT(0) : gm.moisture.ρq_tot
@@ -628,7 +629,7 @@ function source(::en_ρaθ_liq_q_tot_cv, ::EntrDetr, atmos, args)
     up = state.turbconv.updraft
     en = state.turbconv.environment
     gm = state
-    N_up = n_updrafts(atmos.turbconv)
+    N_up = n_updrafts(turbconv_model(atmos))
     q_tot_en = total_specific_humidity(ts_en)
     θ_liq = liquid_ice_pottemp(ts_gm)
     θ_liq_en = liquid_ice_pottemp(ts_en)
@@ -656,7 +657,7 @@ end
 function source(::en_ρatke, ::PressSource, atmos, args)
     @unpack env, ρa_up, dpdz, w_up = args.precomputed.turbconv
     up = args.state.turbconv.updraft
-    N_up = n_updrafts(atmos.turbconv)
+    N_up = n_updrafts(turbconv_model(atmos))
     press_tke = vuntuple(N_up) do i
         fix_void_up(ρa_up[i], ρa_up[i] * (w_up[i] - env.w) * dpdz[i])
     end
@@ -741,7 +742,7 @@ end
 
 function compute_ρa_up(atmos, state, aux)
     # Aliases:
-    turbconv = atmos.turbconv
+    turbconv = turbconv_model(atmos)
     gm = state
     up = state.turbconv.updraft
     N_up = n_updrafts(turbconv)
@@ -818,11 +819,12 @@ end
 function precompute(::EDMF, bl, args, ts, ::Flux{FirstOrder})
     @unpack state, aux = args
     FT = eltype(state)
-    env = environment_vars(state, n_updrafts(bl.turbconv))
+    turbconv = turbconv_model(bl)
+    env = environment_vars(state, n_updrafts(turbconv))
     ρa_up = compute_ρa_up(bl, state, aux)
     up = state.turbconv.updraft
     gm = state
-    N_up = n_updrafts(bl.turbconv)
+    N_up = n_updrafts(turbconv)
     ρ_inv = 1 / gm.ρ
     w_up = vuntuple(N_up) do i
         fix_void_up(ρa_up[i], up[i].ρaw / ρa_up[i])
@@ -849,7 +851,8 @@ function precompute(::EDMF, bl, args, ts, ::Flux{SecondOrder})
     @unpack state, aux, diffusive, t = args
     ts_gm = ts
     up = state.turbconv.updraft
-    N_up = n_updrafts(bl.turbconv)
+    turbconv = turbconv_model(bl)
+    N_up = n_updrafts(turbconv)
     env = environment_vars(state, N_up)
     ts_en = new_thermo_state_en(bl, bl.moisture, state, aux, ts_gm)
     ts_up = new_thermo_state_up(bl, bl.moisture, state, aux, ts_gm)
@@ -860,7 +863,7 @@ function precompute(::EDMF, bl, args, ts, ::Flux{SecondOrder})
 
     l_mix, ∂b∂z_env, Pr_t = mixing_length(
         bl,
-        bl.turbconv.mix_len,
+        turbconv.mix_len,
         args,
         Δ_dyn,
         E_trb,
@@ -872,7 +875,7 @@ function precompute(::EDMF, bl, args, ts, ::Flux{SecondOrder})
 
     en = state.turbconv.environment
     tke_en = enforce_positivity(en.ρatke) / env.a / state.ρ
-    K_m = bl.turbconv.mix_len.c_m * l_mix * sqrt(tke_en)
+    K_m = turbconv.mix_len.c_m * l_mix * sqrt(tke_en)
     K_h = K_m / Pr_t
     ρaw_up = vuntuple(i -> up[i].ρaw, N_up)
 
@@ -915,7 +918,7 @@ function compute_buoyancy(
 )
     FT = eltype(state)
     param_set = parameter_set(bl)
-    N_up = n_updrafts(bl.turbconv)
+    N_up = n_updrafts(turbconv_model(bl))
     _grav::FT = grav(param_set)
     gm = state
     ρ_inv = 1 / gm.ρ
@@ -945,7 +948,8 @@ function precompute(::EDMF, bl, args, ts, ::Source)
     ts_gm = ts
     gm = state
     up = state.turbconv.updraft
-    N_up = n_updrafts(bl.turbconv)
+    turbconv = turbconv_model(bl)
+    N_up = n_updrafts(turbconv)
     # Get environment variables
     env = environment_vars(state, N_up)
     # Recover thermo states
@@ -960,7 +964,7 @@ function precompute(::EDMF, bl, args, ts, ::Source)
 
     l_mix, ∂b∂z_env, Pr_t = mixing_length(
         bl,
-        bl.turbconv.mix_len,
+        turbconv.mix_len,
         args,
         Δ_dyn,
         E_trb,
@@ -975,9 +979,9 @@ function precompute(::EDMF, bl, args, ts, ::Source)
 
     en = state.turbconv.environment
     tke_en = enforce_positivity(en.ρatke) / env.a / state.ρ
-    K_m = bl.turbconv.mix_len.c_m * l_mix * sqrt(tke_en)
+    K_m = turbconv.mix_len.c_m * l_mix * sqrt(tke_en)
     K_h = K_m / Pr_t
-    Diss₀ = bl.turbconv.mix_len.c_d * sqrt(tke_en) / l_mix
+    Diss₀ = turbconv.mix_len.c_d * sqrt(tke_en) / l_mix
 
     return (;
         env,
@@ -1010,7 +1014,7 @@ function flux(::Energy, ::SGSFlux, atmos, args)
     up = state.turbconv.updraft
     gm = state
     ρ_inv = 1 / gm.ρ
-    N_up = n_updrafts(atmos.turbconv)
+    N_up = n_updrafts(turbconv_model(atmos))
     ρu_gm_tup = Tuple(gm.ρu)
 
     # TODO: Consider turbulent contribution:
@@ -1041,7 +1045,7 @@ function flux(::TotalMoisture, ::SGSFlux, atmos, args)
     up = state.turbconv.updraft
     gm = state
     ρ_inv = 1 / gm.ρ
-    N_up = n_updrafts(atmos.turbconv)
+    N_up = n_updrafts(turbconv_model(atmos))
     ρq_tot = atmos.moisture isa DryModel ? FT(0) : gm.moisture.ρq_tot
     ρaq_tot_up = vuntuple(i -> up[i].ρaq_tot, N_up)
 
@@ -1070,7 +1074,7 @@ function flux(::Momentum, ::SGSFlux, atmos, args)
     up = state.turbconv.updraft
     gm = state
     ρ_inv = 1 / gm.ρ
-    N_up = n_updrafts(atmos.turbconv)
+    N_up = n_updrafts(turbconv_model(atmos))
 
     ρu_gm_tup = Tuple(gm.ρu)
 
@@ -1142,7 +1146,7 @@ function turbconv_boundary_state!(
     args,
 ) where {FT}
     @unpack state⁻, aux⁻, aux_int⁻ = args
-    turbconv = atmos.turbconv
+    turbconv = turbconv_model(atmos)
     N_up = n_updrafts(turbconv)
     up⁺ = state⁺.turbconv.updraft
     en⁺ = state⁺.turbconv.environment
@@ -1182,7 +1186,7 @@ function turbconv_boundary_state!(
     state⁺::Vars,
     args,
 ) where {FT}
-    N_up = n_updrafts(atmos.turbconv)
+    N_up = n_updrafts(turbconv_model(atmos))
     up⁺ = state⁺.turbconv.updraft
     @unroll_map(N_up) do i
         up⁺[i].ρaw = FT(0)
@@ -1208,7 +1212,7 @@ function turbconv_normal_boundary_flux_second_order!(
     args,
 ) where {FT}
 
-    turbconv = atmos.turbconv
+    turbconv = turbconv_model(atmos)
     N_up = n_updrafts(turbconv)
     up_flx = fluxᵀn.turbconv.updraft
     en_flx = fluxᵀn.turbconv.environment

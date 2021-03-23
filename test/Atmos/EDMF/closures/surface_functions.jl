@@ -27,14 +27,8 @@ function subdomain_surface_values(
     aux::Vars,
     zLL,
 )
-    subdomain_surface_values(
-        atmos.turbconv.surface,
-        atmos.turbconv,
-        atmos,
-        state,
-        aux,
-        zLL,
-    )
+    turbconv = turbconv_model(atmos)
+    subdomain_surface_values(turbconv.surface, turbconv, atmos, state, aux, zLL)
 end
 
 function subdomain_surface_values(
@@ -46,7 +40,7 @@ function subdomain_surface_values(
     zLL::FT,
 ) where {FT}
 
-    turbconv = atmos.turbconv
+    turbconv = turbconv_model(atmos)
     N_up = n_updrafts(turbconv)
     gm = state
     # TODO: change to new_thermo_state

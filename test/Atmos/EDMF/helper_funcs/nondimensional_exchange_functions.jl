@@ -44,7 +44,7 @@ function nondimensional_exchange_functions(
 
     # precompute vars
     w_min = entr.w_min
-    N_up = n_updrafts(m.turbconv)
+    N_up = n_updrafts(turbconv_model(m))
     ρinv = 1 / gm.ρ
     a_up_i = up[i].ρa * ρinv
     w_up_i = fix_void_up(up[i].ρa, up[i].ρaw / up[i].ρa)

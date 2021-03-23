@@ -176,7 +176,7 @@ function init_problem!(problem, bl, state, aux, localgeo, t)
         state.moisture.ρq_tot = ρ * q_tot
     end
     add_perturbations!(state, localgeo)
-    init_state_prognostic!(bl.turbconv, bl, state, aux, localgeo, t)
+    init_state_prognostic!(turbconv_model(bl), bl, state, aux, localgeo, t)
 end
 
 function surface_temperature_variation(state, t)
