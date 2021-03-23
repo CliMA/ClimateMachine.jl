@@ -11,6 +11,7 @@ export AtmosModel,
     Anelastic1D,
     reference_state,
     compressibility_model,
+    turbulence_model,
     parameter_set
 
 using UnPack
@@ -119,18 +120,21 @@ An `AtmosPhysics` for atmospheric physics
         param_set,
         ref_state,
         compressibility,
+        turbulence,
     )
 
 # Fields
 $(DocStringExtensions.FIELDS)
 """
-struct AtmosPhysics{FT, PS, RS, C}
+struct AtmosPhysics{FT, PS, RS, C, T}
     "Parameter Set (type to dispatch on, e.g., planet parameters. See CLIMAParameters.jl package)"
     param_set::PS
     "Reference State (For initial conditions, or for linearisation when using implicit solvers)"
     ref_state::RS
     "Compressibility switch"
     compressibility::C
+    "Turbulence Closure (Equations for dynamics of under-resolved turbulent flows)"
+    turbulence::T
 end
 
 """
@@ -145,7 +149,6 @@ default values for each field.
         physics,
         problem,
         orientation,
-        turbulence,
         hyperdiffusion,
         spongelayer,
         moisture,
@@ -159,7 +162,7 @@ default values for each field.
 # Fields
 $(DocStringExtensions.FIELDS)
 """
-struct AtmosModel{FT, PH, PR, O, E, T, TC, HD, VS, M, P, R, S, TR, LF, DC} <:
+struct AtmosModel{FT, PH, PR, O, E, TC, HD, VS, M, P, R, S, TR, LF, DC} <:
        BalanceLaw
     "Atmospheric physics"
     physics::PH
@@ -169,8 +172,6 @@ struct AtmosModel{FT, PH, PR, O, E, T, TC, HD, VS, M, P, R, S, TR, LF, DC} <:
     orientation::O
     "Energy sub-model, can be energy-based or θ_liq_ice-based"
     energy::E
-    "Turbulence Closure (Equations for dynamics of under-resolved turbulent flows)"
-    turbulence::T
     "Turbulence Convection Closure (e.g., EDMF)"
     turbconv::TC
     "Hyperdiffusion Model (Equations for dynamics of high-order spatial wave attenuation)"
@@ -196,6 +197,7 @@ end
 parameter_set(atmos::AtmosModel) = atmos.physics.param_set
 compressibility_model(atmos::AtmosModel) = atmos.physics.compressibility
 reference_state(atmos::AtmosModel) = atmos.physics.ref_state
+turbulence_model(atmos::AtmosModel) = atmos.physics.turbulence
 
 abstract type Compressibilty end
 
@@ -259,13 +261,12 @@ function AtmosModel{FT}(
     data_config = nothing,
 ) where {FT <: AbstractFloat}
 
-    phys_args = (param_set, ref_state, compressibility)
+    phys_args = (param_set, ref_state, compressibility, turbulence)
     atmos = (
         AtmosPhysics{FT, typeof.(phys_args)...}(phys_args...),
         problem,
         orientation,
         energy,
-        turbulence,
         turbconv,
         hyperdiffusion,
         viscoussponge,
@@ -327,7 +328,7 @@ function vars_state(m::AtmosModel, st::Prognostic, FT)
         ρ::FT
         ρu::SVector{3, FT}
         energy::vars_state(m.energy, st, FT) # TODO: adjust linearmodel
-        turbulence::vars_state(m.turbulence, st, FT)
+        turbulence::vars_state(turbulence_model(m), st, FT)
         hyperdiffusion::vars_state(m.hyperdiffusion, st, FT)
         moisture::vars_state(m.moisture, st, FT)
         # end of inclusion in `AtmosLinearModel`
@@ -358,7 +359,7 @@ function vars_state(m::AtmosModel, st::Gradient, FT)
     @vars begin
         u::SVector{3, FT}
         energy::vars_state(m.energy, st, FT)
-        turbulence::vars_state(m.turbulence, st, FT)
+        turbulence::vars_state(turbulence_model(m), st, FT)
         turbconv::vars_state(m.turbconv, st, FT)
         hyperdiffusion::vars_state(m.hyperdiffusion, st, FT)
         moisture::vars_state(m.moisture, st, FT)
@@ -376,7 +377,7 @@ Post-transform gradient variables.
 function vars_state(m::AtmosModel, st::GradientFlux, FT)
     @vars begin
         energy::vars_state(m.energy, st, FT)
-        turbulence::vars_state(m.turbulence, st, FT)
+        turbulence::vars_state(turbulence_model(m), st, FT)
         turbconv::vars_state(m.turbconv, st, FT)
         hyperdiffusion::vars_state(m.hyperdiffusion, st, FT)
         moisture::vars_state(m.moisture, st, FT)
@@ -422,7 +423,7 @@ function vars_state(m::AtmosModel, st::Auxiliary, FT)
         coord::SVector{3, FT}
         orientation::vars_state(m.orientation, st, FT)
         ref_state::vars_state(reference_state(m), st, FT)
-        turbulence::vars_state(m.turbulence, st, FT)
+        turbulence::vars_state(turbulence_model(m), st, FT)
         turbconv::vars_state(m.turbconv, st, FT)
         hyperdiffusion::vars_state(m.hyperdiffusion, st, FT)
         moisture::vars_state(m.moisture, st, FT)
@@ -469,7 +470,7 @@ gravitational_potential(bl, aux) = gravitational_potential(bl.orientation, aux)
     ∇gravitational_potential(bl.orientation, aux)
 
 turbulence_tensors(atmos::AtmosModel, args...) =
-    turbulence_tensors(atmos.turbulence, atmos, args...)
+    turbulence_tensors(turbulence_model(atmos), atmos, args...)
 
 """
     density(atmos::AtmosModel, state::Vars, aux::Vars)
@@ -580,7 +581,13 @@ function compute_gradient_argument!(
     compute_gradient_argument!(atmos.energy, atmos, transform, state, aux, t)
     compute_gradient_argument!(atmos.moisture, transform, state, aux, t)
     compute_gradient_argument!(atmos.precipitation, transform, state, aux, t)
-    compute_gradient_argument!(atmos.turbulence, transform, state, aux, t)
+    compute_gradient_argument!(
+        turbulence_model(atmos),
+        transform,
+        state,
+        aux,
+        t,
+    )
     compute_gradient_argument!(
         atmos.hyperdiffusion,
         atmos,
@@ -606,7 +613,7 @@ function compute_gradient_flux!(
 
     # diffusion terms required for SGS turbulence computations
     compute_gradient_flux!(
-        atmos.turbulence,
+        turbulence_model(atmos),
         atmos.orientation,
         diffusive,
         ∇transform,
@@ -812,7 +819,7 @@ function atmos_nodal_init_state_auxiliary!(
     geom::LocalGeometry,
 )
     aux.coord = geom.coord
-    init_aux_turbulence!(m.turbulence, m, aux, geom)
+    init_aux_turbulence!(turbulence_model(m), m, aux, geom)
     init_aux_hyperdiffusion!(m.hyperdiffusion, m, aux, geom)
     atmos_init_aux!(m.tracers, m, aux, geom)
     init_aux_turbconv!(m.turbconv, m, aux, geom)

@@ -153,7 +153,7 @@ end
 
 function vars_state(m::EDMF, st::GradientFlux, FT)
     @vars(
-        S²::FT, # should be conditionally grabbed from atmos.turbulence
+        S²::FT, # should be conditionally grabbed from turbulence_model(atmos)
         environment::vars_state(m.environment, st, FT),
         updraft::vars_state(m.updraft, st, FT),
         ∇u::SVector{3, FT},
