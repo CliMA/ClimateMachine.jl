@@ -236,15 +236,15 @@ function postocean(csolver)
 end
 
 ## Prop atmos functions (or delete to use defaults)
-atmos_θⁱⁿⁱᵗ(xc, yc, zc, npt, el) = 30.0                   # Set atmosphere initial state function
+atmos_θⁱⁿⁱᵗ(npt, el, xc, yc, zc) = 30.0                   # Set atmosphere initial state function
 atmos_θ_shadowflux(θᵃ, θᵒ, npt, el, xc, yc, zc) = zc == 0.0 ? (1.0 / τ_airsea) * (θᵃ - θᵒ) : 0.0 # Set atmosphere shadow boundary flux function
 atmos_calc_kappa_diff(_...) = κᵃʰ, κᵃʰ, κᵃᶻ               # Set atmos diffusion coeffs
 atmos_source_θ(θᵃ, npt, el, xc, yc, zc, θᵒ) = FT(0.0)     # Set atmos source!
 atmos_get_penalty_tau(_...) = FT(3.0 * 0.0)               # Set penalty term tau (for debugging)
 
-## Set atmos (constant) advective velocity 
-uˡᵒⁿ(λ, ϕ, r) = 0.01 * r * cos(ϕ)
-atmos_uⁱⁿⁱᵗ(x, y, z, npt, el) = (     0 * r̂(x,y,z) 
+## Set atmos advective velocity (constant in time)
+uˡᵒⁿ(λ, ϕ, r) = 1e-6 * r * cos(ϕ)
+atmos_uⁱⁿⁱᵗ(npt, el, x, y, z) = (     0 * r̂(x,y,z) 
                                     + 0 * ϕ̂(x,y,z)
                                     + uˡᵒⁿ(lon(x,y,z), lat(x,y,z), rad(x,y,z)) * λ̂(x,y,z) ) 
 
@@ -261,8 +261,8 @@ bl_propA = (;bl_propA...,
             )
 
 ## Prop ocean functions (or delete to use defaults)
-tropical_heating(λ, ϕ, r) = 30.0 + 10.0 * cos(ϕ)
-ocean_θⁱⁿⁱᵗ(x, y, z, npt, el) = tropical_heating( lon(x,y,z), lat(x,y,z), rad(x,y,z) )                    # Set ocean initial state function
+tropical_heating(λ, ϕ, r) = 30.0 + 10.0 * cos(ϕ) * sin(5λ)
+ocean_θⁱⁿⁱᵗ(npt, el, x, y, z) = tropical_heating( lon(x,y,z), lat(x,y,z), rad(x,y,z) )                    # Set ocean initial state function
 ocean_calc_kappa_diff(_...) = κᵒʰ, κᵒʰ, κᵒᶻ               # Set ocean diffusion coeffs
 ocean_source_θ(θᵃ, npt, el, xc, yc, zc, θᵒ) = FT(0.0)     # Set ocean source!
 ocean_get_penalty_tau(_...) = FT(0.15 * 0.0)               # Set penalty term tau (for debugging)

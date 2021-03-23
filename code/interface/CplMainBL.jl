@@ -125,7 +125,7 @@ function vars_state(bl::l_type, ::Auxiliary, FT)
         θ_secondary::FT  # stores opposite face for primary (atmospheric import)
         F_prescribed::FT # stores prescribed flux for secondary (ocean import)
 
-        u__::SVector{3, FT}
+        u::SVector{3, FT}
     end
 end
 
@@ -157,10 +157,10 @@ function init_state_prognostic!(
 )
     npt = getproperty(geom, :n)
     elnum = getproperty(geom, :e)
-    x = geom.coord[1]
-    y = geom.coord[2]
-    z = geom.coord[3]
-    Q.θ = bl.bl_prop.init_theta(x, y, z, npt, elnum)
+    x = A.xc 
+    y = A.yc
+    z = A.zc
+    Q.θ = bl.bl_prop.init_theta(npt, elnum, x, y, z)
     Q.F_accum = 0
     nothing
 end
@@ -177,6 +177,7 @@ function nodal_init_state_auxiliary!(
 )
     npt = getproperty(geom, :n)
     elnum = getproperty(geom, :e)
+    
     x = geom.coord[1]
     y = geom.coord[2]
     z = geom.coord[3]
@@ -187,7 +188,7 @@ function nodal_init_state_auxiliary!(
     A.θ_secondary = 0
     A.F_prescribed = 0
 
-    A.u__ = bl.bl_prop.init_u(npt, elnum, x, y, z)
+    A.u = bl.bl_prop.init_u(npt, elnum, x, y, z)
     nothing
 end
 
@@ -231,7 +232,7 @@ function flux_first_order!(
     t::Real,
     directions,
 )
-    #F.θ += A.u__ * Q.θ
+    F.θ += A.u * Q.θ
     nothing
 end
 
