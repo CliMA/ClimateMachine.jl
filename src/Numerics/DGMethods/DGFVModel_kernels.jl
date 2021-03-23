@@ -341,7 +341,7 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
             local_state_face_auxiliary_neighbor .= local_state_face_auxiliary[1]
 
 
-            numerical_boundary_flux_first_order!(
+            numerical_boundary_flux_first_order_loop!(
                 numerical_flux_first_order,
                 bctag,
                 balance_law,
@@ -370,7 +370,7 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
             local_state_auxiliary[stencil_center - 1] .=
                 local_state_auxiliary[stencil_center]
 
-            numerical_boundary_flux_second_order!(
+            numerical_boundary_flux_second_order_loop!(
                 numerical_flux_second_order,
                 bctag,
                 balance_law,
@@ -542,6 +542,7 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
             # considering
             fill!(local_flux, -zero(FT))
             numerical_flux_first_order!(
+                WrapVars(),
                 numerical_flux_first_order,
                 balance_law,
                 local_flux,
@@ -556,6 +557,7 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
 
 
             numerical_flux_second_order!(
+                WrapVars(),
                 numerical_flux_second_order,
                 balance_law,
                 local_flux,
@@ -574,7 +576,8 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
 
             if add_source
                 fill!(local_source, -zero(eltype(local_source)))
-                source_arr!(
+                source!(
+                    WrapVars(),
                     balance_law,
                     local_source,
                     local_state_prognostic[stencil_center - 1],
@@ -616,7 +619,8 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
             if eV_up == nvertelem
                 if add_source
                     fill!(local_source, -zero(eltype(local_source)))
-                    source_arr!(
+                    source!(
+                        WrapVars(),
                         balance_law,
                         local_source,
                         local_state_prognostic[stencil_center],
@@ -663,7 +667,7 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
                         local_state_face_prognostic[2]
                     local_state_face_auxiliary_neighbor .=
                         local_state_face_auxiliary[2]
-                    numerical_boundary_flux_first_order!(
+                    numerical_boundary_flux_first_order_loop!(
                         numerical_flux_first_order,
                         bctag,
                         balance_law,
@@ -693,7 +697,7 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
                         local_state_hyperdiffusive[stencil_center]
                     local_state_auxiliary[stencil_center - 1] .=
                         local_state_auxiliary[stencil_center]
-                    numerical_boundary_flux_second_order!(
+                    numerical_boundary_flux_second_order_loop!(
                         numerical_flux_second_order,
                         bctag,
                         balance_law,
@@ -862,7 +866,8 @@ end
         # gradient of)
         @unroll for k in 1:3
             fill!(l_grad_arg[k], -zero(eltype(l_grad_arg[k])))
-            compute_gradient_argument_arr!(
+            compute_gradient_argument!(
+                WrapVars(),
                 balance_law,
                 l_grad_arg[k],
                 local_state_prognostic[k],
@@ -895,7 +900,7 @@ end
                 end
             else
                 # Computes G* incorporating boundary conditions
-                numerical_boundary_flux_gradient!(
+                numerical_boundary_flux_gradient_loop!(
                     CentralNumericalFluxGradient(),
                     bctag[f],
                     balance_law,
@@ -922,7 +927,8 @@ end
 
         # Applies linear transformation of gradients to the diffusive variables
         # for storage
-        compute_gradient_flux_arr!(
+        compute_gradient_flux!(
+            WrapVars(),
             balance_law,
             local_state_gradient_flux,
             l_nG,

@@ -51,6 +51,7 @@ GradientLaplacian
 Hyperdiffusive
 UpwardIntegrals
 DownwardIntegrals
+WrapVars
 ```
 
 ## Variable specification methods
