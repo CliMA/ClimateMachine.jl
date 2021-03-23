@@ -14,6 +14,7 @@ export AtmosModel,
     turbulence_model,
     turbconv_model,
     hyperdiffusion_model,
+    viscoussponge_model,
     parameter_set
 
 using UnPack
@@ -130,7 +131,7 @@ An `AtmosPhysics` for atmospheric physics
 # Fields
 $(DocStringExtensions.FIELDS)
 """
-struct AtmosPhysics{FT, PS, RS, C, T, TC, HD}
+struct AtmosPhysics{FT, PS, RS, C, T, TC, HD, VS}
     "Parameter Set (type to dispatch on, e.g., planet parameters. See CLIMAParameters.jl package)"
     param_set::PS
     "Reference State (For initial conditions, or for linearisation when using implicit solvers)"
@@ -143,6 +144,8 @@ struct AtmosPhysics{FT, PS, RS, C, T, TC, HD}
     turbconv::TC
     "Hyperdiffusion Model (Equations for dynamics of high-order spatial wave attenuation)"
     hyperdiffusion::HD
+    "Viscous sponge layers"
+    viscoussponge::VS
 end
 
 """
@@ -157,7 +160,6 @@ default values for each field.
         physics,
         problem,
         orientation,
-        spongelayer,
         moisture,
         precipitation,
         radiation,
@@ -169,7 +171,7 @@ default values for each field.
 # Fields
 $(DocStringExtensions.FIELDS)
 """
-struct AtmosModel{FT, PH, PR, O, E, VS, M, P, R, S, TR, LF, DC} <: BalanceLaw
+struct AtmosModel{FT, PH, PR, O, E, M, P, R, S, TR, LF, DC} <: BalanceLaw
     "Atmospheric physics"
     physics::PH
     "Problem (initial and boundary conditions)"
@@ -178,8 +180,6 @@ struct AtmosModel{FT, PH, PR, O, E, VS, M, P, R, S, TR, LF, DC} <: BalanceLaw
     orientation::O
     "Energy sub-model, can be energy-based or θ_liq_ice-based"
     energy::E
-    "Viscous sponge layers"
-    viscoussponge::VS
     "Moisture Model (Equations for dynamics of moist variables)"
     moisture::M
     "Precipitation Model (Equations for dynamics of precipitating species)"
@@ -202,6 +202,7 @@ reference_state(atmos::AtmosModel) = atmos.physics.ref_state
 turbulence_model(atmos::AtmosModel) = atmos.physics.turbulence
 turbconv_model(atmos::AtmosModel) = atmos.physics.turbconv
 hyperdiffusion_model(atmos::AtmosModel) = atmos.physics.hyperdiffusion
+viscoussponge_model(atmos::AtmosModel) = atmos.physics.viscoussponge
 
 abstract type Compressibilty end
 
@@ -272,13 +273,13 @@ function AtmosModel{FT}(
         turbulence,
         turbconv,
         hyperdiffusion,
+        viscoussponge,
     )
     atmos = (
         AtmosPhysics{FT, typeof.(phys_args)...}(phys_args...),
         problem,
         orientation,
         energy,
-        viscoussponge,
         moisture,
         precipitation,
         radiation,
@@ -478,8 +479,12 @@ gravitational_potential(bl, aux) = gravitational_potential(bl.orientation, aux)
 ∇gravitational_potential(bl, aux) =
     ∇gravitational_potential(bl.orientation, aux)
 
-turbulence_tensors(atmos::AtmosModel, args...) =
-    turbulence_tensors(turbulence_model(atmos), atmos, args...)
+turbulence_tensors(atmos::AtmosModel, args...) = turbulence_tensors(
+    turbulence_model(atmos),
+    viscoussponge_model(atmos),
+    atmos,
+    args...,
+)
 
 """
     density(atmos::AtmosModel, state::Vars, aux::Vars)
