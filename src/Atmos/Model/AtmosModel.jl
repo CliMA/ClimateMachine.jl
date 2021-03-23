@@ -13,6 +13,7 @@ export AtmosModel,
     compressibility_model,
     turbulence_model,
     turbconv_model,
+    hyperdiffusion_model,
     parameter_set
 
 using UnPack
@@ -123,12 +124,13 @@ An `AtmosPhysics` for atmospheric physics
         compressibility,
         turbulence,
         turbconv,
+        hyperdiffusion,
     )
 
 # Fields
 $(DocStringExtensions.FIELDS)
 """
-struct AtmosPhysics{FT, PS, RS, C, T, TC}
+struct AtmosPhysics{FT, PS, RS, C, T, TC, HD}
     "Parameter Set (type to dispatch on, e.g., planet parameters. See CLIMAParameters.jl package)"
     param_set::PS
     "Reference State (For initial conditions, or for linearisation when using implicit solvers)"
@@ -139,6 +141,8 @@ struct AtmosPhysics{FT, PS, RS, C, T, TC}
     turbulence::T
     "Turbulence Convection Closure (e.g., EDMF)"
     turbconv::TC
+    "Hyperdiffusion Model (Equations for dynamics of high-order spatial wave attenuation)"
+    hyperdiffusion::HD
 end
 
 """
@@ -153,7 +157,6 @@ default values for each field.
         physics,
         problem,
         orientation,
-        hyperdiffusion,
         spongelayer,
         moisture,
         precipitation,
@@ -166,8 +169,7 @@ default values for each field.
 # Fields
 $(DocStringExtensions.FIELDS)
 """
-struct AtmosModel{FT, PH, PR, O, E, HD, VS, M, P, R, S, TR, LF, DC} <:
-       BalanceLaw
+struct AtmosModel{FT, PH, PR, O, E, VS, M, P, R, S, TR, LF, DC} <: BalanceLaw
     "Atmospheric physics"
     physics::PH
     "Problem (initial and boundary conditions)"
@@ -176,8 +178,6 @@ struct AtmosModel{FT, PH, PR, O, E, HD, VS, M, P, R, S, TR, LF, DC} <:
     orientation::O
     "Energy sub-model, can be energy-based or θ_liq_ice-based"
     energy::E
-    "Hyperdiffusion Model (Equations for dynamics of high-order spatial wave attenuation)"
-    hyperdiffusion::HD
     "Viscous sponge layers"
     viscoussponge::VS
     "Moisture Model (Equations for dynamics of moist variables)"
@@ -201,6 +201,7 @@ compressibility_model(atmos::AtmosModel) = atmos.physics.compressibility
 reference_state(atmos::AtmosModel) = atmos.physics.ref_state
 turbulence_model(atmos::AtmosModel) = atmos.physics.turbulence
 turbconv_model(atmos::AtmosModel) = atmos.physics.turbconv
+hyperdiffusion_model(atmos::AtmosModel) = atmos.physics.hyperdiffusion
 
 abstract type Compressibilty end
 
@@ -264,13 +265,19 @@ function AtmosModel{FT}(
     data_config = nothing,
 ) where {FT <: AbstractFloat}
 
-    phys_args = (param_set, ref_state, compressibility, turbulence, turbconv)
+    phys_args = (
+        param_set,
+        ref_state,
+        compressibility,
+        turbulence,
+        turbconv,
+        hyperdiffusion,
+    )
     atmos = (
         AtmosPhysics{FT, typeof.(phys_args)...}(phys_args...),
         problem,
         orientation,
         energy,
-        hyperdiffusion,
         viscoussponge,
         moisture,
         precipitation,
@@ -331,7 +338,7 @@ function vars_state(m::AtmosModel, st::Prognostic, FT)
         ρu::SVector{3, FT}
         energy::vars_state(m.energy, st, FT) # TODO: adjust linearmodel
         turbulence::vars_state(turbulence_model(m), st, FT)
-        hyperdiffusion::vars_state(m.hyperdiffusion, st, FT)
+        hyperdiffusion::vars_state(hyperdiffusion_model(m), st, FT)
         moisture::vars_state(m.moisture, st, FT)
         # end of inclusion in `AtmosLinearModel`
         precipitation::vars_state(m.precipitation, st, FT)
@@ -363,7 +370,7 @@ function vars_state(m::AtmosModel, st::Gradient, FT)
         energy::vars_state(m.energy, st, FT)
         turbulence::vars_state(turbulence_model(m), st, FT)
         turbconv::vars_state(turbconv_model(m), st, FT)
-        hyperdiffusion::vars_state(m.hyperdiffusion, st, FT)
+        hyperdiffusion::vars_state(hyperdiffusion_model(m), st, FT)
         moisture::vars_state(m.moisture, st, FT)
         lsforcing::vars_state(m.lsforcing, st, FT)
         precipitation::vars_state(m.precipitation, st, FT)
@@ -381,7 +388,7 @@ function vars_state(m::AtmosModel, st::GradientFlux, FT)
         energy::vars_state(m.energy, st, FT)
         turbulence::vars_state(turbulence_model(m), st, FT)
         turbconv::vars_state(turbconv_model(m), st, FT)
-        hyperdiffusion::vars_state(m.hyperdiffusion, st, FT)
+        hyperdiffusion::vars_state(hyperdiffusion_model(m), st, FT)
         moisture::vars_state(m.moisture, st, FT)
         lsforcing::vars_state(m.lsforcing, st, FT)
         precipitation::vars_state(m.precipitation, st, FT)
@@ -396,7 +403,7 @@ Pre-transform hyperdiffusive variables.
 """
 function vars_state(m::AtmosModel, st::GradientLaplacian, FT)
     @vars begin
-        hyperdiffusion::vars_state(m.hyperdiffusion, st, FT)
+        hyperdiffusion::vars_state(hyperdiffusion_model(m), st, FT)
     end
 end
 
@@ -407,7 +414,7 @@ Post-transform hyperdiffusive variables.
 """
 function vars_state(m::AtmosModel, st::Hyperdiffusive, FT)
     @vars begin
-        hyperdiffusion::vars_state(m.hyperdiffusion, st, FT)
+        hyperdiffusion::vars_state(hyperdiffusion_model(m), st, FT)
     end
 end
 
@@ -427,7 +434,7 @@ function vars_state(m::AtmosModel, st::Auxiliary, FT)
         ref_state::vars_state(reference_state(m), st, FT)
         turbulence::vars_state(turbulence_model(m), st, FT)
         turbconv::vars_state(turbconv_model(m), st, FT)
-        hyperdiffusion::vars_state(m.hyperdiffusion, st, FT)
+        hyperdiffusion::vars_state(hyperdiffusion_model(m), st, FT)
         moisture::vars_state(m.moisture, st, FT)
         precipitation::vars_state(m.precipitation, st, FT)
         tracers::vars_state(m.tracers, st, FT)
@@ -591,7 +598,7 @@ function compute_gradient_argument!(
         t,
     )
     compute_gradient_argument!(
-        atmos.hyperdiffusion,
+        hyperdiffusion_model(atmos),
         atmos,
         transform,
         state,
@@ -669,7 +676,7 @@ function transform_post_gradient_laplacian!(
     t::Real,
 )
     transform_post_gradient_laplacian!(
-        atmos.hyperdiffusion,
+        hyperdiffusion_model(atmos),
         atmos,
         hyperdiffusive,
         hypertransform,
@@ -829,7 +836,7 @@ function atmos_nodal_init_state_auxiliary!(
 )
     aux.coord = geom.coord
     init_aux_turbulence!(turbulence_model(m), m, aux, geom)
-    init_aux_hyperdiffusion!(m.hyperdiffusion, m, aux, geom)
+    init_aux_hyperdiffusion!(hyperdiffusion_model(m), m, aux, geom)
     atmos_init_aux!(m.tracers, m, aux, geom)
     init_aux_turbconv!(turbconv_model(m), m, aux, geom)
     m.problem.init_state_auxiliary(m.problem, m, aux, geom)
