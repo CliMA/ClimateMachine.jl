@@ -51,7 +51,7 @@ eq_tends(
     pv::AbstractPrecipitationVariable,
     m::AtmosModel,
     tt::Flux{FirstOrder},
-) = (eq_tends(pv, m.precipitation, tt)...,)
+) = (eq_tends(pv, precipitation_model(m), tt)...,)
 
 # Tracers
 eq_tends(pv::Tracers{N}, ::AtmosModel, ::Flux{FirstOrder}) where {N} =
@@ -108,7 +108,7 @@ eq_tends(
     pv::AbstractPrecipitationVariable,
     m::AtmosModel,
     tt::Flux{SecondOrder},
-) = (eq_tends(pv, m.precipitation, tt)...,)
+) = (eq_tends(pv, precipitation_model(m), tt)...,)
 
 # Tracers
 eq_tends(pv::Tracers{N}, m::AtmosModel, tt::Flux{SecondOrder}) where {N} =
