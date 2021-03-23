@@ -25,7 +25,7 @@ Base.@kwdef struct VTKOutput{T, V, B, S} <: AbstractCallback
     number_sample_points::S
 end
 
-function create_callbacks(simulation::Simulation, odesolver)
+function create_callbacks(simulation, odesolver)
     callbacks = simulation.callbacks
 
     if isempty(callbacks)
@@ -180,7 +180,7 @@ struct SolverConfig{SO,MP,QQ,DG,NA}
     name::NA
 end
 
-function create_callback(output::VTKOutput, simulation::Simulation, odesolver)
+function create_callback(output::VTKOutput, simulation, odesolver)
 
     mpicomm = MPI.COMM_WORLD
     iteration = output.iteration
