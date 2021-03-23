@@ -12,6 +12,7 @@ import ClimateMachine.BalanceLaws:
     boundary_state!,
     nodal_update_auxiliary_state!
 
+
 import ClimateMachine.DGMethods: DGModel
 import ClimateMachine.NumericalFluxes: numerical_flux_first_order!
 
@@ -23,7 +24,7 @@ include("advection_model.jl") # specific model component
 include("diffusion_model.jl") # specific model component 
 include("hyperdiffusion_model.jl") # specific model component 
 
-include("spherical_harmonics_kernels.jl")
+include("helper_functions.jl")
 """
     TestEquations <: BalanceLaw
     - A `BalanceLaw` for general testing.

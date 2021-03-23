@@ -1,9 +1,24 @@
-export Compute_Legendre!, Compute_Gaussian!
-
-
 function Compute_Legendre!(num_fourier, num_spherical, sinθ, nθ)
+    # Spectral Numerical Weather Prediction Models Appendix B
+    # f(θ, λ) = ∑_{l=0} ∑_{m=-l}^{l} f_{lm} P_{lm}(sinθ)e^{imλ} (Y_{l,m} = P_{l,m} e^{i m λ} )
+    # l=0,1...∞    and m = -l, -l+1, ... l-1, l
+    # P_{0,0} = 1, such that 1/4π ∫∫YYdS = δ
+    # P_{m,m} = sqrt((2m+1)/2m) cosθ P_{m-1m-1} 
+    # P_{m+1,m} = sqrt(2m+3) sinθ P_{m m} 
+    # sqrt((l^2-m^2)/(4l^2-1))P_{l,m} = x  P_{l-1, m} -  sqrt(((l-1)^2-m^2)/(4(l-1)^2 - 1))P_{l-2,m}
+    # ε[m,l] = sqrt((l^2- m^2)/(4l^2 - 1))
+    # (1-μ^2)d P_{m,l}/dμ = -nε[m,l+1]P_{m,l+1} + (l+1)ε_{m,l}P_{m,l-1}
+    # Julia index starts with 1 qnm[m+1,l+1] = P[l,m]
+
+    # dqnm = dP/dμ
+    
+    # 
+
+
     qnm = zeros(Float64, num_fourier+1, num_spherical+2, nθ)
     dqnm = zeros(Float64, num_fourier+1, num_spherical+1, nθ)
+    
+
 
     cosθ = sqrt.(1 .- sinθ.^2)
     ε = zeros(Float64, num_fourier+1, num_spherical+2)
