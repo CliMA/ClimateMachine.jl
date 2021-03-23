@@ -10,6 +10,7 @@ export AtmosModel,
     Compressible,
     Anelastic1D,
     reference_state,
+    compressibility_model,
     parameter_set
 
 using UnPack
@@ -116,16 +117,20 @@ An `AtmosPhysics` for atmospheric physics
 
     AtmosPhysics(
         param_set,
+        ref_state,
+        compressibility,
     )
 
 # Fields
 $(DocStringExtensions.FIELDS)
 """
-struct AtmosPhysics{FT, PS, RS}
+struct AtmosPhysics{FT, PS, RS, C}
     "Parameter Set (type to dispatch on, e.g., planet parameters. See CLIMAParameters.jl package)"
     param_set::PS
     "Reference State (For initial conditions, or for linearisation when using implicit solvers)"
     ref_state::RS
+    "Compressibility switch"
+    compressibility::C
 end
 
 """
@@ -140,7 +145,6 @@ default values for each field.
         physics,
         problem,
         orientation,
-        ref_state,
         turbulence,
         hyperdiffusion,
         spongelayer,
@@ -149,14 +153,13 @@ default values for each field.
         radiation,
         source,
         tracers,
-        compressibility,
         data_config,
     )
 
 # Fields
 $(DocStringExtensions.FIELDS)
 """
-struct AtmosModel{FT, PH, PR, O, E, T, TC, HD, VS, M, P, R, S, TR, LF, C, DC} <:
+struct AtmosModel{FT, PH, PR, O, E, T, TC, HD, VS, M, P, R, S, TR, LF, DC} <:
        BalanceLaw
     "Atmospheric physics"
     physics::PH
@@ -186,13 +189,12 @@ struct AtmosModel{FT, PH, PR, O, E, T, TC, HD, VS, M, P, R, S, TR, LF, C, DC} <:
     tracers::TR
     "Large-scale forcing (Forcing information from GCMs, reanalyses, or observations)"
     lsforcing::LF
-    "Compressibility switch"
-    compressibility::C
     "Data Configuration (Helper field for experiment configuration)"
     data_config::DC
 end
 
 parameter_set(atmos::AtmosModel) = atmos.physics.param_set
+compressibility_model(atmos::AtmosModel) = atmos.physics.compressibility
 reference_state(atmos::AtmosModel) = atmos.physics.ref_state
 
 abstract type Compressibilty end
@@ -257,7 +259,7 @@ function AtmosModel{FT}(
     data_config = nothing,
 ) where {FT <: AbstractFloat}
 
-    phys_args = (param_set, ref_state)
+    phys_args = (param_set, ref_state, compressibility)
     atmos = (
         AtmosPhysics{FT, typeof.(phys_args)...}(phys_args...),
         problem,
@@ -273,7 +275,6 @@ function AtmosModel{FT}(
         prognostic_var_source_map(source),
         tracers,
         lsforcing,
-        compressibility,
         data_config,
     )
 
@@ -479,7 +480,7 @@ whereas in the Anelastic1D case it is the reference density,
 which is constant in time.
 """
 density(atmos::AtmosModel, state::Vars, aux::Vars) =
-    density(atmos.compressibility, state, aux)
+    density(compressibility_model(atmos), state, aux)
 density(::Compressible, state, aux) = state.ρ
 density(::Anelastic1D, state, aux) = aux.ref_state.ρ
 
@@ -491,7 +492,7 @@ In the Anelastic1D case it is the reference pressure,
 which is constant in time.
 """
 pressure(atmos::AtmosModel, ts, aux::Vars) =
-    pressure(atmos.compressibility, ts, aux)
+    pressure(compressibility_model(atmos), ts, aux)
 pressure(::Compressible, ts, aux) = air_pressure(ts)
 pressure(::Anelastic1D, ts, aux) = aux.ref_state.p
 
@@ -720,7 +721,7 @@ soundspeed_air(ts::ThermodynamicState, ::Compressible) = soundspeed_air(ts)
     u = ρinv * state.ρu
     uN = abs(dot(nM, u))
     ts = recover_thermo_state(m, state, aux)
-    ss = soundspeed_air(ts, m.compressibility)
+    ss = soundspeed_air(ts, compressibility_model(m))
     FT = typeof(state.ρ)
     ws = fill(uN + ss, MVector{number_states(m, Prognostic()), FT})
     vars_ws = Vars{vars_state(m, Prognostic(), FT)}(ws)

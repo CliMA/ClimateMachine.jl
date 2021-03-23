@@ -19,7 +19,7 @@ eq_tends(::Mass, ::Compressible, ::Flux{FirstOrder}) = (Advect(),)
 
 # Mass
 eq_tends(pv::Mass, atmos::AtmosModel, tt::Flux{FirstOrder}) =
-    (eq_tends(pv, atmos.compressibility, tt))
+    (eq_tends(pv, compressibility_model(atmos), tt))
 
 # Momentum
 eq_tends(pv::Momentum, ::Compressible, ::Flux{FirstOrder}) =
@@ -28,7 +28,7 @@ eq_tends(pv::Momentum, ::Compressible, ::Flux{FirstOrder}) =
 eq_tends(pv::Momentum, ::Anelastic1D, ::Flux{FirstOrder}) = ()
 
 eq_tends(pv::Momentum, m::AtmosModel, tt::Flux{FirstOrder}) =
-    (Advect(), eq_tends(pv, m.compressibility, tt)...)
+    (Advect(), eq_tends(pv, compressibility_model(m), tt)...)
 
 # Energy
 eq_tends(::Energy, m::TotalEnergyModel, tt::Flux{FirstOrder}) =

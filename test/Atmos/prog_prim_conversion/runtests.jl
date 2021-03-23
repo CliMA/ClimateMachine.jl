@@ -42,7 +42,7 @@ end
 function assign!(state, bl, nt, st::Prognostic, aux)
     @unpack u, v, w, ρ, e_kin, e_pot, T, q_pt = nt
     state.ρ = ρ
-    assign!(state, bl, bl.compressibility, nt, st, aux)
+    assign!(state, bl, compressibility_model(bl), nt, st, aux)
     state.ρu = SVector(state.ρ * u, state.ρ * v, state.ρ * w)
     param_set = parameter_set(bl)
     state.energy.ρe = state.ρ * total_energy(param_set, e_kin, e_pot, T, q_pt)
@@ -67,7 +67,7 @@ function assign!(state, bl, nt, st::Primitive, aux)
     state.ρ = ρ
     state.u = SVector(u, v, w)
     state.p = p
-    assign!(state, bl, bl.compressibility, nt, st, aux)
+    assign!(state, bl, compressibility_model(bl), nt, st, aux)
     assign!(state, bl, bl.moisture, nt, st)
 end
 assign!(state, bl, moisture::DryModel, nt, ::Primitive) = nothing

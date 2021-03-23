@@ -2,7 +2,7 @@ import ..BalanceLaws: projection
 
 # Zero-out vertical momentum tendencies based on compressibility
 function projection(pv::Momentum, atmos::AtmosModel, td::TendencyDef, args, x)
-    return projection(pv, atmos.compressibility, td, args, x)
+    return projection(pv, compressibility_model(atmos), td, args, x)
 end
 
 # Zero-out vertical momentum fluxes for Anelastic1D:
