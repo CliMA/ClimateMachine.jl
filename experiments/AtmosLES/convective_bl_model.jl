@@ -167,7 +167,7 @@ function init_problem!(problem, bl, state, aux, localgeo, t)
     if z <= FT(400) # Add random perturbations to bottom 400m of model
         state.energy.ρe += rand() * ρe_tot / 100
     end
-    init_state_prognostic!(bl.turbconv, bl, state, aux, localgeo, t)
+    init_state_prognostic!(turbconv_model(bl), bl, state, aux, localgeo, t)
 end
 
 function surface_temperature_variation(bl, state, t)

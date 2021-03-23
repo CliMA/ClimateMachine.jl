@@ -1,13 +1,15 @@
 #### Subdomain statistics
 
-compute_subdomain_statistics(m::AtmosModel, args, ts_gm, ts_en) =
-    compute_subdomain_statistics(
-        m.turbconv.micro_phys.statistical_model,
+function compute_subdomain_statistics(m::AtmosModel, args, ts_gm, ts_en)
+    turbconv = turbconv_model(m)
+    return compute_subdomain_statistics(
+        turbconv.micro_phys.statistical_model,
         m,
         args,
         ts_gm,
         ts_en,
     )
+end
 
 """
     compute_subdomain_statistics(

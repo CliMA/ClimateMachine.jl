@@ -7,7 +7,7 @@
 #####
 
 eq_tends(pv::AbstractPrognosticVariable, m::AtmosModel, tt::Source) =
-    (m.source[pv]..., eq_tends(pv, m.turbconv, tt)...)
+    (m.source[pv]..., eq_tends(pv, turbconv_model(m), tt)...)
 
 #####
 ##### First order fluxes
@@ -80,7 +80,7 @@ eq_tends(pv::Mass, m::AtmosModel, tt::Flux{SecondOrder}) =
 eq_tends(pv::Momentum, m::AtmosModel, tt::Flux{SecondOrder}) = (
     ViscousStress(),
     eq_tends(pv, m.moisture, tt)...,
-    eq_tends(pv, m.turbconv, tt)...,
+    eq_tends(pv, turbconv_model(m), tt)...,
     eq_tends(pv, m.hyperdiffusion, tt)...,
 )
 
@@ -92,14 +92,14 @@ eq_tends(::ρθ_liq_ice, m::θModel, tt::Flux{SecondOrder}) = (ViscousFlux(),)
 
 eq_tends(pv::AbstractEnergyVariable, m::AtmosModel, tt::Flux{SecondOrder}) = (
     eq_tends(pv, m.energy, tt)...,
-    eq_tends(pv, m.turbconv, tt)...,
+    eq_tends(pv, turbconv_model(m), tt)...,
     eq_tends(pv, m.hyperdiffusion, tt)...,
 )
 
 # AbstractMoistureVariable
 eq_tends(pv::AbstractMoistureVariable, m::AtmosModel, tt::Flux{SecondOrder}) = (
     eq_tends(pv, m.moisture, tt)...,
-    eq_tends(pv, m.turbconv, tt)...,
+    eq_tends(pv, turbconv_model(m), tt)...,
     eq_tends(pv, m.hyperdiffusion, tt)...,
 )
 
