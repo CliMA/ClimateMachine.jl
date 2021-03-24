@@ -18,6 +18,7 @@ export AtmosModel,
     precipitation_model,
     radiation_model,
     tracer_model,
+    lsforcing_model,
     parameter_set
 
 using UnPack
@@ -132,12 +133,13 @@ An `AtmosPhysics` for atmospheric physics
         precipitation,
         radiation,
         tracers,
+        lsforcing,
     )
 
 # Fields
 $(DocStringExtensions.FIELDS)
 """
-struct AtmosPhysics{FT, PS, RS, C, T, TC, HD, VS, P, R, TR}
+struct AtmosPhysics{FT, PS, RS, C, T, TC, HD, VS, P, R, TR, LF}
     "Parameter Set (type to dispatch on, e.g., planet parameters. See CLIMAParameters.jl package)"
     param_set::PS
     "Reference State (For initial conditions, or for linearisation when using implicit solvers)"
@@ -158,6 +160,8 @@ struct AtmosPhysics{FT, PS, RS, C, T, TC, HD, VS, P, R, TR}
     radiation::R
     "Tracer Terms (Equations for dynamics of active and passive tracers)"
     tracers::TR
+    "Large-scale forcing (Forcing information from GCMs, reanalyses, or observations)"
+    lsforcing::LF
 end
 
 """
@@ -180,7 +184,7 @@ default values for each field.
 # Fields
 $(DocStringExtensions.FIELDS)
 """
-struct AtmosModel{FT, PH, PR, O, E, M, S, LF, DC} <: BalanceLaw
+struct AtmosModel{FT, PH, PR, O, E, M, S, DC} <: BalanceLaw
     "Atmospheric physics"
     physics::PH
     "Problem (initial and boundary conditions)"
@@ -193,8 +197,6 @@ struct AtmosModel{FT, PH, PR, O, E, M, S, LF, DC} <: BalanceLaw
     moisture::M
     "Source Terms (Problem specific source terms)"
     source::S
-    "Large-scale forcing (Forcing information from GCMs, reanalyses, or observations)"
-    lsforcing::LF
     "Data Configuration (Helper field for experiment configuration)"
     data_config::DC
 end
@@ -209,6 +211,7 @@ viscoussponge_model(atmos::AtmosModel) = atmos.physics.viscoussponge
 precipitation_model(atmos::AtmosModel) = atmos.physics.precipitation
 radiation_model(atmos::AtmosModel) = atmos.physics.radiation
 tracer_model(atmos::AtmosModel) = atmos.physics.tracers
+lsforcing_model(atmos::AtmosModel) = atmos.physics.lsforcing
 
 abstract type Compressibilty end
 
@@ -283,6 +286,7 @@ function AtmosModel{FT}(
         precipitation,
         radiation,
         tracers,
+        lsforcing,
     )
     atmos = (
         AtmosPhysics{FT, typeof.(phys_args)...}(phys_args...),
@@ -291,7 +295,6 @@ function AtmosModel{FT}(
         energy,
         moisture,
         prognostic_var_source_map(source),
-        lsforcing,
         data_config,
     )
 
@@ -352,7 +355,7 @@ function vars_state(m::AtmosModel, st::Prognostic, FT)
         turbconv::vars_state(turbconv_model(m), st, FT)
         radiation::vars_state(radiation_model(m), st, FT)
         tracers::vars_state(tracer_model(m), st, FT)
-        lsforcing::vars_state(m.lsforcing, st, FT)
+        lsforcing::vars_state(lsforcing_model(m), st, FT)
     end
 end
 
@@ -379,7 +382,7 @@ function vars_state(m::AtmosModel, st::Gradient, FT)
         turbconv::vars_state(turbconv_model(m), st, FT)
         hyperdiffusion::vars_state(hyperdiffusion_model(m), st, FT)
         moisture::vars_state(m.moisture, st, FT)
-        lsforcing::vars_state(m.lsforcing, st, FT)
+        lsforcing::vars_state(lsforcing_model(m), st, FT)
         precipitation::vars_state(precipitation_model(m), st, FT)
         tracers::vars_state(tracer_model(m), st, FT)
     end
@@ -397,7 +400,7 @@ function vars_state(m::AtmosModel, st::GradientFlux, FT)
         turbconv::vars_state(turbconv_model(m), st, FT)
         hyperdiffusion::vars_state(hyperdiffusion_model(m), st, FT)
         moisture::vars_state(m.moisture, st, FT)
-        lsforcing::vars_state(m.lsforcing, st, FT)
+        lsforcing::vars_state(lsforcing_model(m), st, FT)
         precipitation::vars_state(precipitation_model(m), st, FT)
         tracers::vars_state(tracer_model(m), st, FT)
     end
@@ -446,7 +449,7 @@ function vars_state(m::AtmosModel, st::Auxiliary, FT)
         precipitation::vars_state(precipitation_model(m), st, FT)
         tracers::vars_state(tracer_model(m), st, FT)
         radiation::vars_state(radiation_model(m), st, FT)
-        lsforcing::vars_state(m.lsforcing, st, FT)
+        lsforcing::vars_state(lsforcing_model(m), st, FT)
     end
 end
 
@@ -623,7 +626,7 @@ function compute_gradient_argument!(
         t,
     )
     compute_gradient_argument!(tracer_model(atmos), transform, state, aux, t)
-    compute_gradient_argument!(atmos.lsforcing, transform, state, aux, t)
+    compute_gradient_argument!(lsforcing_model(atmos), transform, state, aux, t)
     compute_gradient_argument!(
         turbconv_model(atmos),
         atmos,
@@ -657,7 +660,7 @@ function compute_gradient_flux!(
     # diffusivity of moisture components
     compute_gradient_flux!(atmos.moisture, diffusive, ∇transform, state, aux, t)
     compute_gradient_flux!(
-        atmos.lsforcing,
+        lsforcing_model(atmos),
         diffusive,
         ∇transform,
         state,
