@@ -22,6 +22,8 @@ export AtmosBC,
 
 export average_density_sfc_int
 
+abstract type AbstractAtmosBC end
+
 """
     AtmosBC(momentum = Impenetrable(FreeSlip())
             energy   = Insulating()
@@ -31,7 +33,7 @@ export average_density_sfc_int
 
 The standard boundary condition for [`AtmosModel`](@ref). The default options imply a "no flux" boundary condition.
 """
-Base.@kwdef struct AtmosBC{M, E, Q, P, TR, TC}
+Base.@kwdef struct AtmosBC{M, E, Q, P, TR, TC} <: AbstractAtmosBC
     momentum::M = Impenetrable(FreeSlip())
     energy::E = Insulating()
     moisture::Q = Impermeable()
@@ -66,11 +68,37 @@ function boundary_state!(
 end
 
 function boundary_state!(
-    nf::Union{CentralNumericalFluxHigherOrder, CentralNumericalFluxDivergence},
+    nf::CentralNumericalFluxHigherOrder,
     bc::AtmosBC,
     m::AtmosModel,
     x...,
 )
+    nothing
+end
+
+function boundary_state!(
+    nf::CentralNumericalFluxDivergence,
+    bc::AbstractAtmosBC,
+    m::AtmosModel,
+    grad⁺::Grad,
+    aux⁺::Vars,
+    n⁻::SVector,
+    grad⁻::Grad,
+    aux⁻::Vars,
+    t,
+)
+    # zero normal gradient for hyperdiffusion variables
+    if m.hyperdiffusion isa HyperDiffusion
+        u_h⁻ = grad⁻.hyperdiffusion.u_h
+        h_tot⁻ = grad⁻.hyperdiffusion.h_tot
+        grad⁺.hyperdiffusion.u_h -= 2 * n⁻ .* (n⁻' * u_h⁻)
+        grad⁺.hyperdiffusion.h_tot -= 2 * n⁻ .* dot(h_tot⁻, n⁻)
+
+        if m.hyperdiffusion isa EquilMoistBiharmonic
+            q_tot⁻ = grad⁻.hyperdiffusion.q_tot
+            grad⁺.hyperdiffusion.q_tot -= 2 * n⁻ .* dot(q_tot⁻, n⁻)
+        end
+    end
     nothing
 end
 
