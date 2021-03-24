@@ -420,6 +420,7 @@ mutable struct ConsCallback{FT}
     Σvar₀::FT
 end
 
+
 function GenericCallbacks.init!(cb::ConsCallback, solver, Q, param, t)
     FT = eltype(Q)
     idx = varsindices(vars_state(cb.bl, Prognostic(), FT), cb.varname)
@@ -447,6 +448,10 @@ function GenericCallbacks.call!(cb::ConsCallback, solver, Q, param, t)
             cb.varname,
             abs(δvar),
         )
+        write_conservation(solver,
+                           cb.varname, 
+                           abs(δvar), Σvar,
+                           )
     end
     return nothing
 end

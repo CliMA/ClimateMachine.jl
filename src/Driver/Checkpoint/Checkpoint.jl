@@ -1,6 +1,6 @@
 module Checkpoint
 
-export write_checkpoint, rm_checkpoint, read_checkpoint
+export write_checkpoint, rm_checkpoint, read_checkpoint, write_conservation
 
 using JLD2
 using MPI
@@ -31,6 +31,37 @@ function write_checkpoint(
 
     write_checkpoint(Q, A, odesolver, checkpoint_dir, name, mpicomm, num)
 
+    return nothing
+end
+
+"""
+    Convenience wrapper for conservation output
+"""
+function write_conservation(
+    odesolver,
+    varname::String,
+    δvar, Σvar,
+)
+    write_conservation(δvar, Σvar, odesolver, varname)
+    return nothing
+end
+"""
+    Simple output-to-text for conservation values
+"""
+function write_conservation(
+    δvar,
+    Σvar, 
+    odesolver::AbstractODESolver,
+    name::String,
+)       
+    t = ODESolvers.gettime(odesolver)
+    nm = replace(name, " " => "_")
+    nm = replace(name, "." => "_")
+    cname = name*"_conservation_output.txt"
+    io = open(cname,"a")
+    write(io, "$t $δvar $Σvar\n")
+    close(io)
+    
     return nothing
 end
 
