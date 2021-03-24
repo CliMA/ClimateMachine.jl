@@ -50,7 +50,7 @@ function subdomain_surface_values(
     lv = latent_heat_vapor(ts)
     Π = exner(ts)
     ρ_inv = 1 / gm.ρ
-    surface_scalar_coeff = turbconv.surface.scalar_coeff
+    upd_surface_std = turbconv.surface.upd_surface_std
 
     θ_liq_surface_flux = surf.shf / Π / _cp_m
     q_tot_surface_flux = surf.lhf / lv
@@ -74,12 +74,12 @@ function subdomain_surface_values(
     θ_liq = liquid_ice_pottemp(ts_new)
 
     θ_liq_up_surf = ntuple(N_up) do i
-        θ_liq + surface_scalar_coeff[i] * sqrt(max(θ_liq_cv, 0))
+        θ_liq + upd_surface_std[i] * sqrt(max(θ_liq_cv, 0))
     end
 
     ρq_tot = atmos.moisture isa DryModel ? FT(0) : gm.moisture.ρq_tot
     q_tot_up_surf = ntuple(N_up) do i
-        ρq_tot * ρ_inv + surface_scalar_coeff[i] * sqrt(max(q_tot_cv, 0))
+        ρq_tot * ρ_inv + upd_surface_std[i] * sqrt(max(q_tot_cv, 0))
     end
 
     return (;
