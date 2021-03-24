@@ -78,6 +78,17 @@ Grids.min_node_distance
 Grids.DiscontinuousSpectralElementGrid
 ```
 
+## DSS
+
+Computes the direct stiffness summation of fields in the MPIStateArray.
+
+```@docs
+DSS.dss!
+DSS.dss_vertex!
+DSS.dss_edge!
+DSS.dss_face!
+```
+
 ## Filters
 
 There are methods used to cleanup state vectors.

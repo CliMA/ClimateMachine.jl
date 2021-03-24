@@ -552,6 +552,24 @@ steps:
       queue: central
       slurm_ntasks: 3
 
+  - label: "cpu_dss_mpi"
+    key: "cpu_dss_mpi"
+    command:
+      - "mpiexec julia --color=yes --project test/Numerics/Mesh/DSS_mpi.jl "
+    agents:
+      config: cpu
+      queue: central
+      slurm_ntasks: 3
+
+  - label: "cpu_dss"
+    key: "cpu_dss"
+    command:
+      - "mpiexec julia --color=yes --project test/Numerics/Mesh/DSS.jl "
+    agents:
+      config: cpu
+      queue: central
+      slurm_ntasks: 1
+
   - label: "cpu_GyreDriver"
     key: "cpu_GyreDriver"
     command:
@@ -1172,6 +1190,15 @@ steps:
       queue: central
       slurm_ntasks: 3
 
+  - label: "cpu_mpi_connectfull"
+    key: "cpu_mpi_connectfull"
+    command:
+      - "mpiexec julia --color=yes --project test/Numerics/Mesh/mpi_connectfull.jl"
+    agents:
+      config: cpu
+      queue: central
+      slurm_ntasks: 3
+
   - label: "cpu_mpi_connect_stacked"
     key: "cpu_mpi_connect_stacked"
     command:
@@ -1225,6 +1252,26 @@ steps:
       config: gpu
       queue: central
       slurm_ntasks: 3
+      slurm_gres: "gpu:1"
+
+  - label: "gpu_dss_mpi"
+    key: "gpu_dss_mpi"
+    command:
+      - "mpiexec julia --color=yes --project test/Numerics/Mesh/DSS_mpi.jl "
+    agents:
+      config: gpu
+      queue: central
+      slurm_ntasks: 3
+      slurm_gres: "gpu:1"
+
+  - label: "gpu_dss"
+    key: "gpu_dss"
+    command:
+      - "mpiexec julia --color=yes --project test/Numerics/Mesh/DSS.jl "
+    agents:
+      config: gpu
+      queue: central
+      slurm_ntasks: 1
       slurm_gres: "gpu:1"
 
   - label: "gpu_GyreDriver"

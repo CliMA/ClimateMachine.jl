@@ -1076,6 +1076,7 @@ function connectmesh(
         sendelems = sendelems,          # array of send     element indices
         sendfaces = sendfaces,
         elemtocoord = newelemtocoord,   # element to vertex coordinates
+        elemtovert = nothing,           # element to locally unique global vertex number (for direct stiffness summation)
         elemtoelem = elemtoelem,        # element to neighboring element
         elemtoface = elemtoface,        # element to neighboring element face
         elemtoordr = elemtoordr,        # element to neighboring element order
@@ -1437,6 +1438,22 @@ function connectmeshfull(
             j += 1
         end
     end
+    # provide locally unique elemtovert for DSS
+    uvert = -ones(Int, nvertg)
+    for el in 1:last(size(newelemtovert)), i in 1:nvert
+        newelemtovert[i, el] = gldofv[newelemtovert[i, el]]
+        uvert[newelemtovert[i, el]] = 0
+    end
+    ctr = 1
+    for i in 1:length(uvert)
+        if uvert[i] == 0
+            uvert[i] = ctr
+            ctr += 1
+        end
+    end
+    for el in 1:last(size(newelemtovert)), i in 1:nvert
+        newelemtovert[i, el] = uvert[newelemtovert[i, el]]
+    end
     #---------------------------------------------------------------
     (
         elems = 1:(nelem + nghost),       # range of element indices
@@ -1446,6 +1463,7 @@ function connectmeshfull(
         sendelems = newsendelems,         # array of send element indices
         sendfaces = sendfaces,            # bit array of send faces for send elems
         elemtocoord = newelemtocoord,     # element to vertex coordinates
+        elemtovert = newelemtovert,       # element to locally unique global vertex number (for direct stiffness summation)
         elemtoelem = elemtoelem,          # element to neighboring element
         elemtoface = elemtoface,          # element to neighboring element face
         elemtoordr = elemtoordr,          # element to neighboring element order
