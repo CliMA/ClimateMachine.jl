@@ -112,4 +112,4 @@ eq_tends(
 
 # Tracers
 eq_tends(pv::Tracers{N}, m::AtmosModel, tt::Flux{SecondOrder}) where {N} =
-    (eq_tends(pv, m.tracers, tt)...,)
+    (eq_tends(pv, tracer_model(m), tt)...,)
