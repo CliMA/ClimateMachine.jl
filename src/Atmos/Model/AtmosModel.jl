@@ -16,6 +16,9 @@ export AtmosModel,
     hyperdiffusion_model,
     viscoussponge_model,
     precipitation_model,
+    radiation_model,
+    tracer_model,
+    lsforcing_model,
     parameter_set
 
 using UnPack
@@ -128,12 +131,15 @@ An `AtmosPhysics` for atmospheric physics
         turbconv,
         hyperdiffusion,
         precipitation,
+        radiation,
+        tracers,
+        lsforcing,
     )
 
 # Fields
 $(DocStringExtensions.FIELDS)
 """
-struct AtmosPhysics{FT, PS, RS, C, T, TC, HD, VS, P}
+struct AtmosPhysics{FT, PS, RS, C, T, TC, HD, VS, P, R, TR, LF}
     "Parameter Set (type to dispatch on, e.g., planet parameters. See CLIMAParameters.jl package)"
     param_set::PS
     "Reference State (For initial conditions, or for linearisation when using implicit solvers)"
@@ -150,6 +156,12 @@ struct AtmosPhysics{FT, PS, RS, C, T, TC, HD, VS, P}
     viscoussponge::VS
     "Precipitation Model (Equations for dynamics of precipitating species)"
     precipitation::P
+    "Radiation Model (Equations for radiative fluxes)"
+    radiation::R
+    "Tracer Terms (Equations for dynamics of active and passive tracers)"
+    tracers::TR
+    "Large-scale forcing (Forcing information from GCMs, reanalyses, or observations)"
+    lsforcing::LF
 end
 
 """
@@ -165,16 +177,14 @@ default values for each field.
         problem,
         orientation,
         moisture,
-        radiation,
         source,
-        tracers,
         data_config,
     )
 
 # Fields
 $(DocStringExtensions.FIELDS)
 """
-struct AtmosModel{FT, PH, PR, O, E, M, R, S, TR, LF, DC} <: BalanceLaw
+struct AtmosModel{FT, PH, PR, O, E, M, S, DC} <: BalanceLaw
     "Atmospheric physics"
     physics::PH
     "Problem (initial and boundary conditions)"
@@ -185,14 +195,8 @@ struct AtmosModel{FT, PH, PR, O, E, M, R, S, TR, LF, DC} <: BalanceLaw
     energy::E
     "Moisture Model (Equations for dynamics of moist variables)"
     moisture::M
-    "Radiation Model (Equations for radiative fluxes)"
-    radiation::R
     "Source Terms (Problem specific source terms)"
     source::S
-    "Tracer Terms (Equations for dynamics of active and passive tracers)"
-    tracers::TR
-    "Large-scale forcing (Forcing information from GCMs, reanalyses, or observations)"
-    lsforcing::LF
     "Data Configuration (Helper field for experiment configuration)"
     data_config::DC
 end
@@ -205,6 +209,9 @@ turbconv_model(atmos::AtmosModel) = atmos.physics.turbconv
 hyperdiffusion_model(atmos::AtmosModel) = atmos.physics.hyperdiffusion
 viscoussponge_model(atmos::AtmosModel) = atmos.physics.viscoussponge
 precipitation_model(atmos::AtmosModel) = atmos.physics.precipitation
+radiation_model(atmos::AtmosModel) = atmos.physics.radiation
+tracer_model(atmos::AtmosModel) = atmos.physics.tracers
+lsforcing_model(atmos::AtmosModel) = atmos.physics.lsforcing
 
 abstract type Compressibilty end
 
@@ -277,6 +284,9 @@ function AtmosModel{FT}(
         hyperdiffusion,
         viscoussponge,
         precipitation,
+        radiation,
+        tracers,
+        lsforcing,
     )
     atmos = (
         AtmosPhysics{FT, typeof.(phys_args)...}(phys_args...),
@@ -284,10 +294,7 @@ function AtmosModel{FT}(
         orientation,
         energy,
         moisture,
-        radiation,
         prognostic_var_source_map(source),
-        tracers,
-        lsforcing,
         data_config,
     )
 
@@ -346,9 +353,9 @@ function vars_state(m::AtmosModel, st::Prognostic, FT)
         # end of inclusion in `AtmosLinearModel`
         precipitation::vars_state(precipitation_model(m), st, FT)
         turbconv::vars_state(turbconv_model(m), st, FT)
-        radiation::vars_state(m.radiation, st, FT)
-        tracers::vars_state(m.tracers, st, FT)
-        lsforcing::vars_state(m.lsforcing, st, FT)
+        radiation::vars_state(radiation_model(m), st, FT)
+        tracers::vars_state(tracer_model(m), st, FT)
+        lsforcing::vars_state(lsforcing_model(m), st, FT)
     end
 end
 
@@ -375,9 +382,9 @@ function vars_state(m::AtmosModel, st::Gradient, FT)
         turbconv::vars_state(turbconv_model(m), st, FT)
         hyperdiffusion::vars_state(hyperdiffusion_model(m), st, FT)
         moisture::vars_state(m.moisture, st, FT)
-        lsforcing::vars_state(m.lsforcing, st, FT)
+        lsforcing::vars_state(lsforcing_model(m), st, FT)
         precipitation::vars_state(precipitation_model(m), st, FT)
-        tracers::vars_state(m.tracers, st, FT)
+        tracers::vars_state(tracer_model(m), st, FT)
     end
 end
 
@@ -393,9 +400,9 @@ function vars_state(m::AtmosModel, st::GradientFlux, FT)
         turbconv::vars_state(turbconv_model(m), st, FT)
         hyperdiffusion::vars_state(hyperdiffusion_model(m), st, FT)
         moisture::vars_state(m.moisture, st, FT)
-        lsforcing::vars_state(m.lsforcing, st, FT)
+        lsforcing::vars_state(lsforcing_model(m), st, FT)
         precipitation::vars_state(precipitation_model(m), st, FT)
-        tracers::vars_state(m.tracers, st, FT)
+        tracers::vars_state(tracer_model(m), st, FT)
     end
 end
 
@@ -440,9 +447,9 @@ function vars_state(m::AtmosModel, st::Auxiliary, FT)
         hyperdiffusion::vars_state(hyperdiffusion_model(m), st, FT)
         moisture::vars_state(m.moisture, st, FT)
         precipitation::vars_state(precipitation_model(m), st, FT)
-        tracers::vars_state(m.tracers, st, FT)
-        radiation::vars_state(m.radiation, st, FT)
-        lsforcing::vars_state(m.lsforcing, st, FT)
+        tracers::vars_state(tracer_model(m), st, FT)
+        radiation::vars_state(radiation_model(m), st, FT)
+        lsforcing::vars_state(lsforcing_model(m), st, FT)
     end
 end
 
@@ -451,7 +458,7 @@ end
 """
 function vars_state(m::AtmosModel, st::UpwardIntegrals, FT)
     @vars begin
-        radiation::vars_state(m.radiation, st, FT)
+        radiation::vars_state(radiation_model(m), st, FT)
         turbconv::vars_state(turbconv_model(m), st, FT)
     end
 end
@@ -461,7 +468,7 @@ end
 """
 function vars_state(m::AtmosModel, st::DownwardIntegrals, FT)
     @vars begin
-        radiation::vars_state(m.radiation, st, FT)
+        radiation::vars_state(radiation_model(m), st, FT)
     end
 end
 
@@ -618,8 +625,8 @@ function compute_gradient_argument!(
         aux,
         t,
     )
-    compute_gradient_argument!(atmos.tracers, transform, state, aux, t)
-    compute_gradient_argument!(atmos.lsforcing, transform, state, aux, t)
+    compute_gradient_argument!(tracer_model(atmos), transform, state, aux, t)
+    compute_gradient_argument!(lsforcing_model(atmos), transform, state, aux, t)
     compute_gradient_argument!(
         turbconv_model(atmos),
         atmos,
@@ -653,7 +660,7 @@ function compute_gradient_flux!(
     # diffusivity of moisture components
     compute_gradient_flux!(atmos.moisture, diffusive, ∇transform, state, aux, t)
     compute_gradient_flux!(
-        atmos.lsforcing,
+        lsforcing_model(atmos),
         diffusive,
         ∇transform,
         state,
@@ -668,7 +675,14 @@ function compute_gradient_flux!(
         aux,
         t,
     )
-    compute_gradient_flux!(atmos.tracers, diffusive, ∇transform, state, aux, t)
+    compute_gradient_flux!(
+        tracer_model(atmos),
+        diffusive,
+        ∇transform,
+        state,
+        aux,
+        t,
+    )
     compute_gradient_flux!(
         turbconv_model(atmos),
         atmos,
@@ -762,7 +776,7 @@ soundspeed_air(ts::ThermodynamicState, ::Compressible) = soundspeed_air(ts)
     ws = fill(uN + ss, MVector{number_states(m, Prognostic()), FT})
     vars_ws = Vars{vars_state(m, Prognostic(), FT)}(ws)
 
-    wavespeed_tracers!(m.tracers, vars_ws, nM, state, aux, t)
+    wavespeed_tracers!(tracer_model(m), vars_ws, nM, state, aux, t)
 
     return ws
 end
@@ -810,8 +824,8 @@ function nodal_update_auxiliary_state!(
         aux,
         t,
     )
-    atmos_nodal_update_auxiliary_state!(m.radiation, m, state, aux, t)
-    atmos_nodal_update_auxiliary_state!(m.tracers, m, state, aux, t)
+    atmos_nodal_update_auxiliary_state!(radiation_model(m), m, state, aux, t)
+    atmos_nodal_update_auxiliary_state!(tracer_model(m), m, state, aux, t)
     turbconv_nodal_update_auxiliary_state!(turbconv_model(m), m, state, aux, t)
 end
 
@@ -821,12 +835,12 @@ function integral_load_auxiliary_state!(
     state::Vars,
     aux::Vars,
 )
-    integral_load_auxiliary_state!(m.radiation, integ, state, aux)
+    integral_load_auxiliary_state!(radiation_model(m), integ, state, aux)
     integral_load_auxiliary_state!(turbconv_model(m), m, integ, state, aux)
 end
 
 function integral_set_auxiliary_state!(m::AtmosModel, aux::Vars, integ::Vars)
-    integral_set_auxiliary_state!(m.radiation, aux, integ)
+    integral_set_auxiliary_state!(radiation_model(m), aux, integ)
     integral_set_auxiliary_state!(turbconv_model(m), m, aux, integ)
 end
 
@@ -836,7 +850,12 @@ function reverse_integral_load_auxiliary_state!(
     state::Vars,
     aux::Vars,
 )
-    reverse_integral_load_auxiliary_state!(m.radiation, integ, state, aux)
+    reverse_integral_load_auxiliary_state!(
+        radiation_model(m),
+        integ,
+        state,
+        aux,
+    )
 end
 
 function reverse_integral_set_auxiliary_state!(
@@ -844,7 +863,7 @@ function reverse_integral_set_auxiliary_state!(
     aux::Vars,
     integ::Vars,
 )
-    reverse_integral_set_auxiliary_state!(m.radiation, aux, integ)
+    reverse_integral_set_auxiliary_state!(radiation_model(m), aux, integ)
 end
 
 function atmos_nodal_init_state_auxiliary!(
@@ -856,7 +875,7 @@ function atmos_nodal_init_state_auxiliary!(
     aux.coord = geom.coord
     init_aux_turbulence!(turbulence_model(m), m, aux, geom)
     init_aux_hyperdiffusion!(hyperdiffusion_model(m), m, aux, geom)
-    atmos_init_aux!(m.tracers, m, aux, geom)
+    atmos_init_aux!(tracer_model(m), m, aux, geom)
     init_aux_turbconv!(turbconv_model(m), m, aux, geom)
     m.problem.init_state_auxiliary(m.problem, m, aux, geom)
 end
@@ -1067,7 +1086,7 @@ function numerical_flux_first_order!(
             w4 * (ũ' * Δu - ũᵀn * Δuᵀn)
         ) / 2
 
-    if !(balance_law.tracers isa NoTracers)
+    if !(tracer_model(balance_law) isa NoTracers)
         ρχ⁻ = state_prognostic⁻.tracers.ρχ
         χ⁻ = ρχ⁻ / ρ⁻
 
@@ -1539,7 +1558,7 @@ function numerical_flux_first_order!(
         ρq_b = u_half > FT(0) ? ρq⁻ : ρq⁺
         fluxᵀn.moisture.ρq_tot = ρq_b * u_half
     end
-    if !(balance_law.tracers isa NoTracers)
+    if !(tracer_model(balance_law) isa NoTracers)
         ρχ⁻ = state_prognostic⁻.tracers.ρχ
         χ⁻ = ρχ⁻ / ρ⁻
         ρχ⁺ = state_prognostic⁺.tracers.ρχ
