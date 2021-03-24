@@ -423,7 +423,8 @@ function compute_gradient_argument!(
     end
 
     en_tf.θv = virtual_pottemp(ts.en)
-    en_e_kin = FT(1 // 2) * ((gm.ρu[1] * ρ_inv)^2 + (gm.ρu[2] * ρ_inv)^2 + env.w^2) # TBD: Check
+    en_e_kin =
+        FT(1 // 2) * ((gm.ρu[1] * ρ_inv)^2 + (gm.ρu[2] * ρ_inv)^2 + env.w^2) # TBD: Check
     en_e_tot = total_energy(en_e_kin, _grav * z, ts.en)
     en_tf.h_tot = total_specific_enthalpy(ts.en, en_e_tot)
 
@@ -1018,16 +1019,18 @@ function flux(::Energy, ::SGSFlux, atmos, args)
     ρ_inv = 1 / gm.ρ
     N_up = n_updrafts(turbconv_model(atmos))
     ρu_gm_tup = Tuple(gm.ρu)
-    ρa_en = gm.ρ*env.a
+    ρa_en = gm.ρ * env.a
     # TODO: Consider turbulent contribution:
 
     e_kin_up = vuntuple(N_up) do i
-        FT(1 // 2) *
-        ((gm.ρu[1] * ρ_inv)^2 + (gm.ρu[2] * ρ_inv)^2 +
-            (fix_void_up(up[i].ρa, up[i].ρaw / up[i].ρa))^2)
+        FT(1 // 2) * (
+            (gm.ρu[1] * ρ_inv)^2 +
+            (gm.ρu[2] * ρ_inv)^2 +
+            (fix_void_up(up[i].ρa, up[i].ρaw / up[i].ρa))^2
+        )
     end
-    e_kin_en = FT(1 // 2) *
-            ((gm.ρu[1] * ρ_inv)^2 + (gm.ρu[2] * ρ_inv)^2 + env.w)^2
+    e_kin_en =
+        FT(1 // 2) * ((gm.ρu[1] * ρ_inv)^2 + (gm.ρu[2] * ρ_inv)^2 + env.w)^2
 
     e_tot_up = ntuple(i -> total_energy(e_kin_up[i], _grav * z, ts_up[i]), N_up)
     h_tot_up = ntuple(i -> total_specific_enthalpy(ts_up[i], e_tot_up[i]), N_up)
@@ -1047,8 +1050,8 @@ function flux(::Energy, ::SGSFlux, atmos, args)
             )
         end,
     )
-    massflux_h_tot += (ρa_en*(h_tot_gm - h_tot_en) *
-                             (ρu_gm_tup[3] * ρ_inv - env.w))
+    massflux_h_tot +=
+        (ρa_en * (h_tot_gm - h_tot_en) * (ρu_gm_tup[3] * ρ_inv - env.w))
     ρh_sgs_flux = -gm.ρ * env.a * K_h * en_dif.∇h_tot[3] + massflux_h_tot
     return SVector{3, FT}(0, 0, ρh_sgs_flux)
 end
@@ -1064,7 +1067,7 @@ function flux(::TotalMoisture, ::SGSFlux, atmos, args)
     N_up = n_updrafts(turbconv_model(atmos))
     ρq_tot = atmos.moisture isa DryModel ? FT(0) : gm.moisture.ρq_tot
     ρaq_tot_up = vuntuple(i -> up[i].ρaq_tot, N_up)
-    ρa_en = gm.ρ*env.a
+    ρa_en = gm.ρ * env.a
     q_tot_en = total_specific_humidity(ts_en)
 
     ρu_gm_tup = Tuple(gm.ρu)
@@ -1079,8 +1082,8 @@ function flux(::TotalMoisture, ::SGSFlux, atmos, args)
             )
         end,
     )
-    massflux_q_tot += (ρa_en*(ρq_tot * ρ_inv - q_tot_en) *
-                             (ρu_gm_tup[3] * ρ_inv - env.w))
+    massflux_q_tot +=
+        (ρa_en * (ρq_tot * ρ_inv - q_tot_en) * (ρu_gm_tup[3] * ρ_inv - env.w))
     ρq_tot_sgs_flux = -gm.ρ * env.a * K_h * en_dif.∇q_tot[3] + massflux_q_tot
     return SVector{3, FT}(0, 0, ρq_tot_sgs_flux)
 end
@@ -1095,7 +1098,7 @@ function flux(::Momentum, ::SGSFlux, atmos, args)
     gm = state
     ρ_inv = 1 / gm.ρ
     N_up = n_updrafts(turbconv_model(atmos))
-    ρa_en = gm.ρ*env.a
+    ρa_en = gm.ρ * env.a
 
     ρu_gm_tup = Tuple(gm.ρu)
 
@@ -1109,8 +1112,9 @@ function flux(::Momentum, ::SGSFlux, atmos, args)
             )
         end,
     )
-    massflux_w += (ρa_en*(ρu_gm_tup[3] * ρ_inv - env.w) *
-                         (ρu_gm_tup[3] * ρ_inv - env.w))
+    massflux_w += (
+        ρa_en * (ρu_gm_tup[3] * ρ_inv - env.w) * (ρu_gm_tup[3] * ρ_inv - env.w)
+    )
     ρw_sgs_flux = -gm.ρ * env.a * K_m * en_dif.∇w[3] + massflux_w
     ρu_sgs_flux = -gm.ρ * env.a * K_m * gm_dif.∇u[3]
     ρv_sgs_flux = -gm.ρ * env.a * K_m * gm_dif.∇v[3]
