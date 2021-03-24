@@ -38,9 +38,9 @@ eq_tends(::ρθ_liq_ice, m::θModel, tt::Flux{FirstOrder}) = (Advect(),)
 
 # TODO: make radiation aware of which energy formulation is used:
 # eq_tends(pv::PV, m::AtmosModel, tt::Flux{FirstOrder}) where {PV <: AbstractEnergyVariable} =
-#     (eq_tends(pv, m.energy, tt)..., eq_tends(pv, m.energy, m.radiation, tt)...)
+#     (eq_tends(pv, m.energy, tt)..., eq_tends(pv, m.energy, radiation_model(m), tt)...)
 eq_tends(pv::AbstractEnergyVariable, m::AtmosModel, tt::Flux{FirstOrder}) =
-    (eq_tends(pv, m.energy, tt)..., eq_tends(pv, m.radiation, tt)...)
+    (eq_tends(pv, m.energy, tt)..., eq_tends(pv, radiation_model(m), tt)...)
 
 # AbstractMoistureVariable
 eq_tends(::AbstractMoistureVariable, ::AtmosModel, ::Flux{FirstOrder}) =

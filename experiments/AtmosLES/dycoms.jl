@@ -99,7 +99,7 @@ eq_tends(pv::Energy, ::DYCOMSRadiationModel, ::Flux{FirstOrder}) =
 
 function flux(::Energy, ::DYCOMSRadiation, atmos, args)
     @unpack state, aux = args
-    m = atmos.radiation
+    m = radiation_model(atmos)
     FT = eltype(state)
     z = altitude(atmos, aux)
     Δz_i = max(z - m.z_i, -zero(FT))
