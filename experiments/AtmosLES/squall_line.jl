@@ -107,10 +107,10 @@ function init_squall_line!(problem, bl, state, aux, localgeo, t, args...)
         state.moisture.ρq_ice = FT(0)
     end
 
-    if bl.precipitation isa RainModel
+    if precipitation_model(bl) isa RainModel
         state.precipitation.ρq_rai = FT(0)
     end
-    if bl.precipitation isa RainSnowModel
+    if precipitation_model(bl) isa RainSnowModel
         state.precipitation.ρq_rai = FT(0)
         state.precipitation.ρq_sno = FT(0)
     end

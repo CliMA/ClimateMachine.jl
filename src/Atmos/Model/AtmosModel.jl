@@ -13,6 +13,9 @@ export AtmosModel,
     compressibility_model,
     turbulence_model,
     turbconv_model,
+    hyperdiffusion_model,
+    viscoussponge_model,
+    precipitation_model,
     parameter_set
 
 using UnPack
@@ -123,12 +126,14 @@ An `AtmosPhysics` for atmospheric physics
         compressibility,
         turbulence,
         turbconv,
+        hyperdiffusion,
+        precipitation,
     )
 
 # Fields
 $(DocStringExtensions.FIELDS)
 """
-struct AtmosPhysics{FT, PS, RS, C, T, TC}
+struct AtmosPhysics{FT, PS, RS, C, T, TC, HD, VS, P}
     "Parameter Set (type to dispatch on, e.g., planet parameters. See CLIMAParameters.jl package)"
     param_set::PS
     "Reference State (For initial conditions, or for linearisation when using implicit solvers)"
@@ -139,6 +144,12 @@ struct AtmosPhysics{FT, PS, RS, C, T, TC}
     turbulence::T
     "Turbulence Convection Closure (e.g., EDMF)"
     turbconv::TC
+    "Hyperdiffusion Model (Equations for dynamics of high-order spatial wave attenuation)"
+    hyperdiffusion::HD
+    "Viscous sponge layers"
+    viscoussponge::VS
+    "Precipitation Model (Equations for dynamics of precipitating species)"
+    precipitation::P
 end
 
 """
@@ -153,10 +164,7 @@ default values for each field.
         physics,
         problem,
         orientation,
-        hyperdiffusion,
-        spongelayer,
         moisture,
-        precipitation,
         radiation,
         source,
         tracers,
@@ -166,8 +174,7 @@ default values for each field.
 # Fields
 $(DocStringExtensions.FIELDS)
 """
-struct AtmosModel{FT, PH, PR, O, E, HD, VS, M, P, R, S, TR, LF, DC} <:
-       BalanceLaw
+struct AtmosModel{FT, PH, PR, O, E, M, R, S, TR, LF, DC} <: BalanceLaw
     "Atmospheric physics"
     physics::PH
     "Problem (initial and boundary conditions)"
@@ -176,14 +183,8 @@ struct AtmosModel{FT, PH, PR, O, E, HD, VS, M, P, R, S, TR, LF, DC} <:
     orientation::O
     "Energy sub-model, can be energy-based or θ_liq_ice-based"
     energy::E
-    "Hyperdiffusion Model (Equations for dynamics of high-order spatial wave attenuation)"
-    hyperdiffusion::HD
-    "Viscous sponge layers"
-    viscoussponge::VS
     "Moisture Model (Equations for dynamics of moist variables)"
     moisture::M
-    "Precipitation Model (Equations for dynamics of precipitating species)"
-    precipitation::P
     "Radiation Model (Equations for radiative fluxes)"
     radiation::R
     "Source Terms (Problem specific source terms)"
@@ -201,6 +202,9 @@ compressibility_model(atmos::AtmosModel) = atmos.physics.compressibility
 reference_state(atmos::AtmosModel) = atmos.physics.ref_state
 turbulence_model(atmos::AtmosModel) = atmos.physics.turbulence
 turbconv_model(atmos::AtmosModel) = atmos.physics.turbconv
+hyperdiffusion_model(atmos::AtmosModel) = atmos.physics.hyperdiffusion
+viscoussponge_model(atmos::AtmosModel) = atmos.physics.viscoussponge
+precipitation_model(atmos::AtmosModel) = atmos.physics.precipitation
 
 abstract type Compressibilty end
 
@@ -264,16 +268,22 @@ function AtmosModel{FT}(
     data_config = nothing,
 ) where {FT <: AbstractFloat}
 
-    phys_args = (param_set, ref_state, compressibility, turbulence, turbconv)
+    phys_args = (
+        param_set,
+        ref_state,
+        compressibility,
+        turbulence,
+        turbconv,
+        hyperdiffusion,
+        viscoussponge,
+        precipitation,
+    )
     atmos = (
         AtmosPhysics{FT, typeof.(phys_args)...}(phys_args...),
         problem,
         orientation,
         energy,
-        hyperdiffusion,
-        viscoussponge,
         moisture,
-        precipitation,
         radiation,
         prognostic_var_source_map(source),
         tracers,
@@ -331,10 +341,10 @@ function vars_state(m::AtmosModel, st::Prognostic, FT)
         ρu::SVector{3, FT}
         energy::vars_state(m.energy, st, FT) # TODO: adjust linearmodel
         turbulence::vars_state(turbulence_model(m), st, FT)
-        hyperdiffusion::vars_state(m.hyperdiffusion, st, FT)
+        hyperdiffusion::vars_state(hyperdiffusion_model(m), st, FT)
         moisture::vars_state(m.moisture, st, FT)
         # end of inclusion in `AtmosLinearModel`
-        precipitation::vars_state(m.precipitation, st, FT)
+        precipitation::vars_state(precipitation_model(m), st, FT)
         turbconv::vars_state(turbconv_model(m), st, FT)
         radiation::vars_state(m.radiation, st, FT)
         tracers::vars_state(m.tracers, st, FT)
@@ -363,10 +373,10 @@ function vars_state(m::AtmosModel, st::Gradient, FT)
         energy::vars_state(m.energy, st, FT)
         turbulence::vars_state(turbulence_model(m), st, FT)
         turbconv::vars_state(turbconv_model(m), st, FT)
-        hyperdiffusion::vars_state(m.hyperdiffusion, st, FT)
+        hyperdiffusion::vars_state(hyperdiffusion_model(m), st, FT)
         moisture::vars_state(m.moisture, st, FT)
         lsforcing::vars_state(m.lsforcing, st, FT)
-        precipitation::vars_state(m.precipitation, st, FT)
+        precipitation::vars_state(precipitation_model(m), st, FT)
         tracers::vars_state(m.tracers, st, FT)
     end
 end
@@ -381,10 +391,10 @@ function vars_state(m::AtmosModel, st::GradientFlux, FT)
         energy::vars_state(m.energy, st, FT)
         turbulence::vars_state(turbulence_model(m), st, FT)
         turbconv::vars_state(turbconv_model(m), st, FT)
-        hyperdiffusion::vars_state(m.hyperdiffusion, st, FT)
+        hyperdiffusion::vars_state(hyperdiffusion_model(m), st, FT)
         moisture::vars_state(m.moisture, st, FT)
         lsforcing::vars_state(m.lsforcing, st, FT)
-        precipitation::vars_state(m.precipitation, st, FT)
+        precipitation::vars_state(precipitation_model(m), st, FT)
         tracers::vars_state(m.tracers, st, FT)
     end
 end
@@ -396,7 +406,7 @@ Pre-transform hyperdiffusive variables.
 """
 function vars_state(m::AtmosModel, st::GradientLaplacian, FT)
     @vars begin
-        hyperdiffusion::vars_state(m.hyperdiffusion, st, FT)
+        hyperdiffusion::vars_state(hyperdiffusion_model(m), st, FT)
     end
 end
 
@@ -407,7 +417,7 @@ Post-transform hyperdiffusive variables.
 """
 function vars_state(m::AtmosModel, st::Hyperdiffusive, FT)
     @vars begin
-        hyperdiffusion::vars_state(m.hyperdiffusion, st, FT)
+        hyperdiffusion::vars_state(hyperdiffusion_model(m), st, FT)
     end
 end
 
@@ -427,9 +437,9 @@ function vars_state(m::AtmosModel, st::Auxiliary, FT)
         ref_state::vars_state(reference_state(m), st, FT)
         turbulence::vars_state(turbulence_model(m), st, FT)
         turbconv::vars_state(turbconv_model(m), st, FT)
-        hyperdiffusion::vars_state(m.hyperdiffusion, st, FT)
+        hyperdiffusion::vars_state(hyperdiffusion_model(m), st, FT)
         moisture::vars_state(m.moisture, st, FT)
-        precipitation::vars_state(m.precipitation, st, FT)
+        precipitation::vars_state(precipitation_model(m), st, FT)
         tracers::vars_state(m.tracers, st, FT)
         radiation::vars_state(m.radiation, st, FT)
         lsforcing::vars_state(m.lsforcing, st, FT)
@@ -471,8 +481,12 @@ gravitational_potential(bl, aux) = gravitational_potential(bl.orientation, aux)
 ∇gravitational_potential(bl, aux) =
     ∇gravitational_potential(bl.orientation, aux)
 
-turbulence_tensors(atmos::AtmosModel, args...) =
-    turbulence_tensors(turbulence_model(atmos), atmos, args...)
+turbulence_tensors(atmos::AtmosModel, args...) = turbulence_tensors(
+    turbulence_model(atmos),
+    viscoussponge_model(atmos),
+    atmos,
+    args...,
+)
 
 """
     density(atmos::AtmosModel, state::Vars, aux::Vars)
@@ -582,7 +596,13 @@ function compute_gradient_argument!(
 
     compute_gradient_argument!(atmos.energy, atmos, transform, state, aux, t)
     compute_gradient_argument!(atmos.moisture, transform, state, aux, t)
-    compute_gradient_argument!(atmos.precipitation, transform, state, aux, t)
+    compute_gradient_argument!(
+        precipitation_model(atmos),
+        transform,
+        state,
+        aux,
+        t,
+    )
     compute_gradient_argument!(
         turbulence_model(atmos),
         transform,
@@ -591,7 +611,7 @@ function compute_gradient_argument!(
         t,
     )
     compute_gradient_argument!(
-        atmos.hyperdiffusion,
+        hyperdiffusion_model(atmos),
         atmos,
         transform,
         state,
@@ -641,7 +661,7 @@ function compute_gradient_flux!(
         t,
     )
     compute_gradient_flux!(
-        atmos.precipitation,
+        precipitation_model(atmos),
         diffusive,
         ∇transform,
         state,
@@ -669,7 +689,7 @@ function transform_post_gradient_laplacian!(
     t::Real,
 )
     transform_post_gradient_laplacian!(
-        atmos.hyperdiffusion,
+        hyperdiffusion_model(atmos),
         atmos,
         hyperdiffusive,
         hypertransform,
@@ -783,7 +803,13 @@ function nodal_update_auxiliary_state!(
     t::Real,
 )
     atmos_nodal_update_auxiliary_state!(m.moisture, m, state, aux, t)
-    atmos_nodal_update_auxiliary_state!(m.precipitation, m, state, aux, t)
+    atmos_nodal_update_auxiliary_state!(
+        precipitation_model(m),
+        m,
+        state,
+        aux,
+        t,
+    )
     atmos_nodal_update_auxiliary_state!(m.radiation, m, state, aux, t)
     atmos_nodal_update_auxiliary_state!(m.tracers, m, state, aux, t)
     turbconv_nodal_update_auxiliary_state!(turbconv_model(m), m, state, aux, t)
@@ -829,7 +855,7 @@ function atmos_nodal_init_state_auxiliary!(
 )
     aux.coord = geom.coord
     init_aux_turbulence!(turbulence_model(m), m, aux, geom)
-    init_aux_hyperdiffusion!(m.hyperdiffusion, m, aux, geom)
+    init_aux_hyperdiffusion!(hyperdiffusion_model(m), m, aux, geom)
     atmos_init_aux!(m.tracers, m, aux, geom)
     init_aux_turbconv!(turbconv_model(m), m, aux, geom)
     m.problem.init_state_auxiliary(m.problem, m, aux, geom)
@@ -867,7 +893,7 @@ end
 
 function precompute(atmos::AtmosModel, args, tt::Source)
     ts = recover_thermo_state(atmos, args.state, args.aux)
-    precipitation = precompute(atmos.precipitation, atmos, args, ts, tt)
+    precipitation = precompute(precipitation_model(atmos), atmos, args, ts, tt)
     turbconv = precompute(turbconv_model(atmos), atmos, args, ts, tt)
     return (; ts, turbconv, precipitation)
 end

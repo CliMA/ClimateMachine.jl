@@ -198,6 +198,7 @@ quantities.
 """
 function turbulence_tensors(
     m::TurbulenceClosureModel,
+    viscoussponge,
     bl::BalanceLaw,
     state,
     diffusive,
@@ -214,7 +215,7 @@ function turbulence_tensors(
         aux,
         t,
     )
-    ν, D_t, τ = sponge_viscosity_modifier(bl, bl.viscoussponge, ν, D_t, τ, aux)
+    ν, D_t, τ = sponge_viscosity_modifier(bl, viscoussponge, ν, D_t, τ, aux)
     return (ν, D_t, τ)
 end
 

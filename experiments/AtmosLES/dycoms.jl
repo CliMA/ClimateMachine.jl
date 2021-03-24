@@ -239,7 +239,7 @@ function init_dycoms!(problem, bl, state, aux, localgeo, t)
         state.moisture.ρq_liq = q_init.liq
         state.moisture.ρq_ice = q_init.ice
     end
-    if bl.precipitation isa RainModel
+    if precipitation_model(bl) isa RainModel
         state.precipitation.ρq_rai = FT(0)
     end
 

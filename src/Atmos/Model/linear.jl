@@ -107,7 +107,7 @@ function vars_state(lm::AtmosLinearModel, st::Prognostic, FT)
         ρu::SVector{3, FT}
         energy::vars_state(lm.atmos.energy, st, FT)
         turbulence::vars_state(turbulence_model(lm.atmos), st, FT)
-        hyperdiffusion::vars_state(lm.atmos.hyperdiffusion, st, FT)
+        hyperdiffusion::vars_state(hyperdiffusion_model(lm.atmos), st, FT)
         moisture::vars_state(lm.atmos.moisture, st, FT)
     end
 end
