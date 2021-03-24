@@ -30,6 +30,7 @@ ClimateMachine.Land.LandDomainBC
 ClimateMachine.Land.LandComponentBC
 ClimateMachine.Land.NoBC
 ClimateMachine.Land.SurfaceDrivenWaterBoundaryConditions
+ClimateMachine.Land.SurfaceDrivenHeatBoundaryConditions
 ClimateMachine.Land.Dirichlet
 ClimateMachine.Land.Neumann
 ```

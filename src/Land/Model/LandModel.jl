@@ -220,6 +220,8 @@ function init_state_prognostic!(
     land.init_state_prognostic(land, state, aux, coords, t, args...)
 end
 
+include("RadiativeEnergyFlux.jl")
+using .RadiativeEnergyFlux
 include("SoilWaterParameterizations.jl")
 using .SoilWaterParameterizations
 include("SoilHeatParameterizations.jl")
