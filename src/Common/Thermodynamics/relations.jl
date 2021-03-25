@@ -1538,7 +1538,7 @@ function saturation_adjustment_ρpq(
     q_tot::FT,
     phase_type::Type{<:PhaseEquil},
     maxiter::Int,
-    temperature_tol::FT = eps(FT),
+    temperature_tol::FT = sqrt(eps(FT)),
 ) where {FT <: Real, sat_adjust_method}
     tol = SolutionTolerance(temperature_tol)
     # Use `oftype` to preserve diagonalized type signatures:
