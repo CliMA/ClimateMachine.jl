@@ -237,13 +237,21 @@ end
 
 ## Prop atmos functions (or delete to use defaults)
 atmos_θⁱⁿⁱᵗ(npt, el, xc, yc, zc) = 30.0                   # Set atmosphere initial state function
-atmos_θ_shadowflux(θᵃ, θᵒ, npt, el, xc, yc, zc) = zc == 0.0 ? (1.0 / τ_airsea) * (θᵃ - θᵒ) : 0.0 # Set atmosphere shadow boundary flux function
+
+function is_surface(xc, yc, zc)
+ # Sphere case - could dispatch on domain type, maybe?
+ height_from_surface=(xc^2 + yc^2 + zc^2)^0.5 - planet_radius(param_set)
+ return height_from_surface ≈ 0
+end
+
+atmos_θ_shadowflux(θᵃ, θᵒ, npt, el, xc, yc, zc) = is_surface(xc,yc,zc) ? (1.0 / τ_airsea) * (θᵃ - θᵒ) : 0.0 # Set atmosphere shadow boundary flux function
 atmos_calc_kappa_diff(_...) = κᵃʰ, κᵃʰ, κᵃᶻ               # Set atmos diffusion coeffs
 atmos_source_θ(θᵃ, npt, el, xc, yc, zc, θᵒ) = FT(0.0)     # Set atmos source!
 atmos_get_penalty_tau(_...) = FT(3.0 * 0.0)               # Set penalty term tau (for debugging)
 
 ## Set atmos advective velocity (constant in time)
-uˡᵒⁿ(λ, ϕ, r) = 1e-6 * r * cos(ϕ)
+# uˡᵒⁿ(λ, ϕ, r) = 1e-6 * r * cos(ϕ)
+uˡᵒⁿ(λ, ϕ, r) = 0 * 1e-6 * r * cos(ϕ)
 atmos_uⁱⁿⁱᵗ(npt, el, x, y, z) = (     0 * r̂(x,y,z) 
                                     + 0 * ϕ̂(x,y,z)
                                     + uˡᵒⁿ(lon(x,y,z), lat(x,y,z), rad(x,y,z)) * λ̂(x,y,z) ) 
@@ -283,4 +291,4 @@ simulation = main(Float64);
 nsteps = Int(simulation.simtime[2] / dt)
 cbvector = create_callbacks(simulation, simulation.odesolver)
 println("Initialized. Running...")
-@time run(simulation.coupled_odesolver, nsteps, cbvector)
+## @time run(simulation.coupled_odesolver, nsteps, cbvector)
