@@ -110,8 +110,8 @@ Base.@kwdef struct SurfaceModel{FT <: AbstractFloat, SV}
     ψϕ_stab::FT
     "Square ratio of rms turbulent velocity to friction velocity"
     κ_star²::FT
-    "Scalar coefficient"
-    scalar_coeff::SV
+    "Updraft normalized standard deviation at the surface"
+    upd_surface_std::SV
     # The following will be deleted after SurfaceFlux coupling
     "Temperature ‵[k]‵"
     T::FT = 300.4
@@ -142,18 +142,23 @@ function SurfaceModel{FT}(N_up, param_set::AbstractEarthParameterSet) where {FT}
     a_surf_ = a_surf(param_set)
     κ_star²_ = κ_star²(param_set)
     ψϕ_stab_ = ψϕ_stab(param_set)
-    surface_scalar_coeff = SVector(
-        ntuple(N_up) do i
-            percentile_bounds_mean_norm(
-                1 - a_surf_ + (i - 1) * FT(a_surf_ / N_up),
-                1 - a_surf_ + i * FT(a_surf_ / N_up),
-                1000,
-            )
-        end,
-    )
-    SV = typeof(surface_scalar_coeff)
+
+    if a_surf_ > FT(0)
+        upd_surface_std = SVector(
+            ntuple(N_up) do i
+                percentile_bounds_mean_norm(
+                    1 - a_surf_ + (i - 1) * FT(a_surf_ / N_up),
+                    1 - a_surf_ + i * FT(a_surf_ / N_up),
+                    1000,
+                )
+            end,
+        )
+    else
+        upd_surface_std = SVector(ntuple(i -> FT(0), N_up))
+    end
+    SV = typeof(upd_surface_std)
     return SurfaceModel{FT, SV}(;
-        scalar_coeff = surface_scalar_coeff,
+        upd_surface_std = upd_surface_std,
         a = a_surf_,
         κ_star² = κ_star²_,
         ψϕ_stab = ψϕ_stab_,

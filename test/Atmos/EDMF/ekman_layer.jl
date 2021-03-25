@@ -27,6 +27,7 @@ include("edmf_model.jl")
 include("edmf_kernels.jl")
 
 CLIMAParameters.Planet.T_surf_ref(::EarthParameterSet) = 290.0
+CLIMAParameters.Atmos.EDMF.a_surf(::EarthParameterSet) = 0.0
 function set_clima_parameters(filename)
     eval(:(include($filename)))
 end
