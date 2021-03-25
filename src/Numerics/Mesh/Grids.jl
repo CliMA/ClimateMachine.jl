@@ -839,9 +839,9 @@ struct VolumeGeometry{Nq, A<:AbstractArray}
     ξ1x3::A
     ξ2x3::A
     ξ3x3::A
-    MJ::A
-    MJI::A
-    MHJH::A
+    ωJ::A
+    ωJI::A
+    ωJH::A
     x1::A
     x2::A
     x3::A
@@ -867,8 +867,8 @@ struct SurfaceGeometry{Nq, A<:AbstractArray}
     n1::A
     n2::A
     n3::A
-    sMJ::A
-    vMJI::A
+    sωJ::A
+    vωJI::A
     function SurfaceGeometry{Nq}(args::A...) where {Nq, A<:AbstractArray}
         new{Nq,A}(args...)
     end
@@ -911,17 +911,31 @@ function computegeometry(elemtocoord, D, ξ, ω, meshwarp)
     sgeo = SurfaceGeometry(FT, Nq, nface, nelem)
 
     # (n1, n2, n3, sMJ, vMJI) = ntuple(j -> (@view sgeo[j, :, :, :]), _nsgeo)
-    vgeo.sMJ = similar(sMJ)
+    # sωJ = similar(sωJ)
 
     # reference element -> topology coordinates
-    X = ntuple(j -> (@view vgeo[:, _x1 + j - 1, :]), dim)
-    Metrics.creategrid!(X..., elemtocoord, ξ...)
+    # X = ntuple(j -> (@view vgeo[:, _x1 + j - 1, :]), dim)
 
-    # topology coordinates -> physical coordinates
+    # 1) a function which
+
+
+    # TODO:
+    # - split out (c),(d)
+    # - to get analytic derivatives, we need to be able differentiate through (a,b)
+    #   - combines (a,b,c)
+    #
+
+    # a) computes "topology coordinates"
+    Metrics.creategrid!(vgeo, elemtocoord, ξ...)
+
+    # b) topology coordinates -> physical coordinates
     @inbounds for j in 1:length(x1)
         (vgeo.x1[j], vgeo.x2[j], vgeo.x3[j]) = meshwarp(vgeo.x1[j], vgeo.x2[j], vgeo.x3[j])
     end
 
+
+    # c) computes partial derivatives ∂x/∂ξ
+    # d) computes the metric terms
     Metrics.computemetric!(vgeo, sgeo, D...)
 
     # Compute the metric terms
@@ -944,15 +958,15 @@ function computegeometry(elemtocoord, D, ξ, ω, meshwarp)
     # since `ξ1` is the fastest dimension and `ξdim` the slowest the tensor
     # product order is reversed
     M = kron(1, reverse(ω)...)
-    vgeo.MJ .= M .*vgeo.MJ
-    vgeo.MJI .= 1 ./ vgeo.MJ
+    vgeo.ωMJ .= M .*vgeo.ωJ
+    vgeo.ωJI .= 1 ./ vgeo.ωJ
     for d in 1:dim
         for f in (2d - 1):(2d)
-            sgeo.vMJI[1:Nfp[d], f, :] .= vgeo.MJI[fmask[f], :]
+            sgeo.vωJI[1:Nfp[d], f, :] .= vgeo.ωJI[fmask[f], :]
         end
     end
 
-    sM = fill!(similar(sgeo.sMJ, maximum(Nfp), nface), NaN)
+    sM = fill!(similar(sgeo.sωJ, maximum(Nfp), nface), NaN)
     for d in 1:dim
         for f in (2d - 1):(2d)
             ωf = ntuple(j -> ω[mod1(d + j, dim)], dim - 1)
@@ -963,51 +977,45 @@ function computegeometry(elemtocoord, D, ξ, ω, meshwarp)
             sM[1:Nfp[d], f] .= dim > 1 ? kron(1, ωf...) : one(FT)
         end
     end
-    sgeo.sMJ .= sM .* sgeo.sMJ
+    sgeo.sωMJ .= sM .* sgeo.sωJ
 
     # compute MH and JvC
-    horizontal_metrics(vgeo, Nq, ω)
+    horizontal_metrics!(vgeo, Nq, ω)
 
     # This is mainly done to support FVM plotting when N=0 (since we need cell
     # edge values)
     x_vtk = (vgeo.x1, vgeo.x2, vgeo.x3)
 
-    (vgeo, sgeo, x_vtk)
+    return (vgeo, sgeo, x_vtk)
 end
 
-function horizontal_metrics(vgeo, Nq, ω)
+"""
+    horizontal_metrics!(vgeo::VerticalGeometry, Nq, ω)
+
+Compute the horizontal mass matrix `ωJH` field of `vgeo`
+```
+J .* norm(∂ξ3/∂x) * (ωᵢ ⊗ ωⱼ); for integrating over a plane
+```
+(in 2-D ξ2 not ξ3 is used).
+"""
+function horizontal_metrics!(vgeo::VerticalGeometry, Nq, ω)
     dim = length(Nq)
 
     MH = dim == 1 ? 1 : kron(ones(1, Nq[dim]), reverse(ω[1:(dim - 1)])...)[:]
-    M = kron(1, reverse(ω)...)[:]
-
-    (
-        #! format: off
-        ξ1x1, ξ2x1, ξ3x1, ξ1x2, ξ2x2, ξ3x2, ξ1x3, ξ2x3, ξ3x3,
-        MJ, MJI, MHJH,
-        x1, x2, x3,
-        JcV,
-       #! format: on
-    ) = ntuple(j -> (@view vgeo[:, j, :]), _nvgeo)
-    J = MJ ./ M[:]
+    M = vec(kron(1, reverse(ω)...))
+    J = vgeo.ωJ ./ M
 
     # Compute |r'(ξ3)| for vertical line integrals
     if dim == 1
-        MHJH .= 1
+        vgeo.ωJH .= 1
     elseif dim == 2
-        map!(MHJH, J, ξ2x1, ξ2x2) do J, ξ2x1, ξ2x2
-            hypot(J * ξ2x1, J * ξ2x2)
-        end
-        MHJH .= MH .* MHJH
-
+        vgeo.ωJH .= MH .* hypot.(J .* vgeo.ξ2x1, J .* vgeo.ξ2x2)
     elseif dim == 3
-        map!(MHJH, J, ξ3x1, ξ3x2, ξ3x3) do J, ξ3x1, ξ3x2, ξ3x3
-            hypot(J * ξ3x1, J * ξ3x2, J * ξ3x3)
-        end
-        MHJH .= MH .* MHJH
+        vgeo.ωJH .= MH .* hypot.(J .* vgeo.ξ3x1, J .* vgeo.ξ3x2, J .* vgeo.ξ3x3)
     else
         error("dim $dim not implemented")
     end
+    return vgeo
 end
 
 """
