@@ -18,7 +18,7 @@ prognostic_vars(::NTracers{N}) where {N} = (Tracers{N}(),)
 prognostic_vars(m::AtmosModel) = (
     Mass(),
     Momentum(),
-    prognostic_vars(m.energy)...,
+    prognostic_vars(energy_model(m))...,
     prognostic_vars(m.moisture)...,
     prognostic_vars(precipitation_model(m))...,
     prognostic_vars(tracer_model(m))...,

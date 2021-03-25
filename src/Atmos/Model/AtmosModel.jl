@@ -10,6 +10,7 @@ export AtmosModel,
     Compressible,
     Anelastic1D,
     reference_state,
+    energy_model,
     compressibility_model,
     turbulence_model,
     turbconv_model,
@@ -126,6 +127,7 @@ An `AtmosPhysics` for atmospheric physics
     AtmosPhysics(
         param_set,
         ref_state,
+        energy,
         compressibility,
         turbulence,
         turbconv,
@@ -139,11 +141,13 @@ An `AtmosPhysics` for atmospheric physics
 # Fields
 $(DocStringExtensions.FIELDS)
 """
-struct AtmosPhysics{FT, PS, RS, C, T, TC, HD, VS, P, R, TR, LF}
+struct AtmosPhysics{FT, PS, RS, E, C, T, TC, HD, VS, P, R, TR, LF}
     "Parameter Set (type to dispatch on, e.g., planet parameters. See CLIMAParameters.jl package)"
     param_set::PS
     "Reference State (For initial conditions, or for linearisation when using implicit solvers)"
     ref_state::RS
+    "Energy sub-model, can be energy-based or θ_liq_ice-based"
+    energy::E
     "Compressibility switch"
     compressibility::C
     "Turbulence Closure (Equations for dynamics of under-resolved turbulent flows)"
@@ -184,15 +188,13 @@ default values for each field.
 # Fields
 $(DocStringExtensions.FIELDS)
 """
-struct AtmosModel{FT, PH, PR, O, E, M, S, DC} <: BalanceLaw
+struct AtmosModel{FT, PH, PR, O, M, S, DC} <: BalanceLaw
     "Atmospheric physics"
     physics::PH
     "Problem (initial and boundary conditions)"
     problem::PR
     "An orientation model"
     orientation::O
-    "Energy sub-model, can be energy-based or θ_liq_ice-based"
-    energy::E
     "Moisture Model (Equations for dynamics of moist variables)"
     moisture::M
     "Source Terms (Problem specific source terms)"
@@ -202,6 +204,7 @@ struct AtmosModel{FT, PH, PR, O, E, M, S, DC} <: BalanceLaw
 end
 
 parameter_set(atmos::AtmosModel) = atmos.physics.param_set
+energy_model(atmos::AtmosModel) = atmos.physics.energy
 compressibility_model(atmos::AtmosModel) = atmos.physics.compressibility
 reference_state(atmos::AtmosModel) = atmos.physics.ref_state
 turbulence_model(atmos::AtmosModel) = atmos.physics.turbulence
@@ -278,6 +281,7 @@ function AtmosModel{FT}(
     phys_args = (
         param_set,
         ref_state,
+        energy,
         compressibility,
         turbulence,
         turbconv,
@@ -292,7 +296,6 @@ function AtmosModel{FT}(
         AtmosPhysics{FT, typeof.(phys_args)...}(phys_args...),
         problem,
         orientation,
-        energy,
         moisture,
         prognostic_var_source_map(source),
         data_config,
@@ -346,7 +349,7 @@ function vars_state(m::AtmosModel, st::Prognostic, FT)
         # start of inclusion in `AtmosLinearModel`
         ρ::FT
         ρu::SVector{3, FT}
-        energy::vars_state(m.energy, st, FT) # TODO: adjust linearmodel
+        energy::vars_state(energy_model(m), st, FT) # TODO: adjust linearmodel
         turbulence::vars_state(turbulence_model(m), st, FT)
         hyperdiffusion::vars_state(hyperdiffusion_model(m), st, FT)
         moisture::vars_state(m.moisture, st, FT)
@@ -377,7 +380,7 @@ Pre-transform gradient variables.
 function vars_state(m::AtmosModel, st::Gradient, FT)
     @vars begin
         u::SVector{3, FT}
-        energy::vars_state(m.energy, st, FT)
+        energy::vars_state(energy_model(m), st, FT)
         turbulence::vars_state(turbulence_model(m), st, FT)
         turbconv::vars_state(turbconv_model(m), st, FT)
         hyperdiffusion::vars_state(hyperdiffusion_model(m), st, FT)
@@ -395,7 +398,7 @@ Post-transform gradient variables.
 """
 function vars_state(m::AtmosModel, st::GradientFlux, FT)
     @vars begin
-        energy::vars_state(m.energy, st, FT)
+        energy::vars_state(energy_model(m), st, FT)
         turbulence::vars_state(turbulence_model(m), st, FT)
         turbconv::vars_state(turbconv_model(m), st, FT)
         hyperdiffusion::vars_state(hyperdiffusion_model(m), st, FT)
@@ -601,7 +604,14 @@ function compute_gradient_argument!(
     ρinv = 1 / state.ρ
     transform.u = ρinv * state.ρu
 
-    compute_gradient_argument!(atmos.energy, atmos, transform, state, aux, t)
+    compute_gradient_argument!(
+        energy_model(atmos),
+        atmos,
+        transform,
+        state,
+        aux,
+        t,
+    )
     compute_gradient_argument!(atmos.moisture, transform, state, aux, t)
     compute_gradient_argument!(
         precipitation_model(atmos),
@@ -645,7 +655,14 @@ function compute_gradient_flux!(
     aux::Vars,
     t::Real,
 )
-    compute_gradient_flux!(atmos.energy, diffusive, ∇transform, state, aux, t)
+    compute_gradient_flux!(
+        energy_model(atmos),
+        diffusive,
+        ∇transform,
+        state,
+        aux,
+        t,
+    )
 
     # diffusion terms required for SGS turbulence computations
     compute_gradient_flux!(
