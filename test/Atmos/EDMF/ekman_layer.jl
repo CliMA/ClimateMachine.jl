@@ -28,6 +28,8 @@ include("edmf_kernels.jl")
 
 CLIMAParameters.Planet.T_surf_ref(::EarthParameterSet) = 290.0
 CLIMAParameters.Atmos.EDMF.a_surf(::EarthParameterSet) = 0.0
+CLIMAParameters.Atmos.EDMF.c_d(::EarthParameterSet) = 0.055 #0.22
+CLIMAParameters.Atmos.EDMF.c_m(::EarthParameterSet) = 0.035 #0.14
 function set_clima_parameters(filename)
     eval(:(include($filename)))
 end
@@ -95,10 +97,10 @@ function main(::Type{FT}, cl_args) where {FT}
     str_comp = compressibility == Compressible() ? "COMPRESS" : "ANELASTIC"
 
     # Choice of SGS model
-    turbconv = NoTurbConv()
-    # N_updrafts = 1
-    # N_quad = 3
-    # turbconv = EDMF(FT, N_updrafts, N_quad, param_set)
+    # turbconv = NoTurbConv()
+    N_updrafts = 1
+    N_quad = 3
+    turbconv = EDMF(FT, N_updrafts, N_quad, param_set)
 
     C_smag_ = C_smag(param_set)
     turbulence = ConstantKinematicViscosity(FT(0.1))
@@ -108,7 +110,7 @@ function main(::Type{FT}, cl_args) where {FT}
     zmax = FT(400)
     # Simulation time
     t0 = FT(0)
-    timeend = FT(3600 * 2) # Change to 7h for low-level jet
+    timeend = FT(90) #FT(3600 * 2) # Change to 7h for low-level jet
     CFLmax = compressibility == Compressible() ? FT(1) : FT(100)
 
     config_type = SingleStackConfigType
@@ -191,9 +193,19 @@ function main(::Type{FT}, cl_args) where {FT}
     cb_boyd = GenericCallbacks.EveryXSimulationSteps(1) do
         Filters.apply!(
             solver_config.Q,
-            ("energy.ρe",),
+            (turbconv_filters(turbconv)...,),
             solver_config.dg.grid,
             BoydVandevenFilter(solver_config.dg.grid, 1, 4),
+        )
+        nothing
+    end
+
+    cb_tmar = GenericCallbacks.EveryXSimulationSteps(1) do
+        Filters.apply!(
+            solver_config.Q,
+            (turbconv_filters(turbconv)...,),
+            solver_config.dg.grid,
+            TMARFilter(),
         )
         nothing
     end
@@ -234,7 +246,7 @@ function main(::Type{FT}, cl_args) where {FT}
         solver_config;
         diagnostics_config = dgn_config,
         check_cons = check_cons,
-        user_callbacks = (cb_data_vs_time, cb_print_step),
+        user_callbacks = (cb_boyd, cb_tmar, cb_data_vs_time, cb_print_step),
         check_euclidean_distance = true,
     )
 
@@ -268,5 +280,27 @@ if !isnothing(cl_args["cparam_file"])
 end
 
 solver_config, diag_arr, time_data = main(Float64, cl_args)
+
+# Uncomment lines to save output using JLD2
+output_dir = @__DIR__;
+mkpath(output_dir);
+function dons(diag_vs_z)
+    return Dict(map(keys(first(diag_vs_z))) do k
+        string(k) => [getproperty(ca, k) for ca in diag_vs_z]
+    end)
+end
+get_dons_arr(diag_arr) = [dons(diag_vs_z) for diag_vs_z in diag_arr]
+dons_arr = get_dons_arr(diag_arr)
+println(dons_arr[1].keys)
+z = get_z(solver_config.dg.grid; rm_dupes = true);
+save(
+    string(output_dir, "/ekman.jld2"),
+    "dons_arr",
+    dons_arr,
+    "time_data",
+    time_data,
+    "z",
+    z,
+)
 
 nothing

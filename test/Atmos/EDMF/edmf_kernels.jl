@@ -254,8 +254,8 @@ eq_tends(pv::PV, m::EDMF, ::Source) where {PV} = ()
 
 eq_tends(::EDMFPrognosticVariable, m::EDMF, ::Source) = (EntrDetr(m),)
 
-eq_tends(pv::en_ρatke, m::EDMF, ::Source) =
-    (EntrDetr(m), PressSource(m), BuoySource(m), ShearSource(), DissSource())
+eq_tends(pv::en_ρatke, m::EDMF, ::Source) = (ShearSource(),)
+    #(EntrDetr(m), PressSource(m), BuoySource(m), ShearSource(), DissSource())
 
 eq_tends(
     ::Union{en_ρaθ_liq_cv, en_ρaq_tot_cv, en_ρaθ_liq_q_tot_cv},
@@ -477,7 +477,9 @@ function compute_gradient_flux!(
     gm_dif.∇v = gm_∇tf.v
 
     gm_dif.S² = ∇transform.u[3, 1]^2 + ∇transform.u[3, 2]^2 + en_dif.∇w[3]^2 # ∇transform.u is Jacobian.T
-
+    if gm_dif.S² < 0
+        @print("gm_dif.S² = ", gm_dif.S², "\n")
+    end
     # Recompute l_mix, K_m and tke budget terms for output.
     ts = recover_thermo_state_all(m, state, aux)
 
@@ -503,7 +505,8 @@ function compute_gradient_flux!(
     K_h = en_dif.K_m / Pr_t
     Diss₀ = turbconv.mix_len.c_d * sqrt(tke_en) / en_dif.l_mix
 
-    en_dif.shear_prod = ρa₀ * en_dif.K_m * gm_dif.S² # tke Shear source
+    en_dif.shear_prod = max(ρa₀ * en_dif.K_m * gm_dif.S², 0) # tke Shear source
+    # @print("en_dif.shear_prod = ", en_dif.shear_prod, "\n")
     en_dif.buoy_prod = -ρa₀ * K_h * ∂b∂z_env   # tke Buoyancy source
     en_dif.tke_diss = -ρa₀ * Diss₀ * tke_en  # tke Dissipation
 end;
@@ -670,9 +673,13 @@ function source(::en_ρatke, ::ShearSource, atmos, args)
     @unpack env, K_m = args.precomputed.turbconv
     gm = args.state
     Shear² = args.diffusive.turbconv.S²
+    if Shear² < 0
+        @print("Shear² = ", Shear², "\n")
+    end
     ρa₀ = gm.ρ * env.a
+    # @print("ρa₀ = ", ρa₀, "\n")
     # production from mean gradient and Dissipation
-    return ρa₀ * K_m * Shear² # tke Shear source
+    return max(ρa₀ * K_m * Shear², 0 * ρa₀ * K_m * Shear²) # tke Shear source
 end
 
 function source(::en_ρatke, ::BuoySource, atmos, args)

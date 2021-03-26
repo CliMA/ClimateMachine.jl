@@ -196,10 +196,16 @@ function new_thermo_state_en(
     a_max = turbconv.subdomains.a_max
     param_set = parameter_set(m)
     if !(0 <= θ_liq_en)
+        @print("a_en = ", a_en, "\n")
         @print("ρaθ_liq_up = ", ρaθ_liq_up[Val(1)], "\n")
         @print("θ_liq = ", θ_liq, "\n")
         @print("θ_liq_en = ", θ_liq_en, "\n")
         error("Environment θ_liq_en out-of-bounds in new_thermo_state_en")
+    # else
+    #     @print("a_en = ", a_en, "\n")
+    #     @print("ρaθ_liq_up = ", ρaθ_liq_up[Val(1)], "\n")
+    #     @print("θ_liq = ", θ_liq, "\n")
+    #     @print("θ_liq_en = ", θ_liq_en, "\n")
     end
     ts_en = PhaseDry_pθ(param_set, p, θ_liq_en)
     return ts_en

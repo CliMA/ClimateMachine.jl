@@ -88,7 +88,7 @@ end
 function SubdomainModel(
     ::Type{FT},
     N_up;
-    a_min::FT = 0.001,
+    a_min::FT = 0.00,
     a_max::FT = 1 - N_up * a_min,
 ) where {FT}
     return SubdomainModel(; a_min = a_min, a_max = a_max)
@@ -113,16 +113,14 @@ Base.@kwdef struct SurfaceModel{FT <: AbstractFloat, SV}
     "Updraft normalized standard deviation at the surface"
     upd_surface_std::SV
     # The following will be deleted after SurfaceFlux coupling
-    "Temperature ‵[k]‵"
-    T::FT = 300.4
     "Liquid water potential temperature ‵[k]‵"
     θ_liq::FT = 299.1
     "Specific humidity ‵[kg/kg]‵"
     q_tot::FT = 22.45e-3
     "Sensible heat flux ‵[w/m^2]‵"
-    shf::FT = 9.5
+    shf::FT = 0.0
     "Latent heat flux ‵[w/m^2]‵"
-    lhf::FT = 147.2
+    lhf::FT = 0.0
     "Friction velocity"
     ustar::FT = 0.28
     "Monin - Obukhov length"

@@ -62,11 +62,10 @@ function subdomain_surface_values(
     fact = unstable ? (1 - surf.ψϕ_stab * zLL / oblength)^(-FT(2 // 3)) : 1
     tke_fact = unstable ? cbrt(zLL / oblength * zLL / oblength) : 0
     ustar² = ustar^2
-    θ_liq_cv = 4 * (θ_liq_surface_flux * θ_liq_surface_flux) / (ustar²) * fact
-    q_tot_cv = 4 * (q_tot_surface_flux * q_tot_surface_flux) / (ustar²) * fact
-    θ_liq_q_tot_cv =
-        4 * (θ_liq_surface_flux * q_tot_surface_flux) / (ustar²) * fact
-    tke = ustar² * (surf.κ_star² + tke_fact)
+    θ_liq_cv = FT(0)
+    q_tot_cv = FT(0)
+    θ_liq_q_tot_cv = FT(0)
+    tke = FT(0.4) #ustar² * (surf.κ_star² + tke_fact)
 
     a_up_surf = ntuple(i -> FT(surf.a / N_up), N_up)
     e_int = internal_energy(atmos, state, aux)
