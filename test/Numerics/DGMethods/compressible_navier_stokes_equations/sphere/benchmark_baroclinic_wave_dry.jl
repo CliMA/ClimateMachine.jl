@@ -13,8 +13,8 @@ ClimateMachine.init()
 # Define physical parameters 
 ########
 parameters = (
-    a   = 6.371229e6/50,
-    Ω   = 7.292e-5*50,
+    a   = 6.371229e6,
+    Ω   = 7.292e-5,
     g   = 9.80616,
     H   = 30000.0,
     R_d = 287.0,        
@@ -48,13 +48,13 @@ grid = DiscretizedDomain(
 ########
 Δt          = min_node_distance(grid.numerical) / 340.0 * 0.25
 start_time  = 0
-end_time    = 1000*Δt
+end_time    = 3600*Δt
 method      = SSPRK22Heuns
 timestepper = TimeStepper(method = method, timestep = Δt)
 callbacks   = (
     Info(), 
-    StateCheck(1), 
-    VTKState(iteration = 1, filepath = "./out/"),
+    StateCheck(100), 
+    VTKState(iteration = 100, filepath = "./out/"),
 )
 
 ########

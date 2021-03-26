@@ -9,15 +9,14 @@ ClimateMachine.init()
 # Define physical parameters and parameterizations
 ########
 parameters = (
-    ρₒ = 1, # reference density
-    cₛ = 100.0, # sound speed
-    a  = 6e6,
-    H  = 1e5,
+    a  = 6.37e6/125.0,
+    H  = 30e3,
     Ω  = 2π/86400,
-    α  = 10.0,
     g  = 9.81,
-    ∂θ = 0.98 / 1e5,
-    power = 1,
+    R  = 287,
+    pₒ = 1e5,
+    Tₒ = 290,
+    κ  = 2/7,
 )
 
 ########
@@ -26,20 +25,20 @@ parameters = (
 domain =  AtmosDomain(radius = parameters.a, height = parameters.H)
 grid = DiscretizedDomain(
     domain;
-    elements              = (vertical = 4, horizontal = 4),
-    polynomial_order      = (vertical = 1, horizontal = 3),
+    elements              = (vertical = 5, horizontal = 4),
+    polynomial_order      = (vertical = 3, horizontal = 3),
     overintegration_order = (vertical = 1, horizontal = 1),
 )
 
 ########
 # Define timestepping parameters
 ########
-Δt          = min_node_distance(grid.numerical) / parameters.cₛ * 0.25
+Δt          = min_node_distance(grid.numerical) / 340.0 * 0.25
 start_time  = 0
 end_time    = 86400 * 0.5
 method      = SSPRK22Heuns
 timestepper = TimeStepper(method = method, timestep = Δt)
-callbacks   = (Info(), StateCheck(10))
+callbacks   = (Info(), StateCheck(400))
 
 ########
 # Define physics
@@ -48,17 +47,18 @@ physics = FluidPhysics(;
     orientation = SphericalOrientation(),
     advection   = NonLinearAdvectionTerm(),
     dissipation = ConstantViscosity{Float64}(μ = 0.0, ν = 0.0, κ = 0.0),
-    coriolis    = ThinShellCoriolis{Float64}(Ω = parameters.Ω),
-    gravity     = Buoyancy{Float64}(α = parameters.α, g = parameters.g),
-    eos         = BarotropicFluid{Float64}(ρₒ = parameters.ρₒ, cₛ = parameters.cₛ)
+    coriolis    = DeepShellCoriolis{Float64}(Ω = parameters.Ω),
+    gravity     = DeepShellGravity{Float64}(g = parameters.g, a = parameters.a),
+    #gravity     = ThinShellGravity{Float64}(g = parameters.g),
+    eos         = DryIdealGas{Float64}(R = parameters.R, pₒ = parameters.pₒ, γ = 1 / (1 - parameters.κ)),
 )
 
 ########
 # Define boundary conditions (west east are the ones that are enforced for a sphere)
 ########
 ρu_bcs = (
-    bottom = Impenetrable(NoSlip()),
-    top = Impenetrable(NoSlip()),
+    bottom = Impenetrable(FreeSlip()),
+    top = Impenetrable(FreeSlip()),
 )
 ρθ_bcs =
     (bottom = Insulating(), top = Insulating())
@@ -70,18 +70,20 @@ physics = FluidPhysics(;
 # longitude: λ ∈ [-π, π), λ = 0 is the Greenwich meridian
 # latitude:  ϕ ∈ [-π/2, π/2], ϕ = 0 is the equator
 # radius:    r ∈ [Rₑ - hᵐⁱⁿ, Rₑ + hᵐᵃˣ], Rₑ = Radius of sphere; hᵐⁱⁿ, hᵐᵃˣ ≥ 0
-ρ₀(p, λ, ϕ, r)    = (1 -  p.∂θ * (r - 6e6)^p.power/p.power * 1e5^(1-p.power)) * p.ρₒ
-ρuʳᵃᵈ(p, λ, ϕ, r) = 0.0
-ρuˡᵃᵗ(p, λ, ϕ, r) = 0.0
-ρuˡᵒⁿ(p, λ, ϕ, r) = 0.0
-ρθ₀(p, λ, ϕ, r) = -ρ₀(p, λ, ϕ, r) * p.∂θ * (r - 6e6)^(p.power-1)* 1e5^(1-p.power) * (p.cₛ)^2 / (p.α * p.g)
+profile(𝒫,r)   = exp(-(1 - 𝒫.a / r) * 𝒫.a * 𝒫.g / 𝒫.R / 𝒫.Tₒ)
+#profile(𝒫,r)   = exp(-(r - 𝒫.a) * 𝒫.g / 𝒫.R / 𝒫.Tₒ)
+ρ₀(𝒫,λ,ϕ,r)    = 𝒫.pₒ / 𝒫.R / 𝒫.Tₒ * profile(𝒫,r)
+ρuʳᵃᵈ(𝒫,λ,ϕ,r) = 0.0
+ρuˡᵃᵗ(𝒫,λ,ϕ,r) = 0.0
+ρuˡᵒⁿ(𝒫,λ,ϕ,r) = 0.0
+ρθ₀(𝒫,λ,ϕ,r)   = 𝒫.pₒ / 𝒫.R * profile(𝒫,r)^(1 - 𝒫.κ) 
 
 # Cartesian Representation (boiler plate really)
-ρ₀ᶜᵃʳᵗ(p, x...) = ρ₀(p, lon(x...), lat(x...), rad(x...))
-ρu⃗₀ᶜᵃʳᵗ(p, x...) = (   ρuʳᵃᵈ(p, lon(x...), lat(x...), rad(x...)) * r̂(x...) 
-                     + ρuˡᵃᵗ(p, lon(x...), lat(x...), rad(x...)) * ϕ̂(x...)
-                     + ρuˡᵒⁿ(p, lon(x...), lat(x...), rad(x...)) * λ̂(x...) ) 
-ρθ₀ᶜᵃʳᵗ(p, x...) = ρθ₀(p, lon(x...), lat(x...), rad(x...))
+ρ₀ᶜᵃʳᵗ(𝒫, x...)  = ρ₀(𝒫, lon(x...), lat(x...), rad(x...))
+ρu⃗₀ᶜᵃʳᵗ(𝒫, x...) = (   ρuʳᵃᵈ(𝒫, lon(x...), lat(x...), rad(x...)) * r̂(x...) 
+                     + ρuˡᵃᵗ(𝒫, lon(x...), lat(x...), rad(x...)) * ϕ̂(x...)
+                     + ρuˡᵒⁿ(𝒫, lon(x...), lat(x...), rad(x...)) * λ̂(x...) ) 
+ρθ₀ᶜᵃʳᵗ(𝒫, x...) = ρθ₀(𝒫, lon(x...), lat(x...), rad(x...))
 
 ########
 # Create the things

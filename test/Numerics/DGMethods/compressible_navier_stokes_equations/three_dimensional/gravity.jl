@@ -22,7 +22,8 @@ end
     k̂ = vertical_unit_vector(orientation, aux)
 
     r = norm(r⃗)
-    
+   
+    # TODO!: Need numerical gradient of geopotential
     source.ρu -= g * (a / r)^2 * k̂ * ρ
 
     return nothing
@@ -42,7 +43,6 @@ end
     α = gravity.α 
     g = gravity.g
     ρθ = state.ρθ
-
     k̂ = vertical_unit_vector(orientation, aux)
         
     source.ρu -= -α * g * k̂ * ρθ
