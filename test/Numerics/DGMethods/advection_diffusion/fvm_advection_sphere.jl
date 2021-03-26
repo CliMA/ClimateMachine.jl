@@ -134,9 +134,10 @@ function advective_courant(
     return Δt * norm(aux.advection.u) / Δx
 end
 
+struct NoFlowBC end
 function boundary_state!(
     ::RusanovNumericalFlux,
-    bctype,
+    ::NoFlowBC,
     ::AdvectionDiffusion,
     stateP::Vars,
     auxP::Vars,
@@ -205,14 +206,15 @@ function test_run(
         FloatType = FT,
         DeviceArray = ArrayType,
         polynomialorder = (N, 0),
-        meshwarp = cubedshellwarp,
+        meshwarp = equiangular_cubed_sphere_warp,
     )
 
     dx = min_node_distance(grid, HorizontalDirection())
     dt = FT(cfl * dx / (vert_range[2] * u_scale(problem())) / N)
     dt = outputtime / ceil(Int64, outputtime / dt)
 
-    model = AdvectionDiffusion{3}(problem(), diffusion = false)
+    bcs = (NoFlowBC(),)
+    model = AdvectionDiffusion{3}(problem(), bcs, diffusion = false)
     dgfvm = DGFVModel(
         model,
         grid,

@@ -32,11 +32,12 @@ function init_baroclinic_wave!(problem, bl, state, aux, localgeo, t)
     FT = eltype(state)
 
     # parameters
-    _grav::FT = grav(bl.param_set)
-    _R_d::FT = R_d(bl.param_set)
-    _Ω::FT = Omega(bl.param_set)
-    _a::FT = planet_radius(bl.param_set)
-    _p_0::FT = MSLP(bl.param_set)
+    param_set = parameter_set(bl)
+    _grav::FT = grav(param_set)
+    _R_d::FT = R_d(param_set)
+    _Ω::FT = Omega(param_set)
+    _a::FT = planet_radius(param_set)
+    _p_0::FT = MSLP(param_set)
 
     k::FT = 3
     T_E::FT = 310
@@ -63,7 +64,7 @@ function init_baroclinic_wave!(problem, bl, state, aux, localgeo, t)
     # grid
     φ = latitude(bl.orientation, aux)
     λ = longitude(bl.orientation, aux)
-    z = altitude(bl.orientation, bl.param_set, aux)
+    z = altitude(bl.orientation, param_set, aux)
     r::FT = z + _a
     γ::FT = 1 # set to 0 for shallow-atmosphere case and to 1 for deep atmosphere case
 
@@ -142,12 +143,12 @@ function init_baroclinic_wave!(problem, bl, state, aux, localgeo, t)
 
     ## temperature & density
     T::FT = T_v / (1 + M_v * q_tot)
-    ρ::FT = air_density(bl.param_set, T, p, phase_partition)
+    ρ::FT = air_density(param_set, T, p, phase_partition)
 
     ## potential & kinetic energy
     e_pot::FT = gravitational_potential(bl.orientation, aux)
     e_kin::FT = 0.5 * u_cart' * u_cart
-    e_tot::FT = total_energy(bl.param_set, e_kin, e_pot, T, phase_partition)
+    e_tot::FT = total_energy(param_set, e_kin, e_pot, T, phase_partition)
 
     ## Assign state variables
     state.ρ = ρ
@@ -172,8 +173,8 @@ function config_baroclinic_wave(FT, poly_order, resolution, with_moisture)
     domain_height::FT = 30e3 # distance between surface and top of atmosphere (m)
     if with_moisture
         hyperdiffusion = EquilMoistBiharmonic(FT(8 * 3600))
-        moisture = EquilMoist{FT}()
-        source = (Gravity(), Coriolis(), RemovePrecipitation(true)...) # precipitation is default to NoPrecipitation() as 0M microphysics
+        moisture = EquilMoist()
+        source = (Gravity(), Coriolis(), RemovePrecipitation(true)) # precipitation is default to NoPrecipitation() as 0M microphysics
     else
         hyperdiffusion = DryBiharmonic(FT(8 * 3600))
         moisture = DryModel()

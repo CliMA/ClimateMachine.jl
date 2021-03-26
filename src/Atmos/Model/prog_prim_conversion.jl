@@ -22,20 +22,16 @@ function prognostic_to_primitive!(
     prog::Vars,
     aux,
 )
-    atmos.energy isa EnergyModel || error("EnergyModel only supported")
+    atmos.energy isa TotalEnergyModel ||
+        error("TotalEnergyModel only supported")
+    prognostic_to_primitive!(atmos, atmos.moisture, prim, prog, aux)
     prognostic_to_primitive!(
+        turbconv_model(atmos),
         atmos,
         atmos.moisture,
         prim,
         prog,
-        Thermodynamics.internal_energy(
-            prog.ρ,
-            prog.energy.ρe,
-            prog.ρu,
-            gravitational_potential(atmos.orientation, aux),
-        ),
     )
-    prognostic_to_primitive!(atmos.turbconv, atmos, atmos.moisture, prim, prog)
 end
 
 """
@@ -54,14 +50,14 @@ function primitive_to_prognostic!(
     prim::Vars,
     aux,
 )
+    primitive_to_prognostic!(atmos, atmos.moisture, prog, prim, aux)
     primitive_to_prognostic!(
+        turbconv_model(atmos),
         atmos,
         atmos.moisture,
         prog,
         prim,
-        gravitational_potential(atmos.orientation, aux),
     )
-    primitive_to_prognostic!(atmos.turbconv, atmos, atmos.moisture, prog, prim)
 end
 
 ####
@@ -73,12 +69,12 @@ function prognostic_to_primitive!(
     moist::DryModel,
     prim::Vars,
     prog::Vars,
-    e_int::AbstractFloat,
+    aux::Vars,
 )
-    ts = PhaseDry(atmos.param_set, e_int, prog.ρ)
-    prim.ρ = prog.ρ
-    prim.u = prog.ρu ./ prog.ρ
-    prim.p = air_pressure(ts)
+    ts = new_thermo_state(atmos, prog, aux)
+    prim.ρ = air_density(ts) # Needed for recovery of energy, not prog.ρ in anelastic1d
+    prim.u = prog.ρu ./ density(atmos, prog, aux)
+    prim.p = pressure(atmos, ts, aux)
 end
 
 function prognostic_to_primitive!(
@@ -86,20 +82,12 @@ function prognostic_to_primitive!(
     moist::EquilMoist,
     prim::Vars,
     prog::Vars,
-    e_int::AbstractFloat,
+    aux::Vars,
 )
-    FT = eltype(prim)
-    ts = PhaseEquil(
-        atmos.param_set,
-        e_int,
-        prog.ρ,
-        prog.moisture.ρq_tot / prog.ρ,
-        # 20,       # can improve test error with better convergence
-        # FT(1e-3), # can improve test error with better convergence
-    )
-    prim.ρ = prog.ρ
-    prim.u = prog.ρu ./ prog.ρ
-    prim.p = air_pressure(ts)
+    ts = new_thermo_state(atmos, prog, aux)
+    prim.ρ = air_density(ts) # Needed for recovery of energy, not prog.ρ in anelastic1d
+    prim.u = prog.ρu ./ density(atmos, prog, aux)
+    prim.p = pressure(atmos, ts, aux)
     prim.moisture.q_tot = PhasePartition(ts).tot
 end
 
@@ -108,17 +96,12 @@ function prognostic_to_primitive!(
     moist::NonEquilMoist,
     prim::Vars,
     prog::Vars,
-    e_int::AbstractFloat,
+    aux::Vars,
 )
-    q_pt = PhasePartition(
-        prog.moisture.ρq_tot / prog.ρ,
-        prog.moisture.ρq_liq / prog.ρ,
-        prog.moisture.ρq_ice / prog.ρ,
-    )
-    ts = PhaseNonEquil(atmos.param_set, e_int, prog.ρ, q_pt)
-    prim.ρ = prog.ρ
-    prim.u = prog.ρu ./ prog.ρ
-    prim.p = air_pressure(ts)
+    ts = new_thermo_state(atmos, prog, aux)
+    prim.ρ = air_density(ts) # Needed for recovery of energy, not prog.ρ in anelastic1d
+    prim.u = prog.ρu ./ density(atmos, prog, aux)
+    prim.p = pressure(atmos, ts, aux)
     prim.moisture.q_tot = PhasePartition(ts).tot
     prim.moisture.q_liq = PhasePartition(ts).liq
     prim.moisture.q_ice = PhasePartition(ts).ice
@@ -133,15 +116,18 @@ function primitive_to_prognostic!(
     moist::DryModel,
     prog::Vars,
     prim::Vars,
-    e_pot::AbstractFloat,
+    aux::Vars,
 )
-    atmos.energy isa EnergyModel || error("EnergyModel only supported")
-    ts = PhaseDry_ρp(atmos.param_set, prim.ρ, prim.p)
+    atmos.energy isa TotalEnergyModel ||
+        error("TotalEnergyModel only supported")
+    ts = PhaseDry_ρp(parameter_set(atmos), prim.ρ, prim.p)
     e_kin = prim.u' * prim.u / 2
+    ρ = density(atmos, prim, aux)
+    e_pot = gravitational_potential(atmos.orientation, aux)
 
-    prog.ρ = prim.ρ
-    prog.ρu = prim.ρ .* prim.u
-    prog.energy.ρe = prim.ρ * total_energy(e_kin, e_pot, ts)
+    prog.ρ = ρ
+    prog.ρu = ρ .* prim.u
+    prog.energy.ρe = ρ * total_energy(e_kin, e_pot, ts)
 end
 
 function primitive_to_prognostic!(
@@ -149,22 +135,25 @@ function primitive_to_prognostic!(
     moist::EquilMoist,
     prog::Vars,
     prim::Vars,
-    e_pot::AbstractFloat,
+    aux::Vars,
 )
-    atmos.energy isa EnergyModel || error("EnergyModel only supported")
+    atmos.energy isa TotalEnergyModel ||
+        error("TotalEnergyModel only supported")
     ts = PhaseEquil_ρpq(
-        atmos.param_set,
+        parameter_set(atmos),
         prim.ρ,
         prim.p,
         prim.moisture.q_tot,
         true,
     )
     e_kin = prim.u' * prim.u / 2
+    ρ = density(atmos, prim, aux)
+    e_pot = gravitational_potential(atmos.orientation, aux)
 
-    prog.ρ = prim.ρ
-    prog.ρu = prim.ρ .* prim.u
-    prog.energy.ρe = prim.ρ * total_energy(e_kin, e_pot, ts)
-    prog.moisture.ρq_tot = prim.ρ * PhasePartition(ts).tot
+    prog.ρ = ρ
+    prog.ρu = ρ .* prim.u
+    prog.energy.ρe = ρ * total_energy(e_kin, e_pot, ts)
+    prog.moisture.ρq_tot = ρ * PhasePartition(ts).tot
 end
 
 function primitive_to_prognostic!(
@@ -172,23 +161,26 @@ function primitive_to_prognostic!(
     moist::NonEquilMoist,
     prog::Vars,
     prim::Vars,
-    e_pot::AbstractFloat,
+    aux::Vars,
 )
-    atmos.energy isa EnergyModel || error("EnergyModel only supported")
+    atmos.energy isa TotalEnergyModel ||
+        error("TotalEnergyModel only supported")
     q_pt = PhasePartition(
         prim.moisture.q_tot,
         prim.moisture.q_liq,
         prim.moisture.q_ice,
     )
-    ts = PhaseNonEquil_ρpq(atmos.param_set, prim.ρ, prim.p, q_pt)
+    ts = PhaseNonEquil_ρpq(parameter_set(atmos), prim.ρ, prim.p, q_pt)
     e_kin = prim.u' * prim.u / 2
+    ρ = density(atmos, prim, aux)
+    e_pot = gravitational_potential(atmos.orientation, aux)
 
-    prog.ρ = prim.ρ
-    prog.ρu = prim.ρ .* prim.u
-    prog.energy.ρe = prim.ρ * total_energy(e_kin, e_pot, ts)
-    prog.moisture.ρq_tot = prim.ρ * PhasePartition(ts).tot
-    prog.moisture.ρq_liq = prim.ρ * PhasePartition(ts).liq
-    prog.moisture.ρq_ice = prim.ρ * PhasePartition(ts).ice
+    prog.ρ = ρ
+    prog.ρu = ρ .* prim.u
+    prog.energy.ρe = ρ * total_energy(e_kin, e_pot, ts)
+    prog.moisture.ρq_tot = ρ * PhasePartition(ts).tot
+    prog.moisture.ρq_liq = ρ * PhasePartition(ts).liq
+    prog.moisture.ρq_ice = ρ * PhasePartition(ts).ice
 end
 
 
@@ -198,7 +190,8 @@ function construct_face_auxiliary_state!(
     aux_cell::AbstractArray,
     Δz::FT,
 ) where {FT <: Real}
-    _grav = FT(grav(bl.param_set))
+    param_set = parameter_set(bl)
+    _grav = FT(grav(param_set))
     var_aux = Vars{vars_state(bl, Auxiliary(), FT)}
     aux_face .= aux_cell
 

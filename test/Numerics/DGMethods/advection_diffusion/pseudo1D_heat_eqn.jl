@@ -50,11 +50,11 @@ function initial_condition!(
     ξn = dot(n, localgeo.coord)
     state.ρ = ξn + sum(A .* cos.(κ * ξn) .* exp.(-κ .^ 2 * t))
 end
-Dirichlet_data!(P::HeatEqn, x...) = initial_condition!(P, x...)
+inhomogeneous_data!(::Val{0}, P::HeatEqn, x...) = initial_condition!(P, x...)
 
 function normal_boundary_flux_second_order!(
     ::CentralNumericalFluxSecondOrder,
-    bctype,
+    bcs,
     ::AdvectionDiffusion{1, dim, HeatEqn{nd, κ, A}},
     fluxᵀn::Vars{S},
     n⁻,
@@ -70,9 +70,9 @@ function normal_boundary_flux_second_order!(
     _...,
 ) where {S, dim, nd, κ, A}
 
-    if bctype == 1
+    if any_isa(bcs, InhomogeneousBC{0})
         fluxᵀn.ρ = -diff⁻.σ' * n⁻
-    elseif bctype == 2
+    elseif any_isa(bcs, InhomogeneousBC{1})
         # Get exact gradient of ρ
         x = aux⁻.coord
         ξn = dot(nd, x)
@@ -113,7 +113,8 @@ function test_run(
         DeviceArray = ArrayType,
         polynomialorder = N,
     )
-    model = AdvectionDiffusion{dim}(HeatEqn{n, κ, A}(); advection = false)
+    bcs = (InhomogeneousBC{1}(), InhomogeneousBC{0}())
+    model = AdvectionDiffusion{dim}(HeatEqn{n, κ, A}(), bcs; advection = false)
     dg = DGModel(
         model,
         grid,
@@ -263,7 +264,7 @@ let
                             dim,
                         )
                         periodicity = ntuple(j -> false, dim)
-                        bc = ntuple(j -> (2, 1), dim)
+                        bc = ntuple(j -> (1, 2), dim)
                         topl = StackedBrickTopology(
                             mpicomm,
                             brickrange;

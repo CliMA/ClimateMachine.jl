@@ -9,28 +9,24 @@ const BL = BalanceLaws
 import ClimateMachine.BalanceLaws: vars_state, eq_tends, prognostic_vars
 
 struct TestBL <: BalanceLaw end
-struct X <: PrognosticVariable end
-struct Y <: PrognosticVariable end
-struct F1{PV} <: TendencyDef{Flux{FirstOrder}, PV} end
-struct F2{PV} <: TendencyDef{Flux{SecondOrder}, PV} end
-struct S{PV} <: TendencyDef{Source, PV} end
+struct X <: AbstractPrognosticVariable end
+struct Y <: AbstractPrognosticVariable end
+struct F1 <: TendencyDef{Flux{FirstOrder}} end
+struct F2 <: TendencyDef{Flux{SecondOrder}} end
+struct S <: TendencyDef{Source} end
 
 prognostic_vars(::TestBL) = (X(), Y())
-eq_tends(::X, ::TestBL, ::Flux{FirstOrder}) = (F1{X}(),)
-eq_tends(::Y, ::TestBL, ::Flux{FirstOrder}) = (F1{Y}(),)
-eq_tends(::X, ::TestBL, ::Flux{SecondOrder}) = (F2{X}(),)
-eq_tends(::Y, ::TestBL, ::Flux{SecondOrder}) = (F2{Y}(),)
-eq_tends(::X, ::TestBL, ::Source) = (S{X}(),)
-eq_tends(::Y, ::TestBL, ::Source) = (S{Y}(),)
+eq_tends(::X, ::TestBL, ::Flux{FirstOrder}) = (F1(),)
+eq_tends(::Y, ::TestBL, ::Flux{FirstOrder}) = (F1(),)
+eq_tends(::X, ::TestBL, ::Flux{SecondOrder}) = (F2(),)
+eq_tends(::Y, ::TestBL, ::Flux{SecondOrder}) = (F2(),)
+eq_tends(::X, ::TestBL, ::Source) = (S(),)
+eq_tends(::Y, ::TestBL, ::Source) = (S(),)
 
 @testset "BalanceLaws" begin
     bl = TestBL()
     @test prognostic_vars(bl) == (X(), Y())
-    @test fluxes(bl, FirstOrder()) == (F1{X}(), F1{Y}())
-    @test fluxes(bl, SecondOrder()) == (F2{X}(), F2{Y}())
-    @test sources(bl) == (S{X}(), S{Y}())
     show_tendencies(bl)
-    show_tendencies(bl; include_params = true)
     show_tendencies(bl; include_module = true)
     show_tendencies(bl; table_complete = true)
 end

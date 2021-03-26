@@ -38,37 +38,33 @@ struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 # Physics specific imports
 using ClimateMachine.Atmos: altitude, recover_thermo_state
-import ClimateMachine.BalanceLaws: source, eq_tends
+import ClimateMachine.BalanceLaws: source, eq_tends, prognostic_vars
 
 # Citation for problem setup
 ## CMIP6 Test Dataset - cfsites
 ## [Webb2017](@cite)
 
 """
-    GCMRelaxation{PV, FT} <: TendencyDef{Source, PV}
+    GCMRelaxation{FT} <: TendencyDef{Source}
 
 """
-struct GCMRelaxation{PV <: Union{Mass, TotalMoisture}, FT} <:
-       TendencyDef{Source, PV}
+struct GCMRelaxation{FT} <: TendencyDef{Source}
     τ_relax::FT
 end
-GCMRelaxation(::Type{FT}, args...) where {FT} = (
-    GCMRelaxation{Mass, FT}(args...),
-    GCMRelaxation{TotalMoisture, FT}(args...),
-)
+prognostic_vars(::GCMRelaxation) = (Mass(), TotalMoisture())
 
-function source(s::GCMRelaxation{Mass}, m, args)
+function source(::Mass, s::GCMRelaxation, m, args)
     # TODO: write correct tendency
     return 0
 end
 
-function source(s::GCMRelaxation{TotalMoisture}, m, args)
+function source(::TotalMoisture, s::GCMRelaxation, m, args)
     # TODO: write correct tendency
     return 0
 end
 
 """
-    LargeScaleProcess{PV <: Union{Mass,Energy,TotalMoisture}} <: TendencyDef{Source, PV}
+    LargeScaleProcess <: TendencyDef{Source}
 
 # Energy tendency ∂_t ρe
 
@@ -91,23 +87,19 @@ Tendencies included here are
     tnhusva = moisture tendency due to vertical advection
     ∂qt∂z = moisture vertical gradient from GCM values
 """
-struct LargeScaleProcess{PV <: Union{Mass, Energy, TotalMoisture}} <:
-       TendencyDef{Source, PV} end
+struct LargeScaleProcess <: TendencyDef{Source} end
 
-LargeScaleProcess() = (
-    LargeScaleProcess{Mass}(),
-    LargeScaleProcess{Energy}(),
-    LargeScaleProcess{TotalMoisture}(),
-)
+prognostic_vars(::LargeScaleProcess) = (Mass(), Energy(), TotalMoisture())
 
-function source(s::LargeScaleProcess{Energy}, m, args)
+function source(::Energy, s::LargeScaleProcess, m, args)
     @unpack state, aux, diffusive = args
     @unpack ts = args.precomputed
     # Establish problem float-type
     FT = eltype(state)
     # Establish vertical orientation
     k̂ = vertical_unit_vector(m, aux)
-    _e_int_v0 = e_int_v0(m.param_set)
+    param_set = parameter_set(m)
+    _e_int_v0 = e_int_v0(param_set)
     # Unpack vertical gradients
     ∂qt∂z = diffusive.lsforcing.∇ᵥhus
     ∂T∂z = diffusive.lsforcing.∇ᵥta
@@ -134,21 +126,20 @@ function compute_q_tot_tend(m, args)
     return aux.lsforcing.Σqt_tendency + ∂qt∂z * w_s
 end
 
-function source(s::LargeScaleProcess{Mass}, m, args)
+function source(::Mass, s::LargeScaleProcess, m, args)
     @unpack state = args
     q_tot_tendency = compute_q_tot_tend(m, args)
     return state.ρ * q_tot_tendency
 end
 
-function source(s::LargeScaleProcess{TotalMoisture}, m, args)
+function source(::TotalMoisture, s::LargeScaleProcess, m, args)
     @unpack state, aux = args
     q_tot_tendency = compute_q_tot_tend(m, args)
     return state.ρ * q_tot_tendency
 end
 
 """
-    LargeScaleSubsidence{PV <: Union{Mass, Energy, TotalMoisture}} <:
-       TendencyDef{Source, PV}
+    LargeScaleSubsidence <: TendencyDef{Source}
 
 Large-scale subsidence tendency, given a vertical velocity
 at the large scale, obtained from the GCM data.
@@ -157,16 +148,11 @@ at the large scale, obtained from the GCM data.
 wap = GCM vertical velocity [Pa s⁻¹]. Note the conversion required
 ```
 """
-struct LargeScaleSubsidence{PV <: Union{Mass, Energy, TotalMoisture}} <:
-       TendencyDef{Source, PV} end
+struct LargeScaleSubsidence <: TendencyDef{Source} end
 
-LargeScaleSubsidence() = (
-    LargeScaleSubsidence{Mass}(),
-    LargeScaleSubsidence{Energy}(),
-    LargeScaleSubsidence{TotalMoisture}(),
-)
+prognostic_vars(::LargeScaleSubsidence) = (Mass(), Energy(), TotalMoisture())
 
-function source(s::LargeScaleSubsidence{Mass}, m, args)
+function source(::Mass, s::LargeScaleSubsidence, m, args)
     @unpack state, aux, diffusive = args
     # Establish vertical orientation
     k̂ = vertical_unit_vector(m, aux)
@@ -174,7 +160,7 @@ function source(s::LargeScaleSubsidence{Mass}, m, args)
     w_s = aux.lsforcing.w_s
     return -state.ρ * w_s * dot(k̂, diffusive.moisture.∇q_tot)
 end
-function source(s::LargeScaleSubsidence{Energy}, m, args)
+function source(::Energy, s::LargeScaleSubsidence, m, args)
     @unpack state, aux, diffusive = args
     # Establish vertical orientation
     k̂ = vertical_unit_vector(m, aux)
@@ -182,7 +168,7 @@ function source(s::LargeScaleSubsidence{Energy}, m, args)
     w_s = aux.lsforcing.w_s
     return -state.ρ * w_s * dot(k̂, diffusive.energy.∇h_tot)
 end
-function source(s::LargeScaleSubsidence{TotalMoisture}, m, args)
+function source(::TotalMoisture, s::LargeScaleSubsidence, m, args)
     @unpack state, aux, diffusive = args
     # Establish vertical orientation
     k̂ = vertical_unit_vector(m, aux)
@@ -193,7 +179,7 @@ end
 
 # Sponge relaxation
 """
-    LinearSponge{PV <: Momentum, FT} <: TendencyDef{Source, PV}
+    LinearSponge{FT} <: TendencyDef{Source}
 
 Two parameter sponge (α_max, γ) for velocity relaxation to a reference
 state.
@@ -202,7 +188,7 @@ state.
     z_max = Domain height
     z_sponge = Altitude at which sponge layer starts
 """
-struct LinearSponge{PV <: Momentum, FT} <: TendencyDef{Source, PV}
+struct LinearSponge{FT} <: TendencyDef{Source}
     "Maximum domain altitude (m)"
     z_max::FT
     "Altitude at with sponge starts (m)"
@@ -213,10 +199,9 @@ struct LinearSponge{PV <: Momentum, FT} <: TendencyDef{Source, PV}
     γ::FT
 end
 
-LinearSponge(::Type{FT}, args...) where {FT} =
-    LinearSponge{Momentum, FT}(args...)
+prognostic_vars(::LinearSponge) = (Momentum(),)
 
-function source(s::LinearSponge{Momentum}, m, args)
+function source(::Momentum, s::LinearSponge, m, args)
     @unpack state, aux = args
     #Unpack sponge parameters
     FT = eltype(state)
@@ -349,8 +334,9 @@ end
 const seed = MersenneTwister(0)
 function init_cfsites!(problem, bl, state, aux, localgeo, t, spl)
     FT = eltype(state)
+    param_set = parameter_set(bl)
     (x, y, z) = localgeo.coord
-    _grav = grav(bl.param_set)
+    _grav = FT(grav(param_set))
 
     # Unpack splines, interpolate to z coordinate at
     # present grid index. (Functions are all pointwise)
@@ -367,9 +353,10 @@ function init_cfsites!(problem, bl, state, aux, localgeo, t, spl)
     wap = FT(spl.spl_wap(z))
     ρ_gcm = FT(1 / spl.spl_alpha(z))
 
+    param_set = parameter_set(bl)
     # Compute field properties based on interpolated data
-    ρ = air_density(bl.param_set, ta, pfull, PhasePartition(hus))
-    e_int = internal_energy(bl.param_set, ta, PhasePartition(hus))
+    ρ = air_density(param_set, ta, pfull, PhasePartition(hus))
+    e_int = internal_energy(param_set, ta, PhasePartition(hus))
     e_kin = (ua^2 + va^2) / 2
     e_pot = _grav * z
     # Assignment of state variables
@@ -432,11 +419,11 @@ function config_cfsites(
         turbulence = Vreman{FT}(0.23),
         source = (
             Gravity(),
-            LinearSponge(FT, zmax, zmax * 0.85, 1, 4),
-            LargeScaleProcess()...,
-            LargeScaleSubsidence()...,
+            LinearSponge{FT}(zmax, zmax * 0.85, 1, 4),
+            LargeScaleProcess(),
+            LargeScaleSubsidence(),
         ),
-        moisture = EquilMoist{FT}(; maxiter = 5, tolerance = FT(2)),
+        moisture = EquilMoist(; maxiter = 5, tolerance = FT(2)),
         lsforcing = HadGEMVertical(),
     )
 

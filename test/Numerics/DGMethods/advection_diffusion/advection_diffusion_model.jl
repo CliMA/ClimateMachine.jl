@@ -31,8 +31,8 @@ using ClimateMachine.DGMethods.NumericalFluxes:
     NumericalFluxFirstOrder,
     NumericalFluxSecondOrder,
     NumericalFluxGradient,
-    GradNumericalFlux,
-    DivNumericalPenalty
+    CentralNumericalFluxDivergence,
+    CentralNumericalFluxHigherOrder
 
 import ClimateMachine.DGMethods.NumericalFluxes:
     numerical_flux_first_order!, boundary_flux_second_order!
@@ -51,6 +51,20 @@ struct HyperDiffusion{N} <: BalanceLaw end
 struct NoHyperDiffusion <: BalanceLaw end
 
 abstract type AdvectionDiffusionProblem end
+
+# Boundary condition types
+
+# boundary condition for operator of order O
+# O = 0 -> state BC (Dirichlet)
+# O = 1 -> gradient BC (Neumann)
+# O = 2 -> laplacian BC
+# O = 3 -> gradient laplacian BC
+abstract type AbstractBC{O} end
+struct HomogeneousBC{O} <: AbstractBC{O} end
+struct InhomogeneousBC{O} <: AbstractBC{O} end
+
+any_isa(bcs::AbstractBC, bc) = bcs isa bc
+any_isa(bcs::Tuple, bc) = mapreduce(x -> x isa bc, |, bcs)
 
 """
     AdvectionDiffusion{N} <: BalanceLaw
@@ -75,20 +89,22 @@ Where
  - `η` is the DG hyperdiffusion auxiliary variable
  - `H` is the hyperdiffusion tensor
 """
-struct AdvectionDiffusion{N, dim, P, fluxBC, A, D, HD} <: BalanceLaw
+struct AdvectionDiffusion{N, dim, P, fluxBC, A, D, HD, BC} <: BalanceLaw
     problem::P
     advection::A
     diffusion::D
     hyperdiffusion::HD
+    boundary_conditions::BC
 
     function AdvectionDiffusion{dim}(
-        problem::P;
+        problem::P,
+        boundary_conditions::BC = ();
         num_equations = 1,
         flux_bc = false,
         advection::Bool = true,
         diffusion::Bool = true,
         hyperdiffusion::Bool = false,
-    ) where {dim, P <: AdvectionDiffusionProblem}
+    ) where {dim, P <: AdvectionDiffusionProblem, BC}
         N = num_equations
         adv = advection ? Advection{N}() : NoAdvection()
         A = typeof(adv)
@@ -96,7 +112,13 @@ struct AdvectionDiffusion{N, dim, P, fluxBC, A, D, HD} <: BalanceLaw
         D = typeof(diff)
         hyperdiff = hyperdiffusion ? HyperDiffusion{N}() : NoHyperDiffusion()
         HD = typeof(hyperdiff)
-        new{N, dim, P, flux_bc, A, D, HD}(problem, adv, diff, hyperdiff)
+        new{N, dim, P, flux_bc, A, D, HD, BC}(
+            problem,
+            adv,
+            diff,
+            hyperdiff,
+            boundary_conditions,
+        )
     end
 end
 
@@ -369,12 +391,17 @@ function init_state_prognostic!(
     initial_condition!(m.problem, state, aux, localgeo, t)
 end
 
-Neumann_data!(problem, ∇state, aux, x, t) = nothing
-Dirichlet_data!(problem, state, aux, x, t) = nothing
-boundary_conditions(::AdvectionDiffusion) = (1, 2, 3, 4)
+"""
+    inhomogeneous_data!(::Val{O}, problem, data, aux, x, t)
+
+Prescribes `problem` boundary condition data for an operator of order `O`
+"""
+function inhomogeneous_data! end
+
+boundary_conditions(m::AdvectionDiffusion) = m.boundary_conditions
 function boundary_state!(
     nf,
-    bctype,
+    bcs,
     m::AdvectionDiffusion{N},
     stateP::Vars,
     auxP::Vars,
@@ -384,25 +411,34 @@ function boundary_state!(
     t,
     _...,
 ) where {N}
-    if bctype == 1 # Dirichlet
-        Dirichlet_data!(m.problem, stateP, auxP, (coord = auxP.coord,), t)
-    elseif bctype ∈ (2, 4) # Neumann
+    if any_isa(bcs, InhomogeneousBC{0}) # Dirichlet
+        inhomogeneous_data!(
+            Val(0),
+            m.problem,
+            stateP,
+            auxP,
+            (coord = auxP.coord,),
+            t,
+        )
+    elseif any_isa(bcs, AbstractBC{1}) # Neumann
         stateP.ρ = stateM.ρ
-    elseif bctype == 3 # zero Dirichlet
+    elseif any_isa(bcs, HomogeneousBC{0}) # zero Dirichlet
         stateP.ρ = N == 1 ? 0 : zeros(typeof(stateP.ρ))
     end
 end
 
 function boundary_state!(
     nf::CentralNumericalFluxSecondOrder,
-    bctype,
+    bcs,
     m::AdvectionDiffusion,
     state⁺::Vars,
     diff⁺::Vars,
+    hyperdiff⁺::Vars,
     aux⁺::Vars,
     n⁻::SVector,
     state⁻::Vars,
     diff⁻::Vars,
+    hyperdiff⁻::Vars,
     aux⁻::Vars,
     t,
     _...,
@@ -411,38 +447,78 @@ function boundary_state!(
         return nothing
     end
 
-    if bctype ∈ (1, 3) # Dirchlet
-        # Just use the minus side values since Dirchlet
-        diff⁺.σ = diff⁻.σ
-    elseif bctype == 2 # Neumann with data
-        FT = eltype(diff⁺)
-        ngrad = number_states(m, Gradient())
-        ∇state = Grad{vars_state(m, Gradient(), FT)}(similar(
-            parent(diff⁺),
-            Size(3, ngrad),
-        ))
-        # Get analytic gradient
-        Neumann_data!(m.problem, ∇state, aux⁻, aux⁻.coord, t)
-        compute_gradient_flux!(m.diffusion, diff⁺, ∇state, aux⁻)
-        # compute the diffusive flux using the boundary state
-    elseif bctype == 4 # zero Neumann
-        FT = eltype(diff⁺)
-        ngrad = number_states(m, Gradient())
-        ∇state = Grad{vars_state(m, Gradient(), FT)}(similar(
-            parent(diff⁺),
-            Size(3, ngrad),
-        ))
-        # Get analytic gradient
-        ∇state.ρ = zeros(typeof(∇state.ρ))
-        # convert to auxDG variables
-        compute_gradient_flux!(m.diffusion, diff⁺, ∇state, aux⁻)
+    if m.diffusion isa Diffusion
+        if any_isa(bcs, AbstractBC{0}) # Dirchlet
+            # Just use the minus side values since Dirchlet
+            diff⁺.σ = diff⁻.σ
+        elseif any_isa(bcs, InhomogeneousBC{1}) # Neumann with data
+            FT = eltype(diff⁺)
+            ngrad = number_states(m, Gradient())
+            ∇state = Grad{vars_state(m, Gradient(), FT)}(similar(
+                parent(diff⁺),
+                Size(3, ngrad),
+            ))
+            # Get analytic gradient
+            inhomogeneous_data!(Val(1), m.problem, ∇state, aux⁻, aux⁻.coord, t)
+            compute_gradient_flux!(m.diffusion, diff⁺, ∇state, aux⁻)
+            # compute the diffusive flux using the boundary state
+        elseif any_isa(bcs, HomogeneousBC{1}) # zero Neumann
+            FT = eltype(diff⁺)
+            ngrad = number_states(m, Gradient())
+            ∇state = Grad{vars_state(m, Gradient(), FT)}(similar(
+                parent(diff⁺),
+                Size(3, ngrad),
+            ))
+            # Get analytic gradient
+            ∇state.ρ = zeros(typeof(∇state.ρ))
+            # convert to auxDG variables
+            compute_gradient_flux!(m.diffusion, diff⁺, ∇state, aux⁻)
+        end
+    end
+
+    if m.hyperdiffusion isa HyperDiffusion
+        if any_isa(bcs, InhomogeneousBC{3})
+            FT = eltype(hyperdiff⁺)
+            ngradlap = number_states(m, GradientLaplacian())
+            ∇Δstate = Grad{vars_state(m, GradientLaplacian(), FT)}(similar(
+                parent(hyperdiff⁺),
+                Size(3, ngradlap),
+            ))
+            # Get analytic gradient of laplacian
+            inhomogeneous_data!(Val(3), m.problem, ∇Δstate, aux⁻, aux⁻.coord, t)
+            transform_post_gradient_laplacian!(
+                m,
+                hyperdiff⁺,
+                ∇Δstate,
+                state⁻,
+                aux⁻,
+                t,
+            )
+        elseif any_isa(bcs, HomogeneousBC{3})
+            FT = eltype(hyperdiff⁺)
+            ngradlap = number_states(m, GradientLaplacian())
+            ∇Δstate =
+                Grad{vars_state(m, GradientLaplacian(), FT)}(zeros(SMatrix{
+                    3,
+                    ngradlap,
+                    FT,
+                }))
+            transform_post_gradient_laplacian!(
+                m,
+                hyperdiff⁺,
+                ∇Δstate,
+                state⁻,
+                aux⁻,
+                t,
+            )
+        end
     end
     nothing
 end
 
 function boundary_flux_second_order!(
     nf::CentralNumericalFluxSecondOrder,
-    bctype,
+    bcs,
     m::AdvectionDiffusion{N, dim, P, true},
     F,
     state⁺,
@@ -462,10 +538,10 @@ function boundary_flux_second_order!(
     end
 
     # Default initialize flux to minus side
-    if bctype ∈ (1, 3) # Dirchlet
+    if any_isa(bcs, AbstractBC{0}) # Dirchlet
         # Just use the minus side values since Dirchlet
         flux_second_order!(m, F, state⁻, diff⁻, hyperdiff⁻, aux⁻, t)
-    elseif bctype == 2 # Neumann data
+    elseif any_isa(bcs, InhomogeneousBC{1}) # Neumann data
         FT = eltype(diff⁺)
         ngrad = number_states(m, Gradient())
         ∇state = Grad{vars_state(m, Gradient(), FT)}(similar(
@@ -473,7 +549,7 @@ function boundary_flux_second_order!(
             Size(3, ngrad),
         ))
         # Get analytic gradient
-        Neumann_data!(m.problem, ∇state, aux⁻, aux⁻.coord, t)
+        inhomogeneous_data!(Val(1), m.problem, ∇state, aux⁻, aux⁻.coord, t)
         # get the diffusion coefficient
         D = aux⁻.diffusion.D
         # exact the exact data
@@ -484,16 +560,58 @@ function boundary_flux_second_order!(
         else
             F.ρ = hcat(ntuple(n -> -D[:, :, n] * ∇ρ[:, n], Val(N))...)
         end
-    elseif bctype == 4 # Zero Neumann
+    elseif any_isa(bcs, HomogeneousBC{1}) # Zero Neumann
         F.ρ = zeros(typeof(F.ρ))
     end
     nothing
 end
 
-# Bcs for hyperdiffusion not implemented
-boundary_state!(
-    ::Union{GradNumericalFlux, DivNumericalPenalty},
-    bctype,
-    ::AdvectionDiffusion,
-    _...,
-) = nothing
+function boundary_state!(
+    nf::CentralNumericalFluxDivergence,
+    bcs,
+    m::AdvectionDiffusion,
+    grad⁺::Grad,
+    aux⁺::Vars,
+    n⁻::SVector,
+    grad⁻::Grad,
+    aux⁻::Vars,
+    t,
+)
+    if m.hyperdiffusion isa NoHyperDiffusion
+        return nothing
+    end
+
+    if any_isa(bcs, InhomogeneousBC{1})
+        # Get analytic gradient
+        inhomogeneous_data!(Val(1), m.problem, grad⁺, aux⁻, aux⁻.coord, t)
+    elseif any_isa(bcs, HomogeneousBC{1})
+        grad⁺.ρ = zeros(typeof(grad⁺.ρ))
+    end
+    nothing
+end
+
+function boundary_state!(
+    ::CentralNumericalFluxHigherOrder,
+    bcs,
+    m::AdvectionDiffusion{N},
+    state⁺::Vars,
+    aux⁺::Vars,
+    lap⁺::Vars,
+    n⁻::SVector,
+    state⁻::Vars,
+    aux⁻::Vars,
+    lap⁻::Vars,
+    t,
+) where {N}
+    if m.hyperdiffusion isa NoHyperDiffusion
+        return nothing
+    end
+
+    if any_isa(bcs, InhomogeneousBC{2})
+        # Get analytic laplacian
+        inhomogeneous_data!(Val(2), m.problem, lap⁺, aux⁻, aux⁻.coord, t)
+    elseif any_isa(bcs, HomogeneousBC{2})
+        lap⁺.ρ = N == 1 ? 0 : zeros(typeof(lap⁺.ρ))
+    end
+    nothing
+end

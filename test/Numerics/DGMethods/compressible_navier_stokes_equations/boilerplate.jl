@@ -8,6 +8,7 @@ using StaticArrays
 using LinearAlgebra
 
 using ClimateMachine
+using ClimateMachine.VTK
 using ClimateMachine.MPIStateArrays
 using ClimateMachine.VariableTemplates
 using ClimateMachine.Mesh.Geometry
@@ -17,6 +18,7 @@ using ClimateMachine.DGMethods
 using ClimateMachine.DGMethods.NumericalFluxes
 using ClimateMachine.BalanceLaws
 using ClimateMachine.ODESolvers
+using ClimateMachine.Orientations
 
 # ×(a::SVector, b::SVector) = StaticArrays.cross(a, b)
 ⋅(a::SVector, b::SVector) = StaticArrays.dot(a, b)

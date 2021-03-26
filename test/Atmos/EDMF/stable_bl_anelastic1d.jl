@@ -1,10 +1,5 @@
 using JLD2, FileIO
 using ClimateMachine
-ClimateMachine.init(;
-    parse_clargs = true,
-    output_dir = get(ENV, "CLIMATEMACHINE_SETTINGS_OUTPUT_DIR", "output"),
-    fix_rng_seed = true,
-)
 using ClimateMachine.SingleStackUtils
 using ClimateMachine.Checkpoint
 using ClimateMachine.BalanceLaws: vars_state
@@ -20,6 +15,10 @@ include("edmf_kernels.jl")
 
 # CLIMAParameters.Planet.T_surf_ref(::EarthParameterSet) = 290.0 # default
 CLIMAParameters.Planet.T_surf_ref(::EarthParameterSet) = 265
+
+function set_clima_parameters(filename)
+    eval(:(include($filename)))
+end
 
 """
     init_state_prognostic!(
@@ -53,8 +52,8 @@ function init_state_prognostic!(
     # SCM setting - need to have separate cases coded and called from a folder - see what LES does
     # a thermo state is used here to convert the input θ to e_int profile
     e_int = internal_energy(m, state, aux)
-
-    ts = PhaseDry(m.param_set, e_int, state.ρ)
+    param_set = parameter_set(m)
+    ts = PhaseDry(param_set, e_int, state.ρ)
     T = air_temperature(ts)
     p = air_pressure(ts)
     q = PhasePartition(ts)
@@ -91,20 +90,7 @@ function init_state_prognostic!(
     return nothing
 end;
 
-function main(::Type{FT}) where {FT}
-    # add a command line argument to specify the kind of surface flux
-    # TODO: this will move to the future namelist functionality
-    sbl_args = ArgParseSettings(autofix_names = true)
-    add_arg_group!(sbl_args, "StableBoundaryLayer")
-    @add_arg_table! sbl_args begin
-        "--surface-flux"
-        help = "specify surface flux for energy and moisture"
-        metavar = "prescribed|bulk|custom_sbl"
-        arg_type = String
-        default = "custom_sbl"
-    end
-
-    cl_args = ClimateMachine.init(parse_clargs = true, custom_clargs = sbl_args)
+function main(::Type{FT}, cl_args) where {FT}
 
     surface_flux = cl_args["surface_flux"]
 
@@ -130,16 +116,17 @@ function main(::Type{FT}) where {FT}
     N_updrafts = 1
     N_quad = 3
     turbconv = NoTurbConv()
-    # turbconv = EDMF(FT, N_updrafts, N_quad)
+    # turbconv = EDMF(FT, N_updrafts, N_quad, param_set)
     # compressibility = Compressible()
     compressibility = Anelastic1D()
+    C_smag_ = C_smag(param_set)
 
     model = stable_bl_model(
         FT,
         config_type,
         zmax,
         surface_flux;
-        turbulence = SmagorinskyLilly{FT}(0.21),
+        turbulence = SmagorinskyLilly{FT}(C_smag_),
         turbconv = turbconv,
         compressibility = compressibility,
     )
@@ -230,6 +217,9 @@ function main(::Type{FT}) where {FT}
         nothing
     end
 
+    if !isnothing(cl_args["cparam_file"])
+        ClimateMachine.Settings.output_dir = cl_args["cparam_file"] * ".output"
+    end
     result = ClimateMachine.invoke!(
         solver_config;
         diagnostics_config = dgn_config,
@@ -245,7 +235,29 @@ function main(::Type{FT}) where {FT}
     return solver_config, diag_arr, time_data
 end
 
-solver_config, diag_arr, time_data = main(Float64)
+# ArgParse in global scope to modify Clima Parameters
+sbl_args = ArgParseSettings(autofix_names = true)
+add_arg_group!(sbl_args, "StableBoundaryLayer")
+@add_arg_table! sbl_args begin
+    "--cparam-file"
+    help = "specify CLIMAParameters file"
+    arg_type = Union{String, Nothing}
+    default = nothing
+
+    "--surface-flux"
+    help = "specify surface flux for energy and moisture"
+    metavar = "prescribed|bulk|custom_sbl"
+    arg_type = String
+    default = "custom_sbl"
+end
+
+cl_args = ClimateMachine.init(parse_clargs = true, custom_clargs = sbl_args)
+if !isnothing(cl_args["cparam_file"])
+    filename = cl_args["cparam_file"]
+    set_clima_parameters(filename)
+end
+
+solver_config, diag_arr, time_data = main(Float64, cl_args)
 
 include(joinpath(@__DIR__, "report_mse_sbl_anelastic.jl"))
 

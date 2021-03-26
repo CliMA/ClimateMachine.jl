@@ -75,7 +75,7 @@ end
         vars_prim = Vars{vars_state(model, Primitive(), FT)}
 
         hb_recon! = HBFVReconstruction(model, fv_recon!)
-        _grav = FT(grav(hb_recon!._atmo.param_set))
+        _grav = FT(grav(param_set))
 
         @test width(hb_recon!) == 1
 

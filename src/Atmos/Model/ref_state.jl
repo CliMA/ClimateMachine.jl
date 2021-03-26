@@ -73,10 +73,12 @@ function ref_state_init_pρ!(
     tmp::Vars,
     geom::LocalGeometry,
 )
+    param_set = parameter_set(atmos)
     z = altitude(atmos, aux)
-    T_virt, p = atmos.ref_state.virtual_temperature_profile(atmos.param_set, z)
+    ref_state = reference_state(atmos)
+    T_virt, p = ref_state.virtual_temperature_profile(param_set, z)
     aux.ref_state.p = p
-    aux.ref_state.ρ = p / (T_virt * R_d(atmos.param_set))
+    aux.ref_state.ρ = p / (T_virt * R_d(param_set))
 end
 
 function ref_state_init_density_from_pressure!(
@@ -99,15 +101,16 @@ function ref_state_finalize_init!(
     geom::LocalGeometry,
 )
     FT = eltype(aux)
-
+    param_set = parameter_set(atmos)
     ρ = aux.ref_state.ρ
     p = aux.ref_state.p
-    T_virt = p / (ρ * FT(R_d(atmos.param_set)))
+    T_virt = p / (ρ * FT(R_d(param_set)))
 
-    RH = atmos.ref_state.relative_humidity
+    ref_state = reference_state(atmos)
+    RH = ref_state.relative_humidity
     phase_type = PhaseEquil
     (T, q_pt) = TD.temperature_and_humidity_given_TᵥρRH(
-        atmos.param_set,
+        param_set,
         T_virt,
         ρ,
         RH,
@@ -117,9 +120,9 @@ function ref_state_finalize_init!(
     # Update temperature to be exactly consistent with
     # p, ρ, and q_pt
     if atmos.moisture isa DryModel
-        ts = PhaseDry_ρp(atmos.param_set, ρ, p)
+        ts = PhaseDry_ρp(param_set, ρ, p)
     else
-        ts = PhaseEquil_ρpq(atmos.param_set, ρ, p, q_pt.tot)
+        ts = PhaseEquil_ρpq(param_set, ρ, p, q_pt.tot)
     end
     T = air_temperature(ts)
     q_pt = PhasePartition(ts)
@@ -161,7 +164,8 @@ function atmos_init_aux!(
         # pᵢ - pᵢ₊₁ =  g ρᵢ₊₁ Δzᵢ₊₁/2 + g ρᵢ Δzᵢ/2
         fvm_balance!(fvm_balance_init!, atmos, state_auxiliary, grid)
     else
-        ∇p = ∇reference_pressure(atmos.ref_state, state_auxiliary, grid)
+        ref_state = reference_state(atmos)
+        ∇p = ∇reference_pressure(ref_state, state_auxiliary, grid)
         init_state_auxiliary!(
             atmos,
             ref_state_init_density_from_pressure!,
@@ -259,13 +263,14 @@ function ∇reference_pressure(::ReferenceState, state_auxiliary, grid)
 end
 
 function fvm_balance_init!(
-    m::AtmosModel,
+    atmos::AtmosModel,
     aux_top::Vars,
     aux::Vars,
     Δz::MArray{Tuple{2}, FT},
 ) where {FT}
-    _grav::FT = grav(m.param_set)
-    _R_d::FT = R_d(m.param_set)
+    param_set = parameter_set(atmos)
+    _grav::FT = grav(param_set)
+    _R_d::FT = R_d(param_set)
 
     ref = aux.ref_state
     topref = aux_top.ref_state

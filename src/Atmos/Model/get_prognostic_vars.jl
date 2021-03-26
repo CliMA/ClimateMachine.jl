@@ -1,8 +1,6 @@
 ##### Get prognostic variable list
 
-import ..BalanceLaws: prognostic_vars, get_prog_state
-
-prognostic_vars(::EnergyModel) = (Energy(),)
+prognostic_vars(::TotalEnergyModel) = (Energy(),)
 prognostic_vars(::θModel) = (ρθ_liq_ice(),)
 
 prognostic_vars(::DryModel) = ()
@@ -22,9 +20,9 @@ prognostic_vars(m::AtmosModel) = (
     Momentum(),
     prognostic_vars(m.energy)...,
     prognostic_vars(m.moisture)...,
-    prognostic_vars(m.precipitation)...,
-    prognostic_vars(m.tracers)...,
-    prognostic_vars(m.turbconv)...,
+    prognostic_vars(precipitation_model(m))...,
+    prognostic_vars(tracer_model(m))...,
+    prognostic_vars(turbconv_model(m))...,
 )
 
 get_prog_state(state, ::Mass) = (state, :ρ)

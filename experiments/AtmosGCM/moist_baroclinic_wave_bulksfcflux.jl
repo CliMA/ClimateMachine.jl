@@ -44,11 +44,12 @@ function init_baroclinic_wave!(problem, bl, state, aux, localgeo, t)
     FT = eltype(state)
 
     # parameters
-    _grav::FT = grav(bl.param_set)
-    _R_d::FT = R_d(bl.param_set)
-    _Ω::FT = Omega(bl.param_set)
-    _a::FT = planet_radius(bl.param_set)
-    _p_0::FT = MSLP(bl.param_set)
+    param_set = parameter_set(bl)
+    _grav::FT = grav(param_set)
+    _R_d::FT = R_d(param_set)
+    _Ω::FT = Omega(param_set)
+    _a::FT = planet_radius(param_set)
+    _p_0::FT = MSLP(param_set)
 
     k::FT = 3
     T_E::FT = 310
@@ -75,7 +76,7 @@ function init_baroclinic_wave!(problem, bl, state, aux, localgeo, t)
     # grid
     φ = latitude(bl.orientation, aux)
     λ = longitude(bl.orientation, aux)
-    z = altitude(bl.orientation, bl.param_set, aux)
+    z = altitude(bl.orientation, param_set, aux)
     r::FT = z + _a
     γ::FT = 1 # set to 0 for shallow-atmosphere case and to 1 for deep atmosphere case
 
@@ -150,12 +151,12 @@ function init_baroclinic_wave!(problem, bl, state, aux, localgeo, t)
 
     ## temperature & density
     T::FT = T_v / (1 + M_v * q_tot)
-    ρ::FT = air_density(bl.param_set, T, p, phase_partition)
+    ρ::FT = air_density(param_set, T, p, phase_partition)
 
     ## potential & kinetic energy
     e_pot::FT = gravitational_potential(bl.orientation, aux)
     e_kin::FT = 0.5 * u_cart' * u_cart
-    e_tot::FT = total_energy(bl.param_set, e_kin, e_pot, T, phase_partition)
+    e_tot::FT = total_energy(param_set, e_kin, e_pot, T, phase_partition)
 
     ## Assign state variables
     state.ρ = ρ
@@ -184,7 +185,8 @@ function (st::Varying_SST_TJ16)(state, aux, t)
     FT = eltype(state)
     φ = latitude(st.orientation, aux)
 
-    _T_sfc_pole = T_sfc_pole(st.param_set)::FT
+    param_set = st.param_set
+    _T_sfc_pole = T_sfc_pole(param_set)::FT
 
     Δφ = FT(26) * FT(π) / FT(180)       # latitudinal width of Gaussian function
     ΔSST = FT(29)                       # Eq-pole SST difference in K
@@ -197,13 +199,13 @@ function (st::Varying_SST_TJ16)(state, aux, t)
     q = PhasePartition(q_tot)
 
     e_int = internal_energy(st.orientation, state, aux)
-    T = air_temperature(st.param_set, e_int, q)
-    p = air_pressure(st.param_set, T, ρ, q)
+    T = air_temperature(param_set, e_int, q)
+    p = air_pressure(param_set, T, ρ, q)
 
-    _T_triple = T_triple(st.param_set)::FT          # triple point of water
-    _press_triple = press_triple(st.param_set)::FT  # sat water pressure at T_triple
-    _LH_v0 = LH_v0(st.param_set)::FT                # latent heat of vaporization at T_triple
-    _R_v = R_v(st.param_set)::FT                    # gas constant for water vapor
+    _T_triple = T_triple(param_set)::FT          # triple point of water
+    _press_triple = press_triple(param_set)::FT  # sat water pressure at T_triple
+    _LH_v0 = LH_v0(param_set)::FT                # latent heat of vaporization at T_triple
+    _R_v = R_v(param_set)::FT                    # gas constant for water vapor
 
     q_sfc =
         eps / p *
@@ -230,8 +232,8 @@ function config_baroclinic_wave(
     domain_height::FT = 30e3 # distance between surface and top of atmosphere (m)
     if with_moisture
         hyperdiffusion = EquilMoistBiharmonic(FT(8 * 3600))
-        moisture = EquilMoist{FT}()
-        source = (Gravity(), Coriolis(), RemovePrecipitation(true)...) # precipitation is default to NoPrecipitation() as 0M microphysics
+        moisture = EquilMoist()
+        source = (Gravity(), Coriolis(), RemovePrecipitation(true)) # precipitation is default to NoPrecipitation() as 0M microphysics
     else
         hyperdiffusion = DryBiharmonic(FT(8 * 3600))
         moisture = DryModel()

@@ -31,14 +31,16 @@ function boundary_state!(
     m::AtmosModel,
     state⁺::Vars,
     diff⁺::Vars,
+    hyperdiff⁺::Vars,
     aux⁺::Vars,
     n⁻,
     state⁻::Vars,
     diff⁻::Vars,
+    hyperdiff⁻::Vars,
     aux⁻::Vars,
     t,
     args...,
 )
-    # Put cood in a NamedTuple to mimmic LocalGeometry
+    # Put coord in a NamedTuple to mimmic LocalGeometry
     init_state_prognostic!(m, state⁺, aux⁺, (coord = aux⁺.coord,), t)
 end

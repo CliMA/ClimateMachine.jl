@@ -6,6 +6,7 @@ Accumulate mean fields and covariance statistics on the computational grid.
 module Diagnostics
 
 export DiagnosticsGroup,
+    DiagnosticsGroupParams,
     setup_atmos_default_diagnostics,
     setup_atmos_core_diagnostics,
     setup_atmos_default_perturbations,

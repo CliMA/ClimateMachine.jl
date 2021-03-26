@@ -84,7 +84,7 @@ using ClimateMachine.Writers
 using ClimateMachine.DGMethods
 using ClimateMachine.DGMethods.NumericalFluxes
 using ClimateMachine.BalanceLaws:
-    BalanceLaw, Prognostic, Auxiliary, Gradient, GradientFlux
+    BalanceLaw, Prognostic, Auxiliary, Gradient, GradientFlux, parameter_set
 
 using ClimateMachine.Mesh.Geometry: LocalGeometry
 using ClimateMachine.MPIStateArrays
@@ -297,8 +297,9 @@ function compute_gradient_flux!(
     aux::Vars,
     t::Real,
 ) where {FT}
+    param_set = parameter_set(m)
     ∇ρu = ∇transform.ρu
-    ẑ = vertical_unit_vector(m.orientation, m.param_set, aux)
+    ẑ = vertical_unit_vector(m.orientation, param_set, aux)
     divergence = tr(∇ρu) - ẑ' * ∇ρu * ẑ
     diffusive.α∇ρcT = Diagonal(SVector(m.αh, m.αh, m.αv)) * ∇transform.ρcT
     diffusive.μ∇u = Diagonal(SVector(m.μh, m.μh, m.μv)) * ∇transform.u
@@ -318,7 +319,8 @@ function source!(
     aux::Vars,
     args...,
 ) where {FT}
-    ẑ = vertical_unit_vector(m.orientation, m.param_set, aux)
+    param_set = parameter_set(m)
+    ẑ = vertical_unit_vector(m.orientation, param_set, aux)
     z = aux.coord[3]
     ρ̄ū =
         state.ρ * SVector{3, FT}(
@@ -328,7 +330,7 @@ function source!(
         )
     ρu_p = state.ρu - ρ̄ū
     source.ρu -=
-        m.γ * projection_tangential(m.orientation, m.param_set, aux, ρu_p)
+        m.γ * projection_tangential(m.orientation, param_set, aux, ρu_p)
 end;
 
 # Compute advective flux.
@@ -414,6 +416,7 @@ function boundary_state!(
     m::BurgersEquation,
     state⁺::Vars,
     diff⁺::Vars,
+    hyperdiff⁺::Vars,
     aux⁺::Vars,
     n⁻,
     _...,
@@ -429,6 +432,7 @@ function boundary_state!(
     m::BurgersEquation,
     state⁺::Vars,
     diff⁺::Vars,
+    hyperdiff⁺::Vars,
     aux⁺::Vars,
     n⁻,
     _...,
@@ -536,7 +540,7 @@ export_plot(
     time_data,
     state_data,
     ("ρcT",),
-    joinpath(output_dir, "initial_condition_T_nodal.png");
+    joinpath(output_dir, "initial_condition_T_nodal_bjfnk.png");
     xlabel = "ρcT at southwest node",
     ylabel = z_label,
 );
@@ -545,7 +549,7 @@ export_plot(
     time_data,
     state_data,
     ("ρu[1]",),
-    joinpath(output_dir, "initial_condition_u_nodal.png");
+    joinpath(output_dir, "initial_condition_u_nodal_bjfnk.png");
     xlabel = "ρu at southwest node",
     ylabel = z_label,
 );
@@ -554,13 +558,13 @@ export_plot(
     time_data,
     state_data,
     ("ρu[2]",),
-    joinpath(output_dir, "initial_condition_v_nodal.png");
+    joinpath(output_dir, "initial_condition_v_nodal_bjfnk.png");
     xlabel = "ρv at southwest node",
     ylabel = z_label,
 );
 
-# ![](initial_condition_T_nodal.png)
-# ![](initial_condition_u_nodal.png)
+# ![](initial_condition_T_nodal_bjfnk.png)
+# ![](initial_condition_u_nodal_bjfnk.png)
 
 # ## Inspect the initial conditions for the horizontal averages
 
@@ -586,7 +590,7 @@ export_plot(
     time_data,
     data_avg,
     ("ρu[1]",),
-    joinpath(output_dir, "initial_condition_avg_u.png");
+    joinpath(output_dir, "initial_condition_avg_u_bjfnk.png");
     xlabel = "Horizontal mean of ρu",
     ylabel = z_label,
 );
@@ -595,13 +599,13 @@ export_plot(
     time_data,
     data_var,
     ("ρu[1]",),
-    joinpath(output_dir, "initial_condition_variance_u.png");
+    joinpath(output_dir, "initial_condition_variance_u_bjfnk.png");
     xlabel = "Horizontal variance of ρu",
     ylabel = z_label,
 );
 
-# ![](initial_condition_avg_u.png)
-# ![](initial_condition_variance_u.png)
+# ![](initial_condition_avg_u_bjfnk.png)
+# ![](initial_condition_variance_u_bjfnk.png)
 
 # # Solver hooks / callbacks
 
@@ -672,7 +676,7 @@ export_plot(
     time_data,
     data_avg,
     ("ρu[1]"),
-    joinpath(output_dir, "solution_vs_time_u_avg.png");
+    joinpath(output_dir, "solution_vs_time_u_avg_bjfnk.png");
     xlabel = "Horizontal mean of ρu",
     ylabel = z_label,
 );
@@ -681,7 +685,7 @@ export_plot(
     time_data,
     data_var,
     ("ρu[1]"),
-    joinpath(output_dir, "variance_vs_time_u.png");
+    joinpath(output_dir, "variance_vs_time_u_bjfnk.png");
     xlabel = "Horizontal variance of ρu",
     ylabel = z_label,
 );
@@ -690,7 +694,7 @@ export_plot(
     time_data,
     data_avg,
     ("ρcT"),
-    joinpath(output_dir, "solution_vs_time_T_avg.png");
+    joinpath(output_dir, "solution_vs_time_T_avg_bjfnk.png");
     xlabel = "Horizontal mean of ρcT",
     ylabel = z_label,
 );
@@ -699,7 +703,7 @@ export_plot(
     time_data,
     data_var,
     ("ρcT"),
-    joinpath(output_dir, "variance_vs_time_T.png");
+    joinpath(output_dir, "variance_vs_time_T_bjfnk.png");
     xlabel = "Horizontal variance of ρcT",
     ylabel = z_label,
 );
@@ -708,15 +712,15 @@ export_plot(
     time_data,
     data_nodal,
     ("ρu[1]"),
-    joinpath(output_dir, "solution_vs_time_u_nodal.png");
+    joinpath(output_dir, "solution_vs_time_u_nodal_bjfnk.png");
     xlabel = "ρu at southwest node",
     ylabel = z_label,
 );
-# ![](solution_vs_time_u_avg.png)
-# ![](variance_vs_time_u.png)
-# ![](solution_vs_time_T_avg.png)
-# ![](variance_vs_time_T.png)
-# ![](solution_vs_time_u_nodal.png)
+# ![](solution_vs_time_u_avg_bjfnk.png)
+# ![](variance_vs_time_u_bjfnk.png)
+# ![](solution_vs_time_T_avg_bjfnk.png)
+# ![](variance_vs_time_T_bjfnk.png)
+# ![](solution_vs_time_u_nodal_bjfnk.png)
 
 # Rayleigh friction returns the horizontal velocity to the objective
 # profile on the timescale of the simulation (1 second), since `γ`∼1. The horizontal viscosity

@@ -55,7 +55,8 @@ model = Ocean.HydrostaticBoussinesqSuperModel(
         OceanBC(Impenetrable(FreeSlip()), Insulating()),
         OceanBC(Penetrable(FreeSlip()), Insulating()),
     ),
-)
+);
+nothing
 
 # We prepare a callback that periodically fetches the horizontal velocity and
 # tracer concentration for later animation,
@@ -132,7 +133,7 @@ animation = @animate for (i, state) in enumerate(fetched_states)
     u_title = @sprintf("u at t = %.2f", state.time)
     θ_title = @sprintf("θ at t = %.2f", state.time)
 
-    plot(u_plot, θ_plot, title = [u_title θ_title], size = (1200, 500))
+    plot(u_plot, θ_plot, title = [u_title θ_title], size = (600, 250))
 end
 
-gif(animation, "shear_instability.gif", fps = 8)
+gif(animation, "shear_instability.mp4", fps = 5)

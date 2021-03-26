@@ -26,10 +26,11 @@ end
 # Initial base state from rest, independent of the model reference state
 function init_base_state(::ZeroBaseState, bl, state, aux, coords, t)
     FT = eltype(state)
-    _R_d = R_d(bl.param_set)::FT
-    _grav = grav(bl.param_set)::FT
-    _a = planet_radius(bl.param_set)::FT
-    _p_0::FT = MSLP(bl.param_set)
+    param_set = parameter_set(bl)
+    _R_d::FT = R_d(param_set)
+    _grav::FT = grav(param_set)
+    _a::FT = planet_radius(param_set)
+    _p_0::FT = MSLP(param_set)
     T_initial = FT(255)
     r = norm(coords, 2)
     h = r - _a
@@ -58,11 +59,12 @@ function init_base_state(::BCWaveBaseState, bl, state, aux, coords, t)
     FT = eltype(state)
 
     # general parameters
-    _grav = grav(bl.param_set)::FT
-    _R_d = R_d(bl.param_set)::FT
-    _Ω = Omega(bl.param_set)::FT
-    _a = planet_radius(bl.param_set)::FT
-    _p_0 = MSLP(bl.param_set)::FT
+    param_set = parameter_set(bl)
+    _grav::FT = grav(param_set)
+    _R_d::FT = R_d(param_set)
+    _Ω::FT = Omega(param_set)
+    _a::FT = planet_radius(param_set)
+    _p_0::FT = MSLP(param_set)
 
     # grid
     φ = latitude(bl, aux)

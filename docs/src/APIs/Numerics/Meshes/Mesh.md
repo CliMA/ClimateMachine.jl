@@ -37,9 +37,13 @@ Topologies.StackedCubedSphereTopology(mpicomm, Nhorz, Rrange)
 
 ```@docs
 Topologies.cubedshellmesh
-Topologies.cubedshellwarp
+Topologies.cubed_sphere_warp
+Topologies.cubed_sphere_unwarp
+Topologies.equiangular_cubed_sphere_warp
+Topologies.equiangular_cubed_sphere_unwarp
+Topologies.equidistant_cubed_sphere_warp
+Topologies.equidistant_cubed_sphere_unwarp
 Topologies.hasboundary
-Topologies.cubedshellunwarp
 Topologies.compute_lat_long
 Topologies.cubedshelltopowarp
 Topologies.grid1d
@@ -72,6 +76,17 @@ Grids.get_z
 Grids.referencepoints
 Grids.min_node_distance
 Grids.DiscontinuousSpectralElementGrid
+```
+
+## DSS
+
+Computes the direct stiffness summation of fields in the MPIStateArray.
+
+```@docs
+DSS.dss!
+DSS.dss_vertex!
+DSS.dss_edge!
+DSS.dss_face!
 ```
 
 ## Filters

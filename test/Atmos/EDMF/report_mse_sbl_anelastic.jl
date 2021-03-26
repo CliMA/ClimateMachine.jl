@@ -13,9 +13,9 @@ data_file = Dataset(joinpath(PyCLES_output_dataset_path, "Gabls.nc"), "r")
 
 #! format: off
 best_mse = OrderedDict()
-best_mse["prog_ρ"] = 9.3809207150466600e-03
-best_mse["prog_ρu_1"] = 6.7269974359218368e+03
-best_mse["prog_ρu_2"] = 6.8630597189221576e-01
+best_mse["prog_ρ"] = 9.3809207150296822e-03
+best_mse["prog_ρu_1"] = 6.7269975116623837e+03
+best_mse["prog_ρu_2"] = 6.8630628605220889e-01
 #! format: on
 
 computed_mse = compute_mse(

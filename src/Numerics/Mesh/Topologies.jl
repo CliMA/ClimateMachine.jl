@@ -1,6 +1,8 @@
 module Topologies
+using ClimateMachine
 import ..BrickMesh
 import MPI
+using CUDA
 using DocStringExtensions
 
 export AbstractTopology,
@@ -11,12 +13,18 @@ export AbstractTopology,
     AnalyticalTopography,
     NoTopography,
     DCMIPMountain,
+    EquidistantCubedSphere,
+    EquiangularCubedSphere,
     isstacked,
-    cubedshellwarp,
     cubedshelltopowarp,
     compute_lat_long,
     compute_analytical_topography,
-    cubedshellunwarp
+    cubed_sphere_warp,
+    cubed_sphere_unwarp,
+    equiangular_cubed_sphere_warp,
+    equiangular_cubed_sphere_unwarp,
+    equidistant_cubed_sphere_warp,
+    equidistant_cubed_sphere_unwarp
 
 export grid1d, SingleExponentialStretching, InteriorStretching
 
@@ -165,6 +173,50 @@ struct BoxElementTopology{dim, T, nb} <: AbstractTopology{dim, T, nb}
     """
     bndytoface::NTuple{nb, Array{Int64, 1}}
 
+    """
+    Element to locally unique vertex number; `elemtouvert[v,e]` is the `v`th vertex 
+    of element `e`
+    """
+    elemtouvert::Union{Array{Int64, 2}, Nothing}
+
+    """
+    Vertex connectivity information for direct stiffness summation; 
+    `vtconn[vtconnoff[i]:vtconnoff[i+1]-1] == vtconn[lvt1, lelem1, lvt2, lelem2, ....]`
+    for each rank-local unique vertex number,
+    where `lvt1` is the element-local vertex number of element `lelem1`, etc.
+    Vertices, not shared by multiple elements, are ignored.
+    """
+    vtconn::Union{AbstractArray{Int64, 1}, Nothing}
+
+    """
+    Vertex offset for vertex connectivity information
+    """
+    vtconnoff::Union{AbstractArray{Int64, 1}, Nothing}
+
+    """
+    Face connectivity information for direct stiffness summation; 
+    `fcconn[ufc,:] = [lfc1, lelem1, lfc2, lelem2, ordr]`
+    where `ufc` is the rank-local unique face number, and 
+    `lfc1` is the element-local face number of element `lelem1`, etc.,
+    and ordr is the relative orientation. Faces, not shared by multiple
+    elements are ignored.
+    """
+    fcconn::Union{AbstractArray{Int64, 2}, Nothing}
+
+    """
+    Edge connectivity information for direct stiffness summation; 
+    `edgconn[edgconnoff[i]:edgconnoff[i+1]-1] == edgconn[ledg1, orient, lelem1, ledg2, orient, lelem2, ...]`
+    for each rank-local unique edge number,
+    where `ledg1` is the element-local edge number, `orient1` is orientation (forward/reverse) of dof along edge.
+    Edges, not shared by multiple elements, are ignored.
+    """
+    edgconn::Union{AbstractArray{Int64, 1}, Nothing}
+
+    """
+    Edge offset for edge connectivity information
+    """
+    edgconnoff::Union{AbstractArray{Int64, 1}, Nothing}
+
     function BoxElementTopology{dim, T, nb}(
         mpicomm,
         elems,
@@ -183,12 +235,29 @@ struct BoxElementTopology{dim, T, nb} <: AbstractTopology{dim, T, nb}
         nabrtosend,
         origsendorder,
         bndytoelem,
-        bndytoface,
+        bndytoface;
+        device_array = ClimateMachine.array_type(),
+        elemtouvert = nothing,
+        vtconn = nothing,
+        vtconnoff = nothing,
+        fcconn = nothing,
+        edgconn = nothing,
+        edgconnoff = nothing,
     ) where {dim, T, nb}
 
         exteriorelems = sort(unique(sendelems))
         interiorelems = sort(setdiff(realelems, exteriorelems))
-
+        if vtconn isa Array && vtconnoff isa Array
+            vtconn = device_array(vtconn)
+            vtconnoff = device_array(vtconnoff)
+        end
+        if fcconn isa Array
+            fcconn = device_array(fcconn)
+        end
+        if edgconn isa Array && edgconnoff isa Array
+            edgconn = device_array(edgconn)
+            edgconnoff = device_array(edgconnoff)
+        end
         return new{dim, T, nb}(
             mpicomm,
             elems,
@@ -210,6 +279,12 @@ struct BoxElementTopology{dim, T, nb} <: AbstractTopology{dim, T, nb}
             origsendorder,
             bndytoelem,
             bndytoface,
+            elemtouvert,
+            vtconn,
+            vtconnoff,
+            fcconn,
+            edgconn,
+            edgconnoff,
         )
     end
 end
@@ -450,6 +525,7 @@ function BrickTopology(
         origsendorder,
         bndytoelem,
         bndytoface,
+        elemtouvert = topology.elemtovert,
     ))
 end
 
@@ -729,7 +805,186 @@ function StackedBrickTopology(
     nb = length(bndytoelem)
 
     T = eltype(basetopo.elemtocoord)
-
+    #----setting up DSS----------
+    if basetopo.elemtouvert isa Array
+        #---setup vertex DSS
+        nvertby2 = div(nvert, 2)
+        elemtouvert = similar(basetopo.elemtouvert, nvert, length(elems))
+        # base level
+        for i in 1:length(basetopo.elems)
+            e = stacksize * (i - 1) + 1
+            for vt in 1:nvertby2
+                elemtouvert[vt, e] =
+                    (basetopo.elemtouvert[vt, i] - 1) * (stacksize + 1) + 1
+            end
+        end
+        # interior levels
+        for i in 1:length(basetopo.elems), j in 1:(stacksize - 1)
+            e = stacksize * (i - 1) + j
+            for vt in 1:nvertby2
+                elemtouvert[nvertby2 + vt, e] = elemtouvert[vt, e] + 1
+                elemtouvert[vt, e + 1] = elemtouvert[nvertby2 + vt, e]
+            end
+        end
+        # top level
+        if periodicity[dim]
+            for i in 1:length(basetopo.elems)
+                e = stacksize * i
+                for vt in 1:nvertby2
+                    elemtouvert[nvertby2 + vt, e] =
+                        (basetopo.elemtouvert[vt, i] - 1) * (stacksize + 1) + 1
+                end
+            end
+        else
+            for i in 1:length(basetopo.elems)
+                e = stacksize * i
+                for vt in 1:nvertby2
+                    elemtouvert[nvertby2 + vt, e] = elemtouvert[vt, e] + 1
+                end
+            end
+        end
+        vtmax = maximum(unique(elemtouvert))
+        vtconn = map(j -> zeros(Int, j), zeros(Int, vtmax))
+        for el in elems, lvt in 1:nvert
+            vt = elemtouvert[lvt, el]
+            push!(vtconn[vt], lvt) # local vertex number
+            push!(vtconn[vt], el)  # local elem number
+        end
+        # building the vertex connectivity device array
+        vtconnoff = zeros(Int, vtmax + 1)
+        vtconnoff[1] = 1
+        temp = Int64[]
+        for vt in 1:vtmax
+            nconn = length(vtconn[vt])
+            if nconn > 2
+                vtconnoff[vt + 1] = vtconnoff[vt] + nconn
+                append!(temp, vtconn[vt])
+            else
+                vtconnoff[vt + 1] = vtconnoff[vt]
+            end
+        end
+        vtconn = temp
+        #---setup face DSS---------------------
+        fcmarker = -ones(Int, nface, length(elems))
+        fcno = 0
+        for el in realelems
+            for fc in 1:nface
+                if elemtobndy[fc, el] == 0
+                    nabrel = elemtoelem[fc, el]
+                    nabrfc = elemtoface[fc, el]
+                    if fcmarker[fc, el] == -1 && fcmarker[nabrfc, nabrel] == -1
+                        fcno += 1
+                        fcmarker[fc, el] = fcno
+                        fcmarker[nabrfc, nabrel] = fcno
+                    end
+                end
+            end
+        end
+        fcconn = -ones(Int, fcno, 5)
+        for el in realelems
+            for fc in 1:nface
+                fcno = fcmarker[fc, el]
+                ordr = elemtoordr[fc, el]
+                if fcno ≠ -1
+                    nabrel = elemtoelem[fc, el]
+                    nabrfc = elemtoface[fc, el]
+                    fcconn[fcno, 1] = fc
+                    fcconn[fcno, 2] = el
+                    fcconn[fcno, 3] = nabrfc
+                    fcconn[fcno, 4] = nabrel
+                    fcconn[fcno, 5] = ordr
+                    fcmarker[fc, el] = -1
+                    fcmarker[nabrfc, nabrel] = -1
+                end
+            end
+        end
+        #---setup edge DSS---------------------
+        if dim == 3
+            nedge = 12
+            edgemask = [
+                1 3 5 7 1 2 5 6 1 2 3 4
+                2 4 6 8 3 4 7 8 5 6 7 8
+            ]
+            edges = Array{Int64}(undef, 6, nedge * length(elems))
+            ledge = zeros(Int64, 2)
+            uedge = Dict{Array{Int64, 1}, Int64}()
+            orient = 1
+            uedgno = Int64(0)
+            ctr = 1
+            for el in elems
+                for edg in 1:nedge
+                    orient = 1
+                    for i in 1:2
+                        ledge[i] = elemtouvert[edgemask[i, edg], el]
+                        edges[i, ctr] = ledge[i]                     # edge vertices [1:2]
+                    end
+                    if ledge[1] > ledge[2]
+                        sort!(ledge)
+                        orient = 2
+                    end
+                    edges[3, ctr] = edg    # local edge number
+                    edges[4, ctr] = orient # edge orientation
+                    edges[5, ctr] = el     # element number
+                    if haskey(uedge, ledge[:])
+                        edges[6, ctr] = uedge[ledge[:]]  # unique edge number
+                    else
+                        uedgno += 1
+                        uedge[ledge[:]] = uedgno
+                        edges[6, ctr] = uedgno
+                    end
+                    ctr += 1
+                end
+            end
+            edgconn = map(j -> zeros(Int, j), zeros(Int, uedgno))
+            ctr = 1
+            for el in elems
+                for edg in 1:nedge
+                    uedg = edges[6, ctr]
+                    push!(edgconn[uedg], edg)           # local edge number
+                    push!(edgconn[uedg], edges[4, ctr]) # orientation
+                    push!(edgconn[uedg], el)            # element number
+                    ctr += 1
+                end
+            end
+            # remove edges belonging to a single element and edges
+            # belonging exclusively to ghost elements
+            # and build edge connectivity device array
+            edgconnoff = Int64[]
+            temp = Int64[]
+            push!(edgconnoff, 1)
+            for i in 1:uedgno
+                elen = length(edgconn[i])
+                encls = Int(elen / 3)
+                edgmrk = true
+                if encls > 1
+                    for j in 1:encls
+                        if edgconn[i][3 * j] ≤ nreal
+                            edgmrk = false
+                        end
+                    end
+                end
+                if edgmrk
+                    edgconn[i] = []
+                else
+                    shift = edgconnoff[end]
+                    push!(edgconnoff, (shift + length(edgconn[i])))
+                    append!(temp, edgconn[i][:])
+                end
+            end
+            edgconn = temp
+        else
+            edgconn = nothing
+            edgconnoff = nothing
+        end
+    else
+        elemtouvert = nothing
+        vtconn = nothing
+        vtconnoff = nothing
+        fcconn = nothing
+        edgconn = nothing
+        edgconnoff = nothing
+    end
+    #---------------
     StackedBrickTopology{dim, T, nb}(
         BoxElementTopology{dim, T, nb}(
             mpicomm,
@@ -750,6 +1005,12 @@ function StackedBrickTopology(
             basetopo.origsendorder,
             bndytoelem,
             bndytoface,
+            elemtouvert = elemtouvert,
+            vtconn = vtconn,
+            vtconnoff = vtconnoff,
+            fcconn = fcconn,
+            edgconn = edgconn,
+            edgconnoff = edgconnoff,
         ),
         stacksize,
         periodicity[end],
@@ -760,8 +1021,8 @@ end
     CubedShellTopology(mpicomm, Nelem, T) <: AbstractTopology{dim,T,nb}
 
 Generate a cubed shell mesh with the number of elements along each dimension of
-the cubes being `Nelem`. This topology actual creates a cube mesh, and the
-warping should be done after the grid is created using the `cubedshellwarp`
+the cubes being `Nelem`. This topology actually creates a cube mesh, and the
+warping should be done after the grid is created using the `cubed_sphere_warp`
 function. The coordinates of the points will be of type `T`.
 
 The elements of the shell are partitioned equally across the MPI ranks based
@@ -771,7 +1032,8 @@ Note that this topology is logically 2-D but embedded in a 3-D space
 
 # Examples
 
-We can build a cubed shell mesh with 10 elements on each cube, total elements is
+We can build a cubed shell mesh with 10*10 elements on each cube face, i.e., the
+total number of elements is
 `10 * 10 * 6 = 600`, with
 ```jldoctest brickmesh
 using ClimateMachine.Topologies
@@ -785,14 +1047,18 @@ topology = CubedShellTopology(MPI.COMM_SELF, 10, Float64)
 # Shell radius = 1
 x1, x2, x3 = ntuple(j->topology.elemtocoord[j, :, :], 3)
 for n = 1:length(x1)
-   x1[n], x2[n], x3[n] = Topologies.cubedshellwarp(x1[n], x2[n], x3[n])
+   x1[n], x2[n], x3[n] = Topologies.cubed_sphere_warp(EquiangularCubedSphere(), x1[n], x2[n], x3[n])
 end
+
+# in case a unitary equiangular cubed sphere is desired, or
 
 # Shell radius = 10
 x1, x2, x3 = ntuple(j->topology.elemtocoord[j, :, :], 3)
 for n = 1:length(x1)
-  x1[n], x2[n], x3[n] = Topologies.cubedshellwarp(x1[n], x2[n], x3[n], 10)
+  x1[n], x2[n], x3[n] = Topologies.cubed_sphere_warp(EquidistantCubedSphere(), x1[n], x2[n], x3[n], 10)
 end
+
+# in case an equidistant cubed sphere of radius 10 is desired.
 ```
 """
 function CubedShellTopology(
@@ -865,6 +1131,7 @@ function CubedShellTopology(
         origsendorder,
         (),
         (),
+        elemtouvert = topology.elemtovert,
     ))
 end
 
@@ -969,56 +1236,80 @@ function cubedshellmesh(Ne; part = 1, numparts = 1)
     (elemtovert, elemtocoord, elemtobndy, faceconnections, collect(elemlocal))
 end
 
+abstract type AbstractCubedSphere end
+struct EquiangularCubedSphere <: AbstractCubedSphere end
+struct EquidistantCubedSphere <: AbstractCubedSphere end
 
 """
-    cubedshellwarp(a, b, c, R = max(abs(a), abs(b), abs(c)))
+    cubed_sphere_warp(::EquiangularCubedSphere, a, b, c, R = max(abs(a), abs(b), abs(c)))
 
 Given points `(a, b, c)` on the surface of a cube, warp the points out to a
 spherical shell of radius `R` based on the equiangular gnomonic grid proposed by
 [Ronchi1996](@cite)
 """
-function cubedshellwarp(a, b, c, R = max(abs(a), abs(b), abs(c)))
+function cubed_sphere_warp(
+    ::EquiangularCubedSphere,
+    a,
+    b,
+    c,
+    R = max(abs(a), abs(b), abs(c)),
+)
 
     function f(sR, ξ, η)
         X, Y = tan(π * ξ / 4), tan(π * η / 4)
-        x1 = sR / sqrt(X^2 + Y^2 + 1)
-        x2, x3 = X * x1, Y * x1
-        x1, x2, x3
+        ζ1 = sR / sqrt(X^2 + Y^2 + 1)
+        ζ2, ζ3 = X * ζ1, Y * ζ1
+        ζ1, ζ2, ζ3
     end
 
     fdim = argmax(abs.((a, b, c)))
     if fdim == 1 && a < 0
-        # (-R, *, *) : Face I from Ronchi, Iacono, Paolucci (1996)
+        # (-R, *, *) : formulas for Face I from Ronchi, Iacono, Paolucci (1996)
+        #              but for us face II of the developed net of the cube
         x1, x2, x3 = f(-R, b / a, c / a)
     elseif fdim == 2 && b < 0
-        # ( *,-R, *) : Face II from Ronchi, Iacono, Paolucci (1996)
+        # ( *,-R, *) : formulas for Face II from Ronchi, Iacono, Paolucci (1996)
+        #              but for us face III of the developed net of the cube
         x2, x1, x3 = f(-R, a / b, c / b)
     elseif fdim == 1 && a > 0
-        # ( R, *, *) : Face III from Ronchi, Iacono, Paolucci (1996)
+        # ( R, *, *) : formulas for Face III from Ronchi, Iacono, Paolucci (1996)
+        #              but for us face IV of the developed net of the cube
         x1, x2, x3 = f(R, b / a, c / a)
     elseif fdim == 2 && b > 0
-        # ( *, R, *) : Face IV from Ronchi, Iacono, Paolucci (1996)
+        # ( *, R, *) : formulas for Face IV from Ronchi, Iacono, Paolucci (1996)
+        #              but for us face I of the developed net of the cube
         x2, x1, x3 = f(R, a / b, c / b)
     elseif fdim == 3 && c > 0
-        # ( *, *, R) : Face V from Ronchi, Iacono, Paolucci (1996)
+        # ( *, *, R) : formulas for Face V from Ronchi, Iacono, Paolucci (1996)
+        #              and the same for us on the developed net of the cube
         x3, x2, x1 = f(R, b / c, a / c)
     elseif fdim == 3 && c < 0
-        # ( *, *,-R) : Face VI from Ronchi, Iacono, Paolucci (1996)
+        # ( *, *,-R) : formulas for Face VI from Ronchi, Iacono, Paolucci (1996)
+        #              and the same for us on the developed net of the cube
         x3, x2, x1 = f(-R, b / c, a / c)
     else
-        error("invalid case for cubedshellwarp: $a, $b, $c")
+        error("invalid case for cubed_sphere_warp(::EquiangularCubedSphere): $a, $b, $c")
     end
 
     return x1, x2, x3
 end
 
+"""
+    equiangular_cubed_sphere_warp(a, b, c, R = max(abs(a), abs(b), abs(c)))
+
+A wrapper function for the cubed_sphere_warp function, when called with the
+EquiangularCubedSphere type
+"""
+equiangular_cubed_sphere_warp(a, b, c, R = max(abs(a), abs(b), abs(c))) =
+    cubed_sphere_warp(EquiangularCubedSphere(), a, b, c, R)
 
 """
-    cubedshellunwarp(x1, x2, x3)
+    cubed_sphere_unwarp(x1, x2, x3)
 
-The inverse of [`cubedshellwarp`](@ref).
+The inverse of [`cubed_sphere_warp`](@ref). This function projects
+a given point `(x_1, x_2, x_3)` from the surface of a sphere onto a cube
 """
-function cubedshellunwarp(x1, x2, x3)
+function cubed_sphere_unwarp(::EquiangularCubedSphere, x1, x2, x3)
 
     function g(R, X, Y)
         ξ = atan(X) * 4 / pi
@@ -1030,38 +1321,115 @@ function cubedshellunwarp(x1, x2, x3)
     fdim = argmax(abs.((x1, x2, x3)))
 
     if fdim == 1 && x1 < 0
-        # (-R, *, *) : Face I from Ronchi, Iacono, Paolucci (1996)
+        # (-R, *, *) : formulas for Face I from Ronchi, Iacono, Paolucci (1996)
+        #              but for us face II of the developed net of the cube
         a, b, c = g(-R, x2 / x1, x3 / x1)
     elseif fdim == 2 && x2 < 0
-        # ( *,-R, *) : Face II from Ronchi, Iacono, Paolucci (1996)
+        # ( *,-R, *) : formulas for Face II from Ronchi, Iacono, Paolucci (1996)
+        #              but for us face III of the developed net of the cube
         b, a, c = g(-R, x1 / x2, x3 / x2)
     elseif fdim == 1 && x1 > 0
-        # ( R, *, *) : Face III from Ronchi, Iacono, Paolucci (1996)
+        # ( R, *, *) : formulas for Face III from Ronchi, Iacono, Paolucci (1996)
+        #              but for us face IV of the developed net of the cube
         a, b, c = g(R, x2 / x1, x3 / x1)
     elseif fdim == 2 && x2 > 0
-        # ( *, R, *) : Face IV from Ronchi, Iacono, Paolucci (1996)
+        # ( *, R, *) : formulas for Face IV from Ronchi, Iacono, Paolucci (1996)
+        #              but for us face I of the developed net of the cube
         b, a, c = g(R, x1 / x2, x3 / x2)
     elseif fdim == 3 && x3 > 0
-        # ( *, *, R) : Face V from Ronchi, Iacono, Paolucci (1996)
+        # ( *, *, R) : formulas for Face V from Ronchi, Iacono, Paolucci (1996)
+        #              and the same for us on the developed net of the cube
         c, b, a = g(R, x2 / x3, x1 / x3)
     elseif fdim == 3 && x3 < 0
-        # ( *, *,-R) : Face VI from Ronchi, Iacono, Paolucci (1996)
+        # ( *, *,-R) : formulas for Face VI from Ronchi, Iacono, Paolucci (1996)
+        #              and the same for us on the developed net of the cube
         c, b, a = g(-R, x2 / x3, x1 / x3)
     else
-        error("invalid case for cubedshellunwarp: $a, $b, $c")
+        error("invalid case for cubed_sphere_unwarp(::EquiangularCubedSphere): $a, $b, $c")
     end
 
     return a, b, c
 end
 
 """
+    equiangular_cubed_sphere_unwarp(x1, x2, x3)
+
+A wrapper function for the cubed_sphere_unwarp function, when called with the
+EquiangularCubedSphere type
+"""
+equiangular_cubed_sphere_unwarp(x1, x2, x3) =
+    cubed_sphere_unwarp(EquiangularCubedSphere(), x1, x2, x3)
+
+"""
+    cubed_sphere_warp(a, b, c, R = max(abs(a), abs(b), abs(c)))
+
+Given points `(a, b, c)` on the surface of a cube, warp the points out to a
+spherical shell of radius `R` based on the equidistant gnomonic grid outlined in
+[Rancic1996](@cite) and [Nair2005](@cite)
+"""
+function cubed_sphere_warp(
+    ::EquidistantCubedSphere,
+    a,
+    b,
+    c,
+    R = max(abs(a), abs(b), abs(c)),
+)
+
+    r = hypot(a, b, c)
+
+    x1 = R * a / r
+    x2 = R * b / r
+    x3 = R * c / r
+
+    return x1, x2, x3
+end
+
+"""
+    equidistant_cubed_sphere_warp(a, b, c, R = max(abs(a), abs(b), abs(c)))
+
+A wrapper function for the cubed_sphere_warp function, when called with the
+EquidistantCubedSphere type
+"""
+equidistant_cubed_sphere_warp(a, b, c, R = max(abs(a), abs(b), abs(c))) =
+    cubed_sphere_warp(EquidistantCubedSphere(), a, b, c, R)
+
+"""
+    cubed_sphere_unwarp(x1, x2, x3)
+
+The inverse of [`cubed_sphere_warp`](@ref). This function projects
+a given point `(x_1, x_2, x_3)` from the surface of a sphere onto a cube
+"""
+function cubed_sphere_unwarp(::EquidistantCubedSphere, x1, x2, x3)
+
+    r = hypot(1, x2 / x1, x3 / x1)
+    R = hypot(x1, x2, x3)
+
+    a = r * x1
+    b = r * x2
+    c = r * x3
+
+    m = max(abs(a), abs(b), abs(c))
+
+    return a * R / m, b * R / m, c * R / m
+end
+
+"""
+    equidistant_cubed_sphere_unwarp(x1, x2, x3)
+
+A wrapper function for the cubed_sphere_unwarp function, when called with the
+EquidistantCubedSphere type
+"""
+equidistant_cubed_sphere_unwarp(x1, x2, x3) =
+    cubed_sphere_unwarp(EquidistantCubedSphere(), x1, x2, x3)
+
+"""
    StackedCubedSphereTopology(mpicomm, Nhorz, Rrange;
                               boundary=(1,1)) <: AbstractTopology{3}
 
 Generate a stacked cubed sphere topology with `Nhorz` by `Nhorz` cells for each
-horizontal face and `Rrange` is the radius edges of the stacked elements.  This
+horizontal face and `Rrange` is the radius edges of the stacked elements. This
 topology actual creates a cube mesh, and the warping should be done after the
-grid is created using the `cubedshellwarp` function. The coordinates of the
+grid is created using the `cubed_sphere_warp` function. The coordinates of the
 points will be of type `eltype(Rrange)`. The inner boundary condition type is
 `boundary[1]` and the outer boundary condition type is `boundary[2]`.
 
@@ -1073,8 +1441,8 @@ on a space-filling curve. Further, stacks are not split at MPI boundaries.
 
 # Examples
 
-We can build a cubed sphere mesh with 10 x 10 x 5 elements on each cube, total
-elements is `10 * 10 * 5 * 6 = 3000`, with
+We can build a cubed sphere mesh with 10 x 10 x 5 elements on each cube face,
+i.e., the total number of elements is `10 * 10 * 5 * 6 = 3000`, with
 ```jldoctest brickmesh
 using ClimateMachine.Topologies
 using MPI
@@ -1087,7 +1455,7 @@ topology = StackedCubedSphereTopology(MPI.COMM_SELF, Nhorz, Rrange)
 x1, x2, x3 = ntuple(j->reshape(topology.elemtocoord[j, :, :],
                             2, 2, 2, length(topology.elems)), 3)
 for n = 1:length(x1)
-   x1[n], x2[n], x3[n] = Topologies.cubedshellwarp(x1[n], x2[n], x3[n])
+   x1[n], x2[n], x3[n] = Topologies.cubed_sphere_warp(EquiangularCubedSphere(),x1[n], x2[n], x3[n])
 end
 ```
 Note that the faces are listed in Cartesian order.
@@ -1257,7 +1625,178 @@ function StackedCubedSphereTopology(
         (boundary,),
     )
     nb = length(bndytoelem)
+    #----setting up DSS----------
+    if basetopo.elemtouvert isa Array
+        #---setup vertex DSS
+        nvertby2 = div(nvert, 2)
+        elemtouvert = similar(basetopo.elemtouvert, nvert, length(elems))
+        # base level
+        for i in 1:length(basetopo.elems)
+            e = stacksize * (i - 1) + 1
+            for vt in 1:nvertby2
+                elemtouvert[vt, e] =
+                    (basetopo.elemtouvert[vt, i] - 1) * (stacksize + 1) + 1
+            end
+        end
+        # interior levels
+        for i in 1:length(basetopo.elems), j in 1:(stacksize - 1)
+            e = stacksize * (i - 1) + j
+            for vt in 1:nvertby2
+                elemtouvert[nvertby2 + vt, e] = elemtouvert[vt, e] + 1
+                elemtouvert[vt, e + 1] = elemtouvert[nvertby2 + vt, e]
+            end
+        end
+        # top level
+        for i in 1:length(basetopo.elems)
+            e = stacksize * i
+            for vt in 1:nvertby2
+                elemtouvert[nvertby2 + vt, e] = elemtouvert[vt, e] + 1
+            end
+        end
+        vtmax = maximum(unique(elemtouvert))
+        vtconn = map(j -> zeros(Int, j), zeros(Int, vtmax))
 
+        for el in elems, lvt in 1:nvert
+            vt = elemtouvert[lvt, el]
+            push!(vtconn[vt], lvt) # local vertex number
+            push!(vtconn[vt], el)  # local elem number
+        end
+        # building the vertex connectivity device array
+        vtconnoff = zeros(Int, vtmax + 1)
+        vtconnoff[1] = 1
+        temp = Int64[]
+        for vt in 1:vtmax
+            nconn = length(vtconn[vt])
+            if nconn > 2
+                vtconnoff[vt + 1] = vtconnoff[vt] + nconn
+                append!(temp, vtconn[vt])
+            else
+                vtconnoff[vt + 1] = vtconnoff[vt]
+            end
+        end
+        vtconn = temp
+        #---setup face DSS---------------------
+        fcmarker = -ones(Int, nface, length(elems))
+        fcno = 0
+        for el in realelems
+            for fc in 1:nface
+                if elemtobndy[fc, el] == 0
+                    nabrel = elemtoelem[fc, el]
+                    nabrfc = elemtoface[fc, el]
+                    if fcmarker[fc, el] == -1 && fcmarker[nabrfc, nabrel] == -1
+                        fcno += 1
+                        fcmarker[fc, el] = fcno
+                        fcmarker[nabrfc, nabrel] = fcno
+                    end
+                end
+            end
+        end
+        fcconn = -ones(Int, fcno, 5)
+        for el in realelems
+            for fc in 1:nface
+                fcno = fcmarker[fc, el]
+                ordr = elemtoordr[fc, el]
+                if fcno ≠ -1
+                    nabrel = elemtoelem[fc, el]
+                    nabrfc = elemtoface[fc, el]
+                    fcconn[fcno, 1] = fc
+                    fcconn[fcno, 2] = el
+                    fcconn[fcno, 3] = nabrfc
+                    fcconn[fcno, 4] = nabrel
+                    fcconn[fcno, 5] = ordr
+                    fcmarker[fc, el] = -1
+                    fcmarker[nabrfc, nabrel] = -1
+                end
+            end
+        end
+        #---setup edge DSS---------------------
+        if dim == 3
+            nedge = 12
+            edgemask = [
+                1 3 5 7 1 2 5 6 1 2 3 4
+                2 4 6 8 3 4 7 8 5 6 7 8
+            ]
+            edges = Array{Int64}(undef, 6, nedge * length(elems))
+            ledge = zeros(Int64, 2)
+            uedge = Dict{Array{Int64, 1}, Int64}()
+            orient = 1
+            uedgno = Int64(0)
+            ctr = 1
+            for el in elems
+                for edg in 1:nedge
+                    orient = 1
+                    for i in 1:2
+                        ledge[i] = elemtouvert[edgemask[i, edg], el]
+                        edges[i, ctr] = ledge[i]                     # edge vertices [1:2]
+                    end
+                    if ledge[1] > ledge[2]
+                        sort!(ledge)
+                        orient = 2
+                    end
+                    edges[3, ctr] = edg    # local edge number
+                    edges[4, ctr] = orient # edge orientation
+                    edges[5, ctr] = el     # element number
+                    if haskey(uedge, ledge[:])
+                        edges[6, ctr] = uedge[ledge[:]]  # unique edge number
+                    else
+                        uedgno += 1
+                        uedge[ledge[:]] = uedgno
+                        edges[6, ctr] = uedgno
+                    end
+                    ctr += 1
+                end
+            end
+            edgconn = map(j -> zeros(Int, j), zeros(Int, uedgno))
+            ctr = 1
+            for el in elems
+                for edg in 1:nedge
+                    uedg = edges[6, ctr]
+                    push!(edgconn[uedg], edg)           # local edge number
+                    push!(edgconn[uedg], edges[4, ctr]) # orientation
+                    push!(edgconn[uedg], el)            # element number
+                    ctr += 1
+                end
+            end
+            # remove edges belonging to a single element and edges
+            # belonging exclusively to ghost elements
+            # and build edge connectivity device array
+            edgconnoff = Int64[]
+            temp = Int64[]
+            push!(edgconnoff, 1)
+            for i in 1:uedgno
+                elen = length(edgconn[i])
+                encls = Int(elen / 3)
+                edgmrk = true
+                if encls > 1
+                    for j in 1:encls
+                        if edgconn[i][3 * j] ≤ nreal
+                            edgmrk = false
+                        end
+                    end
+                end
+                if edgmrk
+                    edgconn[i] = []
+                else
+                    shift = edgconnoff[end]
+                    push!(edgconnoff, (shift + length(edgconn[i])))
+                    append!(temp, edgconn[i][:])
+                end
+            end
+            edgconn = temp
+        else
+            edgconn = nothing
+            edgconnoff = nothing
+        end
+        #-------------------------------------
+    else
+        elemtouvert = nothing
+        vtconn = nothing
+        vtconnoff = nothing
+        fcconn = nothing
+        edgconn = nothing
+        edgconnoff = nothing
+    end
+    #-----------------------------
     StackedCubedSphereTopology{T, nb}(
         BoxElementTopology{3, T, nb}(
             mpicomm,
@@ -1278,11 +1817,16 @@ function StackedCubedSphereTopology(
             basetopo.origsendorder,
             bndytoelem,
             bndytoface,
+            elemtouvert = elemtouvert,
+            vtconn = vtconn,
+            vtconnoff = vtconnoff,
+            fcconn = fcconn,
+            edgconn = edgconn,
+            edgconnoff = edgconnoff,
         ),
         stacksize,
     )
 end
-
 
 """
     grid1d(a, b[, stretch::AbstractGridStretching]; elemsize, nelem)
@@ -1375,11 +1919,11 @@ end
 """
     compute_lat_long(X,Y,δ,faceid)
 Helper function to allow computation of latitute and longitude coordinates
-given the cubed sphere coordinates X, Y, δ, faceid 
+given the cubed sphere coordinates X, Y, δ, faceid
 """
 function compute_lat_long(X, Y, δ, faceid)
     if faceid == 1
-        λ = atan(X)                     # longitude 
+        λ = atan(X)                     # longitude
         ϕ = atan(cos(λ) * Y)            # latitude
     elseif faceid == 2
         λ = atan(X) + π / 2
@@ -1403,8 +1947,8 @@ end
 
 """
     AnalyticalTopography
-Abstract type to allow dispatch over different analytical topography prescriptions 
-in experiments. 
+Abstract type to allow dispatch over different analytical topography prescriptions
+in experiments.
 """
 abstract type AnalyticalTopography end
 
@@ -1421,15 +1965,15 @@ end
 
 """
     NoTopography <: AnalyticalTopography
-Allows definition of fallback methods in case cubedshelltopowarp is used with 
-no prescribed topography function. 
+Allows definition of fallback methods in case cubedshelltopowarp is used with
+no prescribed topography function.
 """
 struct NoTopography <: AnalyticalTopography end
 
-### DCMIP Mountain 
+### DCMIP Mountain
 """
     DCMIPMountain <: AnalyticalTopography
-Topography description based on standard DCMIP experiments. 
+Topography description based on standard DCMIP experiments.
 """
 struct DCMIPMountain <: AnalyticalTopography end
 function compute_analytical_topography(
@@ -1447,7 +1991,7 @@ function compute_analytical_topography(
     φ_m = 0
     λ_m = π * 3 / 2
     r_m = acos(sin(φ_m) * sin(ϕ) + cos(φ_m) * cos(ϕ) * cos(λ - λ_m))
-    # Define mesh decay profile 
+    # Define mesh decay profile
     Δ = (r_outer - abs(sR)) / (r_outer - r_inner)
     if r_m < R_m
         zs =
@@ -1464,15 +2008,15 @@ function compute_analytical_topography(
 end
 
 """
-    cubedshelltopowarp(a, b, c, R = max(abs(a), abs(b), abs(c)); 
+    cubedshelltopowarp(a, b, c, R = max(abs(a), abs(b), abs(c));
                        r_inner = _planet_radius,
                        r_outer = _planet_radius + domain_height,
                        topography = NoTopography())
 
 Given points `(a, b, c)` on the surface of a cube, warp the points out to a
 spherical shell of radius `R` based on the equiangular gnomonic grid proposed by
-[Ronchi1996](@cite). Assumes a user specified modified radius using the 
-compute_analytical_topography function. Defaults to smooth cubed sphere unless otherwise specified 
+[Ronchi1996](@cite). Assumes a user specified modified radius using the
+compute_analytical_topography function. Defaults to smooth cubed sphere unless otherwise specified
 via the AnalyticalTopography type.
 """
 function cubedshelltopowarp(
@@ -1528,7 +2072,7 @@ function cubedshelltopowarp(
         # ( *, *,-R) : Face VI from Ronchi, Iacono, Paolucci (1996)
         x3, x2, x1 = f(-R, b / c, a / c, faceid)
     else
-        error("invalid case for cubedshellwarp: $a, $b, $c")
+        error("invalid case for cubed_sphere_warp(::EquiangularCubedSphere): $a, $b, $c")
     end
 
     return x1, x2, x3

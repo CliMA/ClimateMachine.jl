@@ -121,7 +121,7 @@ function vars_atmos_gcm_default_simple_3d(atmos::AtmosModel, FT)
         moisture::vars_atmos_gcm_default_simple_3d(atmos.moisture, FT)
     end
 end
-vars_atmos_gcm_default_simple_3d(::MoistureModel, FT) = @vars()
+vars_atmos_gcm_default_simple_3d(::AbstractMoistureModel, FT) = @vars()
 function vars_atmos_gcm_default_simple_3d(m::EquilMoist, FT)
     @vars begin
         qt::FT                  # q_tot
@@ -174,7 +174,7 @@ function atmos_gcm_default_simple_3d_vars!(
     return nothing
 end
 function atmos_gcm_default_simple_3d_vars!(
-    ::MoistureModel,
+    ::AbstractMoistureModel,
     state_prognostic,
     thermo,
     vars,

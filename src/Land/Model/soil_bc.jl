@@ -103,22 +103,18 @@ function soil_boundary_state!(
     _...,
 )
     bc_function = bc.state_bc
-
+    param_set = parameter_set(land)
     ϑ_l, θ_i = get_water_content(land.soil.water, aux⁻, state⁻, t)
     θ_l = volumetric_liquid_fraction(ϑ_l, land.soil.param_functions.porosity)
     ρc_s = volumetric_heat_capacity(
         θ_l,
         θ_i,
         land.soil.param_functions.ρc_ds,
-        land.param_set,
+        param_set,
     )
 
-    ρe_int_bc = volumetric_internal_energy(
-        θ_i,
-        ρc_s,
-        bc_function(aux⁻, t),
-        land.param_set,
-    )
+    ρe_int_bc =
+        volumetric_internal_energy(θ_i, ρc_s, bc_function(aux⁻, t), param_set)
 
     state⁺.soil.heat.ρe_int = ρe_int_bc
 end
@@ -217,7 +213,7 @@ function soil_boundary_flux!(
 end
 
 
-# SurfaceDriven conditions for SoilWater
+# SurfaceDriven conditions for for SoilHeat and SoilWater
 
 """
     function soil_boundary_flux!(
@@ -265,4 +261,43 @@ function soil_boundary_flux!(
         t,
     )
 
+end
+
+"""
+    soil_boundary_flux!(
+        nf,
+        bc::SurfaceDrivenHeatBoundaryConditions,
+        heat::SoilHeatModel,
+        land::LandModel,
+        state⁺::Vars,
+        diff⁺::Vars,
+        aux⁺::Vars,
+        n̂,
+        state⁻::Vars,
+        diff⁻::Vars,
+        aux⁻::Vars,
+        t,
+    )
+
+The Surface Driven BC method for `soil_boundary_flux!` for the
+`SoilHeatModel`.
+"""
+function soil_boundary_flux!(
+    nf,
+    bc::SurfaceDrivenHeatBoundaryConditions,
+    heat::SoilHeatModel,
+    land::LandModel,
+    state⁺::Vars,
+    diff⁺::Vars,
+    aux⁺::Vars,
+    n̂,
+    state⁻::Vars,
+    diff⁻::Vars,
+    aux⁻::Vars,
+    t,
+    _...,
+)
+
+    net_surface_flux = compute_net_radiative_energy_flux(bc.nswf_model, t)
+    diff⁺.soil.heat.κ∇T = n̂ * (-net_surface_flux)
 end

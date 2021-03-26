@@ -5,68 +5,54 @@ using CLIMAParameters.Planet: T_freeze, cv_l
 using ..Microphysics_0M
 using ..Microphysics
 
+export RainSnow_1M
+export WarmRain_1M
+export Diffusion
 export Subsidence
-struct Subsidence{PV, FT} <: TendencyDef{Source, PV}
+export RemovePrecipitation
+
+struct Subsidence{FT} <: TendencyDef{Source}
     D::FT
 end
 
-# Subsidence includes tendencies in Mass, Energy and TotalMoisture equations:
-Subsidence(D::FT) where {FT} = (
-    Subsidence{Mass, FT}(D),
-    Subsidence{Energy, FT}(D),
-    Subsidence{TotalMoisture, FT}(D),
-)
+prognostic_vars(::Subsidence) = (Mass(), Energy(), TotalMoisture())
 
-subsidence_velocity(subsidence::Subsidence{PV, FT}, z::FT) where {PV, FT} =
+# Subsidence includes tendencies in Mass, Energy and TotalMoisture equations:
+
+subsidence_velocity(subsidence::Subsidence{FT}, z::FT) where {FT} =
     -subsidence.D * z
 
-struct PressureGradient{PV <: Momentum} <: TendencyDef{Flux{FirstOrder}, PV} end
-struct Pressure{PV <: Energy} <: TendencyDef{Flux{FirstOrder}, PV} end
+struct PressureGradient <: TendencyDef{Flux{FirstOrder}} end
+struct Pressure <: TendencyDef{Flux{FirstOrder}} end
+struct Advect <: TendencyDef{Flux{FirstOrder}} end
+struct Diffusion <: TendencyDef{Flux{SecondOrder}} end
+struct MoistureDiffusion <: TendencyDef{Flux{SecondOrder}} end
 
-struct Advect{PV} <: TendencyDef{Flux{FirstOrder}, PV} end
-export Diffusion
-struct Diffusion{PV} <: TendencyDef{Flux{SecondOrder}, PV} end
-
-struct MoistureDiffusion{PV <: Union{Mass, Momentum, Moisture}} <:
-       TendencyDef{Flux{SecondOrder}, PV} end
-
-export RemovePrecipitation
 """
-    RemovePrecipitation{PV} <: TendencyDef{Source, PV}
+    RemovePrecipitation <: TendencyDef{Source}
+
 A sink to `q_tot` when cloud condensate is exceeding a threshold.
 The threshold is defined either in terms of condensate or supersaturation.
 The removal rate is implemented as a relaxation term
 in the Microphysics_0M module.
 The default thresholds and timescale are defined in CLIMAParameters.jl.
 """
-struct RemovePrecipitation{PV <: Union{Mass, Energy, TotalMoisture}} <:
-       TendencyDef{Source, PV}
+struct RemovePrecipitation <: TendencyDef{Source}
     " Set to true if using qc based threshold"
     use_qc_thr::Bool
 end
 
-RemovePrecipitation(b::Bool) = (
-    RemovePrecipitation{Mass}(b),
-    RemovePrecipitation{Energy}(b),
-    RemovePrecipitation{TotalMoisture}(b),
-)
+prognostic_vars(::RemovePrecipitation) = (Mass(), Energy(), TotalMoisture())
 
 """
-    PrecipitationFlux{PV <: Union{Rain, Snow}} <: TendencyDef{Flux{FirstOrder}, PV}
+    PrecipitationFlux <: TendencyDef{Flux{FirstOrder}}
 
 Computes the precipitation flux as a sum of air velocity and terminal velocity
 multiplied by the advected variable.
 """
-struct PrecipitationFlux{PV <: Union{Rain, Snow}} <:
-       TendencyDef{Flux{FirstOrder}, PV} end
+struct PrecipitationFlux <: TendencyDef{Flux{FirstOrder}} end
 
-PrecipitationFlux() = (PrecipitationFlux{Rain}(), PrecipitationFlux{Snow}())
-
-function remove_precipitation_sources(
-    s::RemovePrecipitation{PV},
-    atmos,
-    args,
-) where {PV <: Union{Mass, Energy, TotalMoisture}}
+function remove_precipitation_sources(s::RemovePrecipitation, atmos, args)
     @unpack state, aux = args
     @unpack ts = args.precomputed
 
@@ -79,36 +65,28 @@ function remove_precipitation_sources(
     Φ::FT = gravitational_potential(atmos.orientation, aux)
 
     S_qt::FT = 0
+    param_set = parameter_set(atmos)
     if s.use_qc_thr
-        S_qt = remove_precipitation(atmos.param_set, q)
+        S_qt = remove_precipitation(param_set, q)
     else
         q_vap_sat = q_vap_saturation(ts)
-        S_qt = remove_precipitation(atmos.param_set, q, q_vap_sat)
+        S_qt = remove_precipitation(param_set, q, q_vap_sat)
     end
 
     S_e::FT = (λ * I_l + (1 - λ) * I_i + Φ) * S_qt
 
-    return (S_ρ_qt = state.ρ * S_qt, S_ρ_e = state.ρ * S_e)
+    return (; S_ρ_qt = state.ρ * S_qt, S_ρ_e = state.ρ * S_e)
 end
 
-export WarmRain_1M
 """
-    WarmRain_1M{PV <: Union{Mass, Energy, TotalMoisture, LiquidMoisture, Rain},
-        } <: TendencyDef{Source, PV}
+    WarmRain_1M <: TendencyDef{Source}
 
 A collection of source/sink terms related to 1-moment warm rain microphysics.
 """
-struct WarmRain_1M{
-    PV <: Union{Mass, Energy, TotalMoisture, LiquidMoisture, Rain},
-} <: TendencyDef{Source, PV} end
+struct WarmRain_1M <: TendencyDef{Source} end
 
-WarmRain_1M() = (
-    WarmRain_1M{Mass}(),
-    WarmRain_1M{Energy}(),
-    WarmRain_1M{TotalMoisture}(),
-    WarmRain_1M{LiquidMoisture}(),
-    WarmRain_1M{Rain}(),
-)
+prognostic_vars(::WarmRain_1M) =
+    (Mass(), Energy(), TotalMoisture(), LiquidMoisture(), Rain())
 
 function warm_rain_sources(atmos, args, ts)
     @unpack state, aux = args
@@ -120,22 +98,23 @@ function warm_rain_sources(atmos, args, ts)
     I_l::FT = internal_energy_liquid(ts)
     q_rai::FT = state.precipitation.ρq_rai / state.ρ
     Φ::FT = gravitational_potential(atmos.orientation, aux)
+    param_set = parameter_set(atmos)
 
     # autoconversion
-    src_q_rai_acnv = conv_q_liq_to_q_rai(atmos.param_set.microphys.rai, q.liq)
+    src_q_rai_acnv = conv_q_liq_to_q_rai(param_set.microphys.rai, q.liq)
     # accretion
     src_q_rai_accr = accretion(
-        atmos.param_set,
-        atmos.param_set.microphys.liq,
-        atmos.param_set.microphys.rai,
+        param_set,
+        param_set.microphys.liq,
+        param_set.microphys.rai,
         q.liq,
         q_rai,
         state.ρ,
     )
     # rain evaporation
     src_q_rai_evap = evaporation_sublimation(
-        atmos.param_set,
-        atmos.param_set.microphys.rai,
+        param_set,
+        param_set.microphys.rai,
         q,
         q_rai,
         state.ρ,
@@ -147,7 +126,7 @@ function warm_rain_sources(atmos, args, ts)
     S_qt::FT = -S_qr
     S_e::FT = S_qt * (I_l + Φ)
 
-    return (
+    return (;
         S_ρ_qt = state.ρ * S_qt,
         S_ρ_ql = state.ρ * S_ql,
         S_ρ_qr = state.ρ * S_qr,
@@ -155,30 +134,28 @@ function warm_rain_sources(atmos, args, ts)
     )
 end
 
-export RainSnow_1M
 """
-    RainSnow_1M{PV <: Union{Mass, Energy, Moisture, Rain, Snow}} <:
-       TendencyDef{Source, PV}
+    RainSnow_1M <: TendencyDef{Source}
 
 A collection of source/sink terms related to 1-moment rain and snow microphysics
 """
-struct RainSnow_1M{PV <: Union{Mass, Energy, Moisture, Rain, Snow}} <:
-       TendencyDef{Source, PV} end
+struct RainSnow_1M <: TendencyDef{Source} end
 
-RainSnow_1M() = (
-    RainSnow_1M{Mass}(),
-    RainSnow_1M{Energy}(),
-    RainSnow_1M{TotalMoisture}(),
-    RainSnow_1M{LiquidMoisture}(),
-    RainSnow_1M{IceMoisture}(),
-    RainSnow_1M{Rain}(),
-    RainSnow_1M{Snow}(),
+prognostic_vars(::RainSnow_1M) = (
+    Mass(),
+    Energy(),
+    TotalMoisture(),
+    LiquidMoisture(),
+    IceMoisture(),
+    Rain(),
+    Snow(),
 )
 
 function rain_snow_sources(atmos, args, ts)
     @unpack state, aux = args
 
     FT = eltype(state)
+    param_set = parameter_set(atmos)
 
     q_rai::FT = state.precipitation.ρq_rai / state.ρ
     q_sno::FT = state.precipitation.ρq_sno / state.ρ
@@ -188,9 +165,9 @@ function rain_snow_sources(atmos, args, ts)
     I_v::FT = internal_energy_vapor(ts)
     I_l::FT = internal_energy_liquid(ts)
     I_i::FT = internal_energy_ice(ts)
-    _T_freeze::FT = T_freeze(atmos.param_set)
+    _T_freeze::FT = T_freeze(param_set)
     _L_f::FT = latent_heat_fusion(ts)
-    _cv_l::FT = cv_l(atmos.param_set)
+    _cv_l::FT = cv_l(param_set)
     Φ::FT = gravitational_potential(atmos.orientation, aux)
 
     # temporary vars for summming different source terms
@@ -202,28 +179,22 @@ function rain_snow_sources(atmos, args, ts)
     S_e::FT = FT(0)
 
     # source of rain via autoconversion
-    tmp = conv_q_liq_to_q_rai(atmos.param_set.microphys.rai, q.liq)
+    tmp = conv_q_liq_to_q_rai(param_set.microphys.rai, q.liq)
     S_qr += tmp
     S_ql -= tmp
     S_e -= tmp * (I_l + Φ)
 
     # source of snow via autoconversion
-    tmp = conv_q_ice_to_q_sno(
-        atmos.param_set,
-        atmos.param_set.microphys.ice,
-        q,
-        state.ρ,
-        T,
-    )
+    tmp = conv_q_ice_to_q_sno(param_set, param_set.microphys.ice, q, state.ρ, T)
     S_qs += tmp
     S_qi -= tmp
     S_e -= tmp * (I_i + Φ)
 
     # source of rain water via accretion cloud water - rain
     tmp = accretion(
-        atmos.param_set,
-        atmos.param_set.microphys.liq,
-        atmos.param_set.microphys.rai,
+        param_set,
+        param_set.microphys.liq,
+        param_set.microphys.rai,
         q.liq,
         q_rai,
         state.ρ,
@@ -234,9 +205,9 @@ function rain_snow_sources(atmos, args, ts)
 
     # source of snow via accretion cloud ice - snow
     tmp = accretion(
-        atmos.param_set,
-        atmos.param_set.microphys.ice,
-        atmos.param_set.microphys.sno,
+        param_set,
+        param_set.microphys.ice,
+        param_set.microphys.sno,
         q.ice,
         q_sno,
         state.ρ,
@@ -247,9 +218,9 @@ function rain_snow_sources(atmos, args, ts)
 
     # sink of cloud water via accretion cloud water - snow
     tmp = accretion(
-        atmos.param_set,
-        atmos.param_set.microphys.liq,
-        atmos.param_set.microphys.sno,
+        param_set,
+        param_set.microphys.liq,
+        param_set.microphys.sno,
         q.liq,
         q_sno,
         state.ρ,
@@ -268,18 +239,18 @@ function rain_snow_sources(atmos, args, ts)
 
     # sink of cloud ice via accretion cloud ice - rain
     tmp1 = accretion(
-        atmos.param_set,
-        atmos.param_set.microphys.ice,
-        atmos.param_set.microphys.rai,
+        param_set,
+        param_set.microphys.ice,
+        param_set.microphys.rai,
         q.ice,
         q_rai,
         state.ρ,
     )
     # sink of rain via accretion cloud ice - rain
     tmp2 = accretion_rain_sink(
-        atmos.param_set,
-        atmos.param_set.microphys.ice,
-        atmos.param_set.microphys.rai,
+        param_set,
+        param_set.microphys.ice,
+        param_set.microphys.rai,
         q.ice,
         q_rai,
         state.ρ,
@@ -293,9 +264,9 @@ function rain_snow_sources(atmos, args, ts)
     # accretion rain - snow
     if T < _T_freeze
         tmp = accretion_snow_rain(
-            atmos.param_set,
-            atmos.param_set.microphys.sno,
-            atmos.param_set.microphys.rai,
+            param_set,
+            param_set.microphys.sno,
+            param_set.microphys.rai,
             q_sno,
             q_rai,
             state.ρ,
@@ -305,9 +276,9 @@ function rain_snow_sources(atmos, args, ts)
         S_e += tmp * _L_f
     else
         tmp = accretion_snow_rain(
-            atmos.param_set,
-            atmos.param_set.microphys.rai,
-            atmos.param_set.microphys.sno,
+            param_set,
+            param_set.microphys.rai,
+            param_set.microphys.sno,
             q_rai,
             q_sno,
             state.ρ,
@@ -319,8 +290,8 @@ function rain_snow_sources(atmos, args, ts)
 
     # rain evaporation sink (it already has negative sign for evaporation)
     tmp = evaporation_sublimation(
-        atmos.param_set,
-        atmos.param_set.microphys.rai,
+        param_set,
+        param_set.microphys.rai,
         q,
         q_rai,
         state.ρ,
@@ -331,8 +302,8 @@ function rain_snow_sources(atmos, args, ts)
 
     # snow sublimation/deposition source/sink
     tmp = evaporation_sublimation(
-        atmos.param_set,
-        atmos.param_set.microphys.sno,
+        param_set,
+        param_set.microphys.sno,
         q,
         q_sno,
         state.ρ,
@@ -342,13 +313,7 @@ function rain_snow_sources(atmos, args, ts)
     S_e -= tmp * (I_i + Φ)
 
     # snow melt
-    tmp = snow_melt(
-        atmos.param_set,
-        atmos.param_set.microphys.sno,
-        q_sno,
-        state.ρ,
-        T,
-    )
+    tmp = snow_melt(param_set, param_set.microphys.sno, q_sno, state.ρ, T)
     S_qs -= tmp
     S_qr += tmp
     S_e -= tmp * _L_f
@@ -356,7 +321,7 @@ function rain_snow_sources(atmos, args, ts)
     # total qt sink is the sum of precip sources
     S_qt = -S_qr - S_qs
 
-    return (
+    return (;
         S_ρ_qt = state.ρ * S_qt,
         S_ρ_ql = state.ρ * S_ql,
         S_ρ_qi = state.ρ * S_qi,

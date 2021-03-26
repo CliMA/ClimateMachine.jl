@@ -33,16 +33,17 @@ function mixing_length(
 ) where {FT}
     @unpack state, aux, diffusive, t = args
     # TODO: use functions: obukhov_length, ustar, ϕ_m
-
+    turbconv = turbconv_model(m)
     # Alias convention:
     gm = state
     en = state.turbconv.environment
     up = state.turbconv.updraft
     gm_aux = aux
-    N_up = n_updrafts(m.turbconv)
+    N_up = n_updrafts(turbconv)
 
     z = altitude(m, aux)
-    _grav::FT = grav(m.param_set)
+    param_set = parameter_set(m)
+    _grav::FT = grav(param_set)
     ρinv = 1 / gm.ρ
 
     Shear² = diffusive.turbconv.S²
@@ -50,8 +51,8 @@ function mixing_length(
 
     # buoyancy related functions
     # compute obukhov_length and ustar from SurfaceFlux.jl here
-    ustar = m.turbconv.surface.ustar
-    obukhov_length = m.turbconv.surface.obukhov_length
+    ustar = turbconv.surface.ustar
+    obukhov_length = turbconv.surface.obukhov_length
 
     ∂b∂z, Nˢ_eff = compute_buoyancy_gradients(m, args, ts_gm, ts_en)
     Grad_Ri = ∇Richardson_number(∂b∂z, Shear², 1 / ml.max_length, ml.Ri_c)
@@ -64,9 +65,9 @@ function mixing_length(
 
     # compute L2 - law of the wall
     # TODO: use zLL from altitude
-    surf_vals = subdomain_surface_values(m, gm, gm_aux, m.turbconv.surface.zLL)
+    surf_vals = subdomain_surface_values(m, gm, gm_aux, turbconv.surface.zLL)
 
-    L_W = ml.κ * max(z, 5) / (sqrt(m.turbconv.surface.κ_star²) * ml.c_m)
+    L_W = ml.κ * max(z, 5) / (sqrt(turbconv.surface.κ_star²) * ml.c_m)
     if obukhov_length < -eps(FT)
         L_W *= min((FT(1) - ml.a2 * z / obukhov_length)^ml.a1, 1 / ml.κ)
     end

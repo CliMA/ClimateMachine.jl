@@ -107,10 +107,10 @@ function init_squall_line!(problem, bl, state, aux, localgeo, t, args...)
         state.moisture.ρq_ice = FT(0)
     end
 
-    if bl.precipitation isa RainModel
+    if precipitation_model(bl) isa RainModel
         state.precipitation.ρq_rai = FT(0)
     end
-    if bl.precipitation isa RainSnowModel
+    if precipitation_model(bl) isa RainSnowModel
         state.precipitation.ρq_rai = FT(0)
         state.precipitation.ρq_sno = FT(0)
     end
@@ -226,7 +226,7 @@ function config_squall_line(
     u_relaxation = SVector(FT(0), FT(0), FT(0))
     zsponge = FT(15000.0)
     rayleigh_sponge =
-        RayleighSponge(FT, zmax, zsponge, c_sponge, u_relaxation, 2)
+        RayleighSponge{FT}(zmax, zsponge, c_sponge, u_relaxation, 2)
 
     # Boundary conditions
     # SGS Filter constants
@@ -240,9 +240,9 @@ function config_squall_line(
 
     # moisture model and its sources
     if moisture_model == "equilibrium"
-        moisture = EquilMoist{FT}(; maxiter = 20, tolerance = FT(1))
+        moisture = EquilMoist(; maxiter = 20, tolerance = FT(1))
     elseif moisture_model == "nonequilibrium"
-        source = (source..., CreateClouds()...)
+        source = (source..., CreateClouds())
         moisture = NonEquilMoist()
     else
         @warn @sprintf(
@@ -250,19 +250,19 @@ function config_squall_line(
 %s: unrecognized moisture_model in source terms, using the defaults""",
             moisture_model,
         )
-        source = (source..., CreateClouds()...)
+        source = (source..., CreateClouds())
         moisture = NonEquilMoist()
     end
 
     # precipitation model and its sources
     if precipitation_model == "noprecipitation"
         precipitation = NoPrecipitation()
-        source = (source..., RemovePrecipitation(true)...)
+        source = (source..., RemovePrecipitation(true))
     elseif precipitation_model == "rain"
-        source = (source..., WarmRain_1M()...)
+        source = (source..., WarmRain_1M())
         precipitation = RainModel()
     elseif precipitation_model == "rainsnow"
-        source = (source..., RainSnow_1M()...)
+        source = (source..., RainSnow_1M())
         precipitation = RainSnowModel()
     else
         @warn @sprintf(
@@ -270,7 +270,7 @@ function config_squall_line(
 %s: unrecognized precipitation_model in source terms, using the defaults""",
             precipitation_model,
         )
-        source = (source..., RainSnow_1M()...)
+        source = (source..., RainSnow_1M())
         precipitation = RainSnowModel()
     end
 

@@ -17,6 +17,7 @@ using ..Checkpoint
 using ..SystemSolvers
 using ..ConfigTypes
 using ..Diagnostics
+using ..DiagnosticsMachine
 using ..DGMethods
 using ..BalanceLaws
 using ..DGMethods: remainder_DGModel, SpaceDiscretization
@@ -56,6 +57,7 @@ end
 Base.@kwdef mutable struct ClimateMachine_Settings
     disable_gpu::Bool = false
     show_updates::String = "60secs"
+    start_datetime::DateTime = DateTime(2000, 1, 1, 12)
     diagnostics::String = "never"
     no_overwrite::Bool = false
     vtk::String = "never"
@@ -66,6 +68,7 @@ Base.@kwdef mutable struct ClimateMachine_Settings
     checkpoint::String = "never"
     checkpoint_keep_one::Bool = true
     checkpoint_at_end::Bool = false
+    checkpoint_on_crash::Bool = false
     checkpoint_dir::String = "checkpoint"
     restart_from_num::Int = -1
     fix_rng_seed::Bool = false
@@ -99,6 +102,16 @@ line, from an environment variable, or from experiment code) after
 array_type() = Settings.array_type
 
 """
+    ClimateMachine.datetime(solver::AbstractODESolver)
+
+Return the current simulation date and time.
+"""
+function datetime(solver::AbstractODESolver)
+    simtime = gettime(solver)
+    return Settings.start_datetime + Second(round(Int, simtime))
+end
+
+"""
     get_setting(setting_name::Symbol, settings, defaults)
 
 Define fallback behavior for driver settings, first accessing overloaded
@@ -120,7 +133,8 @@ function get_setting(setting_name::Symbol, settings, defaults)
         if setting_type == String
             v = env_val
         elseif setting_type == NTuple{2, Int} ||
-               setting_type == NTuple{3, Float64}
+               setting_type == NTuple{3, Float64} ||
+               setting_type == DateTime
             v = ArgParse.parse_item(setting_type, env_val)
         else
             v = tryparse(setting_type, env_val)
@@ -201,6 +215,11 @@ function parse_commandline(
         metavar = "<interval>"
         arg_type = String
         default = get_setting(:show_updates, defaults, global_defaults)
+        "--start-datetime"
+        help = "specify simulation start date/time as 'yyyy-mm-ddTHH:MM:SS'"
+        metavar = "<date/time>"
+        arg_type = DateTime
+        default = get_setting(:start_datetime, defaults, global_defaults)
         "--diagnostics"
         help = "interval at which to collect diagnostics"
         metavar = "<interval>"
@@ -254,6 +273,11 @@ function parse_commandline(
         action = :store_const
         constant = true
         default = get_setting(:checkpoint_at_end, defaults, global_defaults)
+        "--checkpoint-on-crash"
+        help = "create a checkpoint on a kernel crash (hurts performance!)"
+        action = :store_const
+        constant = true
+        default = get_setting(:checkpoint_on_crash, defaults, global_defaults)
         "--checkpoint-dir"
         help = "the directory in which to store checkpoints"
         metavar = "<path>"
@@ -380,6 +404,8 @@ Recognized keyword arguments are:
         do not use the GPU
 - `show_updates::String = "60secs"`:
         interval at which to show simulation updates
+- `start_datetime::DateTime = DateTime(2000, 1, 1, 12)`:
+        date/time at which the simulation starts
 - `diagnostics::String = "never"`:
         interval at which to collect diagnostics"
 - `no_overwrite::Bool = false`:
@@ -397,9 +423,11 @@ Recognized keyword arguments are:
 - `checkpoint::String = "never"`:
         interval at which to write a checkpoint
 - `checkpoint_keep_one::Bool = true`: (interval)
-        keep all checkpoints (instead of just the most recent)"
+        keep all checkpoints (instead of just the most recent)
 - `checkpoint_at_end::Bool = false`:
         create a checkpoint at the end of the simulation
+- `checkpoint_on_crash::Bool = false`:
+    create a checkpoint on a kernel crash (hurts performance!)
 - `checkpoint_dir::String = "checkpoint"`:
         absolute or relative path to checkpoint directory
 - `restart_from_num::Int = -1`:
@@ -663,7 +691,9 @@ function invoke!(
         if Settings.diagnostics != "never" || Settings.vtk != "never"
             mkpath(Settings.output_dir)
         end
-        if Settings.checkpoint != "never" || Settings.checkpoint_at_end
+        if Settings.checkpoint != "never" ||
+           Settings.checkpoint_at_end ||
+           Settings.checkpoint_on_crash
             mkpath(Settings.checkpoint_dir)
         end
     end
@@ -686,6 +716,15 @@ function invoke!(
     if Settings.diagnostics != "never" && !isnothing(diagnostics_config)
         dgn_starttime = replace(string(now()), ":" => ".")
         Diagnostics.init(
+            mpicomm,
+            solver_config.param_set,
+            dg,
+            Q,
+            dgn_starttime,
+            Settings.output_dir,
+            Settings.no_overwrite,
+        )
+        DiagnosticsMachine.init(
             mpicomm,
             solver_config.param_set,
             dg,
@@ -776,15 +815,28 @@ function invoke!(
     )
 
     # run the simulation
-    @tic solve!
-    solve!(
-        Q,
-        solver;
-        timeend = timeend,
-        callbacks = callbacks,
-        adjustfinalstep = adjustfinalstep,
-    )
-    @toc solve!
+    try
+        @tic solve!
+        solve!(
+            Q,
+            solver;
+            timeend = timeend,
+            callbacks = callbacks,
+            adjustfinalstep = adjustfinalstep,
+        )
+        @toc solve!
+    catch exc
+        if Settings.checkpoint_on_crash
+            Callbacks.write_checkpoint(
+                solver_config,
+                Settings.checkpoint_dir,
+                solver_config.name,
+                mpicomm,
+                solver_config.numberofsteps,
+            )
+        end
+        rethrow()
+    end
 
     # write end checkpoint if requested
     if Settings.checkpoint_at_end

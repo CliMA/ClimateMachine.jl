@@ -3,7 +3,8 @@ export LandDomainBC,
     Dirichlet,
     Neumann,
     NoBC,
-    SurfaceDrivenWaterBoundaryConditions
+    SurfaceDrivenWaterBoundaryConditions,
+    SurfaceDrivenHeatBoundaryConditions
 
 """
    AbstractBoundaryConditions 
@@ -54,7 +55,6 @@ struct Neumann{Ff} <: AbstractBoundaryConditions
     scalar_flux_bc::Ff
 end
 
-
 """
     SurfaceDrivenWaterBoundaryConditions{FT, PD, RD} <: AbstractBoundaryConditions
 
@@ -72,7 +72,6 @@ struct SurfaceDrivenWaterBoundaryConditions{FT, PD, RD} <:
     "Runoff model"
     runoff_model::RD
 end
-
 
 """
     SurfaceDrivenWaterBoundaryConditions(
@@ -95,6 +94,42 @@ function SurfaceDrivenWaterBoundaryConditions(
     return SurfaceDrivenWaterBoundaryConditions{FT, typeof.(args)...}(args...)
 end
 
+"""
+    SurfaceDrivenHeatBoundaryConditions{FT, SWD} <: AbstractBoundaryConditions
+
+Boundary condition type to be used when the user wishes to 
+apply physical fluxes of heat at the top of the domain 
+(according to radiative energy fluxes).
+
+# Fields
+$(DocStringExtensions.FIELDS)
+"""
+struct SurfaceDrivenHeatBoundaryConditions{FT, SWD} <:
+       AbstractBoundaryConditions where {FT, SWD}
+    "Net short wave flux model"
+    nswf_model::SWD
+end
+
+"""
+    SurfaceDrivenHeatBoundaryConditions(
+        ::Type{FT};
+        nswf_model::AbstractNetSwFluxModel{FT} = PrescribedNetSwFlux{FT}()
+    ) where {FT}
+
+Constructor for the SurfaceDrivenHeatBoundaryConditions object. The default
+is no shortwave flux.
+"""
+function SurfaceDrivenHeatBoundaryConditions(
+    ::Type{FT};
+    nswf_model::AbstractNetSwFluxModel{FT} = PrescribedNetSwFlux(
+        FT;
+        nswf = t -> eltype(t)(0),
+    ),
+) where {FT}
+    return SurfaceDrivenHeatBoundaryConditions{FT, typeof(nswf_model)}(
+        nswf_model,
+    )
+end
 
 """
     LandDomainBC{TBC, BBC, LBC}
@@ -133,7 +168,6 @@ Base.@kwdef struct LandComponentBC{
     soil_heat::SH = NoBC()
 end
 
-
 """
     function boundary_conditions(land::LandModel)
 
@@ -147,8 +181,6 @@ function boundary_conditions(land::LandModel)
     # faces labeled integer 1,2,3 are bottom, top, lateral sides.
     return mytuple
 end
-
-
 
 function boundary_state!(
     nf,
@@ -176,12 +208,10 @@ function boundary_state!(
     )
 end
 
-
 function land_boundary_state!(nf, bc::LandComponentBC, land, args...)
     soil_boundary_state!(nf, bc.soil_water, land.soil.water, land, args...)
     soil_boundary_state!(nf, bc.soil_heat, land.soil.heat, land, args...)
 end
-
 
 function boundary_state!(
     nf,
@@ -189,10 +219,12 @@ function boundary_state!(
     land::LandModel,
     state⁺::Vars,
     diff⁺::Vars,
+    hyperdiff⁺::Vars,
     aux⁺::Vars,
     n,
     state⁻,
     diff⁻,
+    hyperdiff⁻,
     aux⁻,
     t,
     args...,
@@ -212,7 +244,6 @@ function boundary_state!(
         args...,
     )
 end
-
 
 function land_boundary_flux!(nf, bc::LandComponentBC, land, args...)
     soil_boundary_flux!(nf, bc.soil_water, land.soil.water, land, args...)

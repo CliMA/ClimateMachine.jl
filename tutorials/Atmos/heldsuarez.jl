@@ -34,7 +34,7 @@ using ClimateMachine.TurbulenceClosures
 using ClimateMachine.VariableTemplates
 using ClimateMachine.BalanceLaws
 
-import ClimateMachine.BalanceLaws: source
+import ClimateMachine.BalanceLaws: source, prognostic_vars
 
 # [ClimateMachine parameters](https://github.com/CliMA/CLIMAParameters.jl) are
 # needed to have access to Earth's physical parameters.
@@ -46,16 +46,14 @@ struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet();
 
 """
-    HeldSuarezForcingTutorial{PV <: Union{Momentum,Energy}} <: TendencyDef{Source, PV}
+    HeldSuarezForcingTutorial <: TendencyDef{Source}
 
 Defines a forcing that parametrises radiative and frictional effects using
 Newtonian relaxation and Rayleigh friction, following Held and Suarez (1994)
 """
-struct HeldSuarezForcingTutorial{PV <: Union{Momentum, Energy}} <:
-       TendencyDef{Source, PV} end
+struct HeldSuarezForcingTutorial <: TendencyDef{Source} end
 
-HeldSuarezForcingTutorial() =
-    (HeldSuarezForcingTutorial{Momentum}(), HeldSuarezForcingTutorial{Energy}())
+prognostic_vars(::HeldSuarezForcingTutorial) = (Momentum(), Energy())
 
 function held_suarez_forcing_coefficients(bl, args)
     @unpack state, aux = args
@@ -64,12 +62,13 @@ function held_suarez_forcing_coefficients(bl, args)
 
     ## Parameters
     T_ref = FT(255)
+    param_set = parameter_set(bl)
 
-    _R_d = FT(R_d(bl.param_set))
-    _day = FT(day(bl.param_set))
-    _grav = FT(grav(bl.param_set))
-    _cp_d = FT(cp_d(bl.param_set))
-    _p0 = FT(MSLP(bl.param_set))
+    _R_d = FT(R_d(param_set))
+    _day = FT(day(param_set))
+    _grav = FT(grav(param_set))
+    _cp_d = FT(cp_d(param_set))
+    _p0 = FT(MSLP(param_set))
 
     ## Held-Suarez parameters
     k_a = FT(1 / (40 * _day))
@@ -98,21 +97,22 @@ function held_suarez_forcing_coefficients(bl, args)
     return (k_v = k_v, k_T = k_T, T_equil = T_equil)
 end
 
-function source(s::HeldSuarezForcingTutorial{Energy}, m, args)
+function source(::Energy, s::HeldSuarezForcingTutorial, atmos, args)
     @unpack state = args
     FT = eltype(state)
     @unpack ts = args.precomputed
-    nt = held_suarez_forcing_coefficients(m, args)
-    _cv_d = FT(cv_d(m.param_set))
+    nt = held_suarez_forcing_coefficients(atmos, args)
+    param_set = parameter_set(atmos)
+    _cv_d = FT(cv_d(param_set))
     @unpack k_T, T_equil = nt
     T = air_temperature(ts)
     return -k_T * state.ρ * _cv_d * (T - T_equil)
 end
 
-function source(s::HeldSuarezForcingTutorial{Momentum}, m, args)
+function source(::Momentum, s::HeldSuarezForcingTutorial, atmos, args)
     @unpack state, aux = args
-    nt = held_suarez_forcing_coefficients(m, args)
-    return -nt.k_v * projection_tangential(m, aux, state.ρu)
+    nt = held_suarez_forcing_coefficients(atmos, args)
+    return -nt.k_v * projection_tangential(atmos, aux, state.ρu)
 end
 
 
@@ -172,7 +172,7 @@ z_sponge = FT(12e3)                    # height at which sponge begins (m)
 α_relax = FT(1 / 60 / 15)              # sponge relaxation rate (1/s)
 exponent = FT(2)                       # sponge exponent for squared-sinusoid profile
 u_relax = SVector(FT(0), FT(0), FT(0)) # relaxation velocity (m/s)
-sponge = RayleighSponge(FT, domain_height, z_sponge, α_relax, u_relax, exponent);
+sponge = RayleighSponge{FT}(domain_height, z_sponge, α_relax, u_relax, exponent);
 
 # ## Set up turbulence models
 # In order to produce a stable simulation, we need to dissipate energy and
@@ -195,7 +195,7 @@ model = AtmosModel{FT}(
     turbulence = turbulence_model,
     hyperdiffusion = hyperdiffusion_model,
     moisture = DryModel(),
-    source = (Gravity(), Coriolis(), HeldSuarezForcingTutorial()..., sponge),
+    source = (Gravity(), Coriolis(), HeldSuarezForcingTutorial(), sponge),
 );
 
 # This concludes the setup of the physical model!

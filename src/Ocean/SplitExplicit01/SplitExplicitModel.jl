@@ -48,6 +48,7 @@ import ...BalanceLaws:
     flux_second_order!,
     source!,
     wavespeed,
+    parameter_set,
     boundary_conditions,
     boundary_state!,
     update_auxiliary_state!,

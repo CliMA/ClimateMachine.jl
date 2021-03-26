@@ -42,8 +42,8 @@ function init_state_prognostic!(
     # SCM setting - need to have separate cases coded and called from a folder - see what LES does
     # a thermo state is used here to convert the input θ to e_int profile
     e_int = internal_energy(m, state, aux)
-
-    ts = PhaseDry(m.param_set, e_int, state.ρ)
+    param_set = parameter_set(m)
+    ts = PhaseDry(param_set, e_int, state.ρ)
     T = air_temperature(ts)
     p = air_pressure(ts)
     q = PhasePartition(ts)
@@ -106,7 +106,7 @@ function main(::Type{FT}, cl_args) where {FT}
 
     N_updrafts = 1
     N_quad = 3 # Using N_quad = 1 leads to norm(Q) = NaN at init.
-    turbconv = EDMF(FT, N_updrafts, N_quad)
+    turbconv = EDMF(FT, N_updrafts, N_quad, param_set)
 
     model = stable_bl_model(
         FT,

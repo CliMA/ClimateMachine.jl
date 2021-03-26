@@ -1,7 +1,7 @@
 using ClimateMachine
 using ClimateMachine.ConfigTypes
 using ClimateMachine.Mesh.Topologies:
-    StackedCubedSphereTopology, cubedshellwarp, grid1d
+    StackedCubedSphereTopology, equiangular_cubed_sphere_warp, grid1d
 using ClimateMachine.Mesh.Grids:
     DiscontinuousSpectralElementGrid, VerticalDirection
 using ClimateMachine.Mesh.Filters
@@ -27,7 +27,8 @@ using ClimateMachine.Atmos:
     vars_state,
     Gravity,
     HydrostaticState,
-    AtmosAcousticGravityLinearModel
+    AtmosAcousticGravityLinearModel,
+    parameter_set
 using ClimateMachine.TurbulenceClosures
 using ClimateMachine.Orientations:
     SphericalOrientation, gravitational_potential, altitude, latitude, longitude
@@ -106,7 +107,7 @@ function test_run(
         FloatType = FT,
         DeviceArray = ArrayType,
         polynomialorder = polynomialorder,
-        meshwarp = cubedshellwarp,
+        meshwarp = equiangular_cubed_sphere_warp,
     )
 
     T_profile = IsothermalProfile(param_set, setup.T_ref)
@@ -116,7 +117,6 @@ function test_run(
         AtmosGCMConfigType,
         param_set;
         init_state_prognostic = setup,
-        orientation = SphericalOrientation(),
         ref_state = HydrostaticState(T_profile),
         turbulence = ConstantDynamicViscosity(FT(0)),
         moisture = DryModel(),
@@ -146,7 +146,7 @@ function test_run(
 
     # determine the time step
     element_size = (setup.domain_height / numelem_vert)
-    acoustic_speed = soundspeed_air(model.param_set, FT(setup.T_ref))
+    acoustic_speed = soundspeed_air(param_set, FT(setup.T_ref))
     dt_factor = 445
     Nmax = maximum(polynomialorder)
     dt = dt_factor * element_size / acoustic_speed / Nmax^2
@@ -248,6 +248,7 @@ end
 function (setup::AcousticWaveSetup)(problem, bl, state, aux, localgeo, t)
     # callable to set initial conditions
     FT = eltype(state)
+    param_set = parameter_set(bl)
 
     λ = longitude(bl, aux)
     φ = latitude(bl, aux)
@@ -259,7 +260,7 @@ function (setup::AcousticWaveSetup)(problem, bl, state, aux, localgeo, t)
     Δp = setup.γ * f * g
     p = aux.ref_state.p + Δp
 
-    ts = PhaseDry_pT(bl.param_set, p, setup.T_ref)
+    ts = PhaseDry_pT(param_set, p, setup.T_ref)
     q_pt = PhasePartition(ts)
     e_pot = gravitational_potential(bl.orientation, aux)
     e_int = internal_energy(ts)

@@ -17,6 +17,7 @@ import ..BalanceLaws:
     flux_second_order!,
     source!,
     boundary_conditions,
+    parameter_set,
     boundary_state!,
     compute_gradient_argument!,
     compute_gradient_flux!,
@@ -58,6 +59,8 @@ struct LandModel{PS, S, LBC, SRC, IS} <: BalanceLaw
     "Initial Condition (Function to assign initial values of state variables)"
     init_state_prognostic::IS
 end
+
+parameter_set(m::LandModel) = m.param_set
 
 """
     LandModel(
@@ -217,6 +220,8 @@ function init_state_prognostic!(
     land.init_state_prognostic(land, state, aux, coords, t, args...)
 end
 
+include("RadiativeEnergyFlux.jl")
+using .RadiativeEnergyFlux
 include("SoilWaterParameterizations.jl")
 using .SoilWaterParameterizations
 include("SoilHeatParameterizations.jl")

@@ -13,7 +13,7 @@ BalanceLaw
 ## Tendency types and methods
 
 ```@docs
-PrognosticVariable
+AbstractPrognosticVariable
 AbstractOrder
 FirstOrder
 SecondOrder
@@ -25,8 +25,7 @@ eq_tends
 prognostic_vars
 projection
 precompute
-fluxes
-sources
+prognostic_var_source_map
 show_tendencies
 ```
 

@@ -164,6 +164,7 @@ function solversetup(
         state_gradient_flux = dg.state_gradient_flux,
         states_higher_order = dg.states_higher_order,
         direction = VerticalDirection(),
+        check_for_crashes = dg.check_for_crashes,
     )
 
     if ode_solver.split_explicit_implicit

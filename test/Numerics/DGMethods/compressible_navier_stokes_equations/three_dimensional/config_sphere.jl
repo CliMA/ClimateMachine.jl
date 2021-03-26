@@ -38,12 +38,13 @@ function Config(
         FloatType = FT,
         DeviceArray = ArrayType,
         polynomialorder = resolution.N + Nover,
-        meshwarp = cubedshellwarp,
+        meshwarp = equiangular_cubed_sphere_warp,
     )
 
     model = CNSE3D{FT}(
         nothing,
         (domain.min_height, domain.max_height),
+        ClimateMachine.Orientations.SphericalOrientation(),
         NonLinearAdvectionTerm(),
         ConstantViscosity{FT}(μ = params.μ, ν = params.ν, κ = params.κ),
         nothing,

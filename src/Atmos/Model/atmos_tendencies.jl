@@ -6,137 +6,110 @@
 ##### Sources
 #####
 
-# Diagonalize sources: only add sources that correspond to correct equation
-diag_source(pv::PV, m::AtmosModel, s::TendencyDef{Source, PV}) where {PV} = s
-diag_source(pv, m, s) = nothing
-
-# Filter sources / empty elements
-filter_sources(t::Tuple) = filter(x -> !(x == nothing), t)
-filter_sources(pv::PrognosticVariable, m, srcs) =
-    filter_sources(map(s -> diag_source(pv, m, s), srcs))
-
-# Entry point
-eq_tends(pv::PrognosticVariable, m::AtmosModel, tt::Source) =
-    (filter_sources(pv, m, m.source)..., eq_tends(pv, m.turbconv, tt)...)
-# ---------
+eq_tends(pv::AbstractPrognosticVariable, m::AtmosModel, tt::Source) =
+    (m.source[pv]..., eq_tends(pv, turbconv_model(m), tt)...)
 
 #####
 ##### First order fluxes
 #####
 
-eq_tends(pv::PV, ::Anelastic1D, ::Flux{FirstOrder}) where {PV <: Mass} = ()
+eq_tends(::Mass, ::Anelastic1D, ::Flux{FirstOrder}) = ()
 
-eq_tends(pv::PV, ::Compressible, ::Flux{FirstOrder}) where {PV <: Mass} =
-    (Advect{PV}(),)
+eq_tends(::Mass, ::Compressible, ::Flux{FirstOrder}) = (Advect(),)
 
 # Mass
-eq_tends(pv::PV, atmos::AtmosModel, tt::Flux{FirstOrder}) where {PV <: Mass} =
-    (eq_tends(pv, atmos.compressibility, tt))
+eq_tends(pv::Mass, atmos::AtmosModel, tt::Flux{FirstOrder}) =
+    (eq_tends(pv, compressibility_model(atmos), tt))
 
 # Momentum
-eq_tends(pv::PV, ::Compressible, ::Flux{FirstOrder}) where {PV <: Momentum} =
-    (PressureGradient{PV}(),)
+eq_tends(pv::Momentum, ::Compressible, ::Flux{FirstOrder}) =
+    (PressureGradient(),)
 
-eq_tends(pv::PV, ::Anelastic1D, ::Flux{FirstOrder}) where {PV <: Momentum} = ()
+eq_tends(pv::Momentum, ::Anelastic1D, ::Flux{FirstOrder}) = ()
 
-eq_tends(pv::PV, m::AtmosModel, tt::Flux{FirstOrder}) where {PV <: Momentum} =
-    (Advect{PV}(), eq_tends(pv, m.compressibility, tt)...)
+eq_tends(pv::Momentum, m::AtmosModel, tt::Flux{FirstOrder}) =
+    (Advect(), eq_tends(pv, compressibility_model(m), tt)...)
 
 # Energy
-eq_tends(pv::PV, m::EnergyModel, tt::Flux{FirstOrder}) where {PV <: Energy} =
-    (Advect{PV}(), Pressure{PV}())
+eq_tends(::Energy, m::TotalEnergyModel, tt::Flux{FirstOrder}) =
+    (Advect(), Pressure())
 
-eq_tends(pv::PV, m::θModel, tt::Flux{FirstOrder}) where {PV <: ρθ_liq_ice} =
-    (Advect{PV}(),)
+eq_tends(::ρθ_liq_ice, m::θModel, tt::Flux{FirstOrder}) = (Advect(),)
 
 # TODO: make radiation aware of which energy formulation is used:
-# eq_tends(pv::PV, m::AtmosModel, tt::Flux{FirstOrder}) where {PV <: AbstractEnergy} =
-#     (eq_tends(pv, m.energy, tt)..., eq_tends(pv, m.energy, m.radiation, tt)...)
+# eq_tends(pv::PV, m::AtmosModel, tt::Flux{FirstOrder}) where {PV <: AbstractEnergyVariable} =
+#     (eq_tends(pv, m.energy, tt)..., eq_tends(pv, m.energy, radiation_model(m), tt)...)
+eq_tends(pv::AbstractEnergyVariable, m::AtmosModel, tt::Flux{FirstOrder}) =
+    (eq_tends(pv, m.energy, tt)..., eq_tends(pv, radiation_model(m), tt)...)
+
+# AbstractMoistureVariable
+eq_tends(::AbstractMoistureVariable, ::AtmosModel, ::Flux{FirstOrder}) =
+    (Advect(),)
+
+# AbstractPrecipitationVariable
 eq_tends(
-    pv::PV,
+    pv::AbstractPrecipitationVariable,
     m::AtmosModel,
     tt::Flux{FirstOrder},
-) where {PV <: AbstractEnergy} =
-    (eq_tends(pv, m.energy, tt)..., eq_tends(pv, m.radiation, tt)...)
-
-# Moisture
-eq_tends(pv::PV, ::AtmosModel, ::Flux{FirstOrder}) where {PV <: Moisture} =
-    (Advect{PV}(),)
-
-# Precipitation
-eq_tends(
-    pv::PV,
-    m::AtmosModel,
-    tt::Flux{FirstOrder},
-) where {PV <: Precipitation} = (eq_tends(pv, m.precipitation, tt)...,)
+) = (eq_tends(pv, precipitation_model(m), tt)...,)
 
 # Tracers
-eq_tends(pv::PV, ::AtmosModel, ::Flux{FirstOrder}) where {N, PV <: Tracers{N}} =
-    (Advect{PV}(),)
+eq_tends(pv::Tracers{N}, ::AtmosModel, ::Flux{FirstOrder}) where {N} =
+    (Advect(),)
 
 #####
 ##### Second order fluxes
 #####
 
 eq_tends(
-    pv::PV,
+    ::Union{Mass, Momentum, AbstractMoistureVariable},
     ::DryModel,
     ::Flux{SecondOrder},
-) where {PV <: Union{Mass, Momentum, Moisture}} = ()
+) = ()
 eq_tends(
-    pv::PV,
-    ::MoistureModel,
+    ::Union{Mass, Momentum, AbstractMoistureVariable},
+    ::AbstractMoistureModel,
     ::Flux{SecondOrder},
-) where {PV <: Union{Mass, Momentum, Moisture}} = (MoistureDiffusion{PV}(),)
+) = (MoistureDiffusion(),)
 
 # Mass
-eq_tends(pv::PV, m::AtmosModel, tt::Flux{SecondOrder}) where {PV <: Mass} =
+eq_tends(pv::Mass, m::AtmosModel, tt::Flux{SecondOrder}) =
     (eq_tends(pv, m.moisture, tt)...,)
 
 # Momentum
-eq_tends(pv::PV, m::AtmosModel, tt::Flux{SecondOrder}) where {PV <: Momentum} =
-    (
-        ViscousStress{PV}(),
-        eq_tends(pv, m.moisture, tt)...,
-        eq_tends(pv, m.turbconv, tt)...,
-        eq_tends(pv, m.hyperdiffusion, tt)...,
-    )
-
-# Energy
-eq_tends(pv::PV, m::EnergyModel, tt::Flux{SecondOrder}) where {PV <: Energy} =
-    (ViscousFlux{PV}(), DiffEnthalpyFlux{PV}())
-
-eq_tends(pv::PV, m::θModel, tt::Flux{SecondOrder}) where {PV <: ρθ_liq_ice} =
-    (ViscousFlux{PV}(),)
-
-eq_tends(
-    pv::PV,
-    m::AtmosModel,
-    tt::Flux{SecondOrder},
-) where {PV <: AbstractEnergy} = (
-    eq_tends(pv, m.energy, tt)...,
-    eq_tends(pv, m.turbconv, tt)...,
-    eq_tends(pv, m.hyperdiffusion, tt)...,
+eq_tends(pv::Momentum, m::AtmosModel, tt::Flux{SecondOrder}) = (
+    ViscousStress(),
+    eq_tends(pv, m.moisture, tt)...,
+    eq_tends(pv, turbconv_model(m), tt)...,
+    eq_tends(pv, hyperdiffusion_model(m), tt)...,
 )
 
-# Moisture
-eq_tends(pv::PV, m::AtmosModel, tt::Flux{SecondOrder}) where {PV <: Moisture} =
-    (
-        eq_tends(pv, m.moisture, tt)...,
-        eq_tends(pv, m.turbconv, tt)...,
-        eq_tends(pv, m.hyperdiffusion, tt)...,
-    )
+# Energy
+eq_tends(::Energy, m::TotalEnergyModel, tt::Flux{SecondOrder}) =
+    (ViscousFlux(), DiffEnthalpyFlux())
 
-# Precipitation
+eq_tends(::ρθ_liq_ice, m::θModel, tt::Flux{SecondOrder}) = (ViscousFlux(),)
+
+eq_tends(pv::AbstractEnergyVariable, m::AtmosModel, tt::Flux{SecondOrder}) = (
+    eq_tends(pv, m.energy, tt)...,
+    eq_tends(pv, turbconv_model(m), tt)...,
+    eq_tends(pv, hyperdiffusion_model(m), tt)...,
+)
+
+# AbstractMoistureVariable
+eq_tends(pv::AbstractMoistureVariable, m::AtmosModel, tt::Flux{SecondOrder}) = (
+    eq_tends(pv, m.moisture, tt)...,
+    eq_tends(pv, turbconv_model(m), tt)...,
+    eq_tends(pv, hyperdiffusion_model(m), tt)...,
+)
+
+# AbstractPrecipitationVariable
 eq_tends(
-    pv::PV,
+    pv::AbstractPrecipitationVariable,
     m::AtmosModel,
     tt::Flux{SecondOrder},
-) where {PV <: Precipitation} = (eq_tends(pv, m.precipitation, tt)...,)
+) = (eq_tends(pv, precipitation_model(m), tt)...,)
 
 # Tracers
-eq_tends(
-    pv::PV,
-    m::AtmosModel,
-    tt::Flux{SecondOrder},
-) where {N, PV <: Tracers{N}} = (eq_tends(pv, m.tracers, tt)...,)
+eq_tends(pv::Tracers{N}, m::AtmosModel, tt::Flux{SecondOrder}) where {N} =
+    (eq_tends(pv, tracer_model(m), tt)...,)

@@ -8,8 +8,9 @@ using ClimateMachine.ConfigTypes
 using ClimateMachine.GenericCallbacks
 using ClimateMachine.DGMethods.NumericalFluxes
 using ClimateMachine.Diagnostics
-using ClimateMachine.ODESolvers
 using ClimateMachine.Mesh.Filters
+using ClimateMachine.ODESolvers
+using ClimateMachine.StdDiagnostics
 using ClimateMachine.Thermodynamics
 using ClimateMachine.TurbulenceClosures
 using ClimateMachine.VariableTemplates
@@ -41,12 +42,13 @@ const param_set = EarthParameterSet()
 """
 function init_surfacebubble!(problem, bl, state, aux, localgeo, t)
     (x, y, z) = localgeo.coord
+    param_set = parameter_set(bl)
     FT = eltype(state)
-    R_gas::FT = R_d(bl.param_set)
-    c_p::FT = cp_d(bl.param_set)
-    c_v::FT = cv_d(bl.param_set)
-    p0::FT = MSLP(bl.param_set)
-    _grav::FT = grav(bl.param_set)
+    R_gas::FT = R_d(param_set)
+    c_p::FT = cp_d(param_set)
+    c_v::FT = cv_d(param_set)
+    p0::FT = MSLP(param_set)
+    _grav::FT = grav(param_set)
     γ::FT = c_p / c_v
 
     xc::FT = 1250
@@ -61,7 +63,7 @@ function init_surfacebubble!(problem, bl, state, aux, localgeo, t)
     ρ = p0 / (R_gas * θ) * (π_exner)^(c_v / R_gas) # density
 
     q_tot = FT(0)
-    ts = PhaseEquil_ρθq(bl.param_set, ρ, θ, q_tot)
+    ts = PhaseEquil_ρθq(param_set, ρ, θ, q_tot)
     q_pt = PhasePartition(ts)
 
     ρu = SVector(FT(0), FT(0), FT(0))
@@ -108,7 +110,7 @@ function config_surfacebubble(FT, N, resolution, xmax, ymax, zmax)
         param_set;
         problem = problem,
         turbulence = SmagorinskyLilly{FT}(C_smag),
-        moisture = EquilMoist{FT}(),
+        moisture = EquilMoist(),
         source = (Gravity(),),
     )
     config = ClimateMachine.AtmosLESConfiguration(
@@ -133,13 +135,9 @@ function config_diagnostics(
     ymax::FT,
     zmax::FT,
     resolution,
+    interval,
 ) where {FT}
-    interval = "10000steps"
-    dgngrp = setup_atmos_default_diagnostics(
-        AtmosLESConfigType(),
-        interval,
-        driver_config.name,
-    )
+    dgngrp = StdDiagnostics.AtmosLESDefault(interval, driver_config.name)
     boundaries = [
         FT(0) FT(0) FT(0)
         xmax ymax zmax
@@ -179,7 +177,17 @@ function main()
         driver_config,
         init_on_cpu = true,
     )
-    dgn_config = config_diagnostics(driver_config, xmax, ymax, zmax, resolution)
+
+    dgn_ssecs = (timeend / 2) + 10
+    dgn_interval = "$(dgn_ssecs)ssecs"
+    dgn_config = config_diagnostics(
+        driver_config,
+        xmax,
+        ymax,
+        zmax,
+        resolution,
+        dgn_interval,
+    )
 
     cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(1) do
         Filters.apply!(

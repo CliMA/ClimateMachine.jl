@@ -118,7 +118,8 @@ function test_run(
         polynomialorder = N,
     )
 
-    model = AdvectionDiffusion{2}(problem, diffusion = false)
+    bcs = (HomogeneousBC{0}(),)
+    model = AdvectionDiffusion{2}(problem, bcs, diffusion = false)
 
     dg = DGModel(
         model,
@@ -211,7 +212,7 @@ let
     topology = BrickTopology(
         mpicomm,
         brickrange[1:dim],
-        boundary = ntuple(d -> (3, 3), dim),
+        boundary = ntuple(d -> (1, 1), dim),
     )
 
     maxvelocity = 2
