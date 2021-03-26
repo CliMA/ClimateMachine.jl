@@ -18,7 +18,7 @@ using StaticArrays
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 
-ClimateMachine.init()
+ClimateMachine.init(;parse_clargs=true)
 FT = Float64
 
 # Shared functions
@@ -36,10 +36,10 @@ nstepsA = 10
 nstepsO = 5
 
 #  Background atmos and ocean diffusivities
-const κᵃʰ = FT(1e4) * 0.0
-const κᵃᶻ = FT(1e-1)
+const κᵃʰ = FT(5e3) * 0.0
+const κᵃᶻ = FT(1e-1) * 0.0
 const κᵒʰ = FT(1e3) * 0.0
-const κᵒᶻ = FT(1e-4)
+const κᵒᶻ = FT(1e-4) * 0.0
 const τ_airsea = FT(60 * 86400)
 const L_airsea = FT(500)
 const λ_airsea = FT(L_airsea / τ_airsea)
@@ -132,7 +132,7 @@ function main(::Type{FT}) where {FT}
             iteration = string(1Δt_)*"ssecs" ,
             overdir ="output",
             overwrite = true,
-            number_sample_points = 0
+            number_sample_points = 10,
             )...,),
     )
 
@@ -258,7 +258,7 @@ atmos_get_penalty_tau(_...) = FT(3.0 * 0.0)               # Set penalty term tau
 
 ## Set atmos advective velocity (constant in time)
 # uˡᵒⁿ(λ, ϕ, r) = 1e-6 * r * cos(ϕ)
-uˡᵒⁿ(λ, ϕ, r) = 0 * 1e-6 * r * cos(ϕ)
+uˡᵒⁿ(λ, ϕ, r) = 1e-7 * r * cos(ϕ)
 atmos_uⁱⁿⁱᵗ(npt, el, x, y, z) = (     0 * r̂(x,y,z) 
                                     + 0 * ϕ̂(x,y,z)
                                     + uˡᵒⁿ(lon(x,y,z), lat(x,y,z), rad(x,y,z)) * λ̂(x,y,z) ) 
@@ -276,7 +276,9 @@ bl_propA = (;bl_propA...,
             )
 
 ## Prop ocean functions (or delete to use defaults)
-tropical_heating(λ, ϕ, r) = 30.0 + 10.0 * cos(ϕ) * sin(5λ)
+# tropical_heating(λ, ϕ, r) = 30.0 + 10.0 * cos(ϕ) * sin(5λ)
+tropical_heating(λ, ϕ, r) = 30.0 + 10.0 * cos(ϕ) + 1 * sin(5λ) * cos(ϕ)
+# tropical_heating(λ, ϕ, r) = 40.
 ocean_θⁱⁿⁱᵗ(npt, el, x, y, z) = tropical_heating( lon(x,y,z), lat(x,y,z), rad(x,y,z) )                    # Set ocean initial state function
 ocean_calc_kappa_diff(_...) = κᵒʰ, κᵒʰ, κᵒᶻ               # Set ocean diffusion coeffs
 ocean_source_θ(θᵃ, npt, el, xc, yc, zc, θᵒ) = FT(0.0)     # Set ocean source!
@@ -297,5 +299,19 @@ bl_propO = (;bl_propO...,
 simulation = main(Float64);
 nsteps = Int(simulation.simtime[2] / dt)
 cbvector = create_callbacks(simulation, simulation.odesolver)
+
+# Debug buffer
+sdb=simulation.coupled_odesolver.component_list.atmosphere.component_model.state.state_debug 
+# Example source for debug buffer
+
+# Save state from ocean init
+vdb=simulation.coupled_odesolver.component_list.ocean.component_model.state.state_debug
+
+# Save speed from atmos U init
+u1=simulation.coupled_odesolver.component_list.atmosphere.component_model.discretization.state_auxiliary.u[:,1:1,:]
+u2=simulation.coupled_odesolver.component_list.atmosphere.component_model.discretization.state_auxiliary.u[:,2:2,:]
+sref= @. ( u1^2 + u2^2 ) ^ 0.5
+sdb.=sref
+
 println("Initialized. Running...")
 @time run(simulation.coupled_odesolver, nsteps, cbvector)
