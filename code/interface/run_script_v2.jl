@@ -50,6 +50,7 @@ end
 function main(::Type{FT}) where {FT}
     
     # Domain
+    # better might be to use something like DeepSphericalShellDomain directly?
     ΩO = AtmosDomain(radius = FT(planet_radius(param_set)) - FT(4e3), height = FT(4e3))
     ΩA = AtmosDomain(radius = FT(planet_radius(param_set)) , height = FT(4e3))
 
@@ -70,6 +71,10 @@ function main(::Type{FT}) where {FT}
     t_time, end_time = ( 0  , 20Δt_ )
 
     # Collect spatial info, timestepping, balance law and DGmodel for the two components
+    function boundary_mask( xc, yc, zc )
+            bndy_bit_mask = @. ( xc^2 + yc^2 + zc^2 )^0.5 ≈ planet_radius(param_set)
+            return bndy_bit_mask
+    end
 
     # 1. Atmos component
     mA = Coupling.CplTestModel(;
@@ -79,6 +84,7 @@ function main(::Type{FT}) where {FT}
             (CoupledPrimaryBoundary(), ExteriorBoundary()),
             param_set,
         ),
+        boundary_z = boundary_mask,
         nsteps = nstepsA,
         dt = Δt_ / nstepsA,
         timestepper = LSRK54CarpenterKennedy,
@@ -93,6 +99,7 @@ function main(::Type{FT}) where {FT}
             (ExteriorBoundary(), CoupledSecondaryBoundary()),
             param_set,
         ),
+        boundary_z = boundary_mask,
         nsteps = nstepsO,
         dt = Δt_ / nstepsO,
         timestepper = LSRK54CarpenterKennedy,
