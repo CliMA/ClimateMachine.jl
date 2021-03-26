@@ -104,6 +104,7 @@ function vars_state(bl::l_type, ::Prognostic, FT)
     @vars begin
         θ::FT
         F_accum::FT # accumulated flux across boundary (atmosphere export)
+        state_debug::FT
     end
 end
 
@@ -161,6 +162,7 @@ function init_state_prognostic!(
     y = A.yc
     z = A.zc
     Q.θ = bl.bl_prop.init_theta(npt, elnum, x, y, z)
+    Q.state_debug = Q.θ
     Q.F_accum = 0
     nothing
 end
