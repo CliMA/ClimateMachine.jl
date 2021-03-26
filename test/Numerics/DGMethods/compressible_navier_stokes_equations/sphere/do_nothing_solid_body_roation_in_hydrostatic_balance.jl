@@ -121,6 +121,17 @@ norm(ρᴮ[:,:,2] - ρᴮ[:,:,3]) / norm(ρᴮ[:,:,1])
 norm(ρᴮ[:,:,3] - ρᴮ[:,:,1]) / norm(ρᴮ[:,:,1])
 ρθᴮ = ρᴮ[:,:,1]
 norm(simulation.state.ρθ[:,1,:] - ρθᴮ)
+
+##
+∇r =  ∇(r)
+ϕr = exp.(-(r .- r[1]) / (maximum(r) - minimum(r)))
+∇ϕr = ∇(ϕr)
+tmp = ∇ϕr ./ ∇r
+norm(tmp[:,:,1] - tmp[:,:,2])
+norm(tmp[:,:,2] - tmp[:,:,3])
+norm(tmp[:,:,3] - tmp[:,:,1])
+
+##
 ########
 # Run the model
 ########

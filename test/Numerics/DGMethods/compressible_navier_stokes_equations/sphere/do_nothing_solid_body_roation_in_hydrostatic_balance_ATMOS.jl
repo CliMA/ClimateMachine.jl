@@ -2,6 +2,7 @@
 include("../boilerplate.jl")
 include("../three_dimensional/ThreeDimensionalCompressibleNavierStokesEquations.jl")
 include("sphere_helper_functions.jl")
+include("../shared_source/gradient.jl")
 
 ClimateMachine.init()
 
@@ -25,9 +26,9 @@ parameters = (
 domain =  AtmosDomain(radius = parameters.a, height = parameters.H)
 grid = DiscretizedDomain(
     domain;
-    elements              = (vertical = 10, horizontal = 10),
-    polynomial_order      = (vertical = 3, horizontal = 3),
-    overintegration_order = (vertical = 1, horizontal = 1),
+    elements              = (vertical = 3, horizontal = 4),
+    polynomial_order      = (vertical = 3, horizontal = 5),
+    overintegration_order = (vertical = 0, horizontal = 0),
 )
 
 ########
@@ -45,7 +46,7 @@ callbacks   = (Info(), StateCheck(400))
 ########
 physics = FluidPhysics(;
     orientation = SphericalOrientation(),
-    advection   = NonLinearAdvectionTerm(),
+    advection   = nothing, # NonLinearAdvectionTerm(),
     dissipation = ConstantViscosity{Float64}(μ = 0.0, ν = 0.0, κ = 0.0),
     #coriolis    = DeepShellCoriolis{Float64}(Ω = parameters.Ω),
     #gravity     = DeepShellGravity{Float64}(g = parameters.g, a = parameters.a),
@@ -58,7 +59,7 @@ physics = FluidPhysics(;
 ########
 ρu_bcs = (
     bottom = Impenetrable(FreeSlip()),
-    top = Impenetrable(FreeSlip()),
+    top    = Impenetrable(FreeSlip()),
 )
 ρθ_bcs =
     (bottom = Insulating(), top = Insulating())
@@ -104,6 +105,41 @@ simulation = Simulation(
     callbacks           = callbacks,
     time                = (; start = start_time, finish = end_time),
 )
+
+#######
+# Fix up
+#######
+
+Q = simulation.state
+
+dg = simulation.model
+Ns = polynomialorders(model)
+
+if haskey(model.grid.resolution, :overintegration_order)
+    Nover = convention(model.grid.resolution.overintegration_order, Val(ndims(model.grid.domain)))
+else
+    Nover = (0, 0, 0)
+end
+
+# only works if Nover > 0
+overintegration_filter!(Q, dg, Ns, Nover)
+
+x,y,z = coordinates(grid)
+r = sqrt.(x .^2 .+ y .^2 .+ z .^2)
+∇  =  Nabla(grid)
+∇r =  ∇(r)
+ρᴮ = simulation.state.ρ
+p = ρᴮ[:,1,:] .* parameters.R * parameters.Tₒ 
+∇p = ∇(p)
+tmp = ∇p ./ ∇r
+norm(tmp[:,:,1] - tmp[:,:,2]) / norm(tmp[:,:,1]) 
+norm(tmp[:,:,2] - tmp[:,:,3]) / norm(tmp[:,:,1])
+norm(tmp[:,:,3] - tmp[:,:,1]) / norm(tmp[:,:,1])
+ρᴬ = -tmp[:,:,1] / parameters.g
+maximum(abs.(ρᴬ - ρᴮ[:,1,:]))
+# simulation.state.ρ[:,1,:] .= ρᴬ
+# simulation.state.ρθ[:,1,:] .=
+##
 
 ########
 # Run the model
