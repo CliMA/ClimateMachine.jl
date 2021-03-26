@@ -96,9 +96,9 @@ function main(::Type{FT}, cl_args) where {FT}
 
     # Choice of SGS model
     turbconv = NoTurbConv()
-    # N_updrafts = 1
-    # N_quad = 3
-    # turbconv = EDMF(FT, N_updrafts, N_quad, param_set)
+    N_updrafts = 1
+    N_quad = 3
+    turbconv = EDMF(FT, N_updrafts, N_quad, param_set)
 
     C_smag_ = C_smag(param_set)
     turbulence = ConstantKinematicViscosity(FT(0.1))
@@ -108,7 +108,7 @@ function main(::Type{FT}, cl_args) where {FT}
     zmax = FT(400)
     # Simulation time
     t0 = FT(0)
-    timeend = FT(3600 * 2) # Change to 7h for low-level jet
+    timeend = FT(60) # Change to 7h for low-level jet
     CFLmax = compressibility == Compressible() ? FT(1) : FT(100)
 
     config_type = SingleStackConfigType
@@ -191,7 +191,7 @@ function main(::Type{FT}, cl_args) where {FT}
     cb_boyd = GenericCallbacks.EveryXSimulationSteps(1) do
         Filters.apply!(
             solver_config.Q,
-            ("energy.ρe",),
+            (turbconv_filters(turbconv)...,),
             solver_config.dg.grid,
             BoydVandevenFilter(solver_config.dg.grid, 1, 4),
         )
@@ -234,7 +234,7 @@ function main(::Type{FT}, cl_args) where {FT}
         solver_config;
         diagnostics_config = dgn_config,
         check_cons = check_cons,
-        user_callbacks = (cb_data_vs_time, cb_print_step),
+        user_callbacks = (cb_boyd, cb_data_vs_time, cb_print_step),
         check_euclidean_distance = true,
     )
 
