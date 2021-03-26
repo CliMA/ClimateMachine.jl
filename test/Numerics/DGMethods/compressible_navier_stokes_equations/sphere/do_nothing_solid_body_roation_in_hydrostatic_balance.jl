@@ -2,6 +2,7 @@
 include("../boilerplate.jl")
 include("../three_dimensional/ThreeDimensionalCompressibleNavierStokesEquations.jl")
 include("sphere_helper_functions.jl")
+include("../shared_source/gradient.jl")
 
 ClimateMachine.init()
 
@@ -103,6 +104,23 @@ simulation = Simulation(
     time                = (; start = start_time, finish = end_time),
 )
 
+
+#######
+# Fix up
+#######
+x,y,z = coordinates(grid)
+r = sqrt.(x .^2 .+ y .^2 .+ z .^2)
+∇  =  Nabla(grid)
+∇r =  ∇(r)
+ρᴬ = simulation.state.ρ
+p = (ρᴬ[:,1,:] .^2) .* (parameters.cₛ)^2 / parameters.ρₒ /2
+∇p = ∇(p)
+ρᴮ = ∇p ./ ∇r / (parameters.α * parameters.g)
+norm(ρᴮ[:,:,1] - ρᴮ[:,:,2]) / norm(ρᴮ[:,:,1]) 
+norm(ρᴮ[:,:,2] - ρᴮ[:,:,3]) / norm(ρᴮ[:,:,1])
+norm(ρᴮ[:,:,3] - ρᴮ[:,:,1]) / norm(ρᴮ[:,:,1])
+ρθᴮ = ρᴮ[:,:,1]
+norm(simulation.state.ρθ[:,1,:] - ρθᴮ)
 ########
 # Run the model
 ########
