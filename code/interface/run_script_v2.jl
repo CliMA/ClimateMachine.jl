@@ -298,4 +298,4 @@ simulation = main(Float64);
 nsteps = Int(simulation.simtime[2] / dt)
 cbvector = create_callbacks(simulation, simulation.odesolver)
 println("Initialized. Running...")
-## @time run(simulation.coupled_odesolver, nsteps, cbvector)
+@time run(simulation.coupled_odesolver, nsteps, cbvector)
