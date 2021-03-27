@@ -258,13 +258,37 @@ function compute_gradient_flux!(
     A::Vars,
     t,
 )
+
+    r̂ⁿᵒʳᵐ(x,y,z) = norm([x,y,z]) ≈ 0 ? 1 : norm([x, y, z])^(-1)
+    ϕ̂ⁿᵒʳᵐ(x,y,z) = norm([x,y,0]) ≈ 0 ? 1 : (norm([x, y, z]) * norm([x, y, 0]))^(-1)
+    λ̂ⁿᵒʳᵐ(x,y,z) = norm([x,y,0]) ≈ 0 ? 1 : norm([x, y, 0])^(-1)
+
+    r̂(x,y,z) = r̂ⁿᵒʳᵐ(x,y,z) * @SVector([x, y, z])
+    ϕ̂(x,y,z) = ϕ̂ⁿᵒʳᵐ(x,y,z) * @SVector [x*z, y*z, -(x^2 + y^2)]
+    λ̂(x,y,z) = λ̂ⁿᵒʳᵐ(x,y,z) * @SVector [-y, x, 0]
+
     # "Non-linear" form (for time stepped)
     ### κ¹,κ²,κ³=bl.bl_prop.calc_kappa_diff(G.∇θ,A.npt,A.elnum,A.xc,A.yc,A.zc)
     # "Linear" form (for implicit)
     κ¹, κ², κ³ =
         bl.bl_prop.calc_kappa_diff(G.∇θⁱⁿⁱᵗ, A.npt, A.elnum, A.xc, A.yc, A.zc)
     # Maybe I should pass both G.∇θ and G.∇θⁱⁿⁱᵗ?
-    GF.κ∇θ = Diagonal(@SVector([κ¹, κ², κ³])) * G.∇θ
+
+    # Sphere surface bits
+    x=A.xc
+    y=A.yc
+    z=A.zc
+    Gλ = G.∇θ'*λ̂(x,y,z)
+    Fλ = κ¹*Gλ*λ̂(x,y,z)
+    Gϕ = G.∇θ'*ϕ̂(x,y,z)
+    Fϕ = κ²*Gϕ*ϕ̂(x,y,z)
+    Gr = G.∇θ'*r̂(x,y,z)
+    Fr = κ³*Gr*r̂(x,y,z)
+    GF.κ∇θ = Diagonal(@SVector([1, 1, 1])) * (Fλ + Fϕ + Fr)
+
+    # Cartesian case
+    ## GF.κ∇θ = Diagonal(@SVector([κ¹, κ², κ³])) * G.∇θ
+    # GF.κ∇θ = 0
     nothing
 end
 

@@ -36,7 +36,7 @@ nstepsA = 10
 nstepsO = 5
 
 #  Background atmos and ocean diffusivities
-const κᵃʰ = FT(5e3) * 0.0
+const κᵃʰ = FT(1e5)
 const κᵃᶻ = FT(1e-1) * 0.0
 const κᵒʰ = FT(1e3) * 0.0
 const κᵒᶻ = FT(1e-4) * 0.0
@@ -132,7 +132,7 @@ function main(::Type{FT}) where {FT}
             iteration = string(1Δt_)*"ssecs" ,
             overdir ="output",
             overwrite = true,
-            number_sample_points = 10,
+            number_sample_points = 0,
             )...,),
     )
 
