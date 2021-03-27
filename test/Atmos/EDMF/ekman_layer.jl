@@ -269,4 +269,26 @@ end
 
 solver_config, diag_arr, time_data = main(Float64, cl_args)
 
+# Uncomment lines to save output using JLD2
+output_dir = @__DIR__;
+mkpath(output_dir);
+function dons(diag_vs_z)
+    return Dict(map(keys(first(diag_vs_z))) do k
+        string(k) => [getproperty(ca, k) for ca in diag_vs_z]
+    end)
+end
+get_dons_arr(diag_arr) = [dons(diag_vs_z) for diag_vs_z in diag_arr]
+dons_arr = get_dons_arr(diag_arr)
+println(dons_arr[1].keys)
+z = get_z(solver_config.dg.grid; rm_dupes = true);
+save(
+    string(output_dir, "/ekman.jld2"),
+    "dons_arr",
+    dons_arr,
+    "time_data",
+    time_data,
+    "z",
+    z,
+)
+
 nothing
