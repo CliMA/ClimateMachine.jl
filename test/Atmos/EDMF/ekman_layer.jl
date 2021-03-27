@@ -40,7 +40,10 @@ function set_clima_parameters(filename)
     eval(:(include($filename)))
 end
 
-struct EnergyPerturbation{M} <: AbstractFilterTarget
+# struct EnergyPerturbation{M} <: AbstractFilterTarget
+#     atmos::M
+# end
+struct MomentumPerturbation{M} <: AbstractFilterTarget
     atmos::M
 end
 
@@ -96,8 +99,9 @@ function init_state_prognostic!(
     en.ρaθ_liq_q_tot_cv = FT(0)
     return nothing
 end;
+# vars_state_filtered(target::EnergyPerturbation, FT) = @vars(u::Svector{??})
 #dennis 
-vars_state_filtered(target::EnergyPerturbation, FT) = @vars(e_tot::FT)
+vars_state_filtered(target::MomentumPerturbation, FT) = @vars(u::SVector{3, FT})
 
 ref_thermo_state(atmos::AtmosModel, aux::Vars) =
     ref_thermo_state(atmos, aux, atmos.moisture)
@@ -114,31 +118,48 @@ ref_thermo_state(atmos::AtmosModel, aux::Vars, ::Any) =
         aux.ref_state.p,
         aux.ref_state.ρq_tot / aux.ref_state.ρ,
     )
+# function compute_filter_argument!(
+#     target::EnergyPerturbation,
+#     filter_state::Vars,
+#     state::Vars,
+#     aux::Vars,
+# )
+#     filter_state.e_tot = state.energy.ρe / state.ρ
+#     filter_state.e_tot -= total_energy(
+#         zero(eltype(aux)),
+#         gravitational_potential(target.atmos, aux),
+#         ref_thermo_state(target.atmos, aux),
+#     )
+# end
+# function compute_filter_result!(
+#     target::EnergyPerturbation,
+#     state::Vars,
+#     filter_state::Vars,
+#     aux::Vars,
+# )
+#     filter_state.e_tot += total_energy(
+#         zero(eltype(aux)),
+#         gravitational_potential(target.atmos, aux),
+#         ref_thermo_state(target.atmos, aux),
+#     )
+#     state.energy.ρe = state.ρ * filter_state.e_tot
+# end
+
 function compute_filter_argument!(
-    target::EnergyPerturbation,
+    target::MomentumPerturbation,
     filter_state::Vars,
     state::Vars,
     aux::Vars,
 )
-    filter_state.e_tot = state.energy.ρe / state.ρ
-    filter_state.e_tot -= total_energy(
-        zero(eltype(aux)),
-        gravitational_potential(target.atmos, aux),
-        ref_thermo_state(target.atmos, aux),
-    )
+    filter_state.u = state.ρu / state.ρ
 end
 function compute_filter_result!(
-    target::EnergyPerturbation,
+    target::MomentumPerturbation,
     state::Vars,
     filter_state::Vars,
     aux::Vars,
 )
-    filter_state.e_tot += total_energy(
-        zero(eltype(aux)),
-        gravitational_potential(target.atmos, aux),
-        ref_thermo_state(target.atmos, aux),
-    )
-    state.energy.ρe = state.ρ * filter_state.e_tot
+    state.ρu = state.ρ * filter_state.u
 end
 #dennis 
 function main(::Type{FT}, cl_args) where {FT}
