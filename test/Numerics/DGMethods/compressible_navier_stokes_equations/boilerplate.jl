@@ -108,18 +108,17 @@ function evolve!(simulation, spatial_model; refDat = ())
     return Q
 end
 
-
-
 function overintegration_filter!(state_array, dgmodel, Ns, Nover)
     if sum(Nover) > 0
         cutoff_order = Ns .+ 1 # yes this is confusing
         # cutoff = ClimateMachine.Mesh.Filters.CutoffFilter(dgmodel.grid, cutoff_order)
         cutoff = MassPreservingCutoffFilter(dgmodel.grid, cutoff_order)
         num_state_prognostic = number_states(dgmodel.balance_law, Prognostic())
-       
+        filterstates = 2:4
+        filterstates = 1:num_state_prognostic
         ClimateMachine.Mesh.Filters.apply!(
             state_array,
-            1:num_state_prognostic,
+            filterstates,
             dgmodel.grid,
             cutoff,
         )
