@@ -21,6 +21,14 @@ const clima_dir = dirname(dirname(pathof(ClimateMachine)));
 import CLIMAParameters
 import ClimateMachine.DGMethods.FVReconstructions: FVLinear
 
+using ClimateMachine.Mesh.Filters: AbstractFilterTarget
+using ClimateMachine.Orientations: gravitational_potential
+using ClimateMachine.Thermodynamics: PhaseDry_ρp, PhaseEquil_ρpq, total_energy
+import ClimateMachine.Mesh.Filters: vars_state_filtered,
+    compute_filter_argument!, compute_filter_result!
+using ClimateMachine.Mesh.Filters: apply!, BoydVandevenFilter
+
+
 include(joinpath(clima_dir, "experiments", "AtmosLES", "ekman_layer_model.jl"))
 include(joinpath("helper_funcs", "diagnostics_configuration.jl"))
 include("edmf_model.jl")
@@ -30,6 +38,10 @@ CLIMAParameters.Planet.T_surf_ref(::EarthParameterSet) = 290.0
 CLIMAParameters.Atmos.EDMF.a_surf(::EarthParameterSet) = 0.0
 function set_clima_parameters(filename)
     eval(:(include($filename)))
+end
+
+struct EnergyPerturbation{M} <: AbstractFilterTarget
+    atmos::M
 end
 
 """
@@ -84,7 +96,51 @@ function init_state_prognostic!(
     en.ρaθ_liq_q_tot_cv = FT(0)
     return nothing
 end;
+#dennis 
+vars_state_filtered(target::EnergyPerturbation, FT) = @vars(e_tot::FT)
 
+ref_thermo_state(atmos::AtmosModel, aux::Vars) =
+    ref_thermo_state(atmos, aux, atmos.moisture)
+ref_thermo_state(atmos::AtmosModel, aux::Vars, ::DryModel) =
+    PhaseDry_ρp(
+        parameter_set(atmos),
+        aux.ref_state.ρ,
+        aux.ref_state.p,
+    )
+ref_thermo_state(atmos::AtmosModel, aux::Vars, ::Any) =
+    PhaseEquil_ρpq(
+        parameter_set(atmos),
+        aux.ref_state.ρ,
+        aux.ref_state.p,
+        aux.ref_state.ρq_tot / aux.ref_state.ρ,
+    )
+function compute_filter_argument!(
+    target::EnergyPerturbation,
+    filter_state::Vars,
+    state::Vars,
+    aux::Vars,
+)
+    filter_state.e_tot = state.energy.ρe / state.ρ
+    filter_state.e_tot -= total_energy(
+        zero(eltype(aux)),
+        gravitational_potential(target.atmos, aux),
+        ref_thermo_state(target.atmos, aux),
+    )
+end
+function compute_filter_result!(
+    target::EnergyPerturbation,
+    state::Vars,
+    filter_state::Vars,
+    aux::Vars,
+)
+    filter_state.e_tot += total_energy(
+        zero(eltype(aux)),
+        gravitational_potential(target.atmos, aux),
+        ref_thermo_state(target.atmos, aux),
+    )
+    state.energy.ρe = state.ρ * filter_state.e_tot
+end
+#dennis 
 function main(::Type{FT}, cl_args) where {FT}
     # Change boolean to control vertical discretization type
     finite_volume = false
@@ -187,6 +243,24 @@ function main(::Type{FT}, cl_args) where {FT}
 
     dgn_config = config_diagnostics(driver_config)
 
+    # dennis
+    #####################################################################
+    cb_filter = GenericCallbacks.EveryXSimulationSteps(1) do
+        apply!(
+            solver_config.Q,
+            EnergyPerturbation(driver_config.bl),
+            driver_config.grid,
+            BoydVandevenFilter(driver_config.grid, 1, 4);
+            state_auxiliary = solver_config.dg.state_auxiliary,
+            direction = VerticalDirection(),
+        )
+    end
+    # dennis
+
+
+
+
+
     # boyd vandeven filter
     cb_boyd = GenericCallbacks.EveryXSimulationSteps(1) do
         Filters.apply!(
@@ -235,7 +309,7 @@ function main(::Type{FT}, cl_args) where {FT}
         solver_config;
         diagnostics_config = dgn_config,
         check_cons = check_cons,
-        user_callbacks = (cb_boyd, cb_data_vs_time, cb_print_step),
+        user_callbacks = (cb_filter, cb_data_vs_time, cb_print_step),
         check_euclidean_distance = true,
     )
 
