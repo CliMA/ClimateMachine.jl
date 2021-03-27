@@ -64,7 +64,7 @@ function init_state_prognostic!(
     ts = new_thermo_state(m, state, aux)
     θ_liq = liquid_ice_pottemp(ts)
 
-    a_min = turbconv.subdomains.a_min
+    a_min = FT(0) #turbconv.subdomains.a_min
     @unroll_map(N_up) do i
         up[i].ρa = gm.ρ * a_min
         up[i].ρaw = gm.ρu[3] * a_min
@@ -95,20 +95,20 @@ function main(::Type{FT}, cl_args) where {FT}
     str_comp = compressibility == Compressible() ? "COMPRESS" : "ANELASTIC"
 
     # Choice of SGS model
-    turbconv = NoTurbConv()
-    # N_updrafts = 1
-    # N_quad = 3
-    # turbconv = EDMF(FT, N_updrafts, N_quad, param_set)
+    # turbconv = NoTurbConv()
+    N_updrafts = 1
+    N_quad = 3
+    turbconv = EDMF(FT, N_updrafts, N_quad, param_set)
 
     C_smag_ = C_smag(param_set)
-    turbulence = ConstantKinematicViscosity(FT(0.1))
+    turbulence = ConstantKinematicViscosity(FT(0))
     # turbulence = SmagorinskyLilly{FT}(C_smag_)
 
     # Prescribe domain parameters
     zmax = FT(400)
     # Simulation time
     t0 = FT(0)
-    timeend = FT(3600 * 2) # Change to 7h for low-level jet
+    timeend = FT(1800) # Change to 7h for low-level jet
     CFLmax = compressibility == Compressible() ? FT(1) : FT(100)
 
     config_type = SingleStackConfigType
@@ -191,7 +191,8 @@ function main(::Type{FT}, cl_args) where {FT}
     cb_boyd = GenericCallbacks.EveryXSimulationSteps(1) do
         Filters.apply!(
             solver_config.Q,
-            ("energy.ρe",),
+            # ("energy.ρe",),
+            (turbconv_filters(turbconv)...,),
             solver_config.dg.grid,
             BoydVandevenFilter(solver_config.dg.grid, 1, 4),
         )
@@ -234,7 +235,7 @@ function main(::Type{FT}, cl_args) where {FT}
         solver_config;
         diagnostics_config = dgn_config,
         check_cons = check_cons,
-        user_callbacks = (cb_data_vs_time, cb_print_step),
+        user_callbacks = (cb_boyd, cb_data_vs_time, cb_print_step),
         check_euclidean_distance = true,
     )
 

@@ -236,7 +236,7 @@ eq_tends(
     pv::Union{Momentum, Energy, TotalMoisture},
     m::EDMF,
     ::Flux{SecondOrder},
-) = ()  # do _not_ add SGSFlux back to grid-mean
+) =  (SGSFlux(),)  # do _not_ add SGSFlux back to grid-mean
 # (SGSFlux(),) # add SGSFlux back to grid-mean
 
 # Turbconv tendencies
@@ -246,25 +246,25 @@ eq_tends(pv::EDMFPrognosticVariable, m::AtmosModel, tt::Flux{O}) where {O} =
 eq_tends(::EDMFPrognosticVariable, m::EDMF, ::Flux{O}) where {O} = ()
 
 eq_tends(::EnvironmentPrognosticVariable, m::EDMF, ::Flux{SecondOrder}) =
-    (Diffusion(),)
+    () #(Diffusion(),)
 
-eq_tends(pv::EDMFPrognosticVariable, m::EDMF, ::Flux{FirstOrder}) = (Advect(),)
+eq_tends(pv::EDMFPrognosticVariable, m::EDMF, ::Flux{FirstOrder}) = () #(Advect(),)
 
 eq_tends(pv::PV, m::EDMF, ::Source) where {PV} = ()
 
-eq_tends(::EDMFPrognosticVariable, m::EDMF, ::Source) = (EntrDetr(m),)
+eq_tends(::EDMFPrognosticVariable, m::EDMF, ::Source) = () #(EntrDetr(m),)
 
 eq_tends(pv::en_ρatke, m::EDMF, ::Source) =
-    (EntrDetr(m), PressSource(m), BuoySource(m), ShearSource(), DissSource())
+    () #(EntrDetr(m), PressSource(m), BuoySource(m), ShearSource(), DissSource())
 
 eq_tends(
     ::Union{en_ρaθ_liq_cv, en_ρaq_tot_cv, en_ρaθ_liq_q_tot_cv},
     m::EDMF,
     ::Source,
-) = (EntrDetr(m), DissSource(), GradProdSource())
+) = () #(EntrDetr(m), DissSource(), GradProdSource())
 
 eq_tends(::up_ρaw, m::EDMF, ::Source) =
-    (EntrDetr(m), PressSource(m), BuoySource(m))
+    () #(EntrDetr(m), PressSource(m), BuoySource(m))
 
 struct SGSFlux <: TendencyDef{Flux{SecondOrder}} end
 

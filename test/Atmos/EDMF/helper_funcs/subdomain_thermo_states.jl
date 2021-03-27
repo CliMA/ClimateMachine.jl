@@ -198,6 +198,7 @@ function new_thermo_state_en(
     if !(0 <= θ_liq_en)
         @print("ρaθ_liq_up = ", ρaθ_liq_up[Val(1)], "\n")
         @print("θ_liq = ", θ_liq, "\n")
+        @print("energy = ", state.energy.ρe, "\n")
         @print("θ_liq_en = ", θ_liq_en, "\n")
         error("Environment θ_liq_en out-of-bounds in new_thermo_state_en")
     end
