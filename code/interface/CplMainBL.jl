@@ -259,13 +259,14 @@ function compute_gradient_flux!(
     t,
 )
 
-    r̂ⁿᵒʳᵐ(x,y,z) = norm([x,y,z]) ≈ 0 ? 1 : norm([x, y, z])^(-1)
-    ϕ̂ⁿᵒʳᵐ(x,y,z) = norm([x,y,0]) ≈ 0 ? 1 : (norm([x, y, z]) * norm([x, y, 0]))^(-1)
-    λ̂ⁿᵒʳᵐ(x,y,z) = norm([x,y,0]) ≈ 0 ? 1 : norm([x, y, 0])^(-1)
+    mynorm(x::Float64,y::Float64,z::Float64)  = ( x^2 + y^2 + z^2 ) ^ 0.5
+    r̂ⁿᵒʳᵐ(x::Float64,y::Float64,z::Float64) = mynorm(x,y,z) ≈ 0 ? 1 : mynorm(x, y, z)^(-1)
+    ϕ̂ⁿᵒʳᵐ(x::Float64,y::Float64,z::Float64) = mynorm(x,y,Float64(0)) ≈ 0 ? 1 : (mynorm(x, y, z) * mynorm(x, y, Float64(0))^(-1) )
+    λ̂ⁿᵒʳᵐ(x::Float64,y::Float64,z::Float64) = mynorm(x,y,Float64(0)) ≈ 0 ? 1 : mynorm(x, y, Float64(0))^(-1)
 
-    r̂(x,y,z) = r̂ⁿᵒʳᵐ(x,y,z) * @SVector([x, y, z])
-    ϕ̂(x,y,z) = ϕ̂ⁿᵒʳᵐ(x,y,z) * @SVector [x*z, y*z, -(x^2 + y^2)]
-    λ̂(x,y,z) = λ̂ⁿᵒʳᵐ(x,y,z) * @SVector [-y, x, 0]
+    r̂(x::Float64,y::Float64,z::Float64) = r̂ⁿᵒʳᵐ(x,y,z) * @SVector([x, y, z])
+    ϕ̂(x::Float64,y::Float64,z::Float64) = ϕ̂ⁿᵒʳᵐ(x,y,z) * @SVector [x*z, y*z, -(x^2 + y^2)]
+    λ̂(x::Float64,y::Float64,z::Float64) = λ̂ⁿᵒʳᵐ(x,y,z) * @SVector [-y, x, 0]
 
     # "Non-linear" form (for time stepped)
     ### κ¹,κ²,κ³=bl.bl_prop.calc_kappa_diff(G.∇θ,A.npt,A.elnum,A.xc,A.yc,A.zc)
