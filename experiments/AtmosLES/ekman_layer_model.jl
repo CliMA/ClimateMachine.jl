@@ -131,7 +131,13 @@ function init_problem!(problem, bl, state, aux, localgeo, t)
     _grav::FT = grav(param_set)
     γ::FT = c_p / c_v
     # Initialise speeds [u = Eastward, v = Northward, w = Vertical]
-    u::FT = 1
+    # u::FT = 1
+    if z <= FT(300)
+        # u = FT(1 + 4*(300-z)/400.0)# ∂u/∂z = -1/100  --linear 
+        u = FT(1 + (4*(300-z))^2/400.0^2)# ∂u/∂z = -2(300-z)/400^2 --parabolic
+    else
+        u = FT(1)# ∂u/∂z = 0
+    end
     v::FT = 0
     w::FT = 0
     # Assign constant θ profile and equal to surface temperature

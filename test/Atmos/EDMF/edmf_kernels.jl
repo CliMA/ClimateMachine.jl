@@ -671,8 +671,9 @@ function source(::en_ρatke, ::ShearSource, atmos, args)
     @unpack aux = args
     gm = args.state
     #Shear² = args.diffusive.turbconv.S²
+    Shear² = (args.diffusive.turbconv.∇u[3]^2.0+args.diffusive.turbconv.∇v[3]^2.0)
     ρa₀ = gm.ρ * env.a
-    return ρa₀ * K_m * 0.05 * max((1 - altitude(atmos, aux) / 250.0), 0) #Shear² # tke Shear source
+    return ρa₀ * K_m * Shear² # tke Shear source
 end
 
 function source(::en_ρatke, ::BuoySource, atmos, args)
