@@ -236,7 +236,7 @@ eq_tends(
     pv::Union{Momentum, Energy, TotalMoisture},
     m::EDMF,
     ::Flux{SecondOrder},
-) = ()  # do _not_ add SGSFlux back to grid-mean
+) = (SGSFlux(),) #()  # do _not_ add SGSFlux back to grid-mean
 # (SGSFlux(),) # add SGSFlux back to grid-mean
 
 # Turbconv tendencies
@@ -668,11 +668,11 @@ end
 
 function source(::en_ρatke, ::ShearSource, atmos, args)
     @unpack env, K_m = args.precomputed.turbconv
+    @unpack aux = args
     gm = args.state
-    Shear² = args.diffusive.turbconv.S²
+    #Shear² = args.diffusive.turbconv.S²
     ρa₀ = gm.ρ * env.a
-    # production from mean gradient and Dissipation
-    return ρa₀ * K_m * Shear² # tke Shear source
+    return ρa₀ * K_m * 0.05 * max((1 - altitude(atmos, aux) / 250.0), 0) #Shear² # tke Shear source
 end
 
 function source(::en_ρatke, ::BuoySource, atmos, args)
