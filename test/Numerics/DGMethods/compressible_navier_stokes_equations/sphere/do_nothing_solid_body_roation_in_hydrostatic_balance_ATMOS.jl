@@ -32,7 +32,7 @@ domain =  AtmosDomain(radius = parameters.a, height = parameters.H)
 grid = DiscretizedDomain(
     domain;
     elements              = (vertical = 2, horizontal = 6),
-    polynomial_order      = (vertical = 2, horizontal = 3),
+    polynomial_order      = (vertical = 1, horizontal = 3),
     overintegration_order = (vertical = 2, horizontal = 2),
 )
 
