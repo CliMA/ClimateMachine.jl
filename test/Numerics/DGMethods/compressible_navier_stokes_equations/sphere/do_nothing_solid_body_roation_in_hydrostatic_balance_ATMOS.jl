@@ -11,16 +11,18 @@ ClimateMachine.init()
 ########
 parameters = (
     a  = 6e6,
-    H  = 2e3,
+    H  = 30e3,
     Ω  = 2π/86400,
     g  = 9.8,
-    R  = 287,
-    κ  = 2/7,
-    pₒ = 1e5,
+    #κ  = 2/7,
     #Tₒ = 290,
-    γ  = 1, 
-    ρₒ = 1, # reference density
-    Δρ = 0.98,
+    R  = 287, #287
+    pₒ = 1e5,
+    γ  = 2, 
+    ρₒ = 1,
+    Δρ = 0.9,
+    e  = 1,
+    ϵ  = 0.0,
 )
 
 ########
@@ -29,29 +31,29 @@ parameters = (
 domain =  AtmosDomain(radius = parameters.a, height = parameters.H)
 grid = DiscretizedDomain(
     domain;
-    elements              = (vertical = 2, horizontal = 4),
-    polynomial_order      = (vertical = 1,  horizontal = 3),
-    overintegration_order = (vertical = 1,  horizontal = 1),
+    elements              = (vertical = 2, horizontal = 6),
+    polynomial_order      = (vertical = 2, horizontal = 3),
+    overintegration_order = (vertical = 2, horizontal = 2),
 )
 
 ########
 # Define timestepping parameters
 ########
-Δt          = min_node_distance(grid.numerical) / 340.0 * 0.25
+Δt          = min_node_distance(grid.numerical) / 340.0 * 0.125
 start_time  = 0
-end_time    = 86400 * 0.5
+end_time    = 86400
 method      = LSRKEulerMethod 
 timestepper = TimeStepper(method = method, timestep = Δt)
-callbacks   = (Info(), StateCheck(400))
+callbacks   = (Info(), StateCheck(40))
 
 ########
 # Define physics
 ########
 physics = FluidPhysics(;
     orientation = SphericalOrientation(),
-    advection   = nothing, # NonLinearAdvectionTerm(),
+    advection   = NonLinearAdvectionTerm(),
     dissipation = ConstantViscosity{Float64}(μ = 0.0, ν = 0.0, κ = 0.0),
-    #coriolis    = DeepShellCoriolis{Float64}(Ω = parameters.Ω),
+    coriolis    = DeepShellCoriolis{Float64}(Ω = parameters.Ω),
     #gravity     = DeepShellGravity{Float64}(g = parameters.g, a = parameters.a),
     gravity     = ThinShellGravity{Float64}(g = parameters.g),
     #eos         = DryIdealGas{Float64}(R = parameters.R, pₒ = parameters.pₒ, γ = 1 / (1 - parameters.κ)),
@@ -79,11 +81,13 @@ physics = FluidPhysics(;
 #profile(𝒫,r)   = exp(-(r - 𝒫.a) * 𝒫.g / 𝒫.R / 𝒫.Tₒ)
 #ρ₀(𝒫,λ,ϕ,r)    = 𝒫.pₒ / 𝒫.R / 𝒫.Tₒ * profile(𝒫,r)
 #ρθ₀(𝒫,λ,ϕ,r)   = 𝒫.pₒ / 𝒫.R * profile(𝒫,r)^(1 - 𝒫.κ) 
-ρ₀(𝒫,λ,ϕ,r)    = 𝒫.ρₒ * (1 - 𝒫.Δρ / 𝒫.H / 𝒫.ρₒ * (r - 𝒫.a))
+profile(𝒫,r)   = 1 - 𝒫.Δρ / 𝒫.H / 𝒫.ρₒ * (r - 𝒫.a)
+ρ₀(𝒫,λ,ϕ,r)    = 𝒫.ρₒ * profile(𝒫,r)^𝒫.e / profile(𝒫,𝒫.a + 𝒫.H)^(𝒫.e-1) 
+p(𝒫,λ,ϕ,r)     = (1 + 𝒫.ϵ * sin(2π * (r - 𝒫.a))) * 𝒫.g * 𝒫.ρₒ * 𝒫.H / 𝒫.Δρ / (𝒫.e + 1) * ρ₀(𝒫,λ,ϕ,r) * profile(𝒫,r) 
 ρuʳᵃᵈ(𝒫,λ,ϕ,r) = 0.0
 ρuˡᵃᵗ(𝒫,λ,ϕ,r) = 0.0
 ρuˡᵒⁿ(𝒫,λ,ϕ,r) = 0.0
-ρθ₀(𝒫,λ,ϕ,r)   = 𝒫.pₒ / 𝒫.R * (0.5 * 𝒫.g * 𝒫.Δρ / 𝒫.H / 𝒫.pₒ)^(1 / 𝒫.γ) * (r - 𝒫.a - 𝒫.H * 𝒫.ρₒ / 𝒫.Δρ)^(2 / 𝒫.γ) 
+ρθ₀(𝒫,λ,ϕ,r)   = 𝒫.pₒ / 𝒫.R * (p(𝒫,λ,ϕ,r) / 𝒫.pₒ)^(1 / 𝒫.γ)
 
 # Cartesian Representation (boiler plate really)
 ρ₀ᶜᵃʳᵗ(𝒫, x...)  = ρ₀(𝒫, lon(x...), lat(x...), rad(x...))
@@ -115,37 +119,37 @@ simulation = Simulation(
 #######
 # Fix up
 #######
-
-Q = simulation.state
-
-dg = simulation.model
-Ns = polynomialorders(model)
-
-if haskey(model.grid.resolution, :overintegration_order)
-    Nover = convention(model.grid.resolution.overintegration_order, Val(ndims(model.grid.domain)))
-else
-    Nover = (0, 0, 0)
-end
-
-# only works if Nover > 0
-overintegration_filter!(Q, dg, Ns, Nover)
-
-x,y,z = coordinates(grid)
-r = sqrt.(x .^2 .+ y .^2 .+ z .^2)
-∇  =  Nabla(grid)
-∇r =  ∇(r)
-ρᴮ = simulation.state.ρ
-p = ρᴮ[:,1,:] .* parameters.R * parameters.Tₒ 
-∇p = ∇(p)
-tmp = ∇p ./ ∇r
-norm(tmp[:,:,1] - tmp[:,:,2]) / norm(tmp[:,:,1]) 
-norm(tmp[:,:,2] - tmp[:,:,3]) / norm(tmp[:,:,1])
-norm(tmp[:,:,3] - tmp[:,:,1]) / norm(tmp[:,:,1])
-ρᴬ = -tmp[:,:,1] / parameters.g
-maximum(abs.(ρᴬ - ρᴮ[:,1,:]))
-# simulation.state.ρ[:,1,:] .= ρᴬ
-# simulation.state.ρθ[:,1,:] .=
-##
+#
+#Q = simulation.state
+#
+#dg = simulation.model
+#Ns = polynomialorders(model)
+#
+#if haskey(model.grid.resolution, :overintegration_order)
+#    Nover = convention(model.grid.resolution.overintegration_order, Val(ndims(model.grid.domain)))
+#else
+#    Nover = (0, 0, 0)
+#end
+#
+## only works if Nover > 0
+#overintegration_filter!(Q, dg, Ns, Nover)
+#
+#x,y,z = coordinates(grid)
+#r = sqrt.(x .^2 .+ y .^2 .+ z .^2)
+#∇  =  Nabla(grid)
+#∇r =  ∇(r)
+#ρᴮ = simulation.state.ρ
+#p = ρᴮ[:,1,:] .* parameters.R * parameters.Tₒ 
+#∇p = ∇(p)
+#tmp = ∇p ./ ∇r
+#norm(tmp[:,:,1] - tmp[:,:,2]) / norm(tmp[:,:,1]) 
+#norm(tmp[:,:,2] - tmp[:,:,3]) / norm(tmp[:,:,1])
+#norm(tmp[:,:,3] - tmp[:,:,1]) / norm(tmp[:,:,1])
+#ρᴬ = -tmp[:,:,1] / parameters.g
+#maximum(abs.(ρᴬ - ρᴮ[:,1,:]))
+## simulation.state.ρ[:,1,:] .= ρᴬ
+## simulation.state.ρθ[:,1,:] .=
+###
 
 ########
 # Run the model
