@@ -9,14 +9,17 @@ ClimateMachine.init()
 # Define physical parameters and parameterizations
 ########
 parameters = (
-    a  = 6e6/125.0,
-    H  = 3e4,
+    a  = 6e6,
+    H  = 2e3,
     Ω  = 2π/86400,
     g  = 9.8,
     R  = 287,
-    pₒ = 1e5,
-    Tₒ = 290,
     κ  = 2/7,
+    pₒ = 1e5,
+    #Tₒ = 290,
+    γ  = 1, 
+    ρₒ = 1, # reference density
+    Δρ = 0.98,
 )
 
 ########
@@ -25,9 +28,9 @@ parameters = (
 domain =  AtmosDomain(radius = parameters.a, height = parameters.H)
 grid = DiscretizedDomain(
     domain;
-    elements              = (vertical = 10, horizontal = 10),
-    polynomial_order      = (vertical = 3, horizontal = 3),
-    overintegration_order = (vertical = 1, horizontal = 1),
+    elements              = (vertical = 2, horizontal = 4),
+    polynomial_order      = (vertical = 1,  horizontal = 3),
+    overintegration_order = (vertical = 1,  horizontal = 1),
 )
 
 ########
@@ -36,7 +39,7 @@ grid = DiscretizedDomain(
 Δt          = min_node_distance(grid.numerical) / 340.0 * 0.25
 start_time  = 0
 end_time    = 86400 * 0.5
-method      = SSPRK22Heuns
+method      = LSRKEulerMethod 
 timestepper = TimeStepper(method = method, timestep = Δt)
 callbacks   = (Info(), StateCheck(400))
 
@@ -50,7 +53,8 @@ physics = FluidPhysics(;
     #coriolis    = DeepShellCoriolis{Float64}(Ω = parameters.Ω),
     #gravity     = DeepShellGravity{Float64}(g = parameters.g, a = parameters.a),
     gravity     = ThinShellGravity{Float64}(g = parameters.g),
-    eos         = DryIdealGas{Float64}(R = parameters.R, pₒ = parameters.pₒ, γ = 1 / (1 - parameters.κ)),
+    #eos         = DryIdealGas{Float64}(R = parameters.R, pₒ = parameters.pₒ, γ = 1 / (1 - parameters.κ)),
+    eos         = DryIdealGas{Float64}(R = parameters.R, pₒ = parameters.pₒ, γ = parameters.γ),
 )
 
 ########
@@ -58,7 +62,7 @@ physics = FluidPhysics(;
 ########
 ρu_bcs = (
     bottom = Impenetrable(FreeSlip()),
-    top = Impenetrable(FreeSlip()),
+    top    = Impenetrable(FreeSlip()),
 )
 ρθ_bcs =
     (bottom = Insulating(), top = Insulating())
@@ -71,12 +75,14 @@ physics = FluidPhysics(;
 # latitude:  ϕ ∈ [-π/2, π/2], ϕ = 0 is the equator
 # radius:    r ∈ [Rₑ - hᵐⁱⁿ, Rₑ + hᵐᵃˣ], Rₑ = Radius of sphere; hᵐⁱⁿ, hᵐᵃˣ ≥ 0
 #profile(𝒫,r)   = exp(-(1 - 𝒫.a / r) * 𝒫.a * 𝒫.g / 𝒫.R / 𝒫.Tₒ)
-profile(𝒫,r)   = exp(-(r - 𝒫.a) * 𝒫.g / 𝒫.R / 𝒫.Tₒ)
-ρ₀(𝒫,λ,ϕ,r)    = 𝒫.pₒ / 𝒫.R / 𝒫.Tₒ * profile(𝒫,r)
+#profile(𝒫,r)   = exp(-(r - 𝒫.a) * 𝒫.g / 𝒫.R / 𝒫.Tₒ)
+#ρ₀(𝒫,λ,ϕ,r)    = 𝒫.pₒ / 𝒫.R / 𝒫.Tₒ * profile(𝒫,r)
+#ρθ₀(𝒫,λ,ϕ,r)   = 𝒫.pₒ / 𝒫.R * profile(𝒫,r)^(1 - 𝒫.κ) 
+ρ₀(𝒫,λ,ϕ,r)    = 𝒫.ρₒ * (1 - 𝒫.Δρ / 𝒫.H / 𝒫.ρₒ * (r - 𝒫.a))
 ρuʳᵃᵈ(𝒫,λ,ϕ,r) = 0.0
 ρuˡᵃᵗ(𝒫,λ,ϕ,r) = 0.0
 ρuˡᵒⁿ(𝒫,λ,ϕ,r) = 0.0
-ρθ₀(𝒫,λ,ϕ,r)   = 𝒫.pₒ / 𝒫.R * profile(𝒫,r)^(1 - 𝒫.κ) 
+ρθ₀(𝒫,λ,ϕ,r)   = 𝒫.pₒ / 𝒫.R * (0.5 * 𝒫.g * 𝒫.Δρ / 𝒫.H / 𝒫.pₒ)^(1 / 𝒫.γ) * (r - 𝒫.a - 𝒫.H * 𝒫.ρₒ / 𝒫.Δρ)^(2 / 𝒫.γ) 
 
 # Cartesian Representation (boiler plate really)
 ρ₀ᶜᵃʳᵗ(𝒫, x...)  = ρ₀(𝒫, lon(x...), lat(x...), rad(x...))
