@@ -511,6 +511,7 @@ function numerical_flux_first_order!(
     w5 = abs(uₙ) * (Δρθ - θ * Δp * c⁻²)
 
     # fluxes!!!
+    
     fluxᵀn.ρ -= (w1 + w2 + w3) * 0.5
     fluxᵀn.ρu -=
         (
@@ -520,6 +521,16 @@ function numerical_flux_first_order!(
             w4 * (Δu - Δuₙ * n⁻)
         ) * 0.5
     fluxᵀn.ρθ -= ((w1 + w2) * θ + w5) * 0.5
+    
+    #=
+    max_wavespeed = 10.0 # max(c⁻, c⁺)
+    fluxᵀn.ρ -= max_wavespeed * 0.5 * Δρ * 1.0
+    fluxᵀn.ρu -=
+        (
+            max_wavespeed * Δu
+        ) * 0.5
+    fluxᵀn.ρθ -= max_wavespeed * Δρθ * 1.0
+    =#
 
     return nothing
 end
