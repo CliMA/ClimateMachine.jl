@@ -99,8 +99,8 @@ function init_state_prognostic!(
     en.ρaθ_liq_q_tot_cv = FT(0)
     return nothing
 end;
-# vars_state_filtered(target::EnergyPerturbation, FT) = @vars(u::Svector{??})
 #dennis 
+# vars_state_filtered(target::EnergyPerturbation, FT) = @vars(u::FT)
 vars_state_filtered(target::MomentumPerturbation, FT) = @vars(u::SVector{3, FT})
 
 ref_thermo_state(atmos::AtmosModel, aux::Vars) =
@@ -269,7 +269,7 @@ function main(::Type{FT}, cl_args) where {FT}
     cb_filter = GenericCallbacks.EveryXSimulationSteps(1) do
         apply!(
             solver_config.Q,
-            EnergyPerturbation(driver_config.bl),
+            MomentumPerturbation(driver_config.bl),
             driver_config.grid,
             BoydVandevenFilter(driver_config.grid, 1, 4);
             state_auxiliary = solver_config.dg.state_auxiliary,
