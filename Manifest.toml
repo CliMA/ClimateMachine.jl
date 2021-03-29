@@ -651,9 +651,9 @@ version = "0.3.5"
 
 [[NetCDF_jll]]
 deps = ["Artifacts", "HDF5_jll", "JLLWrappers", "LibCURL_jll", "LibSSH2_jll", "Libdl", "MbedTLS_jll", "Pkg", "Zlib_jll", "nghttp2_jll"]
-git-tree-sha1 = "d5835f95aea3b93965a1a7c06de9aace8cb82d99"
+git-tree-sha1 = "0cf4d1bf2ef45156aed85c9ac5f8c7e697d9288c"
 uuid = "7243133f-43d8-5620-bbf4-c2c921802cf3"
-version = "400.701.400+0"
+version = "400.702.400+0"
 
 [[NetworkOptions]]
 git-tree-sha1 = "ed3157f48a05543cce9b241e1f2815f7e843d96e"
