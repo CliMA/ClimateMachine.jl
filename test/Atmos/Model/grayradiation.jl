@@ -33,9 +33,9 @@ const param_set = EarthParameterSet()
 ####################### Adding to Preexisting Interface #######################
 
 using UnPack
-using ClimateMachine.BalanceLaws: AbstractEnergy, Flux, FirstOrder,
-    SecondOrder, Σfluxes, Auxiliary, TendencyDef, Source,
-    UpwardIntegrals, BalanceLaw
+using ClimateMachine.BalanceLaws: AbstractEnergyVariable, Flux, FirstOrder,
+    SecondOrder, Σfluxes, Auxiliary, TendencyDef, Source, UpwardIntegrals,
+    BalanceLaw
 using ClimateMachine.DGMethods: SpaceDiscretization
 using ClimateMachine.Orientations: vertical_unit_vector
 using ClimateMachine.Atmos: Energy, nodal_update_auxiliary_state!
@@ -46,11 +46,11 @@ import ClimateMachine.Atmos: atmos_energy_normal_boundary_flux_second_order!,
 
 # Allow the RadiationModel to use a second-order flux for an Insulating bc.
 eq_tends(pv, ::RadiationModel, tt) = ()
-eq_tends(pv::AbstractEnergy, m::AtmosModel, tt::Flux{SecondOrder}) = (
+eq_tends(pv::AbstractEnergyVariable, m::AtmosModel, tt::Flux{SecondOrder}) = (
     eq_tends(pv, m.energy, tt)...,
-    eq_tends(pv, m.turbconv, tt)...,
-    eq_tends(pv, m.hyperdiffusion, tt)...,
-    eq_tends(pv, m.radiation, tt)..., # This line is new.
+    eq_tends(pv, turbconv_model(m), tt)...,
+    eq_tends(pv, hyperdiffusion_model(m), tt)...,
+    eq_tends(pv, radiation_model(m), tt)..., # This line is new.
 )
 function atmos_energy_normal_boundary_flux_second_order!(
     nf,
@@ -63,7 +63,7 @@ function atmos_energy_normal_boundary_flux_second_order!(
     map(prognostic_vars(atmos.energy)) do prog
         fluxᵀn.energy.ρe += dot(n⁻, Σfluxes(
             prog,
-            eq_tends(prog, atmos.radiation, Flux{SecondOrder}()),
+            eq_tends(prog, radiation_model(atmos), Flux{SecondOrder}()),
             atmos,
             (; state = state⁻, aux = aux⁻, t),
         ))
@@ -121,10 +121,10 @@ function update_auxiliary_state!(
     # us to compute globally vertical quantities specific to EDMF
     # until we're able to remove them or somehow incorporate them
     # into a higher level hierarchy.
-    update_auxiliary_state!(spacedisc, m.turbconv, m, Q, t, elems)
+    update_auxiliary_state!(spacedisc, turbconv_model(m), m, Q, t, elems)
 
     # Update the radiation model's auxiliary state in a seperate traversal.
-    update_auxiliary_state!(spacedisc, m.radiation, m, Q, t, elems)
+    update_auxiliary_state!(spacedisc, radiation_model(m), m, Q, t, elems)
 
     return true
 end
