@@ -128,7 +128,7 @@ function new_thermo_state_up(
     aux::Vars,
     ts::ThermodynamicState,
 ) where {FT}
-    N_up = n_updrafts(m.turbconv)
+    N_up = n_updrafts(turbconv_model(m))
     up = state.turbconv.updraft
     p = air_pressure(ts)
     param_set = parameter_set(m)
@@ -151,7 +151,7 @@ function new_thermo_state_up(
     ts::ThermodynamicState,
 ) where {FT}
 
-    N_up = n_updrafts(m.turbconv)
+    N_up = n_updrafts(turbconv_model(m))
     up = state.turbconv.updraft
     p = air_pressure(ts)
     param_set = parameter_set(m)
@@ -179,7 +179,8 @@ function new_thermo_state_en(
     aux::Vars,
     ts::ThermodynamicState,
 )
-    N_up = n_updrafts(m.turbconv)
+    turbconv = turbconv_model(m)
+    N_up = n_updrafts(turbconv)
     up = state.turbconv.updraft
 
     # diagnose environment thermo state
@@ -187,12 +188,15 @@ function new_thermo_state_en(
     p = air_pressure(ts)
     θ_liq = liquid_ice_pottemp(ts)
     a_en = environment_area(state, N_up)
-    θ_liq_en = (θ_liq - sum(vuntuple(j -> up[j].ρaθ_liq * ρ_inv, N_up))) / a_en
-    a_min = m.turbconv.subdomains.a_min
-    a_max = m.turbconv.subdomains.a_max
+    ρaθ_liq_up = vuntuple(N_up) do i
+        fix_void_up(up[i].ρa, up[i].ρaθ_liq)
+    end
+    θ_liq_en = (θ_liq - sum(vuntuple(j -> ρaθ_liq_up[j] * ρ_inv, N_up))) / a_en
+    a_min = turbconv.subdomains.a_min
+    a_max = turbconv.subdomains.a_max
     param_set = parameter_set(m)
     if !(0 <= θ_liq_en)
-        @print("ρaθ_liq_up = ", up[Val(1)].ρaθ_liq, "\n")
+        @print("ρaθ_liq_up = ", ρaθ_liq_up[Val(1)], "\n")
         @print("θ_liq = ", θ_liq, "\n")
         @print("θ_liq_en = ", θ_liq_en, "\n")
         error("Environment θ_liq_en out-of-bounds in new_thermo_state_en")
@@ -208,7 +212,8 @@ function new_thermo_state_en(
     aux::Vars,
     ts::ThermodynamicState,
 )
-    N_up = n_updrafts(m.turbconv)
+    turbconv = turbconv_model(m)
+    N_up = n_updrafts(turbconv)
     up = state.turbconv.updraft
 
     # diagnose environment thermo state
@@ -219,8 +224,8 @@ function new_thermo_state_en(
     a_en = environment_area(state, N_up)
     θ_liq_en = (θ_liq - sum(vuntuple(j -> up[j].ρaθ_liq * ρ_inv, N_up))) / a_en
     q_tot_en = (q_tot - sum(vuntuple(j -> up[j].ρaq_tot * ρ_inv, N_up))) / a_en
-    a_min = m.turbconv.subdomains.a_min
-    a_max = m.turbconv.subdomains.a_max
+    a_min = turbconv.subdomains.a_min
+    a_max = turbconv.subdomains.a_max
     param_set = parameter_set(m)
     if !(0 <= θ_liq_en)
         @print("θ_liq_en = ", θ_liq_en, "\n")

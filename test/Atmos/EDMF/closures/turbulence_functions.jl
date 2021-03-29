@@ -44,7 +44,7 @@ function compute_buoyancy_gradients(
     # Alias convention:
     gm = state
     en_dif = diffusive.turbconv.environment
-    N_up = n_updrafts(m.turbconv)
+    N_up = n_updrafts(turbconv_model(m))
     param_set = parameter_set(m)
 
     _grav::FT = grav(param_set)

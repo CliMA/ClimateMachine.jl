@@ -156,7 +156,8 @@ function init_problem!(problem, bl, state, aux, localgeo, t)
         TS = PhaseEquil_pθq(param_set, p, θ_liq, q_tot)
     end
 
-    ρ = bl.compressibility isa Compressible ? air_density(TS) : aux.ref_state.ρ
+    compress = compressibility_model(bl) isa Compressible
+    ρ = compress ? air_density(TS) : aux.ref_state.ρ
     # Compute momentum contributions
     ρu = ρ * u
     ρv = ρ * v
@@ -175,7 +176,7 @@ function init_problem!(problem, bl, state, aux, localgeo, t)
         state.moisture.ρq_tot = ρ * q_tot
     end
     add_perturbations!(state, localgeo)
-    init_state_prognostic!(bl.turbconv, bl, state, aux, localgeo, t)
+    init_state_prognostic!(turbconv_model(bl), bl, state, aux, localgeo, t)
 end
 
 function surface_temperature_variation(state, t)

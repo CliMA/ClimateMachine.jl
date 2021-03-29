@@ -1,19 +1,19 @@
-export MoistureModel, DryModel, EquilMoist, NonEquilMoist
+export AbstractMoistureModel, DryModel, EquilMoist, NonEquilMoist
 
 #### Moisture component in atmosphere model
-abstract type MoistureModel end
+abstract type AbstractMoistureModel end
 
-vars_state(::MoistureModel, ::AbstractStateType, FT) = @vars()
+vars_state(::AbstractMoistureModel, ::AbstractStateType, FT) = @vars()
 
 function atmos_nodal_update_auxiliary_state!(
-    ::MoistureModel,
+    ::AbstractMoistureModel,
     m::AtmosModel,
     state::Vars,
     aux::Vars,
     t::Real,
 ) end
 function compute_gradient_flux!(
-    ::MoistureModel,
+    ::AbstractMoistureModel,
     diffusive,
     ∇transform,
     state,
@@ -22,7 +22,7 @@ function compute_gradient_flux!(
 ) end
 
 function compute_gradient_argument!(
-    ::MoistureModel,
+    ::AbstractMoistureModel,
     transform::Vars,
     state::Vars,
     aux::Vars,
@@ -51,7 +51,7 @@ end
 
 Assumes the moisture components is in the dry limit.
 """
-struct DryModel <: MoistureModel end
+struct DryModel <: AbstractMoistureModel end
 
 vars_state(::DryModel, ::Auxiliary, FT) = @vars(θ_v::FT, air_T::FT)
 @inline function atmos_nodal_update_auxiliary_state!(
@@ -72,7 +72,7 @@ end
 
 Assumes the moisture components are computed via thermodynamic equilibrium.
 """
-Base.@kwdef struct EquilMoist{FT, IT} <: MoistureModel
+Base.@kwdef struct EquilMoist{FT, IT} <: AbstractMoistureModel
     maxiter::IT = nothing
     tolerance::FT = nothing
 end
@@ -127,7 +127,7 @@ end
 
 Does not assume that the moisture components are in equilibrium.
 """
-struct NonEquilMoist <: MoistureModel end
+struct NonEquilMoist <: AbstractMoistureModel end
 
 vars_state(::NonEquilMoist, ::Prognostic, FT) =
     @vars(ρq_tot::FT, ρq_liq::FT, ρq_ice::FT)

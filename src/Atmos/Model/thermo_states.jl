@@ -16,7 +16,7 @@ function new_thermo_state end
 
 # First dispatch on compressibility
 new_thermo_state(atmos::AtmosModel, state::Vars, aux::Vars) =
-    new_thermo_state(atmos.compressibility, atmos, state, aux)
+    new_thermo_state(compressibility_model(atmos), atmos, state, aux)
 
 new_thermo_state(::Compressible, atmos::AtmosModel, state::Vars, aux::Vars) =
     new_thermo_state(atmos, atmos.energy, atmos.moisture, state, aux)
@@ -40,7 +40,7 @@ function recover_thermo_state end
 
 # First dispatch on compressibility
 recover_thermo_state(atmos::AtmosModel, state::Vars, aux::Vars) =
-    new_thermo_state(atmos.compressibility, atmos, state, aux)
+    new_thermo_state(compressibility_model(atmos), atmos, state, aux)
 
 recover_thermo_state(
     ::Compressible,
@@ -54,7 +54,7 @@ recover_thermo_state(::Anelastic1D, atmos::AtmosModel, state::Vars, aux::Vars) =
 
 function new_thermo_state(
     atmos::AtmosModel,
-    energy::EnergyModel,
+    energy::TotalEnergyModel,
     moist::DryModel,
     state::Vars,
     aux::Vars,
@@ -66,7 +66,7 @@ end
 
 function new_thermo_state(
     atmos::AtmosModel,
-    energy::EnergyModel,
+    energy::TotalEnergyModel,
     moist::EquilMoist,
     state::Vars,
     aux::Vars,
@@ -85,7 +85,7 @@ end
 
 function new_thermo_state(
     atmos::AtmosModel,
-    energy::EnergyModel,
+    energy::TotalEnergyModel,
     moist::NonEquilMoist,
     state::Vars,
     aux::Vars,

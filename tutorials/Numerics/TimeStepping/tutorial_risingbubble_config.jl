@@ -132,7 +132,8 @@ function init_risingbubble!(problem, bl, state, aux, localgeo, t)
     θamplitude::FT = 2
 
     ## This is configured in the reference hydrostatic state
-    θ_ref::FT = bl.ref_state.virtual_temperature_profile.T_surface
+    ref_state = reference_state(bl)
+    θ_ref::FT = ref_state.virtual_temperature_profile.T_surface
 
     ## Add the thermal perturbation:
     Δθ::FT = 0

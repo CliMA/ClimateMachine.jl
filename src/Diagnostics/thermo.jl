@@ -1,5 +1,5 @@
 using ..Atmos
-using ..Atmos: MoistureModel
+using ..Atmos: AbstractMoistureModel
 
 # Helpers to gather the thermodynamic variables across the DG grid
 
@@ -15,7 +15,7 @@ function vars_thermo(atmos::AtmosModel, FT)
         moisture::vars_thermo(atmos.moisture, FT)
     end
 end
-vars_thermo(::MoistureModel, FT) = @vars()
+vars_thermo(::AbstractMoistureModel, FT) = @vars()
 function vars_thermo(m::Union{EquilMoist, NonEquilMoist}, FT)
     @vars begin
         q_liq::FT
@@ -47,7 +47,7 @@ function compute_thermo!(atmos::AtmosModel, state, aux, thermo)
 
     return nothing
 end
-function compute_thermo!(::MoistureModel, state, aux, ts, thermo)
+function compute_thermo!(::AbstractMoistureModel, state, aux, ts, thermo)
     return nothing
 end
 function compute_thermo!(

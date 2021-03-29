@@ -41,10 +41,10 @@ struct MyBalanceLaw <: BalanceLaw end
 # ## Define prognostic variable types
 
 # Here, we'll define some prognostic variable types,
-# by sub-typing [`PrognosticVariable`](@ref ClimateMachine.BalanceLaws.PrognosticVariable),
+# by sub-typing [`AbstractPrognosticVariable`](@ref ClimateMachine.BalanceLaws.AbstractPrognosticVariable),
 # for mass and energy:
-struct Mass <: PrognosticVariable end
-struct Energy <: PrognosticVariable end
+struct Mass <: AbstractPrognosticVariable end
+struct Energy <: AbstractPrognosticVariable end
 
 # Define [`prognostic_vars`](@ref ClimateMachine.BalanceLaws.prognostic_vars),
 # which returns _all_ prognostic variables

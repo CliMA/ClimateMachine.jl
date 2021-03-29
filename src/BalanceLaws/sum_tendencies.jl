@@ -63,7 +63,7 @@ function Σfluxes(
     pv::PV,
     fluxes::NTuple{0, TendencyDef{Flux{O}}},
     args...,
-) where {O, PV <: AbstractMomentum}
+) where {O, PV <: AbstractMomentumVariable}
     return SArray{Tuple{3, 3}}(ntuple(i -> 0, 9))
 end
 
@@ -72,7 +72,7 @@ function Σfluxes(
     pv::PV,
     fluxes::NTuple{0, TendencyDef{Flux{O}}},
     args...,
-) where {O, N, PV <: AbstractTracers{N}}
+) where {O, N, PV <: AbstractTracersVariable{N}}
     return SArray{Tuple{3, N}}(ntuple(i -> 0, 3 * N))
 end
 
@@ -114,7 +114,7 @@ end
 
 # Emptry vector case:
 function Σsources(
-    pv::AbstractMomentum,
+    pv::AbstractMomentumVariable,
     sources::NTuple{0, TendencyDef{Source}},
     args...,
 )
@@ -123,7 +123,7 @@ end
 
 # Emptry tracer case:
 function Σsources(
-    pv::AbstractTracers{N},
+    pv::AbstractTracersVariable{N},
     sources::NTuple{0, TendencyDef{Source}},
     args...,
 ) where {N}

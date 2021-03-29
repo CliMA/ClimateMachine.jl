@@ -56,7 +56,7 @@ end
 
 function vars_atmos_refstate_perturbations(m::AtmosModel, FT)
     @vars begin
-        ref_state::vars_atmos_refstate_perturbations(m.ref_state, FT)
+        ref_state::vars_atmos_refstate_perturbations(reference_state(m), FT)
     end
 end
 vars_atmos_refstate_perturbations(::ReferenceState, FT) = @vars()
@@ -82,7 +82,7 @@ function atmos_refstate_perturbations!(
     vars,
 )
     atmos_refstate_perturbations!(
-        atmos.ref_state,
+        reference_state(atmos),
         atmos,
         state,
         aux,
@@ -180,7 +180,7 @@ function atmos_refstate_perturbations_collect(
     Q = Settings.Q
     mpirank = MPI.Comm_rank(mpicomm)
     atmos = dg.balance_law
-    if !isa(atmos.ref_state, HydrostaticState)
+    if !isa(reference_state(atmos), HydrostaticState)
         @warn """
             Diagnostics $(dgngrp.name): has useful output only for `HydrostaticState`
             """

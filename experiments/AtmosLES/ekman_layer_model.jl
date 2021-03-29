@@ -1,55 +1,56 @@
 #!/usr/bin/env julia --project
+#=
 # This experiment file establishes the initial conditions, boundary conditions,
-# source terms and simulation parameters (domain size + resolution) for the
-
-# Convective Boundary Layer LES case (Kitamura et al, 2016).
-
-## ### Convective Boundary Layer LES
-## [Nishizawa2018](@cite)
+# source terms and simulation parameters (domain size + resolution) for
+# a dry neutrally stratified Ekman layer.
+# 
+# The initial conditions are given by constant horizontal velocity of 1 m/s,
+# and a constant potential temperature profile. The bottom boundary condition
+# results in momentum drag, and there is no exchange of heat from the surface
+# since the fluxes are zero and the temperature is homogeneous.
 #
-# To simulate the experiment, type in
-#
-# julia --project experiments/AtmosLES/convective_bl_les.jl
+=#
 
 using ArgParse
 using Distributions
+using StaticArrays
+using Test
 using DocStringExtensions
 using LinearAlgebra
 using Printf
-using Random
-using StaticArrays
 using UnPack
-using Test
 
 using ClimateMachine
 using ClimateMachine.Atmos
+using ClimateMachine.Orientations
 using ClimateMachine.ConfigTypes
 using ClimateMachine.DGMethods.NumericalFluxes
+using ClimateMachine.TemperatureProfiles
 using ClimateMachine.Diagnostics
 using ClimateMachine.GenericCallbacks
 using ClimateMachine.Mesh.Filters
 using ClimateMachine.Mesh.Grids
 using ClimateMachine.ODESolvers
-using ClimateMachine.Orientations
 using ClimateMachine.Thermodynamics
 using ClimateMachine.TurbulenceClosures
 using ClimateMachine.TurbulenceConvection
 using ClimateMachine.VariableTemplates
-
 using ClimateMachine.BalanceLaws
 import ClimateMachine.BalanceLaws: source, prognostic_vars
 
 using CLIMAParameters
-using CLIMAParameters.Planet: R_d, cp_d, cv_d, MSLP, grav
+using CLIMAParameters.Planet: cp_d, cv_d, grav, T_surf_ref
+using CLIMAParameters.Atmos.SubgridScale: C_smag, C_drag
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
+import CLIMAParameters
 
-using ClimateMachine.Atmos: altitude, recover_thermo_state
+using ClimateMachine.Atmos: altitude, recover_thermo_state, density
 
 """
-    ConvectiveBL Geostrophic Forcing (Source)
+  EkmanLayer Geostrophic Forcing (Source)
 """
-struct ConvectiveBLGeostrophic{FT} <: TendencyDef{Source}
+struct EkmanLayerGeostrophic{FT} <: TendencyDef{Source}
     "Coriolis parameter [s⁻¹]"
     f_coriolis::FT
     "Eastward geostrophic velocity `[m/s]` (Base)"
@@ -59,9 +60,9 @@ struct ConvectiveBLGeostrophic{FT} <: TendencyDef{Source}
     "Northward geostrophic velocity `[m/s]`"
     v_geostrophic::FT
 end
-prognostic_vars(::ConvectiveBLGeostrophic) = (Momentum(),)
+prognostic_vars(::EkmanLayerGeostrophic) = (Momentum(),)
 
-function source(::Momentum, s::ConvectiveBLGeostrophic, m, args)
+function source(::Momentum, s::EkmanLayerGeostrophic, m, args)
     @unpack state, aux = args
     @unpack f_coriolis, u_geostrophic, u_slope, v_geostrophic = s
 
@@ -75,9 +76,9 @@ function source(::Momentum, s::ConvectiveBLGeostrophic, m, args)
 end
 
 """
-  ConvectiveBL Sponge (Source)
+  EkmanLayer Sponge (Source)
 """
-struct ConvectiveBLSponge{FT} <: TendencyDef{Source}
+struct EkmanLayerSponge{FT} <: TendencyDef{Source}
     "Maximum domain altitude (m)"
     z_max::FT
     "Altitude at with sponge starts (m)"
@@ -93,9 +94,9 @@ struct ConvectiveBLSponge{FT} <: TendencyDef{Source}
     "Northward geostrophic velocity `[m/s]`"
     v_geostrophic::FT
 end
-prognostic_vars(::ConvectiveBLSponge) = (Momentum(),)
+prognostic_vars(::EkmanLayerSponge) = (Momentum(),)
 
-function source(::Momentum, s::ConvectiveBLSponge, m, args)
+function source(::Momentum, s::EkmanLayerSponge, m, args)
     @unpack state, aux = args
 
     @unpack z_max, z_sponge, α_max, γ = s
@@ -115,37 +116,32 @@ function source(::Momentum, s::ConvectiveBLSponge, m, args)
     end
 end
 
+add_perturbations!(state, localgeo) = nothing
+
 """
-  Initial Condition for ConvectiveBoundaryLayer LES
+  Initial Condition for EkmanLayer simulation
 """
 function init_problem!(problem, bl, state, aux, localgeo, t)
     (x, y, z) = localgeo.coord
-
     # Problem floating point precision
     param_set = parameter_set(bl)
     FT = eltype(state)
-    R_gas::FT = R_d(param_set)
     c_p::FT = cp_d(param_set)
     c_v::FT = cv_d(param_set)
-    p0::FT = MSLP(param_set)
     _grav::FT = grav(param_set)
     γ::FT = c_p / c_v
     # Initialise speeds [u = Eastward, v = Northward, w = Vertical]
-    u::FT = 4
+    u::FT = 1
     v::FT = 0
     w::FT = 0
-    # Assign piecewise quantities to θ_liq and q_tot
-    θ_liq::FT = 0
-    q_tot::FT = 0
-    # functions for potential temperature
+    # Assign constant θ profile and equal to surface temperature
+    θ::FT = T_surf_ref(param_set)
 
-    θ_liq = FT(288) + FT(4 / 1000) * z
-    θ = θ_liq
-    π_exner = FT(1) - _grav / (c_p * θ) * z # exner pressure
-    ρ = p0 / (R_gas * θ) * (π_exner)^(c_v / R_gas) # density
-    # Establish thermodynamic state and moist phase partitioning
-    TS = PhaseEquil_ρθq(param_set, ρ, θ_liq, q_tot)
+    p = aux.ref_state.p
+    TS = PhaseDry_pθ(param_set, p, θ)
 
+    compress = compressibility_model(bl) isa Compressible
+    ρ = compress ? air_density(TS) : aux.ref_state.ρ
     # Compute momentum contributions
     ρu = ρ * u
     ρv = ρ * v
@@ -160,60 +156,44 @@ function init_problem!(problem, bl, state, aux, localgeo, t)
     state.ρ = ρ
     state.ρu = SVector(ρu, ρv, ρw)
     state.energy.ρe = ρe_tot
-    if !(bl.moisture isa DryModel)
-        state.moisture.ρq_tot = ρ * q_tot
-    end
-
-    if z <= FT(400) # Add random perturbations to bottom 400m of model
-        state.energy.ρe += rand() * ρe_tot / 100
-    end
+    add_perturbations!(state, localgeo)
     init_state_prognostic!(turbconv_model(bl), bl, state, aux, localgeo, t)
 end
 
-function surface_temperature_variation(bl, state, t)
-    FT = eltype(state)
-    ρ = state.ρ
-    θ_liq_sfc = FT(291.15) + FT(20) * sinpi(FT(t / 12 / 3600))
-    param_set = parameter_set(bl)
-    if bl.moisture isa DryModel
-        TS = PhaseDry_ρθ(param_set, ρ, θ_liq_sfc)
-    else
-        q_tot = state.moisture.ρq_tot / ρ
-        TS = PhaseEquil_ρθq(param_set, ρ, θ_liq_sfc, q_tot)
-    end
-    return air_temperature(TS)
-end
-
-function convective_bl_model(
+function ekman_layer_model(
     ::Type{FT},
     config_type,
     zmax,
     surface_flux;
+    turbulence = ConstantKinematicViscosity(FT(0.1)),
     turbconv = NoTurbConv(),
-    moisture_model = "dry",
+    compressibility = Compressible(),
+    ref_state = HydrostaticState(DryAdiabaticProfile{FT}(param_set),),
 ) where {FT}
 
     ics = init_problem!     # Initial conditions
 
-    C_smag = FT(0.23)     # Smagorinsky coefficient
-    C_drag = FT(0.001)    # Momentum exchange coefficient
-    z_sponge = FT(2560)     # Start of sponge layer
+    C_drag_::FT = C_drag(param_set) # FT(0.001)    # Momentum exchange coefficient
+    u_star = FT(0.30)
+    z_0 = FT(0.1)          # Roughness height
 
+    z_sponge = FT(300)     # Start of sponge layer
     α_max = FT(0.75)       # Strength of sponge layer (timescale)
-
     γ = 2                  # Strength of sponge layer (exponent)
-    u_geostrophic = FT(4)        # Eastward relaxation speed
+
+    u_geostrophic = FT(1)        # Eastward relaxation speed
     u_slope = FT(0)              # Slope of altitude-dependent relaxation speed
     v_geostrophic = FT(0)        # Northward relaxation speed
-    f_coriolis = FT(1.031e-4) # Coriolis parameter
-    u_star = FT(0.3)
+    f_coriolis = FT(1.39e-4) # Coriolis parameter at 73N
+
     q_sfc = FT(0)
-    moisture_flux = FT(0)
+    θ_sfc = T_surf_ref(param_set)
+    g = compressibility isa Compressible ? (Gravity(),) : ()
 
     # Assemble source components
     source_default = (
-        Gravity(),
-        ConvectiveBLSponge{FT}(
+        g...,
+        EkmanLayerSponge{FT}(
             zmax,
             z_sponge,
             α_max,
@@ -222,7 +202,7 @@ function convective_bl_model(
             u_slope,
             v_geostrophic,
         ),
-        ConvectiveBLGeostrophic{FT}(
+        EkmanLayerGeostrophic(
             f_coriolis,
             u_geostrophic,
             u_slope,
@@ -230,37 +210,22 @@ function convective_bl_model(
         ),
         turbconv_sources(turbconv)...,
     )
+    source = source_default
 
-    if moisture_model == "dry"
-        source = source_default
-        moisture = DryModel()
-    elseif moisture_model == "equilibrium"
-        source = source_default
-        moisture = EquilMoist(; maxiter = 5, tolerance = FT(0.1))
-    elseif moisture_model == "nonequilibrium"
-        source = (source_default..., CreateClouds())
-        moisture = NonEquilMoist()
-    else
-        @warn @sprintf(
-            """
-%s: unrecognized moisture_model in source terms, using the defaults""",
-            moisture_model,
-        )
-        source = source_default
-    end
     # Set up problem initial and boundary conditions
     if surface_flux == "prescribed"
-        energy_bc = PrescribedEnergyFlux((state, aux, t) -> LHF + SHF)
-        moisture_bc = PrescribedMoistureFlux((state, aux, t) -> moisture_flux)
+        energy_bc = PrescribedEnergyFlux((state, aux, t) -> FT(0))
     elseif surface_flux == "bulk"
         energy_bc = BulkFormulaEnergy(
-            (bl, state, aux, t, normPu_int) -> C_drag,
-            (bl, state, aux, t) ->
-                (surface_temperature_variation(bl, state, t), q_sfc),
+            (bl, state, aux, t, normPu_int) -> C_drag_,
+            (bl, state, aux, t) -> (θ_sfc, q_sfc),
         )
-        moisture_bc = BulkFormulaMoisture(
-            (state, aux, t, normPu_int) -> C_drag,
-            (state, aux, t) -> q_sfc,
+    elseif surface_flux == "custom_sbl"
+        energy_bc = PrescribedTemperature((state, aux, t) -> θ_sfc)
+    elseif surface_flux == "Nishizawa2018"
+        energy_bc = NishizawaEnergyFlux(
+            (bl, state, aux, t, normPu_int) -> z_0,
+            (bl, state, aux, t) -> (θ_sfc, q_sfc),
         )
     else
         @warn @sprintf(
@@ -270,7 +235,7 @@ function convective_bl_model(
         )
     end
 
-    moisture_bcs = moisture_model == "dry" ? () : (; moisture = moisture_bc)
+    moisture_bcs = ()
     boundary_conditions = (
         AtmosBC(;
             momentum = Impenetrable(DragLaw(
@@ -295,10 +260,12 @@ function convective_bl_model(
         config_type,
         param_set;
         problem = problem,
-        turbulence = SmagorinskyLilly{FT}(C_smag),
-        moisture = moisture,
+        ref_state = ref_state,
+        turbulence = turbulence,
+        moisture = DryModel(),
         source = source,
         turbconv = turbconv,
+        compressibility = compressibility,
     )
 
     return model
@@ -307,12 +274,12 @@ end
 function config_diagnostics(driver_config)
     default_dgngrp = setup_atmos_default_diagnostics(
         AtmosLESConfigType(),
-        "2500steps",
+        "60ssecs",
         driver_config.name,
     )
     core_dgngrp = setup_atmos_core_diagnostics(
         AtmosLESConfigType(),
-        "2500steps",
+        "60ssecs",
         driver_config.name,
     )
     return ClimateMachine.DiagnosticsConfiguration([

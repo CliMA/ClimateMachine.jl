@@ -11,6 +11,7 @@ struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 
 using ClimateMachine
+using ClimateMachine.Land
 using ClimateMachine.Land.SoilWaterParameterizations
 
 @testset "Land water parameterizations" begin
@@ -61,36 +62,31 @@ using ClimateMachine.Land.SoilWaterParameterizations
         1.0,
     ) == FT(0.1)
 
-    @test_throws Exception effective_saturation(0.5, -1.0)
-    @test effective_saturation(0.5, 0.25) == 0.5
+    @test_throws Exception effective_saturation(0.5, -1.0, 0.0)
+    @test effective_saturation(0.5, 0.25, 0.0) == 0.5
 
     test_array = [0.5, 1.0]
     n = FT(1.43)
     m = 1.0 - 1.0 / n
     α = FT(2.6)
-
-    @test pressure_head.(
-        Ref(vg_model),
-        Ref(1.0),
-        Ref(0.001),
-        test_array,
-        Ref(0.0),
-    ) ≈ .-((-1 .+ test_array .^ (-1 / m)) .* α^(-n)) .^ (1 / n)
+    ps = SoilParamFunctions{FT}(
+        porosity = 1.0,
+        Ksat = 0.0,
+        S_s = 0.001,
+        θ_r = 0.0,
+    )
+    @test pressure_head.(Ref(vg_model), Ref(ps), test_array, Ref(0.0)) ≈
+          .-((-1 .+ test_array .^ (-1 / m)) .* α^(-n)) .^ (1 / n)
     #test branching in pressure head
-    @test pressure_head(vg_model, 1.0, 0.001, 1.5, 0.0) == 500
+    @test pressure_head(vg_model, ps, 1.5, 0.0) == 500
 
-    @test pressure_head.(
-        Ref(hk_model),
-        Ref(1.0),
-        Ref(0.001),
-        test_array,
-        Ref(0.0),
-    ) ≈ .-((-1 .+ test_array .^ (-1 / m)) .* α^(-n)) .^ (1 / n)
+    @test pressure_head.(Ref(hk_model), Ref(ps), test_array, Ref(0.0)) ≈
+          .-((-1 .+ test_array .^ (-1 / m)) .* α^(-n)) .^ (1 / n)
 
 
     m = FT(0.5)
     ψb = FT(0.1656)
-    @test pressure_head(bc_model, 1.0, 0.001, 0.5, 0.0) ≈ -ψb * 0.5^(-1 / m)
+    @test pressure_head(bc_model, ps, 0.5, 0.0) ≈ -ψb * 0.5^(-1 / m)
     @test volumetric_liquid_fraction.([0.5, 1.5], Ref(0.75)) ≈ [0.5, 0.75]
 
     @test inverse_matric_potential(

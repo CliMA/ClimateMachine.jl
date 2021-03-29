@@ -9,8 +9,9 @@ function entr_detr(
     env,
     buoy,
 ) where {FT}
-    EΔ_up = vuntuple(n_updrafts(bl.turbconv)) do i
-        entr_detr(bl, bl.turbconv.entr_detr, state, aux, ts_up, ts_en, env, buoy, i)
+    turbconv = turbconv_model(bl)
+    EΔ_up = vuntuple(n_updrafts(turbconv)) do i
+        entr_detr(bl, turbconv.entr_detr, state, aux, ts_up, ts_en, env, buoy, i)
     end
     E_dyn, Δ_dyn, E_trb = ntuple(i -> map(x -> x[i], EΔ_up), 3)
     return E_dyn, Δ_dyn, E_trb
@@ -60,8 +61,8 @@ function entr_detr(
     up = state.turbconv.updraft
     en_aux = aux.turbconv.environment
     up_aux = aux.turbconv.updraft
-
-    N_up = n_updrafts(m.turbconv)
+    turbconv = turbconv_model(m)
+    N_up = n_updrafts(turbconv)
     ρ_inv = 1 / gm.ρ
     a_up_i = up[i].ρa * ρ_inv
     lim_E = entr.lim_ϵ
@@ -91,13 +92,13 @@ function entr_detr(
     Λ_tke = entr.c_λ * abs(Δb / (max(en.ρatke * ρ_inv, 0) + w_min))
     λ = lamb_smooth_minimum(
         SVector(Λ_w, Λ_tke),
-        m.turbconv.mix_len.smin_ub,
-        m.turbconv.mix_len.smin_rm,
+        turbconv.mix_len.smin_ub,
+        turbconv.mix_len.smin_rm,
     )
 
     # compute entrainment/detrainment components
     # TO DO: Add updraft height dependency (non-local)
-    E_trb = 2 * up[i].ρa * entr.c_t * sqrt_tke / m.turbconv.pressure.H_up_min
+    E_trb = 2 * up[i].ρa * entr.c_t * sqrt_tke / turbconv.pressure.H_up_min
     E_dyn = up[i].ρa * λ * (D_E + M_E)
     Δ_dyn = up[i].ρa * λ * (D_δ + M_δ)
 

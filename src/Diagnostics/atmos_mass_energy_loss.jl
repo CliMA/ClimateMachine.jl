@@ -62,7 +62,7 @@ function atmos_mass_energy_loss_init(dgngrp, currtime)
     Q = Settings.Q
     FT = eltype(Q)
 
-    bl.energy isa EnergyModel || error("Only EnergyModel supported")
+    bl.energy isa TotalEnergyModel || error("Only TotalEnergyModel supported")
     ρ_idx = varsindices(vars_state(bl, Prognostic(), FT), "ρ")
     ρe_idx = varsindices(vars_state(bl, Prognostic(), FT), :(energy.ρe))
     Σρ₀ = weightedsum(Q, ρ_idx)
@@ -99,7 +99,7 @@ function atmos_mass_energy_loss_collect(dgngrp, currtime)
     Q = Settings.Q
     FT = eltype(Q)
 
-    bl.energy isa EnergyModel || error("Only EnergyModel supported")
+    bl.energy isa TotalEnergyModel || error("Only TotalEnergyModel supported")
     ρ_idx = varsindices(vars_state(bl, Prognostic(), FT), "ρ")
     ρe_idx = varsindices(vars_state(bl, Prognostic(), FT), :(energy.ρe))
     Σρ = weightedsum(Q, ρ_idx)

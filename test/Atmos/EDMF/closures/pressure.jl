@@ -1,8 +1,8 @@
 #### Pressure model kernels
 
 function perturbation_pressure(bl::AtmosModel{FT}, args, env, buoy) where {FT}
-    dpdz = vuntuple(n_updrafts(bl.turbconv)) do i
-        perturbation_pressure(bl, bl.turbconv.pressure, args, env, buoy, i)
+    dpdz = vuntuple(n_updrafts(turbconv_model(bl))) do i
+        perturbation_pressure(bl, turbconv_model(bl).pressure, args, env, buoy, i)
     end
     return dpdz
 end

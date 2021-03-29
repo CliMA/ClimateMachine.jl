@@ -213,7 +213,7 @@ function soil_boundary_flux!(
 end
 
 
-# SurfaceDriven conditions for SoilWater
+# SurfaceDriven conditions for for SoilHeat and SoilWater
 
 """
     function soil_boundary_flux!(
@@ -261,4 +261,43 @@ function soil_boundary_flux!(
         t,
     )
 
+end
+
+"""
+    soil_boundary_flux!(
+        nf,
+        bc::SurfaceDrivenHeatBoundaryConditions,
+        heat::SoilHeatModel,
+        land::LandModel,
+        state⁺::Vars,
+        diff⁺::Vars,
+        aux⁺::Vars,
+        n̂,
+        state⁻::Vars,
+        diff⁻::Vars,
+        aux⁻::Vars,
+        t,
+    )
+
+The Surface Driven BC method for `soil_boundary_flux!` for the
+`SoilHeatModel`.
+"""
+function soil_boundary_flux!(
+    nf,
+    bc::SurfaceDrivenHeatBoundaryConditions,
+    heat::SoilHeatModel,
+    land::LandModel,
+    state⁺::Vars,
+    diff⁺::Vars,
+    aux⁺::Vars,
+    n̂,
+    state⁻::Vars,
+    diff⁻::Vars,
+    aux⁻::Vars,
+    t,
+    _...,
+)
+
+    net_surface_flux = compute_net_radiative_energy_flux(bc.nswf_model, t)
+    diff⁺.soil.heat.κ∇T = n̂ * (-net_surface_flux)
 end

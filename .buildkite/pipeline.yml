@@ -1,5 +1,5 @@
 env:
-  JULIA_VERSION: "1.5.2"
+  JULIA_VERSION: "1.5.4"
   OPENMPI_VERSION: "4.0.4"
   CUDA_VERSION: "10.2"
   OPENBLAS_NUM_THREADS: 1
@@ -551,6 +551,24 @@ steps:
       config: cpu
       queue: central
       slurm_ntasks: 3
+
+  - label: "cpu_dss_mpi"
+    key: "cpu_dss_mpi"
+    command:
+      - "mpiexec julia --color=yes --project test/Numerics/Mesh/DSS_mpi.jl "
+    agents:
+      config: cpu
+      queue: central
+      slurm_ntasks: 3
+
+  - label: "cpu_dss"
+    key: "cpu_dss"
+    command:
+      - "mpiexec julia --color=yes --project test/Numerics/Mesh/DSS.jl "
+    agents:
+      config: cpu
+      queue: central
+      slurm_ntasks: 1
 
   - label: "cpu_GyreDriver"
     key: "cpu_GyreDriver"
@@ -1172,6 +1190,15 @@ steps:
       queue: central
       slurm_ntasks: 3
 
+  - label: "cpu_mpi_connectfull"
+    key: "cpu_mpi_connectfull"
+    command:
+      - "mpiexec julia --color=yes --project test/Numerics/Mesh/mpi_connectfull.jl"
+    agents:
+      config: cpu
+      queue: central
+      slurm_ntasks: 3
+
   - label: "cpu_mpi_connect_stacked"
     key: "cpu_mpi_connect_stacked"
     command:
@@ -1225,6 +1252,26 @@ steps:
       config: gpu
       queue: central
       slurm_ntasks: 3
+      slurm_gres: "gpu:1"
+
+  - label: "gpu_dss_mpi"
+    key: "gpu_dss_mpi"
+    command:
+      - "mpiexec julia --color=yes --project test/Numerics/Mesh/DSS_mpi.jl "
+    agents:
+      config: gpu
+      queue: central
+      slurm_ntasks: 3
+      slurm_gres: "gpu:1"
+
+  - label: "gpu_dss"
+    key: "gpu_dss"
+    command:
+      - "mpiexec julia --color=yes --project test/Numerics/Mesh/DSS.jl "
+    agents:
+      config: gpu
+      queue: central
+      slurm_ntasks: 1
       slurm_gres: "gpu:1"
 
   - label: "gpu_GyreDriver"
@@ -1711,6 +1758,16 @@ steps:
     key: "gpu_bomex_edmf"
     command:
       - "mpiexec julia --color=yes --project test/Atmos/EDMF/bomex_edmf.jl --diagnostics=default --fix-rng-seed"
+    agents:
+      config: gpu
+      queue: central
+      slurm_ntasks: 1
+      slurm_gres: "gpu:1"
+
+  - label: "gpu_ekman"
+    key: "gpu_ekman"
+    command:
+      - "mpiexec julia --color=yes --project test/Atmos/EDMF/ekman_layer.jl --fix-rng-seed"
     agents:
       config: gpu
       queue: central

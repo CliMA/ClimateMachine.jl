@@ -106,8 +106,8 @@ function vars_state(lm::AtmosLinearModel, st::Prognostic, FT)
         ρ::FT
         ρu::SVector{3, FT}
         energy::vars_state(lm.atmos.energy, st, FT)
-        turbulence::vars_state(lm.atmos.turbulence, st, FT)
-        hyperdiffusion::vars_state(lm.atmos.hyperdiffusion, st, FT)
+        turbulence::vars_state(turbulence_model(lm.atmos), st, FT)
+        hyperdiffusion::vars_state(hyperdiffusion_model(lm.atmos), st, FT)
         moisture::vars_state(lm.atmos.moisture, st, FT)
     end
 end
@@ -213,7 +213,7 @@ init_state_prognostic!(
 struct AtmosAcousticLinearModel{M} <: AtmosLinearModel
     atmos::M
     function AtmosAcousticLinearModel(atmos::M) where {M}
-        if atmos.ref_state === NoReferenceState()
+        if reference_state(atmos) === NoReferenceState()
             error("AtmosAcousticLinearModel needs a model with a reference state")
         end
         new{M}(atmos)
@@ -246,7 +246,7 @@ end
 struct AtmosAcousticGravityLinearModel{M} <: AtmosLinearModel
     atmos::M
     function AtmosAcousticGravityLinearModel(atmos::M) where {M}
-        if atmos.ref_state === NoReferenceState()
+        if reference_state(atmos) === NoReferenceState()
             error("AtmosAcousticGravityLinearModel needs a model with a reference state")
         end
         new{M}(atmos)
