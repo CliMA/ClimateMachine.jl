@@ -9,26 +9,29 @@ ClimateMachine.init()
 # Define physical parameters and parameterizations
 ########
 parameters = (
-    ρₒ = 1,           # reference density
-    cₛ = sqrt(90),    # [ms⁻¹] sound speed
-    R  = 6.371e6,     # [m] planet radius
-    H  = 8e3,         # [m] sphere shell height
-    ω  = 0.0,         # [s⁻¹] 
-    K  = 7.848e-6,    # [s⁻¹] 
-    n  = 4,           
-    g  = 90.0,        # [ms⁻²] gravitational accelleration
-    Ω  = 7.292115e-5, # [s⁻¹] planet rotation rate
+    a   = 6.371e6,     # [m] planet radius
+    Ω   = 7.292e-5,    # [s⁻¹] planet rotation rate
+    H   = 10e3,        # [m] sphere shell height
+    g   = 9.81,        # [ms⁻²] gravitational acceleration
+    R   = 287.0,       # universal gas constant
+    pₒ  = 1e5,         # [Pa] reference and surface pressure
+    Tₒ  = 288,         # [K] reference temperature
+    κ   = 1/2, #2/7,   # ratio of ideal gas consant and heat capacity
+    Γ   = 0.0065,      # [Km⁻¹] lapse rate
+    ω   = 0.0,         # [s⁻¹] 
+    K   = 1.962e-6,    # [s⁻¹] 
+    n   = 4,           # wavenumber mode of initial profile
 )
 
 ########
 # Setup physical and numerical domains
 ########
-domain = AtmosDomain(radius = parameters.R, height = parameters.H)
+domain = AtmosDomain(radius = parameters.a, height = parameters.H)
 grid = DiscretizedDomain(
     domain;
-    elements = (vertical = 1, horizontal = 6),
-    polynomial_order = (vertical = 0, horizontal = 3),
-    overintegration_order = (vertical = 1, horizontal = 1),
+    elements = (vertical = 10, horizontal = 4),
+    polynomial_order = (vertical = 1, horizontal = 1),
+    overintegration_order = (vertical = 2, horizontal = 2),
 )
 
 ########
@@ -37,21 +40,20 @@ grid = DiscretizedDomain(
 speed       = (parameters.n * (3 + parameters.n ) * parameters.ω - 2*parameters.Ω) / 
               ((1+parameters.n) * (2+parameters.n))
 numdays     = abs(45 * π / 180 / speed / 86400)
-grav_wave_c = sqrt(parameters.g * parameters.H)
 
-Δt          = min_node_distance(grid.numerical) / grav_wave_c * 0.25
+Δt          = min_node_distance(grid.numerical) / 340.0 * 0.25
 start_time  = 0
-end_time    = Δt #numdays * 86400
-method      = SSPRK22Heuns
+end_time    = numdays * 86400
+method      = LSRKEulerMethod
 timestepper = TimeStepper(method = method, timestep = Δt)
-callbacks   = (Info(), StateCheck(10), VTKState(iteration = 250, filepath = "./out/")) 
+callbacks   = (Info(), StateCheck(10), VTKState(iteration = 100, filepath = "./out/")) 
 
 physics = FluidPhysics(;
     advection   = NonLinearAdvectionTerm(),
     dissipation = ConstantViscosity{Float64}(μ = 0, ν = 0.0, κ = 0.0),
     coriolis    = ThinShellCoriolis{Float64}(Ω = parameters.Ω),
-    gravity     = nothing,
-    eos         = BarotropicFluid{Float64}(ρₒ = parameters.ρₒ, cₛ = parameters.cₛ),
+    gravity     = ThinShellGravity{Float64}(g = parameters.g),
+    eos         = DryIdealGas{Float64}(R = parameters.R, pₒ = parameters.pₒ, γ = 1/(1-parameters.κ)),
 )
 
 ########
@@ -63,39 +65,38 @@ physics = FluidPhysics(;
 )
 ρθ_bcs =
     (bottom = Insulating(), top = Insulating())
-BC = (ρθ = ρθ_bcs, ρu = ρu_bcs)
 
 ########
 # Define initial conditions
 ########
 
 # Earth Spherical Representation
-# longitude: λ ∈ [-π, π), λ = 0 is the Greenwich meridian
-# latitude:  ϕ ∈ [-π/2, π/2], ϕ = 0 is the equator
-# radius:    r ∈ [Rₑ - hᵐⁱⁿ, Rₑ + hᵐᵃˣ], Rₑ = Radius of sphere; hᵐⁱⁿ, hᵐᵃˣ ≥ 0
-A(p,ϕ) = p.ω/2*(2*p.Ω+p.ω)*cos(ϕ)^2 + 1/4*p.K^2*cos(ϕ)^(2*p.n)*((p.n+1)*cos(ϕ)^2 + (2*p.n^2-p.n-2)-2*p.n^2*sec(ϕ)^2)
-B(p,ϕ) = 2*p.K*(p.Ω+p.ω)*((p.n+1)*(p.n+2))^(-1)*cos(ϕ)^(p.n)*(p.n^2+2*p.n+2-(p.n+1)^2*cos(ϕ)^2)
-C(p,ϕ) = 1/4*p.K^2*cos(ϕ)^(2*p.n)*((p.n+1)*cos(ϕ)^2-(p.n+2))
+A(𝒫,ϕ)     = 𝒫.ω/2*(2*𝒫.Ω+𝒫.ω)*cos(ϕ)^2 + 1/4*𝒫.K^2*cos(ϕ)^(2*𝒫.n)*((𝒫.n+1)*cos(ϕ)^2 + (2*𝒫.n^2-𝒫.n-2)-2*𝒫.n^2*sec(ϕ)^2)
+B(𝒫,ϕ)     = 2*𝒫.K*(𝒫.Ω+𝒫.ω)*((𝒫.n+1)*(𝒫.n+2))^(-1)*cos(ϕ)^(𝒫.n)*(𝒫.n^2+2*𝒫.n+2-(𝒫.n+1)^2*cos(ϕ)^2)
+C(𝒫,ϕ)     = 1/4*𝒫.K^2*cos(ϕ)^(2*𝒫.n)*((𝒫.n+1)*cos(ϕ)^2-(𝒫.n+2))
+Φ(𝒫,λ,ϕ)   = 𝒫.a^2*(A(𝒫,ϕ)+B(𝒫,ϕ)*sin(𝒫.n*λ)+C(𝒫,ϕ)*(2sin(𝒫.n*λ)^2-1))
+T(𝒫,r)     = 𝒫.Tₒ-𝒫.Γ*(r-𝒫.a)
+pₛ(𝒫,λ,ϕ)  = 𝒫.pₒ*(1-𝒫.Γ*Φ(𝒫,λ,ϕ)/𝒫.Tₒ/𝒫.g)^(𝒫.g/𝒫.Γ/𝒫.R)
+pₜ(𝒫)      = 𝒫.pₒ*(1-𝒫.Γ*𝒫.H/𝒫.Tₒ)^(𝒫.g/𝒫.Γ/𝒫.R)
+p(𝒫,λ,ϕ,r) = pₜ(𝒫)+(pₛ(𝒫,λ,ϕ)-pₜ(𝒫))*(T(𝒫,r)/𝒫.Tₒ)^(𝒫.g/𝒫.Γ/𝒫.R)
 
-ρ(p,λ,ϕ,r)      = p.H + p.R^2/p.g*(A(p,ϕ) + B(p,ϕ)*cos(p.n*λ) + C(p,ϕ)*cos(2*p.n*λ))
-uˡᵒⁿ(p,λ,ϕ,r)   = p.R*p.ω*cos(ϕ) + p.R*p.K*cos(ϕ)^(p.n-1)*(p.n*sin(ϕ)^2-cos(ϕ)^2)*cos(p.n*λ) 
-uˡᵃᵗ(p,λ,ϕ,r)   = -p.n*p.K*p.R*cos(ϕ)^(p.n-1)*sin(ϕ)*sin(p.n*λ) 
-uʳᵃᵈ(p,λ,ϕ,r)   = 0
+ρ(𝒫,λ,ϕ,r)      = p(𝒫,λ,ϕ,r)/𝒫.R/T(𝒫,r)
+uˡᵒⁿ(𝒫,λ,ϕ,r)   = -𝒫.a*𝒫.ω*cos(ϕ) - 𝒫.a*𝒫.K*cos(ϕ)^(𝒫.n-1)*(𝒫.n*sin(ϕ)^2-cos(ϕ)^2)*sin(𝒫.n*λ) 
+uˡᵃᵗ(𝒫,λ,ϕ,r)   = 𝒫.n*𝒫.K*𝒫.a*cos(ϕ)^(𝒫.n-1)*sin(ϕ)*sin(𝒫.n*λ) 
+uʳᵃᵈ(𝒫,λ,ϕ,r)   = 0
+θ(𝒫,λ,ϕ,r)      = T(𝒫,r)*(𝒫.pₒ/p(𝒫,λ,ϕ,r))^𝒫.κ
 
-ρuˡᵒⁿ(p,λ,ϕ,r)  = ρ(p,λ,ϕ,r) * uˡᵒⁿ(p,λ,ϕ,r)
-ρuˡᵃᵗ(p,λ,ϕ,r)  = ρ(p,λ,ϕ,r) * uˡᵃᵗ(p,λ,ϕ,r)
-ρuʳᵃᵈ(p,λ,ϕ,r)  = ρ(p,λ,ϕ,r) * uʳᵃᵈ(p,λ,ϕ,r)
-
-ρθ₀(p, λ, ϕ, r) = sin(ϕ)
+ρuˡᵒⁿ(𝒫,λ,ϕ,r)  = ρ(𝒫,λ,ϕ,r)*uˡᵒⁿ(𝒫,λ,ϕ,r)
+ρuˡᵃᵗ(𝒫,λ,ϕ,r)  = ρ(𝒫,λ,ϕ,r)*uˡᵃᵗ(𝒫,λ,ϕ,r)
+ρuʳᵃᵈ(𝒫,λ,ϕ,r)  = ρ(𝒫,λ,ϕ,r)*uʳᵃᵈ(𝒫,λ,ϕ,r)
+ρθ₀(𝒫, λ, ϕ, r) = ρ(𝒫,λ,ϕ,r)*θ(𝒫,λ,ϕ,r)
 
 # Cartesian Representation (boiler plate really)
-ρ₀ᶜᵃʳᵗ(p, x...)  = ρ(p, lon(x...), lat(x...), rad(x...))
-ρu⃗₀ᶜᵃʳᵗ(p, x...) = (   ρuʳᵃᵈ(p, lon(x...), lat(x...), rad(x...)) * r̂(x...) 
-                     + ρuˡᵃᵗ(p, lon(x...), lat(x...), rad(x...)) * ϕ̂(x...)
-                     + ρuˡᵒⁿ(p, lon(x...), lat(x...), rad(x...)) * λ̂(x...) ) 
-ρθ₀ᶜᵃʳᵗ(p, x...) = ρθ₀(p, lon(x...), lat(x...), rad(x...))
-
-initial_conditions = (ρ = ρ₀ᶜᵃʳᵗ, ρu = ρu⃗₀ᶜᵃʳᵗ, ρθ = ρθ₀ᶜᵃʳᵗ)
+ρ₀ᶜᵃʳᵗ(𝒫, x...)  = ρ(𝒫, lon(x...), lat(x...), rad(x...))
+ρu⃗₀ᶜᵃʳᵗ(𝒫, x...) = (   ρuʳᵃᵈ(𝒫, lon(x...), lat(x...), rad(x...)) * r̂(x...) 
+                     + ρuˡᵃᵗ(𝒫, lon(x...), lat(x...), rad(x...)) * ϕ̂(x...)
+                     + ρuˡᵒⁿ(𝒫, lon(x...), lat(x...), rad(x...)) * λ̂(x...) ) 
+ρθ₀ᶜᵃʳᵗ(𝒫, x...) = ρθ₀(𝒫, lon(x...), lat(x...), rad(x...))
 
 ########
 # Create the things
@@ -105,13 +106,13 @@ model = SpatialModel(
     physics = physics,
     numerics = (flux = RoeNumericalFlux(),),
     grid = grid,
-    boundary_conditions = BC,
+    boundary_conditions = (ρθ = ρθ_bcs, ρu = ρu_bcs),
     parameters = parameters,
 )
 
 simulation = Simulation(
     model = model,
-    initial_conditions = initial_conditions,
+    initial_conditions = (ρ = ρ₀ᶜᵃʳᵗ, ρu = ρu⃗₀ᶜᵃʳᵗ, ρθ = ρθ₀ᶜᵃʳᵗ),
     timestepper = timestepper,
     callbacks = callbacks,
     time = (; start = start_time, finish = end_time),
