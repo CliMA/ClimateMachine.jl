@@ -1,4 +1,3 @@
-using StaticNumbers
 export remainder_DGModel
 
 import ..BalanceLaws:
@@ -428,9 +427,8 @@ function wavespeed(
     # Compute the sub components wavespeed
     for (sub, subdir) in zip(rem_balance_law.subs, rem_balance_law.subsdir)
         @inbounds if subdir isa Union{Dirs.types...}
-            num_state = static(number_states(sub, Prognostic()))
-            rs[static(1):num_state] .+=
-                wavespeed(sub, nM, state, aux, t, (subdir,))
+            num_state = number_states(sub, Prognostic())
+            rs[1:num_state] .+= wavespeed(sub, nM, state, aux, t, (subdir,))
         end
     end
 
@@ -519,7 +517,7 @@ function numerical_flux_first_order!(
             a_sub_state_prognostic⁻ = MVector{num_state_prognostic, FT}(undef)
             a_sub_state_prognostic⁺ = MVector{num_state_prognostic, FT}(undef)
 
-            state_rng = static(1):static(number_states(sub, Prognostic()))
+            state_rng = 1:number_states(sub, Prognostic())
             a_sub_fluxᵀn .= a_fluxᵀn[state_rng]
             a_sub_state_prognostic⁻ .= parent(state_prognostic⁻)[state_rng]
             a_sub_state_prognostic⁺ .= parent(state_prognostic⁺)[state_rng]
@@ -644,7 +642,7 @@ function numerical_boundary_flux_first_order!(
             a_sub_state_prognostic⁺ = MVector{num_state_prognostic, FT}(undef)
             a_sub_state_prognostic1⁻ = MVector{num_state_prognostic, FT}(undef)
 
-            state_rng = static(1):static(number_states(sub, Prognostic()))
+            state_rng = 1:number_states(sub, Prognostic())
             a_sub_fluxᵀn .= a_fluxᵀn[state_rng]
             a_sub_state_prognostic⁻ .= parent(state_prognostic⁻)[state_rng]
             a_sub_state_prognostic⁺ .= parent(state_prognostic⁺)[state_rng]
