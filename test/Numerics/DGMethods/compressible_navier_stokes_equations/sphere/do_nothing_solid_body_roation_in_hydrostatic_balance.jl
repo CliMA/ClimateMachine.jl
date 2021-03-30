@@ -2,6 +2,7 @@
 include("../boilerplate.jl")
 include("../three_dimensional/ThreeDimensionalCompressibleNavierStokesEquations.jl")
 include("sphere_helper_functions.jl")
+include("../shared_source/gradient.jl")
 
 ClimateMachine.init()
 
@@ -17,7 +18,7 @@ parameters = (
     α  = 10.0,
     g  = 9.81,
     ∂θ = 0.98 / 1e5,
-    power = 1,
+    power = 8,
 )
 
 ########
@@ -28,7 +29,7 @@ grid = DiscretizedDomain(
     domain;
     elements              = (vertical = 4, horizontal = 4),
     polynomial_order      = (vertical = 1, horizontal = 3),
-    overintegration_order = (vertical = 1, horizontal = 1),
+    overintegration_order = (vertical = 0, horizontal = 0),
 )
 
 ########
@@ -36,8 +37,8 @@ grid = DiscretizedDomain(
 ########
 Δt          = min_node_distance(grid.numerical) / parameters.cₛ * 0.25
 start_time  = 0
-end_time    = 86400 * 0.5
-method      = SSPRK22Heuns
+end_time    = Δt # 86400 * 0.5 * 6 * 5
+method      = LSRKEulerMethod # SSPRK22Heuns
 timestepper = TimeStepper(method = method, timestep = Δt)
 callbacks   = (Info(), StateCheck(10))
 
@@ -89,7 +90,7 @@ physics = FluidPhysics(;
 model = SpatialModel(
     balance_law         = Fluid3D(),
     physics             = physics,
-    numerics            = (flux = RoeNumericalFlux(),),
+    numerics            = (flux = RoeNumericalFlux(),), # RoeNumericalFlux()
     grid                = grid,
     boundary_conditions = (ρθ = ρθ_bcs, ρu = ρu_bcs),
     parameters          = parameters,
@@ -103,6 +104,36 @@ simulation = Simulation(
     time                = (; start = start_time, finish = end_time),
 )
 
+
+#######
+# Fix up
+#######
+x,y,z = coordinates(grid)
+r = sqrt.(x .^2 .+ y .^2 .+ z .^2)
+∇  =  Nabla(grid)
+∇r =  ∇(r)
+ρᴬ = simulation.state.ρ
+p = (ρᴬ[:,1,:] .^2) .* (parameters.cₛ)^2 / parameters.ρₒ /2
+∇p = ∇(p)
+ρᴮ = ∇p ./ ∇r / (parameters.α * parameters.g)
+norm(ρᴮ[:,:,1] - ρᴮ[:,:,2]) / norm(ρᴮ[:,:,1]) 
+norm(ρᴮ[:,:,2] - ρᴮ[:,:,3]) / norm(ρᴮ[:,:,1])
+norm(ρᴮ[:,:,3] - ρᴮ[:,:,1]) / norm(ρᴮ[:,:,1])
+ρθᴮ = ρᴮ[:,:,1]
+norm(simulation.state.ρθ[:,1,:] - ρθᴮ)
+er1 = maximum(abs.( -∇p[:,:,1] + parameters.α * parameters.g * ρθᴮ .* ∇r[:,:,1]))
+er2 = maximum(abs.( -∇p[:,:,1] + parameters.α * parameters.g * simulation.state.ρθ[:,1,:] .* ∇r[:,:,1]))
+simulation.state.ρθ[:,1,:] = ρθᴮ # set equal to numerical one
+##
+∇r =  ∇(r)
+ϕr = exp.(-(r .- r[1]) / (maximum(r) - minimum(r)))
+∇ϕr = ∇(ϕr)
+tmp = ∇ϕr ./ ∇r
+norm(tmp[:,:,1] - tmp[:,:,2])
+norm(tmp[:,:,2] - tmp[:,:,3])
+norm(tmp[:,:,3] - tmp[:,:,1])
+
+##
 ########
 # Run the model
 ########
