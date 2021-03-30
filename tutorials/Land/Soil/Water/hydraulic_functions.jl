@@ -9,7 +9,7 @@
 
 
 # ClimateMachine's Land model allows the user to pick between two hydraulics models,
-# that of van Genuchten [1] or that of Brooks and Corey [2, 3]. The
+# that of van Genuchten [vanGenuchten1980](@cite) or that of Brooks and Corey, see [BrooksCorey1964](@cite) or [Corey1977](@cite). The
 # same model is consistently used for the matric potential
 # and hydraulic conductivity.
 
@@ -36,7 +36,7 @@ const FT = Float32;
 # [`SoilParamFunctions`](@ref ClimateMachine.Land.SoilParamFunctions).
 
 # Below we show how to create two concrete examples of these hydraulics models,
-# for sandy loam [1]. Note that the parameters chosen are a function of soil type.
+# for sandy loam ([Bonan19a](@cite)). Note that the parameters chosen are a function of soil type.
 vg_α = FT(7.5) # m^-1
 vg_n = FT(1.89)
 hydraulics = vanGenuchten{FT}(α = vg_α, n = vg_n)
@@ -46,8 +46,8 @@ Mval = 0.228
 hydraulics_bc = BrooksCorey{FT}(ψb = ψ_sat, m = Mval);
 # # Matric Potential
 # The matric potential `ψ` represents how much water clings to soil. Drier soil
-# holds onto water more tightly, making diffusion more difficult. As soil becomes
-# wetter, the matric potential decreases in magnitude, making diffusion easier.
+# holds onto water more tightly, impeding the flow of water. As soil becomes
+# wetter, the matric potential decreases in magnitude, enabling water flow.
 
 # The van Genuchten expression for matric potential is
 # ``
@@ -160,7 +160,7 @@ savefig("bc_vg_matric_potential.png")
 #  Let's start with ice and temperature independence, but moisture dependence.
 # Below
 # we choose additional parameters, consistent with the `hydraulics` parameters
-# for sandy loam [1].
+# for sandy loam ([Bonan19a](@cite)).
 ν = FT(0.41)
 Ksat = FT(4.42 / (3600 * 100))
 moisture_choice = MoistureDependent{FT}()
@@ -241,7 +241,7 @@ K =
 
 # where ``\Omega = 7`` is an empirical factor and
 # ``f_i`` is the ratio of the volumetric
-# ice fraction to total volumetric water fraction [5].
+# ice fraction to total volumetric water fraction  ([Lundin1990](@cite)).
 
 viscosity_choice_T = TemperatureDependentViscosity{FT}()
 T = FT(300.0)
@@ -361,15 +361,11 @@ K_constant =
 
 # And, lastly, you might be wondering why we left `Ksat` out of the function
 # for `hydraulic_conductivity`. It turns out it is also useful for debugging
-# to be able to turn off the diffusion of water, by setting `Ksat = 0`.
+# to be able to turn off the flow of water, by setting `Ksat = 0`.
 
 # # References
-# [1] van Genuchten, M. T. (1980), A closed-form equation for predicting the hydraulic conductivity of unsaturated soils, Soil Sci. Soc. Amer. J., pp. 892–898.
-
-# [2] Brooks, R. J., and A. T. Corey (1964), Hydraulic properties of porous media.
-
-# [3] Corey, A. T. (1977), Mechanics of Heterogeneous Fluids in Porous Media, Water Resources Publication, Fort Collins, CO.
-
-# [4] Bonan, G. (2019), Climate Change and Terrestrial Ecoystem Modeling, Cambridge Univ. Press, Cambridge, UK, and New York, NY, USA. Chapter 8, Page 120
-
-# [5] Lundin, L.-C. (1990), Hydraulic properties in an operational model of frozen soil, J. Hydrol., 118, 289–310.
+# - [vanGenuchten1980](@cite)
+# - [BrooksCorey1964](@cite)
+# - [Corey1977](@cite)
+# - [Lundin1990](@cite)
+# - [Bonan19a](@cite)

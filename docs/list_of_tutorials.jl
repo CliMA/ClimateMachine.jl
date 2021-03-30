@@ -51,6 +51,10 @@ if generate_tutorials
                     "Land/Soil/Water/equilibrium_test.jl",
                 "Coupled Water and Heat" =>
                     "Land/Soil/Coupled/equilibrium_test.jl",
+                "Phase Change I" =>
+                    "Land/Soil/PhaseChange/freezing_front.jl",
+                "Phase Change II" =>
+                    "Land/Soil/PhaseChange/phase_change_analytic_test.jl",
             ],
         ],
         "Ocean" => [

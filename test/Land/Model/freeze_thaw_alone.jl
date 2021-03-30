@@ -1,5 +1,4 @@
-# Test that freeze thaw alone reproduces expected behavior: exponential behavior
-# for liquid water content, ice content, and total water conserved
+# Test that freeze thaw alone conserves water mass
 
 using MPI
 using OrderedCollections
@@ -55,45 +54,76 @@ using ClimateMachine.BalanceLaws:
     end
 
     function init_soil_water!(land, state, aux, coordinates, time)
-        state.soil.water.ϑ_l = eltype(state)(land.soil.water.initialϑ_l(aux))
-        state.soil.water.θ_i = eltype(state)(land.soil.water.initialθ_i(aux))
+        ϑ_l = eltype(state)(land.soil.water.initialϑ_l(aux))
+        θ_i = eltype(state)(land.soil.water.initialθ_i(aux))
+        state.soil.water.ϑ_l = ϑ_l
+        state.soil.water.θ_i = θ_i
+        param_set = land.param_set
+
+        θ_l =
+            volumetric_liquid_fraction(ϑ_l, land.soil.param_functions.porosity)
+        ρc_ds = land.soil.param_functions.ρc_ds
+        ρc_s = volumetric_heat_capacity(θ_l, θ_i, ρc_ds, param_set)
+
+        state.soil.heat.ρe_int = volumetric_internal_energy(
+            θ_i,
+            ρc_s,
+            land.soil.heat.initialT(aux),
+            param_set,
+        )
     end
 
     FT = Float64
     ClimateMachine.init()
 
-    N_poly = 5
-    nelem_vert = 50
+    N_poly = 1
+    nelem_vert = 30
     zmax = FT(0)
     zmin = FT(-1)
     t0 = FT(0)
-    timeend = FT(30)
-    dt = FT(0.05)
+    timeend = FT(60 * 60 * 24)
+    dt = FT(1800)
 
-    n_outputs = 30
-    every_x_simulation_time = ceil(Int, timeend / n_outputs)
     Δ = get_grid_spacing(N_poly, nelem_vert, zmax, zmin)
-    cs = FT(3e6)
-    κ = FT(1.5)
-    τLTE = FT(cs * Δ^FT(2.0) / κ)
-    freeze_thaw_source = PhaseChange{FT}(Δt = dt, τLTE = τLTE)
+    freeze_thaw_source = PhaseChange{FT}(Δz = Δ)
+    ρp = FT(2700) # kg/m^3
+    ρc_ds = FT(2e06) # J/m^3/K
 
-    soil_param_functions =
-        SoilParamFunctions{FT}(porosity = 0.75, Ksat = 0.0, S_s = 1e-3)
+
+    soil_param_functions = SoilParamFunctions{FT}(
+        Ksat = 0.0,
+        S_s = 1e-4,
+        porosity = 0.75,
+        ν_ss_gravel = 0.0,
+        ν_ss_om = 0.0,
+        ν_ss_quartz = 0.5,
+        ρc_ds = ρc_ds,
+        ρp = ρp,
+        κ_solid = 1.0,
+        κ_sat_unfrozen = 1.0,
+        κ_sat_frozen = 1.0,
+    )
+
 
     bottom_flux = (aux, t) -> eltype(aux)(0.0)
     surface_flux = (aux, t) -> eltype(aux)(0.0)
     bc = LandDomainBC(
-        bottom_bc = LandComponentBC(soil_water = Neumann(bottom_flux)),
-        surface_bc = LandComponentBC(soil_water = Neumann(surface_flux)),
+        bottom_bc = LandComponentBC(
+            soil_water = Neumann(bottom_flux),
+            soil_heat = Dirichlet((aux, t) -> eltype(aux)(280)),
+        ),
+        surface_bc = LandComponentBC(
+            soil_water = Neumann(surface_flux),
+            soil_heat = Dirichlet((aux, t) -> eltype(aux)(290)),
+        ),
     )
     ϑ_l0 = (aux) -> eltype(aux)(1e-10)
     θ_i0 = (aux) -> eltype(aux)(0.33)
 
     soil_water_model = SoilWaterModel(FT; initialϑ_l = ϑ_l0, initialθ_i = θ_i0)
 
-    soil_heat_model =
-        PrescribedTemperatureModel((aux, t) -> eltype(aux)(276.15))
+    T_init = (aux) -> eltype(aux)(aux.z * 10 + 290)
+    soil_heat_model = SoilHeatModel(FT; initialT = T_init)
 
     m_soil = SoilModel(soil_param_functions, soil_water_model, soil_heat_model)
     sources = (freeze_thaw_source,)
@@ -124,32 +154,18 @@ using ClimateMachine.BalanceLaws:
         driver_config,
         ode_dt = dt,
     )
-    state_types = (Prognostic(),)
-    dons_arr =
+    state_types = (Prognostic(), Auxiliary())
+    initial =
         Dict[dict_of_nodal_states(solver_config, state_types; interp = true)]
-    time_data = FT[0]
-    callback = GenericCallbacks.EveryXSimulationTime(every_x_simulation_time) do
-        dons = dict_of_nodal_states(solver_config, state_types; interp = true)
-        push!(dons_arr, dons)
-        push!(time_data, gettime(solver_config.solver))
-        nothing
-    end
-    ClimateMachine.invoke!(solver_config; user_callbacks = (callback,))
-    dons = dict_of_nodal_states(solver_config, state_types; interp = true)
-    push!(dons_arr, dons)
-    push!(time_data, gettime(solver_config.solver))
-    m_liq = [
-        ρ_cloud_liq(param_set) * mean(dons_arr[k]["soil.water.ϑ_l"])
-        for k in 1:(n_outputs + 1)
-    ]
-    m_ice = [
-        ρ_cloud_ice(param_set) * mean(dons_arr[k]["soil.water.θ_i"])
-        for k in 1:(n_outputs + 1)
-    ]
-    total_water = m_ice + m_liq
-    τft = max(dt, τLTE)
-    m_ice_of_t = m_ice[1] * exp.(-1.0 .* (time_data .- time_data[1]) ./ τft)
-    m_liq_of_t = -m_ice_of_t .+ (m_liq[1] + m_ice[1])
-    @test mean(abs.(m_liq .- m_liq_of_t)) < 1e-9
-    @test mean(abs.(m_ice .- m_ice_of_t)) < 1e-9
+    ClimateMachine.invoke!(solver_config)
+    final =
+        Dict[dict_of_nodal_states(solver_config, state_types; interp = true)]
+    m_init =
+        ρ_cloud_liq(param_set) * sum(initial[1]["soil.water.ϑ_l"]) .+
+        ρ_cloud_ice(param_set) * sum(initial[1]["soil.water.θ_i"])
+    m_final =
+        ρ_cloud_liq(param_set) * sum(final[1]["soil.water.ϑ_l"]) .+
+        ρ_cloud_ice(param_set) * sum(final[1]["soil.water.θ_i"])
+
+    @test abs(m_final - m_init) < 1e-10
 end

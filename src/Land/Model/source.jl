@@ -15,15 +15,13 @@ abstract type SoilSource{FT <: AbstractFloat} end
 
 """
     PhaseChange <: SoilSource
-The function which computes the freeze/thaw source term for Richard's equation,
-assuming the timescale is the maximum of the thermal timescale and the timestep.
+The function which computes the freeze/thaw source term for Richard's equation.
 """
 Base.@kwdef struct PhaseChange{FT} <: SoilSource{FT}
-    "Timestep"
-    Δt::FT = FT(NaN)
-    "Timescale for temperature changes"
-    τLTE::FT = FT(NaN)
+    "Typical resolution in the vertical"
+    Δz::FT = FT(NaN)
 end
+
 
 
 function land_source!(
@@ -58,25 +56,44 @@ function land_source!(
     _LH_f0 = FT(LH_f0(param_set))
     _g = FT(grav(param_set))
 
+
+
     ϑ_l, θ_i = get_water_content(land.soil.water, aux, state, t)
-    eff_porosity = land.soil.param_functions.porosity - θ_i
+    ν = land.soil.param_functions.porosity
+    eff_porosity = ν - θ_i
     θ_l = volumetric_liquid_fraction(ϑ_l, eff_porosity)
     T = get_temperature(land.soil.heat, aux, t)
-
-    # The inverse matric potential is only defined for negative arguments.
-    # This is calculated even when T > _Tfreeze, so to be safe,
-    # take absolute value and then pick the sign to be negative.
-    # But below, use heaviside function to only allow freezing in the
-    # appropriate temperature range (T < _Tfreeze)
-    ψ = -abs(_LH_f0 / _g / _Tfreeze * (T - _Tfreeze))
-    hydraulics = land.soil.water.hydraulics
+    κ_dry = k_dry(land.param_set, land.soil.param_functions)
+    S_r = relative_saturation(θ_l, θ_i, ν)
+    kersten = kersten_number(θ_i, S_r, land.soil.param_functions)
+    κ_sat = saturated_thermal_conductivity(
+        θ_l,
+        θ_i,
+        land.soil.param_functions.κ_sat_unfrozen,
+        land.soil.param_functions.κ_sat_frozen,
+    )
+    κ = thermal_conductivity(κ_dry, kersten, κ_sat)
+    ρc_ds = land.soil.param_functions.ρc_ds
+    ρc_s = volumetric_heat_capacity(θ_l, θ_i, ρc_ds, land.param_set)
     θ_r = land.soil.param_functions.θ_r
-    θstar =
-        θ_r +
-        (land.soil.param_functions.porosity - θ_r) *
-        inverse_matric_potential(hydraulics, ψ)
 
-    τft = max(source_type.Δt, source_type.τLTE)
+    hydraulics = land.soil.water.hydraulics
+    θ_m = min(_ρice * θ_i / _ρliq + θ_l, ν)
+    ψ0 = matric_potential(hydraulics, θ_m)
+    ψT = _LH_f0 / _g / _Tfreeze * (T - _Tfreeze)
+    if T < _Tfreeze
+        θstar = θ_r + (ν - θ_r) * inverse_matric_potential(hydraulics, ψ0 + ψT)
+    else
+        θstar = θ_l
+    end
+    Δz = source_type.Δz
+    τLTE = FT(ρc_s * Δz^2 / κ)
+    ΔT = norm(diffusive.soil.heat.κ∇T) / κ * Δz
+    ρ_w = FT(0.5) * (_ρliq + _ρice)
+
+    τpt = τLTE * (ρ_w * _LH_f0 * (ν - θ_r)) / (ρc_s * ΔT)
+
+    τft = max(τLTE, τpt)
     freeze_thaw =
         FT(1) / τft * (
             _ρliq *
