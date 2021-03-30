@@ -993,7 +993,7 @@ end
         # p, ρ, q_pt_rec; test that this is equal to T_rec
         T_local =
             TD.air_temperature_from_ideal_gas_law.(param_set, p, ρ, q_pt_rec)
-        @test all(isapprox.(T_local, T_rec, atol = sqrt(eps(FT))))
+        @test all(isapprox.(T_local, T_rec, atol = 2sqrt(eps(FT))))
     end
 
 end
