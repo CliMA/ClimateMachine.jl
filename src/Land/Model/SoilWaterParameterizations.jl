@@ -559,7 +559,7 @@ end
 
 """
     inverse_matric_potential(
-        model::Haverkamp{FT}
+        model::Haverkamp{FT},
         ψ::FT
     ) where {FT}
 
@@ -577,7 +577,7 @@ end
 
 """
     inverse_matric_potential(
-        model::BrooksCorey{FT}
+        model::BrooksCorey{FT},
         ψ::FT
     ) where {FT}
 
@@ -591,5 +591,38 @@ function inverse_matric_potential(model::BrooksCorey{FT}, ψ::FT) where {FT}
     S = (-ψ / ψb)^(-m)
     return S
 end
+
+# """
+#     root_extraction(
+#         plant_hs::AbstractPlantOrganism{FT},
+#         ψ::FT,
+#         qsum::FT=FT(0)
+#     ) where {FT}
+
+# Compute the effective saturation given the matric potential using the 
+# Brooks and Corey formulation.
+# """
+# function root_extraction(
+#     plant_hs::AbstractPlantOrganism{FT},
+#     ψ::Array{FT,1}, # using a ; means we would have to set qsum, now we dont, can leave blank as we gave a defaul
+#     qsum::FT=FT(0) # (sum of flow rates, no water going into canopy by default), can leave qsum blank
+# ) where {FT}
+
+# update_auxiliary_state!(
+#     dg::DGModel,
+#     m::AtmosModel,
+#     Q::MPIStateArray,
+#     t::Real,
+#     elems::UnitRange,
+# )
+#     # we dont want to update his model at every point ; we store hydarulic head in aux, we could
+#     # access the whole thing, and charlie might know... 
+#     for i_root in eachindex(plant_hs.roots)
+#         plant_hs.roots[i_root].p_ups = p_soil_array[i_root];
+#     end
+#     roots_flow!(plant_hs, qsum) # no water going into canopy (no daytime transpiration), this updates the flow rate in each root
+#     root_extraction = plant_hs.cache_q # array of flow rates in each root layer (mol W/s/layer), maybe not necessary to rewrite name
+#     return root_extraction
+# end
 
 end #Module
