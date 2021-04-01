@@ -27,6 +27,7 @@ function mixing_length(
     args,
     Δ::Tuple,
     Et::Tuple,
+    Shear²,
     ts_gm,
     ts_en,
     env,
@@ -46,7 +47,6 @@ function mixing_length(
     _grav::FT = grav(param_set)
     ρinv = 1 / gm.ρ
 
-    Shear² = diffusive.turbconv.S²
     tke_en = max(en.ρatke, 0) * ρinv / env.a
 
     # buoyancy related functions
