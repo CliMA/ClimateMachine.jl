@@ -142,18 +142,12 @@ function vars_state(::Environment, ::GradientFlux, FT)
         ∇θ_liq_q_tot_cv::SVector{3, FT},
         ∇θv::SVector{3, FT},
         ∇h_tot::SVector{3, FT},
-        K_m::FT,
-        l_mix::FT,
-        shear_prod::FT,
-        buoy_prod::FT,
-        tke_diss::FT
     )
 
 end
 
 function vars_state(m::EDMF, st::GradientFlux, FT)
     @vars(
-        S²::FT, # should be conditionally grabbed from turbulence_model(atmos)
         environment::vars_state(m.environment, st, FT),
         updraft::vars_state(m.updraft, st, FT),
         ∇u::SVector{3, FT},
@@ -475,37 +469,6 @@ function compute_gradient_flux!(
 
     gm_dif.∇u = gm_∇tf.u
     gm_dif.∇v = gm_∇tf.v
-
-    gm_dif.S² = ∇transform.u[3, 1]^2 + ∇transform.u[3, 2]^2 + en_dif.∇w[3]^2 # ∇transform.u is Jacobian.T
-
-    # Recompute l_mix, K_m and tke budget terms for output.
-    ts = recover_thermo_state_all(m, state, aux)
-
-    tke_en = enforce_positivity(en.ρatke) / ρa₀
-
-    buoy = compute_buoyancy(m, state, env, ts.en, ts.up, aux.ref_state)
-
-    E_dyn, Δ_dyn, E_trb = entr_detr(m, state, aux, ts.up, ts.en, env, buoy)
-
-    turbconv = turbconv_model(m)
-    en_dif.l_mix, ∂b∂z_env, Pr_t = mixing_length(
-        m,
-        turbconv.mix_len,
-        args,
-        Δ_dyn,
-        E_trb,
-        ts.gm,
-        ts.en,
-        env,
-    )
-
-    en_dif.K_m = turbconv.mix_len.c_m * en_dif.l_mix * sqrt(tke_en)
-    K_h = en_dif.K_m / Pr_t
-    Diss₀ = turbconv.mix_len.c_d * sqrt(tke_en) / en_dif.l_mix
-
-    en_dif.shear_prod = ρa₀ * en_dif.K_m * gm_dif.S² # tke Shear source
-    en_dif.buoy_prod = -ρa₀ * K_h * ∂b∂z_env   # tke Buoyancy source
-    en_dif.tke_diss = -ρa₀ * Diss₀ * tke_en  # tke Dissipation
 end;
 
 function source(::up_ρa{i}, ::EntrDetr, atmos, args) where {i}
@@ -667,9 +630,8 @@ function source(::en_ρatke, ::PressSource, atmos, args)
 end
 
 function source(::en_ρatke, ::ShearSource, atmos, args)
-    @unpack env, K_m = args.precomputed.turbconv
+    @unpack env, K_m, Shear² = args.precomputed.turbconv
     gm = args.state
-    Shear² = args.diffusive.turbconv.S²
     ρa₀ = gm.ρ * env.a
     # production from mean gradient and Dissipation
     return ρa₀ * K_m * Shear² # tke Shear source
@@ -863,12 +825,17 @@ function precompute(::EDMF, bl, args, ts, ::Flux{SecondOrder})
 
     E_dyn, Δ_dyn, E_trb = entr_detr(bl, state, aux, ts_up, ts_en, env, buoy)
 
+    Shear² =
+        diffusive.turbconv.∇u[3]^2 +
+        diffusive.turbconv.∇v[3]^2 +
+        diffusive.turbconv.environment.∇w[3]^2
     l_mix, ∂b∂z_env, Pr_t = mixing_length(
         bl,
         turbconv.mix_len,
         args,
         Δ_dyn,
         E_trb,
+        Shear²,
         ts_gm,
         ts_en,
         env,
@@ -959,6 +926,11 @@ function precompute(::EDMF, bl, args, ts, ::Source)
     ts_up = new_thermo_state_up(bl, bl.moisture, state, aux, ts_gm)
     ρa_up = compute_ρa_up(bl, state, aux)
 
+    Shear² =
+        diffusive.turbconv.∇u[3]^2 +
+        diffusive.turbconv.∇v[3]^2 +
+        diffusive.turbconv.environment.∇w[3]^2
+
     buoy = compute_buoyancy(bl, state, env, ts_en, ts_up, aux.ref_state)
     E_dyn, Δ_dyn, E_trb = entr_detr(bl, state, aux, ts_up, ts_en, env, buoy)
 
@@ -970,6 +942,7 @@ function precompute(::EDMF, bl, args, ts, ::Source)
         args,
         Δ_dyn,
         E_trb,
+        Shear²,
         ts_gm,
         ts_en,
         env,
@@ -984,6 +957,7 @@ function precompute(::EDMF, bl, args, ts, ::Source)
     K_m = turbconv.mix_len.c_m * l_mix * sqrt(tke_en)
     K_h = K_m / Pr_t
     Diss₀ = turbconv.mix_len.c_d * sqrt(tke_en) / l_mix
+    tke_buoy_prod = -gm.ρ * env.a * K_h * ∂b∂z_env   # tke Buoyancy source
 
     return (;
         env,
@@ -1002,6 +976,8 @@ function precompute(::EDMF, bl, args, ts, ::Source)
         l_mix,
         ∂b∂z_env,
         Pr_t,
+        Shear²,
+        tke_buoy_prod,
     )
 end
 
