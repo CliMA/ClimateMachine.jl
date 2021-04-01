@@ -4,6 +4,7 @@ using ..Grids
 using ClimateMachine.MPIStateArrays
 using CUDA
 using KernelAbstractions
+using CUDAKernels
 using DocStringExtensions
 
 export dss!

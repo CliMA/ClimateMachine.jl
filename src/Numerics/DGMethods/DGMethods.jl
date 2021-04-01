@@ -4,6 +4,7 @@ using MPI
 using StaticArrays
 using DocStringExtensions
 using KernelAbstractions
+using CUDAKernels
 using KernelAbstractions.Extras: @unroll
 using ..MPIStateArrays
 using ..Mesh.Grids

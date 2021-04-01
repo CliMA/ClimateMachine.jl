@@ -3,6 +3,7 @@ using StaticArrays
 using ClimateMachine.VariableTemplates
 using CUDA
 using KernelAbstractions
+using CUDAKernels
 using KernelAbstractions.Extras: @unroll
 
 include("complex_models.jl")

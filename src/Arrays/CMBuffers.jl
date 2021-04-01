@@ -4,6 +4,7 @@ import CUDA
 
 using MPI
 using KernelAbstractions
+using CUDAKernels
 using StaticArrays
 
 export CMBuffer

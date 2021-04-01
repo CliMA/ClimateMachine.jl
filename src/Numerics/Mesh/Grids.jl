@@ -7,6 +7,7 @@ using ClimateMachine.MPIStateArrays
 using MPI
 using LinearAlgebra
 using KernelAbstractions
+using CUDAKernels
 using DocStringExtensions
 
 export DiscontinuousSpectralElementGrid, AbstractGrid

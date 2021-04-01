@@ -4,7 +4,8 @@ using Test
 using LinearAlgebra
 using Random
 using StaticArrays
-using KernelAbstractions: CPU, CUDADevice
+using KernelAbstractions: CPU
+using CUDAKernels: CUDADevice
 using ClimateMachine
 using ClimateMachine.SystemSolvers
 using ClimateMachine.MPIStateArrays

@@ -2,6 +2,7 @@ module TestThermodynamics
 
 using Test
 using KernelAbstractions
+using CUDAKernels
 using ClimateMachine.Thermodynamics
 using ClimateMachine.TemperatureProfiles
 using UnPack
