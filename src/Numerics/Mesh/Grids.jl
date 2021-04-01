@@ -839,6 +839,15 @@ struct VolumeGeometry{Nq, A<:AbstractArray}
     ξ1x3::A
     ξ2x3::A
     ξ3x3::A
+    x1ξ1::A
+    x2ξ1::A
+    x3ξ1::A
+    x1ξ2::A
+    x2ξ2::A
+    x3ξ2::A
+    x1ξ3::A
+    x2ξ3::A
+    x3ξ3::A
     ωJ::A
     ωJI::A
     ωJH::A
@@ -910,22 +919,13 @@ function computegeometry(elemtocoord, D, ξ, ω, meshwarp)
 
     sgeo = SurfaceGeometry(FT, Nq, nface, nelem)
 
-    # (n1, n2, n3, sMJ, vMJI) = ntuple(j -> (@view sgeo[j, :, :, :]), _nsgeo)
-    # sωJ = similar(sωJ)
-
-    # reference element -> topology coordinates
-    # X = ntuple(j -> (@view vgeo[:, _x1 + j - 1, :]), dim)
-
-    # 1) a function which
-
-
     # TODO:
     # - split out (c),(d)
     # - to get analytic derivatives, we need to be able differentiate through (a,b)
     #   - combines (a,b,c)
     #
 
-    # a) computes "topology coordinates"
+    # a) computes "topology coordinates" from reference coordinates ξ
     Metrics.creategrid!(vgeo, elemtocoord, ξ...)
 
     # b) topology coordinates -> physical coordinates
@@ -933,8 +933,12 @@ function computegeometry(elemtocoord, D, ξ, ω, meshwarp)
         (vgeo.x1[j], vgeo.x2[j], vgeo.x3[j]) = meshwarp(vgeo.x1[j], vgeo.x2[j], vgeo.x3[j])
     end
 
+    setup_geom_factors_data!(vgeo, D...)
 
     # c) computes partial derivatives ∂x/∂ξ
+    compute_dxdxi_jacobian!(vgeo, D...)
+    # Compute Jacobian matrix, ∂x/∂ξ
+
     # d) computes the metric terms
     Metrics.computemetric!(vgeo, sgeo, D...)
 

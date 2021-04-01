@@ -98,6 +98,186 @@ function creategrid!(vgeo::VolumeGeometry{NTuple{3,Int}, <:AbstractArray}, e2c, 
 end
 
 """
+    setup_geom_factors_data!(vgeo, D)
+
+Input arguments:
+- vgeo::VolumeGeometry, a struct containing the volumetric geometric factors
+- D::DAT2, 1-D derivative operator on the device in the first dimension
+
+Setup the variable needed for geometric factors data in vgeo.
+"""
+function setup_geom_factors_data!(
+    vgeo::VolumeGeometry{NTuple{3,Int}, <:AbstractArray},
+    D
+)
+    Nq = size(D, 1)
+    nelem = div(length(vgeo.ωJ), Nq)
+
+    vgeo.x1 = reshape(vgeo.x1, (Nq, nelem))
+    vgeo.ωJ = reshape(vgeo.ωJ, (Nq, nelem))
+    vgeo.JcV = reshape(vgeo.JcV, (Nq, nelem))
+    vgeo.ξ1x1 = reshape(vgeo.ξ1x1, (Nq, nelem))
+
+end
+
+"""
+    setup_geom_factors_data!(vgeo, D1, D2)
+
+Input arguments:
+- vgeo::VolumeGeometry, a struct containing the volumetric geometric factors
+- D1::DAT2, 1-D derivative operator on the device in the first dimension
+- D2::DAT2, 1-D derivative operator on the device in the second dimension
+
+Setup the variable needed for geometric factors data in vgeo.
+"""
+function setup_geom_factors_data!(
+    vgeo::VolumeGeometry{NTuple{3,Int}, <:AbstractArray},
+    D1,
+    D2
+)
+    Nq = (size(D1, 1), size(D2, 1))
+    nelem = div(length(vgeo.ωJ), prod(Nq))
+
+    vgeo.x1 = reshape(vgeo.x1, (Nq..., nelem))
+    vgeo.x2 = reshape(vgeo.x2, (Nq..., nelem))
+    vgeo.ωJ = reshape(vgeo.ωJ, (Nq..., nelem))
+    vgeo.JcV = reshape(vgeo.JcV, (Nq..., nelem))
+    vgeo.ξ1x1 = reshape(vgeo.ξ1x1, (Nq..., nelem))
+    vgeo.ξ2x1 = reshape(vgeo.ξ2x1, (Nq..., nelem))
+    vgeo.ξ1x2 = reshape(vgeo.ξ1x2, (Nq..., nelem))
+    vgeo.ξ2x2 = reshape(vgeo.ξ2x2, (Nq..., nelem))
+
+end
+
+"""
+    setup_geom_factors_data!(vgeo, D1, D2, D3)
+
+Input arguments:
+- vgeo::VolumeGeometry, a struct containing the volumetric geometric factors
+- D1::DAT2, 1-D derivative operator on the device in the first dimension
+- D2::DAT2, 1-D derivative operator on the device in the second dimension
+- D3::DAT2, 1-D derivative operator on the device in the third dimension
+
+Setup the variable needed for geometric factors data in vgeo.
+"""
+function setup_geom_factors_data!(
+    vgeo::VolumeGeometry{NTuple{3,Int}, <:AbstractArray},
+    D1,
+    D2,
+    D3,
+)
+    Nq = (size(D1, 1), size(D2, 1), size(D3, 1))
+    nelem = div(length(vgeo.ωJ), prod(Nq))
+
+    vgeo.x1 = reshape(vgeo.x1, (Nq..., nelem))
+    vgeo.x2 = reshape(vgeo.x2, (Nq..., nelem))
+    vgeo.x3 = reshape(vgeo.x3, (Nq..., nelem))
+    vgeo.ωJ = reshape(vgeo.ωJ, (Nq..., nelem))
+    vgeo.JcV = reshape(vgeo.JcV, (Nq..., nelem))
+    vgeo.ξ1x1 = reshape(vgeo.ξ1x1, (Nq..., nelem))
+    vgeo.ξ2x1 = reshape(vgeo.ξ2x1, (Nq..., nelem))
+    vgeo.ξ3x1 = reshape(vgeo.ξ3x1, (Nq..., nelem))
+    vgeo.ξ1x2 = reshape(vgeo.ξ1x2, (Nq..., nelem))
+    vgeo.ξ2x2 = reshape(vgeo.ξ2x2, (Nq..., nelem))
+    vgeo.ξ3x2 = reshape(vgeo.ξ3x2, (Nq..., nelem))
+    vgeo.ξ1x3 = reshape(vgeo.ξ1x3, (Nq..., nelem))
+    vgeo.ξ2x3 = reshape(vgeo.ξ2x3, (Nq..., nelem))
+    vgeo.ξ3x3 = reshape(vgeo.ξ3x3, (Nq..., nelem))
+
+end
+
+"""
+    compute_dxdxi_jacobian!(vgeo, D1, D2)
+
+Input arguments:
+- vgeo::VolumeGeometry, a struct containing the volumetric geometric factors
+- D1::DAT2, 1-D derivative operator on the device in the first dimension
+- D2::DAT2, 1-D derivative operator on the device in the second dimension
+
+Compute the Jacobian matrix of the mapping from physical coordinates,
+`vgeo.x1`, `vgeo.x2` with respect to reference coordinates `ξ1`, `ξ2`,
+for each quadrature point in element e.
+"""
+function compute_dxdxi_jacobian!(
+    vgeo::VolumeGeometry{NTuple{2,Int}, <:AbstractArray},
+    D1,
+    D2
+)
+    T = eltype(vgeo.x1)
+    Nq = (size(D1, 1), size(D2, 1))
+
+    vgeo.x1ξ1 .= vgeo.x1ξ2 .= zero(T)
+    vgeo.x2ξ1 .= vgeo.x2ξ2 .= zero(T)
+
+    for e in 1:nelem
+        for j in 1:Nq[2], i in 1:Nq[1]
+            for n in 1:Nq[1]
+                vgeo.x1ξ1[i, j, e] += D1[i, n] * vgeo.x1[n, j, e]
+                vgeo.x2ξ1[i, j, e] += D1[i, n] * vgeo.x2[n, j, e]
+            end
+            for n in 1:Nq[2]
+                vgeo.x1ξ2[i, j, e] += D2[j, n] * vgeo.x1[i, n, e]
+                vgeo.x2ξ2[i, j, e] += D2[j, n] * vgeo.x2[i, n, e]
+            end
+        end
+    end
+
+    return vgeo
+end
+
+"""
+    compute_dxdxi_jacobian!(vgeo, D1, D2, D3)
+
+Input arguments:
+- vgeo::VolumeGeometry, a struct containing the volumetric geometric factors
+- D1::DAT2, 1-D derivative operator on the device in the first dimension
+- D2::DAT2, 1-D derivative operator on the device in the second dimension
+- D3::DAT2, 1-D derivative operator on the device in the third dimension
+
+Compute the Jacobian matrix of the mapping from physical coordinates,
+`vgeo.x1`, `vgeo.x2`, `vgeo.x3`, with respect to reference coordinates `ξ1`,
+`ξ2`, `ξ3`, for each quadrature point in element e.
+"""
+function compute_dxdxi_jacobian!(
+    vgeo::VolumeGeometry{NTuple{3,Int}, <:AbstractArray},
+    D1,
+    D2,
+    D3
+)
+
+    T = eltype(vgeo.x1)
+    Nq = (size(D1, 1), size(D2, 1), size(D3, 1))
+
+    vgeo.x1ξ1 .= vgeo.x1ξ2 .= vgeo.x1ξ3 .= zero(T)
+    vgeo.x2ξ1 .= vgeo.x2ξ2 .= vgeo.x2ξ3 .= zero(T)
+    vgeo.x3ξ1 .= vgeo.x3ξ2 .= vgeo.x3ξ3 .= zero(T)
+
+    @inbounds for e in 1:nelem
+        for k in 1:Nq[3], j in 1:Nq[2], i in 1:Nq[1]
+
+            for n in 1:Nq[1]
+                vgeo.x1ξ1[i, j, k, e] += D1[i, n] * vgeo.x1[n, j, k, e]
+                vgeo.x2ξ1[i, j, k, e] += D1[i, n] * vgeo.x2[n, j, k, e]
+                vgeo.x3ξ1[i, j, k, e] += D1[i, n] * vgeo.x3[n, j, k, e]
+            end
+            for n in 1:Nq[2]
+                vgeo.x1ξ2[i, j, k, e] += D2[j, n] * vgeo.x1[i, n, k, e]
+                vgeo.x2ξ2[i, j, k, e] += D2[j, n] * vgeo.x2[i, n, k, e]
+                vgeo.x3ξ2[i, j, k, e] += D2[j, n] * vgeo.x3[i, n, k, e]
+            end
+            for n in 1:Nq[3]
+                vgeo.x1ξ3[i, j, k, e] += D3[k, n] * vgeo.x1[i, j, n, e]
+                vgeo.x2ξ3[i, j, k, e] += D3[k, n] * vgeo.x2[i, j, n, e]
+                vgeo.x3ξ3[i, j, k, e] += D3[k, n] * vgeo.x3[i, j, n, e]
+            end
+
+        end
+    end
+
+    return vgeo
+end
+
+"""
     computemetric!(vgeo, sgeo, D)
 
 Input arguments:
@@ -116,14 +296,12 @@ arrays `sJ` and `n1` should be of length `nface * nelem` with `nface = 2`.
 function computemetric!(
     vgeo::VolumeGeometry{NTuple{1,Int}, <:AbstractArray},
     sgeo::SurfaceGeometry{NTuple{1,Int}, <:AbstractArray},
-    D)
+    D
+)
 
     Nq = size(D, 1)
     nelem = div(length(vgeo.ωJ), Nq)
-    vgeo.x1 = reshape(vgeo.x1, (Nq, nelem))
-    vgeo.ωJ = reshape(vgeo.ωJ, (Nq, nelem))
-    vgeo.JcV = reshape(vgeo.JcV, (Nq, nelem))
-    vgeo.ξ1x1 = reshape(vgeo.ξ1x1, (Nq, nelem))
+
     nface = 2
     sgeo.n1 = reshape(sgeo.n1, (1, nface, nelem))
     sgeo.sωJ = reshape(sgeo.sωJ, (1, nface, nelem))
@@ -168,14 +346,6 @@ function computemetric!(
     T = eltype(vgeo.x1)
     Nq = (size(D1, 1), size(D2, 1))
     nelem = div(length(vgeo.ωJ), prod(Nq))
-    vgeo.x1 = reshape(vgeo.x1, (Nq..., nelem))
-    vgeo.x2 = reshape(vgeo.x2, (Nq..., nelem))
-    vgeo.ωJ = reshape(vgeo.ωJ, (Nq..., nelem))
-    vgeo.JcV = reshape(vgeo.JcV, (Nq..., nelem))
-    vgeo.ξ1x1 = reshape(vgeo.ξ1x1, (Nq..., nelem))
-    vgeo.ξ2x1 = reshape(vgeo.ξ2x1, (Nq..., nelem))
-    vgeo.ξ1x2 = reshape(vgeo.ξ1x2, (Nq..., nelem))
-    vgeo.ξ2x2 = reshape(vgeo.ξ2x2, (Nq..., nelem))
     nface = 4
     Nfp = div.(prod(Nq), Nq)
     sgeo.n1 = reshape(sgeo.n1, (maximum(Nfp), nface, nelem))
@@ -184,18 +354,12 @@ function computemetric!(
 
     for e in 1:nelem
         for j in 1:Nq[2], i in 1:Nq[1]
-            vgeo.x1ξ1 = vgeo.x1ξ2 = zero(T)
-            vgeo.x2ξ1 = vgeo.x2ξ2 = zero(T)
-            for n in 1:Nq[1]
-                vgeo.x1ξ1 += D1[i, n] * vgeo.x1[n, j, e]
-                vgeo.x2ξ1 += D1[i, n] * vgeo.x2[n, j, e]
-            end
-            for n in 1:Nq[2]
-                vgeo.x1ξ2 += D2[j, n] * vgeo.x1[i, n, e]
-                vgeo.x2ξ2 += D2[j, n] * vgeo.x2[i, n, e]
-            end
+
+            # Compute vertical Jacobian determinant per quadrature point
             vgeo.JcV[i, j, e] = hypot(vgeo.x1ξ2, vgeo.x2ξ2)
+            # Compute Jacobian determinant, det(∂x/∂ξ), per quadrature point
             vgeo.ωJ[i, j, e] = vgeo.x1ξ1 * vgeo.x2ξ2 - vgeo.x2ξ1 * vgeo.x1ξ2
+
             vgeo.ξ1x1[i, j, e] =  vgeo.x2ξ2 / vgeo.ωJ[i, j, e]
             vgeo.ξ2x1[i, j, e] = -vgeo.x2ξ1 / vgeo.ωJ[i, j, e]
             vgeo.ξ1x2[i, j, e] = -vgeo.x1ξ2 / vgeo.ωJ[i, j, e]
@@ -236,6 +400,7 @@ end
 """
     computemetric!(vgeo, sgeo, D1, D2, D3)
 
+Input arguments:
 - vgeo::VolumeGeometry, a struct containing the volumetric geometric factors
 - sgeo::SurfaceGeometry, a struct containing the surface geometric factors
 - D1::DAT2, 1-D derivative operator on the device in the first dimension
@@ -264,7 +429,7 @@ function computemetric!(
     sgeo::SurfaceGeometry{NTuple{3,Int}, <:AbstractArray},
     D1,
     D2,
-    D3,
+    D3
 )
     T = eltype(vgeo.x1)
 
@@ -272,21 +437,6 @@ function computemetric!(
     Np = prod(Nq)
     Nfp = div.(Np, Nq)
     nelem = div(length(vgeo.ωJ), Np)
-
-    vgeo.x1 = reshape(vgeo.x1, (Nq..., nelem))
-    vgeo.x2 = reshape(vgeo.x2, (Nq..., nelem))
-    vgeo.x3 = reshape(vgeo.x3, (Nq..., nelem))
-    vgeo.ωJ = reshape(vgeo.ωJ, (Nq..., nelem))
-    vgeo.JcV = reshape(vgeo.JcV, (Nq..., nelem))
-    vgeo.ξ1x1 = reshape(vgeo.ξ1x1, (Nq..., nelem))
-    vgeo.ξ2x1 = reshape(vgeo.ξ2x1, (Nq..., nelem))
-    vgeo.ξ3x1 = reshape(vgeo.ξ3x1, (Nq..., nelem))
-    vgeo.ξ1x2 = reshape(vgeo.ξ1x2, (Nq..., nelem))
-    vgeo.ξ2x2 = reshape(vgeo.ξ2x2, (Nq..., nelem))
-    vgeo.ξ3x2 = reshape(vgeo.ξ3x2, (Nq..., nelem))
-    vgeo.ξ1x3 = reshape(vgeo.ξ1x3, (Nq..., nelem))
-    vgeo.ξ2x3 = reshape(vgeo.ξ2x3, (Nq..., nelem))
-    vgeo.ξ3x3 = reshape(vgeo.ξ3x3, (Nq..., nelem))
 
     nface = 6
     sgeo.n1 = reshape(sgeo.n1, maximum(Nfp), nface, nelem)
@@ -299,15 +449,9 @@ function computemetric!(
     (zxr, zxs, zxt) = (similar(JI2), similar(JI2), similar(JI2))
     (xyr, xys, xyt) = (similar(JI2), similar(JI2), similar(JI2))
 
-    vgeo.ξ1x1 .= zero(T)
-    vgeo.ξ2x1 .= zero(T)
-    vgeo.ξ3x1 .= zero(T)
-    vgeo.ξ1x2 .= zero(T)
-    vgeo.ξ2x2 .= zero(T)
-    vgeo.ξ3x2 .= zero(T)
-    vgeo.ξ1x3 .= zero(T)
-    vgeo.ξ2x3 .= zero(T)
-    vgeo.ξ3x3 .= zero(T)
+    vgeo.ξ1x1 .= vgeo.ξ2x1 .= vgeo.ξ3x1 .= zero(T)
+    vgeo.ξ1x2 .= vgeo.ξ2x2 .= vgeo.ξ3x2 .= zero(T)
+    vgeo.ξ1x3 .= vgeo.ξ2x3 .= vgeo.ξ3x3 .= zero(T)
 
     fill!(sgeo.n1, NaN)
     fill!(sgeo.n2, NaN)
@@ -316,25 +460,10 @@ function computemetric!(
 
     @inbounds for e in 1:nelem
         for k in 1:Nq[3], j in 1:Nq[2], i in 1:Nq[1]
-            vgeo.x1ξ1 = vgeo.x1ξ2 = vgeo.x1ξ3 = zero(T)
-            vgeo.x2ξ1 = vgeo.x2ξ2 = vgeo.x2ξ3 = zero(T)
-            vgeo.x3ξ1 = vgeo.x3ξ2 = vgeo.x3ξ3 = zero(T)
-            for n in 1:Nq[1]
-                vgeo.x1ξ1 += D1[i, n] * vgeo.x1[n, j, k, e]
-                vgeo.x2ξ1 += D1[i, n] * vgeo.x2[n, j, k, e]
-                vgeo.x3ξ1 += D1[i, n] * vgeo.x3[n, j, k, e]
-            end
-            for n in 1:Nq[2]
-                vgeo.x1ξ2 += D2[j, n] * vgeo.x1[i, n, k, e]
-                vgeo.x2ξ2 += D2[j, n] * vgeo.x2[i, n, k, e]
-                vgeo.x3ξ2 += D2[j, n] * vgeo.x3[i, n, k, e]
-            end
-            for n in 1:Nq[3]
-                vgeo.x1ξ3 += D3[k, n] * vgeo.x1[i, j, n, e]
-                vgeo.x2ξ3 += D3[k, n] * vgeo.x2[i, j, n, e]
-                vgeo.x3ξ3 += D3[k, n] * vgeo.x3[i, j, n, e]
-            end
+
+            # Compute vertical Jacobian determinant per quadrature point
             vgeo.JcV[i, j, k, e] = hypot(vgeo.x1ξ3, vgeo.x2ξ3, vgeo.x3ξ3)
+            # Compute Jacobian determinant, det(∂x/∂ξ), per quadrature point
             J[i, j, k, e] = (
                 vgeo.x1ξ1 * (vgeo.x2ξ2 * vgeo.x3ξ3 - vgeo.x3ξ2 * vgeo.x2ξ3) +
                 vgeo.x2ξ1 * (vgeo.x3ξ2 * vgeo.x1ξ3 - vgeo.x1ξ2 * vgeo.x3ξ3) +
@@ -442,193 +571,5 @@ function computemetric!(
 
     nothing
 end
-
-# """
-#   computemetric(x1::AbstractArray{T, 2}, D::AbstractMatrix{T}) where T
-
-# Compute the 1-D metric terms from the element grid array `x1` using the
-# derivative matrix `D`. The derivative matrix `D` should be consistent with the
-# reference grid `ξ1` used in [`creategrid!`](@ref).
-
-# The metric terms are returned as a 'NamedTuple` of the following arrays:
-
-# - `J` the Jacobian determinant
-# - `ξ1x1` derivative ∂ξ1 / ∂x1'
-# - `sJ` the surface Jacobian
-# - 'n1` outward pointing unit normal in \$x1\$-direction
-# """
-# function computemetric(x1::AbstractArray{T, 2}, D::AbstractMatrix{T}) where {T}
-
-#     Nq = size(D, 1)
-#     nelem = size(x1, 2)
-#     nface = 2
-
-#     J = similar(x1)
-#     ξ1x1 = similar(x1)
-
-#     sJ = Array{T, 3}(undef, 1, nface, nelem)
-#     n1 = Array{T, 3}(undef, 1, nface, nelem)
-
-#     computemetric!(x1, J, JcV, ξ1x1, sJ, n1, D)
-
-#     (J = J, JcV = JcV, ξ1x1 = ξ1x1, sJ = sJ, n1 = n1)
-# end
-
-
-# """
-#   computemetric(x1::AbstractArray{T, 3}, x2::AbstractArray{T, 3},
-#                 D::AbstractMatrix{T}) where T
-
-# Compute the 2-D metric terms from the element grid arrays `x1` and `x2` using
-# the derivative matrix `D`. The derivative matrix `D` should be consistent with
-# the reference grid `ξ1` used in [`creategrid!`](@ref).
-
-# The metric terms are returned as a 'NamedTuple` of the following arrays:
-
-# - `J` the Jacobian determinant
-# - `ξ1x1` derivative ∂ξ1 / ∂x1'
-# - `ξ2x1` derivative ∂ξ2 / ∂x1'
-#  - `ξ1x2` derivative ∂ξ1 / ∂x2'
-#  - `ξ2x2` derivative ∂ξ2 / ∂x2'
-#  - `sJ` the surface Jacobian
-#  - 'n1` outward pointing unit normal in \$x1\$-direction
-#  - 'n2` outward pointing unit normal in \$x2\$-direction
-# """
-# function computemetric(
-#     x1::AbstractArray{T, 3},
-#     x2::AbstractArray{T, 3},
-#     D::AbstractMatrix{T},
-# ) where {T}
-#     @assert size(x1) == size(x2)
-#     Nq = size(D, 1)
-#     nelem = size(x1, 3)
-#     nface = 4
-
-#     J = similar(x1)
-#     JcV = similar(x1)
-#     ξ1x1 = similar(x1)
-#     ξ2x1 = similar(x1)
-#     ξ1x2 = similar(x1)
-#     ξ2x2 = similar(x1)
-
-#     sJ = Array{T, 3}(undef, Nq, nface, nelem)
-#     n1 = Array{T, 3}(undef, Nq, nface, nelem)
-#     n2 = Array{T, 3}(undef, Nq, nface, nelem)
-
-#     computemetric!(x1, x2, J, JcV, ξ1x1, ξ2x1, ξ1x2, ξ2x2, sJ, n1, n2, D)
-
-#     (
-#         J = J,
-#         JcV = JcV,
-#         ξ1x1 = ξ1x1,
-#         ξ2x1 = ξ2x1,
-#         ξ1x2 = ξ1x2,
-#         ξ2x2 = ξ2x2,
-#         sJ = sJ,
-#         n1 = n1,
-#         n2 = n2,
-#     )
-# end
-
-# """
-#     computemetric(x1::AbstractArray{T, 3}, x2::AbstractArray{T, 3},
-#                   D::AbstractMatrix{T}) where T
-
-# Compute the 3-D metric terms from the element grid arrays `x1`, `x2`, and `x3`
-# using the derivative matrix `D`. The derivative matrix `D` should be consistent
-# with the reference grid `ξ1` used in [`creategrid!`](@ref).
-
-# The metric terms are returned as a 'NamedTuple` of the following arrays:
-
-#  - `J` the Jacobian determinant
-#  - `ξ1x1` derivative ∂ξ1 / ∂x1'
-#  - `ξ2x1` derivative ∂ξ2 / ∂x1'
-#  - `ξ3x1` derivative ∂ξ3 / ∂x1'
-#  - `ξ1x2` derivative ∂ξ1 / ∂x2'
-#  - `ξ2x2` derivative ∂ξ2 / ∂x2'
-#  - `ξ3x2` derivative ∂ξ3 / ∂x2'
-#  - `ξ1x3` derivative ∂ξ1 / ∂x3'
-#  - `ξ2x3` derivative ∂ξ2 / ∂x3'
-#  - `ξ3x3` derivative ∂ξ3 / ∂x3'
-#  - `sJ` the surface Jacobian
-#  - 'n1` outward pointing unit normal in \$x1\$-direction
-#  - 'n2` outward pointing unit normal in \$x2\$-direction
-#  - 'n3` outward pointing unit normal in \$x3\$-direction
-
-# !!! note
-
-#    The storage of the volume terms and surface terms from this function are
-#    slightly different. The volume terms used Cartesian indexing whereas the
-#    surface terms use linear indexing.
-# """
-# function computemetric(
-#     x1::AbstractArray{T, 4},
-#     x2::AbstractArray{T, 4},
-#     x3::AbstractArray{T, 4},
-#     D::AbstractMatrix{T},
-# ) where {T}
-
-#     @assert size(x1) == size(x2) == size(x3)
-#     Nq = size(D, 1)
-#     nelem = size(x1, 4)
-#     nface = 6
-
-#     J = similar(x1)
-#     JcV = similar(x1)
-#     ξ1x1 = similar(x1)
-#     ξ2x1 = similar(x1)
-#     ξ3x1 = similar(x1)
-#     ξ1x2 = similar(x1)
-#     ξ2x2 = similar(x1)
-#     ξ3x2 = similar(x1)
-#     ξ1x3 = similar(x1)
-#     ξ2x3 = similar(x1)
-#     ξ3x3 = similar(x1)
-
-#     sJ = Array{T, 3}(undef, Nq^2, nface, nelem)
-#     n1 = Array{T, 3}(undef, Nq^2, nface, nelem)
-#     n2 = Array{T, 3}(undef, Nq^2, nface, nelem)
-#     n3 = Array{T, 3}(undef, Nq^2, nface, nelem)
-
-#     computemetric!(
-#         x1,
-#         x2,
-#         x3,
-#         J,
-#         JcV,
-#         ξ1x1,
-#         ξ2x1,
-#         ξ3x1,
-#         ξ1x2,
-#         ξ2x2,
-#         ξ3x2,
-#         ξ1x3,
-#         ξ2x3,
-#         ξ3x3,
-#         sJ,
-#         n1,
-#         n2,
-#         n3,
-#         D,
-#     )
-
-#     (
-#         J = J,
-#         JcV = JcV,
-#         ξ1x1 = ξ1x1,
-#         ξ2x1 = ξ2x1,
-#         ξ3x1 = ξ3x1,
-#         ξ1x2 = ξ1x2,
-#         ξ2x2 = ξ2x2,
-#         ξ3x2 = ξ3x2,
-#         ξ1x3 = ξ1x3,
-#         ξ2x3 = ξ2x3,
-#         ξ3x3 = ξ3x3,
-#         sJ = sJ,
-#         n1 = n1,
-#         n2 = n2,
-#         n3 = n3,
-#     )
-# end
 
 end # module
