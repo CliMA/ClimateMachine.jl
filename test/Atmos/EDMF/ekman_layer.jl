@@ -75,7 +75,7 @@ function init_state_prognostic!(
     en.ρatke =
         z > FT(250) ? FT(0) :
         gm.ρ *
-        FT(0.4) *
+        FT(0.3375) *
         FT(1 - z / 250.0) *
         FT(1 - z / 250.0) *
         FT(1 - z / 250.0)
@@ -96,9 +96,15 @@ function main(::Type{FT}, cl_args) where {FT}
 
     # Choice of SGS model
     turbconv = NoTurbConv()
-    # N_updrafts = 1
-    # N_quad = 3
-    # turbconv = EDMF(FT, N_updrafts, N_quad, param_set)
+    N_updrafts = 1
+    N_quad = 3
+    turbconv = EDMF(
+        FT,
+        N_updrafts,
+        N_quad,
+        param_set,
+        surface = NeutralDrySurfaceModel{FT}(param_set),
+    )
 
     C_smag_ = C_smag(param_set)
     turbulence = ConstantKinematicViscosity(FT(0.1))
@@ -191,7 +197,7 @@ function main(::Type{FT}, cl_args) where {FT}
     cb_boyd = GenericCallbacks.EveryXSimulationSteps(1) do
         Filters.apply!(
             solver_config.Q,
-            ("energy.ρe",),
+            (turbconv_filters(turbconv)...,),
             solver_config.dg.grid,
             BoydVandevenFilter(solver_config.dg.grid, 1, 4),
         )
@@ -234,7 +240,7 @@ function main(::Type{FT}, cl_args) where {FT}
         solver_config;
         diagnostics_config = dgn_config,
         check_cons = check_cons,
-        user_callbacks = (cb_data_vs_time, cb_print_step),
+        user_callbacks = (cb_boyd, cb_data_vs_time, cb_print_step),
         check_euclidean_distance = true,
     )
 
@@ -268,5 +274,27 @@ if !isnothing(cl_args["cparam_file"])
 end
 
 solver_config, diag_arr, time_data = main(Float64, cl_args)
+
+# Uncomment lines to save output using JLD2
+# output_dir = @__DIR__;
+# mkpath(output_dir);
+# function dons(diag_vs_z)
+#     return Dict(map(keys(first(diag_vs_z))) do k
+#         string(k) => [getproperty(ca, k) for ca in diag_vs_z]
+#     end)
+# end
+# get_dons_arr(diag_arr) = [dons(diag_vs_z) for diag_vs_z in diag_arr]
+# dons_arr = get_dons_arr(diag_arr)
+# println(dons_arr[1].keys)
+# z = get_z(solver_config.dg.grid; rm_dupes = true);
+# save(
+#     string(output_dir, "/ekman.jld2"),
+#     "dons_arr",
+#     dons_arr,
+#     "time_data",
+#     time_data,
+#     "z",
+#     z,
+# )
 
 nothing

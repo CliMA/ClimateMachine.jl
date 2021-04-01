@@ -17,13 +17,13 @@ best_mse["prog_ρ"] = 3.4917662870525452e-02
 best_mse["prog_ρu_1"] = 3.0715053983126868e+03
 best_mse["prog_ρu_2"] = 1.2895738234435595e-03
 best_mse["prog_moisture_ρq_tot"] = 4.1331426262587470e-02
-best_mse["prog_turbconv_environment_ρatke"] = 6.7533239891240294e+02
-best_mse["prog_turbconv_environment_ρaθ_liq_cv"] = 8.5667222943126376e+01
-best_mse["prog_turbconv_environment_ρaq_tot_cv"] = 1.6435513364925598e+02
-best_mse["prog_turbconv_updraft_1_ρa"] = 7.9508842202205457e+01
-best_mse["prog_turbconv_updraft_1_ρaw"] = 8.4146135253643992e-02
-best_mse["prog_turbconv_updraft_1_ρaθ_liq"] = 9.0081242205607168e+00
-best_mse["prog_turbconv_updraft_1_ρaq_tot"] = 1.0766808806387345e+01
+best_mse["prog_turbconv_environment_ρatke"] = 6.7642719033845833e+02
+best_mse["prog_turbconv_environment_ρaθ_liq_cv"] = 8.5667226792770009e+01
+best_mse["prog_turbconv_environment_ρaq_tot_cv"] = 1.6435640302009438e+02
+best_mse["prog_turbconv_updraft_1_ρa"] = 8.0846149716812874e+01
+best_mse["prog_turbconv_updraft_1_ρaw"] = 8.5071202823418249e-02
+best_mse["prog_turbconv_updraft_1_ρaθ_liq"] = 9.0386633006301569e+00
+best_mse["prog_turbconv_updraft_1_ρaq_tot"] = 1.0803376910477068e+01
 #! format: on
 
 computed_mse = compute_mse(

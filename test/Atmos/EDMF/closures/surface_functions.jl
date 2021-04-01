@@ -40,7 +40,6 @@ function subdomain_surface_values(
     zLL::FT,
 ) where {FT}
 
-    turbconv = turbconv_model(atmos)
     N_up = n_updrafts(turbconv)
     gm = state
     # TODO: change to new_thermo_state
@@ -58,7 +57,7 @@ function subdomain_surface_values(
     oblength = turbconv.surface.obukhov_length
     ustar = turbconv.surface.ustar
 
-    unstable = oblength < 0
+    unstable = oblength < -eps(FT)
     fact = unstable ? (1 - surf.ψϕ_stab * zLL / oblength)^(-FT(2 // 3)) : 1
     tke_fact = unstable ? cbrt(zLL / oblength * zLL / oblength) : 0
     ustar² = ustar^2
@@ -81,6 +80,37 @@ function subdomain_surface_values(
     q_tot_up_surf = ntuple(N_up) do i
         ρq_tot * ρ_inv + upd_surface_std[i] * sqrt(max(q_tot_cv, 0))
     end
+
+    return (;
+        a_up_surf,
+        θ_liq_up_surf,
+        q_tot_up_surf,
+        θ_liq_cv,
+        q_tot_cv,
+        θ_liq_q_tot_cv,
+        tke,
+    )
+end;
+
+function subdomain_surface_values(
+    surf::NeutralDrySurfaceModel,
+    turbconv::EDMF{FT},
+    atmos::AtmosModel{FT},
+    state::Vars,
+    aux::Vars,
+    zLL::FT,
+) where {FT}
+
+    N_up = n_updrafts(turbconv)
+    θ_liq_cv = FT(0)
+    q_tot_cv = FT(0)
+    θ_liq_q_tot_cv = FT(0)
+    tke = surf.κ_star² * surf.ustar * surf.ustar
+
+    ts_new = new_thermo_state(atmos, state, aux)
+    a_up_surf = ntuple(i -> FT(surf.a / N_up), N_up)
+    q_tot_up_surf = ntuple(i -> FT(0), N_up)
+    θ_liq_up_surf = ntuple(i -> liquid_ice_pottemp(ts_new), N_up)
 
     return (;
         a_up_surf,
