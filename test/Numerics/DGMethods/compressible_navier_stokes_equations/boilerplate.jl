@@ -66,19 +66,22 @@ function evolve!(simulation, spatial_model; refDat = ())
         Nover = (0, 0, 0)
     end
 
+    if haskey(spatial_model.numerics, :staggering)
+        stagger_bool = spatial_model.numerics.staggering
+    else
+        stagger_bool = false
+    end
+
     # only works if Nover > 0
     overintegration_filter!(Q, dg, Ns, Nover)
 
-    function custom_tendency(tendency, x...; kw...)
-        dg(tendency, x...; kw...)
-        overintegration_filter!(tendency, dg, Ns, Nover)
-    end
+    tendency = tendency_closure(dg, Ns, Nover, staggering = stagger_bool)
 
     t0 = simulation.time.start
     Δt = simulation.timestepper.timestep
     timestepper = simulation.timestepper.method
 
-    odesolver = timestepper(custom_tendency, Q, dt = Δt, t0 = t0)
+    odesolver = timestepper(tendency, Q, dt = Δt, t0 = t0)
 
     cbvector = create_callbacks(simulation, odesolver)
 
@@ -108,14 +111,47 @@ function evolve!(simulation, spatial_model; refDat = ())
     return Q
 end
 
+function tendency_closure(dg, Ns, Nover; staggering = false)
+    if staggering
+        function staggered_tendency(tendency, x...; kw...)
+            dg(tendency, x...; kw...)
+            overintegration_filter!(tendency, dg, Ns, Nover)
+            staggering_filter!(tendency, dg, Ns, Nover)
+            return nothing
+        end
+    else
+        function custom_tendency(tendency, x...; kw...)
+            dg(tendency, x...; kw...)
+            overintegration_filter!(tendency, dg, Ns, Nover)
+            return nothing
+        end
+    end
+end
+
 function overintegration_filter!(state_array, dgmodel, Ns, Nover)
     if sum(Nover) > 0
         cutoff_order = Ns .+ 1 # yes this is confusing
-        # cutoff = ClimateMachine.Mesh.Filters.CutoffFilter(dgmodel.grid, cutoff_order)
+        cutoff = MassPreservingCutoffFilter(dgmodel.grid, cutoff_order)
+        num_state_prognostic = number_states(dgmodel.balance_law, Prognostic())
+        filterstates = 1:num_state_prognostic
+        ClimateMachine.Mesh.Filters.apply!(
+            state_array,
+            filterstates,
+            dgmodel.grid,
+            cutoff,
+        )
+       
+    end
+
+    return nothing
+end
+
+function staggering_filter!(state_array, dgmodel, Ns, Nover)
+    if sum(Nover) > 0
+        cutoff_order = Ns .+ 0 # one polynomial order less than scalars
         cutoff = MassPreservingCutoffFilter(dgmodel.grid, cutoff_order)
         num_state_prognostic = number_states(dgmodel.balance_law, Prognostic())
         filterstates = 2:4
-        filterstates = 1:num_state_prognostic
         ClimateMachine.Mesh.Filters.apply!(
             state_array,
             filterstates,

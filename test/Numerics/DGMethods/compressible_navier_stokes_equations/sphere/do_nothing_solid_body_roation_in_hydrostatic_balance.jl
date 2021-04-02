@@ -1,4 +1,3 @@
-#!/usr/bin/env julia --project
 include("../boilerplate.jl")
 include("../three_dimensional/ThreeDimensionalCompressibleNavierStokesEquations.jl")
 include("sphere_helper_functions.jl")
@@ -18,7 +17,7 @@ parameters = (
     α  = 10.0,
     g  = 9.81,
     ∂θ = 0.98 / 1e5,
-    power = 8,
+    power = 1,
 )
 
 ########
@@ -27,9 +26,9 @@ parameters = (
 domain =  AtmosDomain(radius = parameters.a, height = parameters.H)
 grid = DiscretizedDomain(
     domain;
-    elements              = (vertical = 4, horizontal = 4),
-    polynomial_order      = (vertical = 1, horizontal = 3),
-    overintegration_order = (vertical = 0, horizontal = 0),
+    elements              = (vertical = 2, horizontal = 4),
+    polynomial_order      = (vertical = 2, horizontal = 4),
+    overintegration_order = (vertical = 1, horizontal = 1),
 )
 
 ########
@@ -90,7 +89,7 @@ physics = FluidPhysics(;
 model = SpatialModel(
     balance_law         = Fluid3D(),
     physics             = physics,
-    numerics            = (flux = RoeNumericalFlux(),), # RoeNumericalFlux()
+    numerics            = (flux = RoeNumericalFlux(), staggering = true), # RoeNumericalFlux()
     grid                = grid,
     boundary_conditions = (ρθ = ρθ_bcs, ρu = ρu_bcs),
     parameters          = parameters,
@@ -115,11 +114,9 @@ r = sqrt.(x .^2 .+ y .^2 .+ z .^2)
 ρᴬ = simulation.state.ρ
 p = (ρᴬ[:,1,:] .^2) .* (parameters.cₛ)^2 / parameters.ρₒ /2
 ∇p = ∇(p)
-ρᴮ = ∇p ./ ∇r / (parameters.α * parameters.g)
-norm(ρᴮ[:,:,1] - ρᴮ[:,:,2]) / norm(ρᴮ[:,:,1]) 
-norm(ρᴮ[:,:,2] - ρᴮ[:,:,3]) / norm(ρᴮ[:,:,1])
-norm(ρᴮ[:,:,3] - ρᴮ[:,:,1]) / norm(ρᴮ[:,:,1])
-ρθᴮ = ρᴮ[:,:,1]
+ρθᴮ = (x .* ∇p[:,:,1] + y .* ∇p[:,:,2] + z .* ∇p[:,:,3])
+ρθᴮ = ρθᴮ ./ (x .* ∇r[:,:,1] + y .* ∇r[:,:,2] + z .* ∇r[:,:,3])
+ρθᴮ = ρθᴮ ./ (parameters.α * parameters.g)
 norm(simulation.state.ρθ[:,1,:] - ρθᴮ)
 er1 = maximum(abs.( -∇p[:,:,1] + parameters.α * parameters.g * ρθᴮ .* ∇r[:,:,1]))
 er2 = maximum(abs.( -∇p[:,:,1] + parameters.α * parameters.g * simulation.state.ρθ[:,1,:] .* ∇r[:,:,1]))
