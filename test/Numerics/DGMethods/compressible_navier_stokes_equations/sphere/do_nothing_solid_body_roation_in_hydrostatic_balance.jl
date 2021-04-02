@@ -14,10 +14,11 @@ parameters = (
     a  = 6e6,
     H  = 1e5,
     Ω  = 2π/86400,
-    α  = 10.0,
+    α  = 2e-4,
     g  = 9.81,
     ∂θ = 0.98 / 1e5,
     power = 1,
+    ef = 4.0,
 )
 
 ########
@@ -26,7 +27,7 @@ parameters = (
 domain =  AtmosDomain(radius = parameters.a, height = parameters.H)
 grid = DiscretizedDomain(
     domain;
-    elements              = (vertical = 2, horizontal = 4),
+    elements              = (vertical = 3, horizontal = 3),
     polynomial_order      = (vertical = 2, horizontal = 4),
     overintegration_order = (vertical = 1, horizontal = 1),
 )
@@ -36,8 +37,8 @@ grid = DiscretizedDomain(
 ########
 Δt          = min_node_distance(grid.numerical) / parameters.cₛ * 0.25
 start_time  = 0
-end_time    = Δt # 86400 * 0.5 * 6 * 5
-method      = LSRKEulerMethod # SSPRK22Heuns
+end_time    = 86400 * 0.5  # Δt # 86400 * 0.5 * 6 * 5
+method      = SSPRK22Heuns # LSRKEulerMethod # SSPRK22Heuns
 timestepper = TimeStepper(method = method, timestep = Δt)
 callbacks   = (Info(), StateCheck(10))
 
@@ -58,7 +59,7 @@ physics = FluidPhysics(;
 ########
 
 numerics = (flux = RoeNumericalFlux(), staggering = true)
-numerics = (flux = RoesanovFlux(), staggering = true)
+numerics = (flux = RoesanovFlux(ω_roe = 1.0, ω_rusanov = 0.1), staggering = true)
 
 ########
 # Define boundary conditions (west east are the ones that are enforced for a sphere)
@@ -82,6 +83,12 @@ numerics = (flux = RoesanovFlux(), staggering = true)
 ρuˡᵃᵗ(p, λ, ϕ, r) = 0.0
 ρuˡᵒⁿ(p, λ, ϕ, r) = 0.0
 ρθ₀(p, λ, ϕ, r) = -ρ₀(p, λ, ϕ, r) * p.∂θ * (r - 6e6)^(p.power-1)* 1e5^(1-p.power) * (p.cₛ)^2 / (p.α * p.g)
+
+ρ₀(p, λ, ϕ, r)    = exp(-p.ef*(r - 6e6)/1e5) * p.ρₒ
+ρuʳᵃᵈ(p, λ, ϕ, r) = 0.0
+ρuˡᵃᵗ(p, λ, ϕ, r) = 0.0
+ρuˡᵒⁿ(p, λ, ϕ, r) = 0.0
+ρθ₀(p, λ, ϕ, r) = ρ₀(p, λ, ϕ, r) * (-p.ef/ 1e5 * exp(-p.ef*(r - 6e6)/1e5)) * (p.cₛ)^2 / (p.α * p.g)
 
 # Cartesian Representation (boiler plate really)
 ρ₀ᶜᵃʳᵗ(p, x...) = ρ₀(p, lon(x...), lat(x...), rad(x...))
@@ -127,7 +134,7 @@ p = (ρᴬ[:,1,:] .^2) .* (parameters.cₛ)^2 / parameters.ρₒ /2
 norm(simulation.state.ρθ[:,1,:] - ρθᴮ)
 er1 = maximum(abs.( -∇p[:,:,1] + parameters.α * parameters.g * ρθᴮ .* ∇r[:,:,1]))
 er2 = maximum(abs.( -∇p[:,:,1] + parameters.α * parameters.g * simulation.state.ρθ[:,1,:] .* ∇r[:,:,1]))
-simulation.state.ρθ[:,1,:] = ρθᴮ # set equal to numerical one
+# simulation.state.ρθ[:,1,:] = ρθᴮ # set equal to numerical one
 
 ##
 ########
