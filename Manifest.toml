@@ -439,7 +439,9 @@ version = "0.21.1"
 
 [[KernelAbstractions]]
 deps = ["Adapt", "Cassette", "InteractiveUtils", "MacroTools", "SpecialFunctions", "StaticArrays", "UUIDs"]
-git-tree-sha1 = "0158a3efe86a7c0a3162ded188172a0ad302353b"
+git-tree-sha1 = "346c62c777e4c20f35f0f325be91f50634bf1bc9"
+repo-rev = "jcb/clima_16_overdub"
+repo-url = "https://github.com/JuliaGPU/KernelAbstractions.jl"
 uuid = "63c18a36-062a-441e-b654-da1e3ab1ce7c"
 version = "0.6.0"
 
