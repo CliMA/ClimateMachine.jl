@@ -205,6 +205,7 @@ struct AtmosModel{FT, PH, PR, O, M, S, DC} <: BalanceLaw
 end
 
 parameter_set(atmos::AtmosModel) = atmos.physics.param_set
+moisture_model(atmos::AtmosModel) = atmos.moisture
 energy_model(atmos::AtmosModel) = atmos.physics.energy
 compressibility_model(atmos::AtmosModel) = atmos.physics.compressibility
 reference_state(atmos::AtmosModel) = atmos.physics.ref_state
@@ -558,7 +559,9 @@ include("get_prognostic_vars.jl")     # get tuple of prognostic variables
 
 
 sub_model(atmos::AtmosModel, ::Type{<:AbstractEnergyModel}) =
-    (energy_model(atmos),)
+    energy_model(atmos)
+sub_model(atmos::AtmosModel, ::Type{<:AbstractMoistureModel}) =
+    moisture_model(atmos)
 
 
 function precompute(atmos::AtmosModel, args, tt::Flux{FirstOrder})
