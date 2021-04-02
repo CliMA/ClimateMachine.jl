@@ -88,7 +88,7 @@ end
 function SubdomainModel(
     ::Type{FT},
     N_up;
-    a_min::FT = 0.001,
+    a_min::FT = FT(0),
     a_max::FT = 1 - N_up * a_min,
 ) where {FT}
     return SubdomainModel(; a_min = a_min, a_max = a_max)
@@ -113,8 +113,6 @@ Base.@kwdef struct SurfaceModel{FT <: AbstractFloat, SV}
     "Updraft normalized standard deviation at the surface"
     upd_surface_std::SV
     # The following will be deleted after SurfaceFlux coupling
-    "Temperature ‵[k]‵"
-    T::FT = 300.4
     "Liquid water potential temperature ‵[k]‵"
     θ_liq::FT = 299.1
     "Specific humidity ‵[kg/kg]‵"
@@ -165,6 +163,42 @@ function SurfaceModel{FT}(N_up, param_set::AbstractEarthParameterSet) where {FT}
     )
 end
 
+"""
+    NeutralDrySurfaceModel
+
+A surface model for EDMF simulations in a
+dry, neutral environment, containing all boundary
+values and parameters needed by the model.
+
+# Fields
+$(DocStringExtensions.FIELDS)
+"""
+Base.@kwdef struct NeutralDrySurfaceModel{FT <: AbstractFloat}
+    "Area"
+    a::FT
+    "Square ratio of rms turbulent velocity to friction velocity"
+    κ_star²::FT
+    "Friction velocity"
+    ustar::FT = 0.3
+    "Height of the lowest level"
+    zLL::FT = 60
+    "Monin - Obukhov length"
+    obukhov_length::FT = 0
+end
+
+"""
+    NeutralDrySurfaceModel{FT}(N_up, param_set) where {FT}
+
+Constructor for `NeutralDrySurfaceModel` for EDMF, given:
+ - `param_set`, an AbstractEarthParameterSet
+"""
+function NeutralDrySurfaceModel{FT}(
+    param_set::AbstractEarthParameterSet,
+) where {FT}
+    a_surf_ = a_surf(param_set)
+    κ_star²_ = κ_star²(param_set)
+    return NeutralDrySurfaceModel{FT}(; a = a_surf_, κ_star² = κ_star²_)
+end
 
 """
     PressureModel
