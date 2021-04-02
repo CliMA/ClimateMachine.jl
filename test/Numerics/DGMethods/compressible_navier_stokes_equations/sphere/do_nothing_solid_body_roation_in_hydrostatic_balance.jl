@@ -54,6 +54,13 @@ physics = FluidPhysics(;
 )
 
 ########
+# Define Numerics
+########
+
+numerics = (flux = RoeNumericalFlux(), staggering = true)
+numerics = (flux = RoesanovFlux(), staggering = true)
+
+########
 # Define boundary conditions (west east are the ones that are enforced for a sphere)
 ########
 ρu_bcs = (
@@ -89,7 +96,7 @@ physics = FluidPhysics(;
 model = SpatialModel(
     balance_law         = Fluid3D(),
     physics             = physics,
-    numerics            = (flux = RoeNumericalFlux(), staggering = true), # RoeNumericalFlux()
+    numerics            = numerics,
     grid                = grid,
     boundary_conditions = (ρθ = ρθ_bcs, ρu = ρu_bcs),
     parameters          = parameters,
@@ -105,7 +112,7 @@ simulation = Simulation(
 
 
 #######
-# Fix up
+# Numerically Construct Density
 #######
 x,y,z = coordinates(grid)
 r = sqrt.(x .^2 .+ y .^2 .+ z .^2)
@@ -121,14 +128,6 @@ norm(simulation.state.ρθ[:,1,:] - ρθᴮ)
 er1 = maximum(abs.( -∇p[:,:,1] + parameters.α * parameters.g * ρθᴮ .* ∇r[:,:,1]))
 er2 = maximum(abs.( -∇p[:,:,1] + parameters.α * parameters.g * simulation.state.ρθ[:,1,:] .* ∇r[:,:,1]))
 simulation.state.ρθ[:,1,:] = ρθᴮ # set equal to numerical one
-##
-∇r =  ∇(r)
-ϕr = exp.(-(r .- r[1]) / (maximum(r) - minimum(r)))
-∇ϕr = ∇(ϕr)
-tmp = ∇ϕr ./ ∇r
-norm(tmp[:,:,1] - tmp[:,:,2])
-norm(tmp[:,:,2] - tmp[:,:,3])
-norm(tmp[:,:,3] - tmp[:,:,1])
 
 ##
 ########
