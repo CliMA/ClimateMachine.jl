@@ -37,10 +37,10 @@ grid = DiscretizedDomain(
 ########
 Δt          = min_node_distance(grid.numerical) / parameters.cₛ * 0.25
 start_time  = 0
-end_time    = 86400 * 0.5  # Δt # 86400 * 0.5 * 6 * 5
+end_time    = 86400 * 0.5 * 6  # Δt # 86400 * 0.5 * 6 * 5
 method      = SSPRK22Heuns # LSRKEulerMethod # SSPRK22Heuns
 timestepper = TimeStepper(method = method, timestep = Δt)
-callbacks   = (Info(), StateCheck(10))
+callbacks   = (Info(), StateCheck(30))
 
 ########
 # Define physics
