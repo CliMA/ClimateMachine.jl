@@ -32,6 +32,7 @@ function set_clima_parameters(filename)
     eval(:(include($filename)))
 end
 
+
 """
     init_state_prognostic!(
             turbconv::EDMF{FT},
@@ -85,6 +86,7 @@ function init_state_prognostic!(
     return nothing
 end;
 
+
 function main(::Type{FT}, cl_args) where {FT}
     # Change boolean to control vertical discretization type
     finite_volume = false
@@ -104,6 +106,7 @@ function main(::Type{FT}, cl_args) where {FT}
         N_quad,
         param_set,
         surface = NeutralDrySurfaceModel{FT}(param_set),
+        coupling = Decoupled(),
     )
 
     C_smag_ = C_smag(param_set)
@@ -114,8 +117,9 @@ function main(::Type{FT}, cl_args) where {FT}
     zmax = FT(400)
     # Simulation time
     t0 = FT(0)
-    timeend = FT(3600 * 2) # Change to 7h for low-level jet
+    timeend = FT(1800) # Change to 7h for low-level jet
     CFLmax = compressibility == Compressible() ? FT(1) : FT(100)
+
 
     config_type = SingleStackConfigType
     ode_solver_type = ClimateMachine.ExplicitSolverType(
@@ -193,11 +197,23 @@ function main(::Type{FT}, cl_args) where {FT}
 
     dgn_config = config_diagnostics(driver_config)
 
+    edmf_filter = SpecificEDMFFilter(;
+        atmos = driver_config.bl,
+        ρa = true,
+        ρaw = true,
+        ρaθ_liq = true,
+        ρaq_tot = true,
+        ρatke = true,
+        ρaθ_liq_cv = true,
+        ρaq_tot_cv = true,
+        ρaθ_liq_q_tot_cv = true,
+    )
+
     # boyd vandeven filter
     cb_boyd = GenericCallbacks.EveryXSimulationSteps(1) do
         Filters.apply!(
             solver_config.Q,
-            (turbconv_filters(turbconv)...,),
+            edmf_filter,
             solver_config.dg.grid,
             BoydVandevenFilter(solver_config.dg.grid, 1, 4),
         )

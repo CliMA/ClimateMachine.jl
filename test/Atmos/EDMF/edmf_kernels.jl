@@ -31,7 +31,8 @@ import ClimateMachine.TurbulenceConvection:
     turbconv_normal_boundary_flux_second_order!
 
 using ClimateMachine.Thermodynamics: air_pressure, air_density
-
+import ClimateMachine.Mesh.Filters:
+    vars_state_filtered, compute_filter_argument!, compute_filter_result!
 
 include(joinpath("helper_funcs", "nondimensional_exchange_functions.jl"))
 include(joinpath("helper_funcs", "lamb_smooth_minimum.jl"))
@@ -76,6 +77,9 @@ end
 function vars_state(::Environment, ::Primitive, FT)
     @vars(atke::FT, aθ_liq_cv::FT, aq_tot_cv::FT, aθ_liq_q_tot_cv::FT,)
 end
+
+vars_state_filtered(target::SpecificEDMFFilter, FT) =
+    vars_state(target.atmos, Primitive(), FT)
 
 function vars_state(
     m::NTuple{N, Updraft},
@@ -154,6 +158,9 @@ function vars_state(m::EDMF, st::GradientFlux, FT)
         ∇v::SVector{3, FT}
     )
 end
+
+
+
 
 abstract type EDMFPrognosticVariable <: AbstractPrognosticVariable end
 
@@ -372,6 +379,61 @@ function primitive_to_prognostic!(
 
 end
 
+function compute_filter_argument!(
+    target::SpecificEDMFFilter,
+    filter_state::Vars,
+    state::Vars,
+    aux::Vars,
+)
+    gm = state
+    up = state.turbconv.updraft
+    en = state.turbconv.environment
+    fs_up = filter_state.turbconv.updraft
+    fs_en = filter_state.turbconv.environment
+    ρ_inv = 1 / gm.ρ
+    N_up = n_updrafts(turbconv_model(target.atmos))
+
+    @unroll_map(N_up) do i
+        target.ρa && (fs_up[i].a = up[i].ρa * ρ_inv)
+        target.ρaw && (fs_up[i].aw = up[i].ρaw * ρ_inv)
+        target.ρaθ_liq && (fs_up[i].aθ_liq = up[i].ρaθ_liq * ρ_inv)
+        target.ρaq_tot && (fs_up[i].aq_tot = up[i].ρaq_tot * ρ_inv)
+    end
+
+    target.ρatke && (fs_en.atke = en.ρatke * ρ_inv)
+    target.ρaθ_liq_cv && (fs_en.aθ_liq_cv = en.ρaθ_liq_cv * ρ_inv)
+    target.ρaq_tot_cv && (fs_en.aq_tot_cv = en.ρaq_tot_cv * ρ_inv)
+    target.ρaθ_liq_q_tot_cv &&
+        (fs_en.aθ_liq_q_tot_cv = en.ρaθ_liq_q_tot_cv * ρ_inv)
+
+end
+function compute_filter_result!(
+    target::SpecificEDMFFilter,
+    state::Vars,
+    filter_state::Vars,
+    aux::Vars,
+)
+    gm = state
+    up = state.turbconv.updraft
+    en = state.turbconv.environment
+    fs_up = filter_state.turbconv.updraft
+    fs_en = filter_state.turbconv.environment
+    N_up = n_updrafts(turbconv_model(target.atmos))
+
+    @unroll_map(N_up) do i
+        target.ρa && (up[i].ρa = fs_up[i].a * gm.ρ)
+        target.ρaw && (up[i].ρaw = fs_up[i].aw * gm.ρ)
+        target.ρaθ_liq && (up[i].ρaθ_liq = fs_up[i].aθ_liq * gm.ρ)
+        target.ρaq_tot && (up[i].ρaq_tot = fs_up[i].aq_tot * gm.ρ)
+    end
+
+    target.ρatke && (en.ρatke = fs_en.atke * gm.ρ)
+    target.ρaθ_liq_cv && (en.ρaθ_liq_cv = fs_en.aθ_liq_cv * gm.ρ)
+    target.ρaq_tot_cv && (en.ρaq_tot_cv = fs_en.aq_tot_cv * gm.ρ)
+    target.ρaθ_liq_q_tot_cv &&
+        (en.ρaθ_liq_q_tot_cv = fs_en.aθ_liq_q_tot_cv * gm.ρ)
+end
+
 function compute_gradient_argument!(
     turbconv::EDMF{FT},
     m::AtmosModel{FT},
@@ -469,6 +531,7 @@ function compute_gradient_flux!(
     en_dif.∇θ_liq = en_∇tf.θ_liq
     en_dif.∇q_tot = en_∇tf.q_tot
     en_dif.∇w = en_∇tf.w
+
     # second moment env cov
     en_dif.∇tke = en_∇tf.tke
     en_dif.∇θ_liq_cv = en_∇tf.θ_liq_cv
