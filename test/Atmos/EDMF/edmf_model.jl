@@ -3,7 +3,7 @@ using DocStringExtensions
 using CLIMAParameters: AbstractEarthParameterSet
 using CLIMAParameters.Atmos.EDMF
 using CLIMAParameters.SubgridScale
-
+using ClimateMachine.Mesh.Filters: AbstractFilterTarget
 """
     EntrainmentDetrainment
 
@@ -483,6 +483,26 @@ function EDMF(
     return EDMF{FT, N_up, typeof.(args)...}(args...)
 end
 
+Base.@kwdef struct IntrinsicEDMFFilter{A, B <: Bool} <: AbstractFilterTarget
+    "The AtmosModel"
+    atmos::A
+    "filter edmf updraft a"
+    ρa::B = false
+    "filter edmf updraft w"
+    ρaw::B = false
+    "filter edmf updraft θ"
+    ρaθ_liq::B = false
+    "filter edmf updraft Q"
+    ρaq_tot::B = false
+    "filter edmf environment TKE"
+    ρatke::B = false
+    "filter edmf environment cv_θ"
+    ρaθ_liq_cv::B = false
+    "filter edmf environment cv_Q"
+    ρaq_tot_cv::B = false
+    "filter edmf environment cv_θQ"
+    ρaθ_liq_q_tot_cv::B = false
+end
 
 import ClimateMachine.TurbulenceConvection: turbconv_sources, turbconv_bcs
 
