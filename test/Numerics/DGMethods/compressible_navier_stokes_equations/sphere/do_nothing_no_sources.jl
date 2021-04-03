@@ -39,6 +39,7 @@ callbacks = (
 )
 
 physics = FluidPhysics(;
+    orientation = SphericalOrientation(),
     advection   = NonLinearAdvectionTerm(),
     dissipation = ConstantViscosity{Float64}(μ = 0, ν = 0.0, κ = 0.0),
     coriolis    = nothing,

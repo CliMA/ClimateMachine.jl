@@ -37,8 +37,8 @@ parameters = (
 domain =  AtmosDomain(radius = parameters.a, height = parameters.H)
 grid = DiscretizedDomain(
     domain;
-    elements              = (vertical = 5, horizontal = 10),
-    polynomial_order      = (vertical = 4, horizontal = 4),
+    elements              = (vertical = 8, horizontal = 3),
+    polynomial_order      = (vertical = 2, horizontal = 4),
     overintegration_order = (vertical = 1, horizontal = 1),
 )
 
@@ -47,19 +47,20 @@ grid = DiscretizedDomain(
 ########
 Δt          = min_node_distance(grid.numerical) / 300.0 * 0.25
 start_time  = 0
-end_time    = 3600 
+end_time    = Δt*86400
 method      = SSPRK22Heuns
 timestepper = TimeStepper(method = method, timestep = Δt)
 callbacks   = (
   Info(), 
-  StateCheck(100),
-  VTKState(iteration = 1, filepath = "./out/"),
+  StateCheck(50),
+  VTKState(iteration = 2000, filepath = "./out/"),
 )
 
 ########
 # Define parameterizations
 ######## 
 physics = FluidPhysics(;
+    orientation = SphericalOrientation(),
     advection   = NonLinearAdvectionTerm(),
     #dissipation = ConstantViscosity{Float64}(μ = 0.0, ν = 1e5/4/4, κ = 0.0),
     dissipation = ConstantViscosity{Float64}(μ = 0.0, ν = 0.0, κ = 0.0),
@@ -97,15 +98,15 @@ cond(𝒫,λ,ϕ)  = (0 < d(𝒫,λ,ϕ) < d_0(𝒫)) * (d(𝒫,λ,ϕ) != 𝒫.a *
 
 # base-state thermodynamic variables
 I_T(𝒫,ϕ,r)   = (cos(ϕ) * r / 𝒫.a)^𝒫.k - 𝒫.k / (𝒫.k + 2) * (cos(ϕ) * r / 𝒫.a)^(𝒫.k + 2)
-T(𝒫,ϕ,r)     = (𝒫.a/r)^2 * (τ_1(𝒫,r) - τ_2(𝒫,r) * I_T(𝒫,ϕ,r))^(-1) #! First term is in question
+T(𝒫,ϕ,r)     = (τ_1(𝒫,r) - τ_2(𝒫,r) * I_T(𝒫,ϕ,r))^(-1) * (𝒫.a/r)^2
 p(𝒫,ϕ,r)     = 𝒫.pₒ * exp(-𝒫.g / 𝒫.R_d * (τ_int_1(𝒫,r) - τ_int_2(𝒫,r) * I_T(𝒫,ϕ,r)))
 θ(𝒫,ϕ,r)     = T(𝒫,ϕ,r) * (𝒫.pₒ / p(𝒫,ϕ,r))^𝒫.κ
 
 # base-state velocity variables
 U(𝒫,ϕ,r)     = 𝒫.g * 𝒫.k / 𝒫.a * τ_int_2(𝒫,r) * T(𝒫,ϕ,r) * ((cos(ϕ) * r / 𝒫.a)^(𝒫.k - 1) - (cos(ϕ) * r / 𝒫.a)^(𝒫.k + 1))
-u(𝒫,ϕ,r)     = -𝒫.Ω * r * cos(ϕ) + sqrt((𝒫.Ω * r * cos(ϕ))^2 + r * cos(ϕ) * U(𝒫,ϕ,r))
-v(𝒫,ϕ,r)     = 0.0
-w(𝒫,ϕ,r)     = 0.0
+uˡᵒⁿ(𝒫,ϕ,r)  = -𝒫.Ω * r * cos(ϕ) + sqrt((𝒫.Ω * r * cos(ϕ))^2 + r * cos(ϕ) * U(𝒫,ϕ,r))
+uˡᵃᵗ(𝒫,ϕ,r)  = 0.0
+uʳᵃᵈ(𝒫,ϕ,r)  = 0.0
 
 # velocity perturbations
 δu(𝒫,λ,ϕ,r)  = -16 * 𝒫.V_p / 3 / sqrt(3) * F_z(𝒫,r) * c3(𝒫,λ,ϕ) * s1(𝒫,λ,ϕ) * (-sin(𝒫.ϕ_c) * cos(ϕ) + cos(𝒫.ϕ_c) * sin(ϕ) * cos(λ - 𝒫.λ_c)) / sin(d(𝒫,λ,ϕ) / 𝒫.a) * cond(𝒫,λ,ϕ)
@@ -113,23 +114,23 @@ w(𝒫,ϕ,r)     = 0.0
 δw(𝒫,λ,ϕ,r)  = 0.0
 
 # CliMA prognostic variables
-ρ(𝒫,λ,ϕ,r)   = p(𝒫,ϕ,r) / 𝒫.R_d / T(𝒫,ϕ,r)
-ρu(𝒫,λ,ϕ,r)  = ρ(𝒫,λ,ϕ,r) * (u(𝒫,ϕ,r) + 0.0*δu(𝒫,λ,ϕ,r))
-ρv(𝒫,λ,ϕ,r)  = ρ(𝒫,λ,ϕ,r) * (v(𝒫,ϕ,r) + 0.0*δv(𝒫,λ,ϕ,r))
-ρw(𝒫,λ,ϕ,r)  = ρ(𝒫,λ,ϕ,r) * (w(𝒫,ϕ,r) + 0.0*δw(𝒫,λ,ϕ,r))
-ρθ(𝒫,λ,ϕ,r)  = ρ(𝒫,λ,ϕ,r) * θ(𝒫,ϕ,r)
+ρ₀(𝒫,λ,ϕ,r)    = p(𝒫,ϕ,r) / 𝒫.R_d / T(𝒫,ϕ,r)
+ρuˡᵒⁿ(𝒫,λ,ϕ,r) = ρ₀(𝒫,λ,ϕ,r) * (u(𝒫,ϕ,r) + 0.0*δu(𝒫,λ,ϕ,r))
+ρuˡᵃᵗ(𝒫,λ,ϕ,r) = ρ₀(𝒫,λ,ϕ,r) * (v(𝒫,ϕ,r) + 0.0*δv(𝒫,λ,ϕ,r))
+ρuʳᵃᵈ(𝒫,λ,ϕ,r) = ρ₀(𝒫,λ,ϕ,r) * (w(𝒫,ϕ,r) + 0.0*δw(𝒫,λ,ϕ,r))
+ρθ₀(𝒫,λ,ϕ,r)   = ρ₀(𝒫,λ,ϕ,r) * θ(𝒫,ϕ,r)
 
 # Cartesian Representation (boiler plate really)
-ρ₀ᶜᵃʳᵗ(𝒫, x...)  = ρ(𝒫, lon(x...), lat(x...), rad(x...))
-ρu⃗₀ᶜᵃʳᵗ(𝒫, x...) = (  ρw(𝒫, lon(x...), lat(x...), rad(x...)) * r̂(x...) 
-                    + ρv(𝒫, lon(x...), lat(x...), rad(x...)) * ϕ̂(x...)
-                    + ρu(𝒫, lon(x...), lat(x...), rad(x...)) * λ̂(x...)) 
-ρθ₀ᶜᵃʳᵗ(𝒫, x...) = ρθ(𝒫, lon(x...), lat(x...), rad(x...))
+ρ₀ᶜᵃʳᵗ(𝒫, x...)  = ρ₀(𝒫, lon(x...), lat(x...), rad(x...))
+ρu⃗₀ᶜᵃʳᵗ(𝒫, x...) = (   ρuʳᵃᵈ(𝒫, lon(x...), lat(x...), rad(x...)) * r̂(x...) 
+                     + ρuˡᵃᵗ(𝒫, lon(x...), lat(x...), rad(x...)) * ϕ̂(x...)
+                     + ρuˡᵒⁿ(𝒫, lon(x...), lat(x...), rad(x...)) * λ̂(x...) ) 
+ρθ₀ᶜᵃʳᵗ(𝒫, x...) = ρθ₀(𝒫, lon(x...), lat(x...), rad(x...))
 
 ########
 # Define boundary conditions (west east are the ones that are enforced for a sphere)
 ########
-ρu_bcs = (bottom = Impenetrable(FreeSlip()), top = Impenetrable(FreeSlip()))
+ρu_bcs = (bottom = Impenetrable(NoSlip()), top = Impenetrable(NoSlip()))
 ρθ_bcs = (bottom = Insulating(), top = Insulating())
 
 ########
@@ -155,4 +156,4 @@ simulation = Simulation(
 ########
 # Run the model
 ########
-#evolve!(simulation, model)
+evolve!(simulation, model)
