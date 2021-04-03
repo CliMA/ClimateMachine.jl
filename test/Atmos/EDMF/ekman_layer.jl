@@ -107,14 +107,14 @@ function main(::Type{FT}, cl_args) where {FT}
     )
 
     C_smag_ = C_smag(param_set)
-    turbulence = ConstantKinematicViscosity(FT(0.1))
+    turbulence = ConstantKinematicViscosity(FT(0.0))
     # turbulence = SmagorinskyLilly{FT}(C_smag_)
 
     # Prescribe domain parameters
     zmax = FT(400)
     # Simulation time
     t0 = FT(0)
-    timeend = FT(3600 * 2) # Change to 7h for low-level jet
+    timeend = FT(1800) # Change to 7h for low-level jet
     CFLmax = compressibility == Compressible() ? FT(1) : FT(100)
 
     config_type = SingleStackConfigType
@@ -194,10 +194,11 @@ function main(::Type{FT}, cl_args) where {FT}
     dgn_config = config_diagnostics(driver_config)
 
     # boyd vandeven filter
+    num_state_prognostic = number_states(driver_config.bl, Prognostic()) # This works in coupled mode
     cb_boyd = GenericCallbacks.EveryXSimulationSteps(1) do
         Filters.apply!(
             solver_config.Q,
-            (turbconv_filters(turbconv)...,),
+            1:num_state_prognostic, #(turbconv_filters(turbconv)...,),
             solver_config.dg.grid,
             BoydVandevenFilter(solver_config.dg.grid, 1, 4),
         )
@@ -276,25 +277,25 @@ end
 solver_config, diag_arr, time_data = main(Float64, cl_args)
 
 # Uncomment lines to save output using JLD2
-# output_dir = @__DIR__;
-# mkpath(output_dir);
-# function dons(diag_vs_z)
-#     return Dict(map(keys(first(diag_vs_z))) do k
-#         string(k) => [getproperty(ca, k) for ca in diag_vs_z]
-#     end)
-# end
-# get_dons_arr(diag_arr) = [dons(diag_vs_z) for diag_vs_z in diag_arr]
-# dons_arr = get_dons_arr(diag_arr)
-# println(dons_arr[1].keys)
-# z = get_z(solver_config.dg.grid; rm_dupes = true);
-# save(
-#     string(output_dir, "/ekman.jld2"),
-#     "dons_arr",
-#     dons_arr,
-#     "time_data",
-#     time_data,
-#     "z",
-#     z,
-# )
+output_dir = @__DIR__;
+mkpath(output_dir);
+function dons(diag_vs_z)
+    return Dict(map(keys(first(diag_vs_z))) do k
+        string(k) => [getproperty(ca, k) for ca in diag_vs_z]
+    end)
+end
+get_dons_arr(diag_arr) = [dons(diag_vs_z) for diag_vs_z in diag_arr]
+dons_arr = get_dons_arr(diag_arr)
+println(dons_arr[1].keys)
+z = get_z(solver_config.dg.grid; rm_dupes = true);
+save(
+    string(output_dir, "/ekman.jld2"),
+    "dons_arr",
+    dons_arr,
+    "time_data",
+    time_data,
+    "z",
+    z,
+)
 
 nothing
