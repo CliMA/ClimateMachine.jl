@@ -1,7 +1,9 @@
 module Metrics
 
+using ..GeomData
+
 """
-    creategrid!(x1, elemtocoord, ξ1)
+    creategrid!(vgeo, elemtocoord, ξ1)
 
 Create a 1-D grid using `elemtocoord` (see [`brickmesh`](@ref)) using the 1-D
 `(-1, 1)` reference coordinates `ξ1`. The element grids are filled using linear
