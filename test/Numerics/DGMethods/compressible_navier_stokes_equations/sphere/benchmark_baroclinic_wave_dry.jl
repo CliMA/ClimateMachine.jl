@@ -16,9 +16,9 @@ parameters = (
     a   = 6.371229e6,
     Ω   = 7.292e-5,
     g   = 9.80616,
-    H   = 30000.0,
+    H   = 30e3,
     R_d = 287.0,        
-    p₀  = 1.0e5,
+    pₒ  = 1.0e5,
     k   = 3.0,
     Γ   = 0.005,
     T_E = 310.0,
@@ -28,33 +28,32 @@ parameters = (
     λ_c = π / 9,
     ϕ_c = 2 * π / 9,
     V_p = 1.0,
-    γ   = 0.0,
     κ   = 2/7,
 )
 
 ########
 # Setup physical and numerical domains
 ########
-domain = AtmosDomain(radius = parameters.a, height = parameters.H)
+domain =  AtmosDomain(radius = parameters.a, height = parameters.H)
 grid = DiscretizedDomain(
     domain;
-    elements              = (vertical = 5, horizontal = 8),
-    polynomial_order      = (vertical = 3, horizontal = 3),
+    elements              = (vertical = 5, horizontal = 10),
+    polynomial_order      = (vertical = 4, horizontal = 4),
     overintegration_order = (vertical = 1, horizontal = 1),
 )
 
 ########
 # Define timestepping parameters
 ########
-Δt          = min_node_distance(grid.numerical) / 340.0 * 0.25
+Δt          = min_node_distance(grid.numerical) / 300.0 * 0.25
 start_time  = 0
-end_time    = 3600*Δt
+end_time    = 3600 
 method      = SSPRK22Heuns
 timestepper = TimeStepper(method = method, timestep = Δt)
 callbacks   = (
-    Info(), 
-    StateCheck(100), 
-    VTKState(iteration = 100, filepath = "./out/"),
+  Info(), 
+  StateCheck(100),
+  VTKState(iteration = 1, filepath = "./out/"),
 )
 
 ########
@@ -62,10 +61,11 @@ callbacks   = (
 ######## 
 physics = FluidPhysics(;
     advection   = NonLinearAdvectionTerm(),
+    #dissipation = ConstantViscosity{Float64}(μ = 0.0, ν = 1e5/4/4, κ = 0.0),
     dissipation = ConstantViscosity{Float64}(μ = 0.0, ν = 0.0, κ = 0.0),
     coriolis    = DeepShellCoriolis{Float64}(Ω = parameters.Ω),
     gravity     = DeepShellGravity{Float64}(g = parameters.g, a = parameters.a),
-    eos         = DryIdealGas{Float64}(R = parameters.R_d, pₒ = parameters.p₀, γ = 1/(1-parameters.κ)),
+    eos         = DryIdealGas{Float64}(R = parameters.R_d, pₒ = parameters.pₒ, γ = 1/(1-parameters.κ)),
 )
 
 ########
@@ -98,8 +98,8 @@ cond(𝒫,λ,ϕ)  = (0 < d(𝒫,λ,ϕ) < d_0(𝒫)) * (d(𝒫,λ,ϕ) != 𝒫.a *
 # base-state thermodynamic variables
 I_T(𝒫,ϕ,r)   = (cos(ϕ) * r / 𝒫.a)^𝒫.k - 𝒫.k / (𝒫.k + 2) * (cos(ϕ) * r / 𝒫.a)^(𝒫.k + 2)
 T(𝒫,ϕ,r)     = (𝒫.a/r)^2 * (τ_1(𝒫,r) - τ_2(𝒫,r) * I_T(𝒫,ϕ,r))^(-1) #! First term is in question
-p(𝒫,ϕ,r)     = 𝒫.p₀ * exp(-𝒫.g / 𝒫.R_d * (τ_int_1(𝒫,r) - τ_int_2(𝒫,r) * I_T(𝒫,ϕ,r)))
-θ(𝒫,ϕ,r)     = T(𝒫,ϕ,r) * (𝒫.p₀ / p(𝒫,ϕ,r))^𝒫.κ
+p(𝒫,ϕ,r)     = 𝒫.pₒ * exp(-𝒫.g / 𝒫.R_d * (τ_int_1(𝒫,r) - τ_int_2(𝒫,r) * I_T(𝒫,ϕ,r)))
+θ(𝒫,ϕ,r)     = T(𝒫,ϕ,r) * (𝒫.pₒ / p(𝒫,ϕ,r))^𝒫.κ
 
 # base-state velocity variables
 U(𝒫,ϕ,r)     = 𝒫.g * 𝒫.k / 𝒫.a * τ_int_2(𝒫,r) * T(𝒫,ϕ,r) * ((cos(ϕ) * r / 𝒫.a)^(𝒫.k - 1) - (cos(ϕ) * r / 𝒫.a)^(𝒫.k + 1))
@@ -114,9 +114,9 @@ w(𝒫,ϕ,r)     = 0.0
 
 # CliMA prognostic variables
 ρ(𝒫,λ,ϕ,r)   = p(𝒫,ϕ,r) / 𝒫.R_d / T(𝒫,ϕ,r)
-ρu(𝒫,λ,ϕ,r)  = ρ(𝒫,λ,ϕ,r) * (u(𝒫,ϕ,r) + δu(𝒫,λ,ϕ,r))
-ρv(𝒫,λ,ϕ,r)  = ρ(𝒫,λ,ϕ,r) * (v(𝒫,ϕ,r) + δv(𝒫,λ,ϕ,r))
-ρw(𝒫,λ,ϕ,r)  = ρ(𝒫,λ,ϕ,r) * (w(𝒫,ϕ,r) + δw(𝒫,λ,ϕ,r))
+ρu(𝒫,λ,ϕ,r)  = ρ(𝒫,λ,ϕ,r) * (u(𝒫,ϕ,r) + 0.0*δu(𝒫,λ,ϕ,r))
+ρv(𝒫,λ,ϕ,r)  = ρ(𝒫,λ,ϕ,r) * (v(𝒫,ϕ,r) + 0.0*δv(𝒫,λ,ϕ,r))
+ρw(𝒫,λ,ϕ,r)  = ρ(𝒫,λ,ϕ,r) * (w(𝒫,ϕ,r) + 0.0*δw(𝒫,λ,ϕ,r))
 ρθ(𝒫,λ,ϕ,r)  = ρ(𝒫,λ,ϕ,r) * θ(𝒫,ϕ,r)
 
 # Cartesian Representation (boiler plate really)
@@ -138,7 +138,7 @@ w(𝒫,ϕ,r)     = 0.0
 model = SpatialModel(
     balance_law = Fluid3D(),
     physics = physics,
-    numerics = (flux = RoeNumericalFlux(),),
+    numerics = (flux = RoeNumericalFlux(), staggering = true),
     grid = grid,
     boundary_conditions = (ρθ = ρθ_bcs, ρu = ρu_bcs),
     parameters = parameters,
@@ -155,4 +155,4 @@ simulation = Simulation(
 ########
 # Run the model
 ########
-evolve!(simulation, model)
+#evolve!(simulation, model)
