@@ -829,7 +829,21 @@ function computegeometry_fvm(elemtocoord, D, ξ, ω, meshwarp)
     (vgeo, sgeo, x_vtk)
 end
 
+"""
+    computegeometry(elemtocoord, D, ξ, ω, meshwarp)
+
+Compute the geometric factors data needed to define metric terms at
+each quadrature point. First, compute so called "topology coordinates" from
+reference coordinates ξ. Then map these topology coordinate
+to physical coordinates. Then setup the geometric factors data necessary at
+each quadrature point by calling [`setup_geom_factors_data!`](@ref). Then
+compute the Jacobian of the mapping from reference coordinates to physical
+coordinates, i.e., ∂x/∂ξ. Finally, compute the metric terms by calling the
+function [`computemetric!`](@ref).
+"""
+
 function computegeometry(elemtocoord, D, ξ, ω, meshwarp)
+    FT = eltype(D[1])
     dim = length(D)
     nface = 2dim
     nelem = size(elemtocoord, 3)
@@ -843,8 +857,6 @@ function computegeometry(elemtocoord, D, ξ, ω, meshwarp)
 
     Np = prod(Nq)
     Nfp = div.(Np, Nq)
-
-    FT = eltype(D[1])
 
     vgeo = VolumeGeometry(FT, Nq, nelem)
 
@@ -866,9 +878,8 @@ function computegeometry(elemtocoord, D, ξ, ω, meshwarp)
 
     setup_geom_factors_data!(vgeo, D...)
 
-    # c) computes partial derivatives ∂x/∂ξ
+    # c) computes Jacobian matrix, ∂x/∂ξ
     compute_dxdxi_jacobian!(vgeo, D...)
-    # Compute Jacobian matrix, ∂x/∂ξ
 
     # d) computes the metric terms
     Metrics.computemetric!(vgeo, sgeo, D...)
