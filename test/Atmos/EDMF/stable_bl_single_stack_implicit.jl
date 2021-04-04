@@ -226,4 +226,6 @@ cl_args = ClimateMachine.init(
 
 solver_config, diag_arr, time_data = main(Float64, cl_args)
 
+include(joinpath(@__DIR__, "report_mse_sbl_ss_implicit.jl"))
+
 nothing

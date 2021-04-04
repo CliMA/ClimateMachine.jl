@@ -15,7 +15,7 @@ include("edmf_kernels.jl")
 
 # CLIMAParameters.Planet.T_surf_ref(::EarthParameterSet) = 290.0 # default
 CLIMAParameters.Planet.T_surf_ref(::EarthParameterSet) = 265
-
+CLIMAParameters.Atmos.EDMF.a_surf(::EarthParameterSet) = 0.0
 function set_clima_parameters(filename)
     eval(:(include($filename)))
 end
@@ -94,46 +94,55 @@ function main(::Type{FT}, cl_args) where {FT}
 
     surface_flux = cl_args["surface_flux"]
 
+    # Choice of compressibility and CFL
+    # compressibility = Compressible()
+    compressibility = Anelastic1D()
+    str_comp = compressibility == Compressible() ? "COMPRESS" : "ANELASTIC"
+
     # DG polynomial order
     N = 4
     nelem_vert = 20
 
     # Prescribe domain parameters
     zmax = FT(400)
-
-    t0 = FT(0)
-
     # Simulation time
+    t0 = FT(0)
     timeend = FT(1800 * 1)
-    CFLmax = FT(100)
+    CFLmax = compressibility == Compressible() ? FT(1) : FT(100)
 
     config_type = SingleStackConfigType
-
     ode_solver_type = ClimateMachine.ExplicitSolverType(
         solver_method = LSRK144NiegemannDiehlBusch,
     )
 
+    # Choice of SGS model
     N_updrafts = 1
     N_quad = 3
     turbconv = NoTurbConv()
-    # turbconv = EDMF(FT, N_updrafts, N_quad, param_set)
-    # compressibility = Compressible()
-    compressibility = Anelastic1D()
-    C_smag_ = C_smag(param_set)
+    # turbconv = EDMF(
+    #     FT,
+    #     N_updrafts,
+    #     N_quad,
+    #     param_set,
+    #     surface = NeutralDrySurfaceModel{FT}(param_set),
+    # )
 
+    C_smag_ = C_smag(param_set)
+    # turbulence = ConstantKinematicViscosity(FT(0.1))
+    turbulence = SmagorinskyLilly{FT}(C_smag_)
     model = stable_bl_model(
         FT,
         config_type,
         zmax,
         surface_flux;
-        turbulence = SmagorinskyLilly{FT}(C_smag_),
+        turbulence = turbulence,
         turbconv = turbconv,
         compressibility = compressibility,
     )
 
     # Assemble configuration
     driver_config = ClimateMachine.SingleStackConfiguration(
-        "SBL_ANELASTIC_1D",
+        string("SBL_", str_comp, "_1D"),
         N,
         nelem_vert,
         zmax,

@@ -95,7 +95,7 @@ function main(::Type{FT}, cl_args) where {FT}
     str_comp = compressibility == Compressible() ? "COMPRESS" : "ANELASTIC"
 
     # Choice of SGS model
-    turbconv = NoTurbConv()
+    # turbconv = NoTurbConv()
     N_updrafts = 1
     N_quad = 3
     turbconv = EDMF(
@@ -275,7 +275,7 @@ end
 
 solver_config, diag_arr, time_data = main(Float64, cl_args)
 
-# Uncomment lines to save output using JLD2
+## Uncomment lines to save output using JLD2
 # output_dir = @__DIR__;
 # mkpath(output_dir);
 # function dons(diag_vs_z)

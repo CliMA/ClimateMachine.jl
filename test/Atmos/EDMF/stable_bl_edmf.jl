@@ -4,11 +4,15 @@ using ClimateMachine.SingleStackUtils
 using ClimateMachine.Checkpoint
 using ClimateMachine.BalanceLaws: vars_state
 const clima_dir = dirname(dirname(pathof(ClimateMachine)));
+import CLIMAParameters
 
 include(joinpath(clima_dir, "experiments", "AtmosLES", "stable_bl_model.jl"))
 include(joinpath("helper_funcs", "diagnostics_configuration.jl"))
 include("edmf_model.jl")
 include("edmf_kernels.jl")
+
+CLIMAParameters.Planet.T_surf_ref(::EarthParameterSet) = 265
+CLIMAParameters.Atmos.EDMF.a_surf(::EarthParameterSet) = 0.0
 
 """
     init_state_prognostic!(
@@ -85,8 +89,8 @@ function main(::Type{FT}, cl_args) where {FT}
     surface_flux = cl_args["surface_flux"]
 
     # DG polynomial order
-    N = 1
-    nelem_vert = 50
+    N = 4
+    nelem_vert = 15
 
     # Prescribe domain parameters
     zmax = FT(400)
@@ -105,7 +109,13 @@ function main(::Type{FT}, cl_args) where {FT}
 
     N_updrafts = 1
     N_quad = 3 # Using N_quad = 1 leads to norm(Q) = NaN at init.
-    turbconv = EDMF(FT, N_updrafts, N_quad, param_set)
+    turbconv = EDMF(
+        FT,
+        N_updrafts,
+        N_quad,
+        param_set,
+        surface = NeutralDrySurfaceModel{FT}(param_set),
+    )
 
     model = stable_bl_model(
         FT,
@@ -237,9 +247,15 @@ cl_args = ClimateMachine.init(
 solver_config, diag_arr, time_data = main(Float64, cl_args)
 
 ## Uncomment lines to save output using JLD2
-#
 # output_dir = @__DIR__;
 # mkpath(output_dir);
+# function dons(diag_vs_z)
+#     return Dict(map(keys(first(diag_vs_z))) do k
+#         string(k) => [getproperty(ca, k) for ca in diag_vs_z]
+#     end)
+# end
+# get_dons_arr(diag_arr) = [dons(diag_vs_z) for diag_vs_z in diag_arr]
+# dons_arr = get_dons_arr(diag_arr)
 # println(dons_arr[1].keys)
 # z = get_z(solver_config.dg.grid; rm_dupes = true);
 # save(
@@ -251,5 +267,7 @@ solver_config, diag_arr, time_data = main(Float64, cl_args)
 #     "z",
 #     z,
 # )
+
+include(joinpath(@__DIR__, "report_mse_sbl_edmf.jl"))
 
 nothing

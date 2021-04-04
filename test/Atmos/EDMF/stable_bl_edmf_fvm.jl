@@ -5,10 +5,14 @@ using ClimateMachine.Checkpoint
 using ClimateMachine.BalanceLaws: vars_state
 import ClimateMachine.DGMethods.FVReconstructions: FVLinear
 const clima_dir = dirname(dirname(pathof(ClimateMachine)));
+import CLIMAParameters
 
 include(joinpath(clima_dir, "experiments", "AtmosLES", "stable_bl_model.jl"))
 include("edmf_model.jl")
 include("edmf_kernels.jl")
+
+CLIMAParameters.Planet.T_surf_ref(::EarthParameterSet) = 265
+CLIMAParameters.Atmos.EDMF.a_surf(::EarthParameterSet) = 0.0
 
 """
     init_state_prognostic!(
@@ -106,7 +110,13 @@ function main(::Type{FT}, cl_args) where {FT}
 
     N_updrafts = 1
     N_quad = 3 # Using N_quad = 1 leads to norm(Q) = NaN at init.
-    turbconv = EDMF(FT, N_updrafts, N_quad, param_set)
+    turbconv = EDMF(
+        FT,
+        N_updrafts,
+        N_quad,
+        param_set,
+        surface = NeutralDrySurfaceModel{FT}(param_set),
+    )
 
     model = stable_bl_model(
         FT,
@@ -242,6 +252,6 @@ cl_args = ClimateMachine.init(
 
 solver_config, diag_arr, time_data = main(Float64, cl_args)
 
-include(joinpath(@__DIR__, "report_mse_sbl_fv.jl"))
+include(joinpath(@__DIR__, "report_mse_sbl_edmf.jl"))
 
 nothing
