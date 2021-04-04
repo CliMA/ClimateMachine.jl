@@ -37,8 +37,8 @@ parameters = (
 domain =  AtmosDomain(radius = parameters.a, height = parameters.H)
 grid = DiscretizedDomain(
     domain;
-    elements              = (vertical = 8, horizontal = 3),
-    polynomial_order      = (vertical = 2, horizontal = 4),
+    elements              = (vertical = 5, horizontal = 10),
+    polynomial_order      = (vertical = 4, horizontal = 4),
     overintegration_order = (vertical = 1, horizontal = 1),
 )
 
@@ -47,12 +47,12 @@ grid = DiscretizedDomain(
 ########
 Δt          = min_node_distance(grid.numerical) / 300.0 * 0.25
 start_time  = 0
-end_time    = Δt*86400
+end_time    = Δt*86400*30
 method      = SSPRK22Heuns
 timestepper = TimeStepper(method = method, timestep = Δt)
 callbacks   = (
   Info(), 
-  StateCheck(50),
+  StateCheck(30*24),
   VTKState(iteration = 2000, filepath = "./out/"),
 )
 
@@ -62,7 +62,6 @@ callbacks   = (
 physics = FluidPhysics(;
     orientation = SphericalOrientation(),
     advection   = NonLinearAdvectionTerm(),
-    #dissipation = ConstantViscosity{Float64}(μ = 0.0, ν = 1e5/4/4, κ = 0.0),
     dissipation = ConstantViscosity{Float64}(μ = 0.0, ν = 0.0, κ = 0.0),
     coriolis    = DeepShellCoriolis{Float64}(Ω = parameters.Ω),
     gravity     = DeepShellGravity{Float64}(g = parameters.g, a = parameters.a),
@@ -104,9 +103,9 @@ p(𝒫,ϕ,r)     = 𝒫.pₒ * exp(-𝒫.g / 𝒫.R_d * (τ_int_1(𝒫,r) - τ_i
 
 # base-state velocity variables
 U(𝒫,ϕ,r)     = 𝒫.g * 𝒫.k / 𝒫.a * τ_int_2(𝒫,r) * T(𝒫,ϕ,r) * ((cos(ϕ) * r / 𝒫.a)^(𝒫.k - 1) - (cos(ϕ) * r / 𝒫.a)^(𝒫.k + 1))
-uˡᵒⁿ(𝒫,ϕ,r)  = -𝒫.Ω * r * cos(ϕ) + sqrt((𝒫.Ω * r * cos(ϕ))^2 + r * cos(ϕ) * U(𝒫,ϕ,r))
-uˡᵃᵗ(𝒫,ϕ,r)  = 0.0
-uʳᵃᵈ(𝒫,ϕ,r)  = 0.0
+u(𝒫,ϕ,r)  = -𝒫.Ω * r * cos(ϕ) + sqrt((𝒫.Ω * r * cos(ϕ))^2 + r * cos(ϕ) * U(𝒫,ϕ,r))
+v(𝒫,ϕ,r)  = 0.0
+w(𝒫,ϕ,r)  = 0.0
 
 # velocity perturbations
 δu(𝒫,λ,ϕ,r)  = -16 * 𝒫.V_p / 3 / sqrt(3) * F_z(𝒫,r) * c3(𝒫,λ,ϕ) * s1(𝒫,λ,ϕ) * (-sin(𝒫.ϕ_c) * cos(ϕ) + cos(𝒫.ϕ_c) * sin(ϕ) * cos(λ - 𝒫.λ_c)) / sin(d(𝒫,λ,ϕ) / 𝒫.a) * cond(𝒫,λ,ϕ)
@@ -115,9 +114,9 @@ uʳᵃᵈ(𝒫,ϕ,r)  = 0.0
 
 # CliMA prognostic variables
 ρ₀(𝒫,λ,ϕ,r)    = p(𝒫,ϕ,r) / 𝒫.R_d / T(𝒫,ϕ,r)
-ρuˡᵒⁿ(𝒫,λ,ϕ,r) = ρ₀(𝒫,λ,ϕ,r) * (u(𝒫,ϕ,r) + 0.0*δu(𝒫,λ,ϕ,r))
-ρuˡᵃᵗ(𝒫,λ,ϕ,r) = ρ₀(𝒫,λ,ϕ,r) * (v(𝒫,ϕ,r) + 0.0*δv(𝒫,λ,ϕ,r))
-ρuʳᵃᵈ(𝒫,λ,ϕ,r) = ρ₀(𝒫,λ,ϕ,r) * (w(𝒫,ϕ,r) + 0.0*δw(𝒫,λ,ϕ,r))
+ρuˡᵒⁿ(𝒫,λ,ϕ,r) = ρ₀(𝒫,λ,ϕ,r) * (u(𝒫,ϕ,r) + δu(𝒫,λ,ϕ,r))
+ρuˡᵃᵗ(𝒫,λ,ϕ,r) = ρ₀(𝒫,λ,ϕ,r) * (v(𝒫,ϕ,r) + δv(𝒫,λ,ϕ,r))
+ρuʳᵃᵈ(𝒫,λ,ϕ,r) = ρ₀(𝒫,λ,ϕ,r) * (w(𝒫,ϕ,r) + δw(𝒫,λ,ϕ,r))
 ρθ₀(𝒫,λ,ϕ,r)   = ρ₀(𝒫,λ,ϕ,r) * θ(𝒫,ϕ,r)
 
 # Cartesian Representation (boiler plate really)
