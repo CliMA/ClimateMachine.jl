@@ -34,11 +34,11 @@ parameters = (
 ########
 # Setup physical and numerical domains
 ########
-domain = AtmosDomain(radius = parameters.a, height = 0.01*parameters.a)
+domain = AtmosDomain(radius = parameters.a, height = 0.001*parameters.a)
 grid = DiscretizedDomain(
     domain;
     elements              = (vertical = 1, horizontal = 32),
-    polynomial_order      = (vertical = 1, horizontal = 3),
+    polynomial_order      = (vertical = 0, horizontal = 4),
     overintegration_order = (vertical = 1, horizontal = 1),
 )
 
@@ -46,14 +46,15 @@ grid = DiscretizedDomain(
 # Define timestepping parameters
 ########
 Δt          = min_node_distance(grid.numerical) / (parameters.cₛ * sqrt(parameters.ρᵢ / parameters.ρₒ)) * 0.25
+println(Δt)
 start_time  = 0
 end_time    = 6*24*60*60
 method      = SSPRK22Heuns
 timestepper = TimeStepper(method = method, timestep = Δt)
 callbacks   = (
     Info(), 
-    StateCheck(144), 
-    VTKState(iteration = 1800, filepath = "./out/"),
+    StateCheck(6*24), 
+    VTKState(iteration = 900, filepath = "./out/"),
 )
 
 ########
@@ -70,13 +71,10 @@ physics = FluidPhysics(;
 ########
 # Define initial conditions
 ########
-# Earth Spherical Representation
-# longitude: λ ∈ [-π, π), λ = 0 is the Greenwich meridian
-# latitude:  ϕ ∈ [-π/2, π/2], ϕ = 0 is the equator
-# radius:    r ∈ [Rₑ - hᵐⁱⁿ, Rₑ + hᵐᵃˣ], Rₑ = Radius of earth; hᵐⁱⁿ, hᵐᵃˣ ≥ 0
-uˡᵒⁿ(p,λ,ϕ,r) = r / p.a * p.uₘₐₓ / p.eₙ * exp(1 / (ϕ - p.ϕ₀) / (ϕ - p.ϕ₁)) * (p.ϕ₀ < ϕ < p.ϕ₁)
+dudz(p,r)      = 1 + (r - p.a) / p.a 
+uˡᵒⁿ(p,λ,ϕ,r)  = dudz(p,r) * p.uₘₐₓ / p.eₙ * exp(1 / (ϕ - p.ϕ₀) / (ϕ - p.ϕ₁)) * (p.ϕ₀ < ϕ < p.ϕ₁)
 
-ρᵢₙₜ(p,λ,ϕ,r)  = p.a * uˡᵒⁿ(p, λ, ϕ, r) * (2 * p.Ω * sin(ϕ) + tan(ϕ) * uˡᵒⁿ(p, λ, ϕ, r) / p.a) / p.g
+ρᵢₙₜ(p,λ,ϕ,r)  = r * uˡᵒⁿ(p, λ, ϕ, r) * (2 * p.Ω * sin(ϕ) + tan(ϕ) * uˡᵒⁿ(p, λ, ϕ, r) / r) / p.g
 ρₚ(p,λ,ϕ,r)    = p.ρ̂ * cos(ϕ) * exp(-λ^2 / p.α^2 - (p.ϕ₂ - ϕ)^2 / p.β^2)
 ρ₀(p,λ,ϕ,r)    = p.ρᵢ - quadgk(φ -> ρᵢₙₜ(p, λ, φ, r), -π/2, ϕ)[1] + ρₚ(p, λ, ϕ, r)
 
@@ -105,7 +103,7 @@ uˡᵒⁿ(p,λ,ϕ,r) = r / p.a * p.uₘₐₓ / p.eₙ * exp(1 / (ϕ - p.ϕ₀) 
 model = SpatialModel(
     balance_law = Fluid3D(),
     physics = physics,
-    numerics = (flux = RoeNumericalFlux(),),
+    numerics = (flux = RoeNumericalFlux(), staggering = false),
     grid = grid,
     boundary_conditions = (ρθ = ρθ_bcs, ρu = ρu_bcs),
     parameters = parameters,
