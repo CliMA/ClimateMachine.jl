@@ -12,7 +12,7 @@ function vars_thermo(atmos::AtmosModel, FT)
         h_tot::FT
         h_int::FT
 
-        moisture::vars_thermo(atmos.moisture, FT)
+        moisture::vars_thermo(moisture_model(atmos), FT)
     end
 end
 vars_thermo(::AbstractMoistureModel, FT) = @vars()
@@ -43,7 +43,7 @@ function compute_thermo!(atmos::AtmosModel, state, aux, thermo)
     thermo.h_tot = total_specific_enthalpy(ts, e_tot)
     thermo.h_int = specific_enthalpy(ts)
 
-    compute_thermo!(atmos.moisture, state, aux, ts, thermo)
+    compute_thermo!(moisture_model(atmos), state, aux, ts, thermo)
 
     return nothing
 end

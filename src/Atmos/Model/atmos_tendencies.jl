@@ -76,12 +76,12 @@ eq_tends(
 
 # Mass
 eq_tends(pv::Mass, m::AtmosModel, tt::Flux{SecondOrder}) =
-    (eq_tends(pv, m.moisture, tt)...,)
+    (eq_tends(pv, moisture_model(m), tt)...,)
 
 # Momentum
 eq_tends(pv::Momentum, m::AtmosModel, tt::Flux{SecondOrder}) = (
     ViscousStress(),
-    eq_tends(pv, m.moisture, tt)...,
+    eq_tends(pv, moisture_model(m), tt)...,
     eq_tends(pv, turbconv_model(m), tt)...,
     eq_tends(pv, hyperdiffusion_model(m), tt)...,
 )
@@ -100,7 +100,7 @@ eq_tends(pv::AbstractEnergyVariable, m::AtmosModel, tt::Flux{SecondOrder}) = (
 
 # AbstractMoistureVariable
 eq_tends(pv::AbstractMoistureVariable, m::AtmosModel, tt::Flux{SecondOrder}) = (
-    eq_tends(pv, m.moisture, tt)...,
+    eq_tends(pv, moisture_model(m), tt)...,
     eq_tends(pv, turbconv_model(m), tt)...,
     eq_tends(pv, hyperdiffusion_model(m), tt)...,
 )

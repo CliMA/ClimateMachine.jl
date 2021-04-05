@@ -1,6 +1,6 @@
 # Convenience wrapper
 save_subdomain_temperature!(m, state, aux) =
-    save_subdomain_temperature!(m, m.moisture, state, aux)
+    save_subdomain_temperature!(m, moisture_model(m), state, aux)
 
 using KernelAbstractions: @print
 

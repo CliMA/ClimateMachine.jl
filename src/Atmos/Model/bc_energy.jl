@@ -191,7 +191,7 @@ function atmos_energy_normal_boundary_flux_second_order!(
     u_int⁻_tan = projection_tangential(atmos, aux_int⁻, u_int⁻)
     normu_int⁻_tan = norm(u_int⁻_tan)
     q_tot_int =
-        atmos.moisture isa DryModel ? FT(0) :
+        moisture_model(atmos) isa DryModel ? FT(0) :
         state_int⁻.moisture.ρq_tot / state_int⁻.ρ
     # recover thermo state
     ts_int = recover_thermo_state(atmos, state_int⁻, aux_int⁻)

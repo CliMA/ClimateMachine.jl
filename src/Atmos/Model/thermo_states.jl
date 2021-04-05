@@ -19,7 +19,13 @@ new_thermo_state(atmos::AtmosModel, state::Vars, aux::Vars) =
     new_thermo_state(compressibility_model(atmos), atmos, state, aux)
 
 new_thermo_state(::Compressible, atmos::AtmosModel, state::Vars, aux::Vars) =
-    new_thermo_state(atmos, energy_model(atmos), atmos.moisture, state, aux)
+    new_thermo_state(
+        atmos,
+        energy_model(atmos),
+        moisture_model(atmos),
+        state,
+        aux,
+    )
 new_thermo_state(::Anelastic1D, atmos::AtmosModel, state::Vars, aux::Vars) =
     new_thermo_state_anelastic(atmos, state, aux)
 
@@ -47,7 +53,13 @@ recover_thermo_state(
     atmos::AtmosModel,
     state::Vars,
     aux::Vars,
-) = new_thermo_state(atmos, energy_model(atmos), atmos.moisture, state, aux)
+) = new_thermo_state(
+    atmos,
+    energy_model(atmos),
+    moisture_model(atmos),
+    state,
+    aux,
+)
 
 recover_thermo_state(::Anelastic1D, atmos::AtmosModel, state::Vars, aux::Vars) =
     new_thermo_state_anelastic(atmos, state, aux)

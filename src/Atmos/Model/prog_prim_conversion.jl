@@ -24,11 +24,11 @@ function prognostic_to_primitive!(
 )
     energy_model(atmos) isa TotalEnergyModel ||
         error("TotalEnergyModel only supported")
-    prognostic_to_primitive!(atmos, atmos.moisture, prim, prog, aux)
+    prognostic_to_primitive!(atmos, moisture_model(atmos), prim, prog, aux)
     prognostic_to_primitive!(
         turbconv_model(atmos),
         atmos,
-        atmos.moisture,
+        moisture_model(atmos),
         prim,
         prog,
     )
@@ -50,11 +50,11 @@ function primitive_to_prognostic!(
     prim::Vars,
     aux,
 )
-    primitive_to_prognostic!(atmos, atmos.moisture, prog, prim, aux)
+    primitive_to_prognostic!(atmos, moisture_model(atmos), prog, prim, aux)
     primitive_to_prognostic!(
         turbconv_model(atmos),
         atmos,
-        atmos.moisture,
+        moisture_model(atmos),
         prog,
         prim,
     )

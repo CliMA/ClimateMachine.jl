@@ -37,7 +37,7 @@ end
 
 @inline linearized_pressure(atmos, state::Vars, aux::Vars) =
     linearized_pressure(
-        atmos.moisture,
+        moisture_model(atmos),
         parameter_set(atmos),
         atmos.orientation,
         state,
@@ -108,7 +108,7 @@ function vars_state(lm::AtmosLinearModel, st::Prognostic, FT)
         energy::vars_state(energy_model(lm.atmos), st, FT)
         turbulence::vars_state(turbulence_model(lm.atmos), st, FT)
         hyperdiffusion::vars_state(hyperdiffusion_model(lm.atmos), st, FT)
-        moisture::vars_state(lm.atmos.moisture, st, FT)
+        moisture::vars_state(moisture_model(lm.atmos), st, FT)
     end
 end
 vars_state(lm::AtmosLinearModel, st::Auxiliary, FT) =
@@ -290,7 +290,7 @@ function numerical_flux_first_order!(
     t,
     direction,
 ) where {S, A}
-    @assert balance_law.atmos.moisture isa DryModel
+    @assert moisture_model(balance_law.atmos) isa DryModel
 
     numerical_flux_first_order!(
         CentralNumericalFluxFirstOrder(),

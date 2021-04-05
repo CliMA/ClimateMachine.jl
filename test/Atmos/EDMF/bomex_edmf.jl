@@ -47,7 +47,7 @@ function init_state_prognostic!(
     # a moist_thermo state is used here to convert the input θ,q_tot to e_int, q_tot profile
     e_int = internal_energy(m, state, aux)
     param_set = parameter_set(m)
-    if m.moisture isa DryModel
+    if moisture_model(m) isa DryModel
         ρq_tot = FT(0)
         ts = PhaseDry(param_set, e_int, state.ρ)
     else

@@ -24,10 +24,10 @@ function compute_filter_argument!(
     # remove reference state
     filter_state.ρ -= aux.ref_state.ρ
     filter_state.energy.ρe -= aux.ref_state.ρe
-    if !(target.atmos.moisture isa DryModel)
+    if !(moisture_model(target.atmos) isa DryModel)
         filter_state.moisture.ρq_tot -= aux.ref_state.ρq_tot
     end
-    if (target.atmos.moisture isa NonEquilMoist)
+    if (moisture_model(target.atmos) isa NonEquilMoist)
         filter_state.moisture.ρq_liq -= aux.ref_state.ρq_liq
         filter_state.moisture.ρq_ice -= aux.ref_state.ρq_ice
     end
@@ -43,10 +43,10 @@ function compute_filter_result!(
     # add reference state
     state.ρ += aux.ref_state.ρ
     state.energy.ρe += aux.ref_state.ρe
-    if !(target.atmos.moisture isa DryModel)
+    if !(moisture_model(target.atmos) isa DryModel)
         state.moisture.ρq_tot += aux.ref_state.ρq_tot
     end
-    if (target.atmos.moisture isa NonEquilMoist)
+    if (moisture_model(target.atmos) isa NonEquilMoist)
         filter_state.moisture.ρq_liq += aux.ref_state.ρq_liq
         filter_state.moisture.ρq_ice += aux.ref_state.ρq_ice
     end

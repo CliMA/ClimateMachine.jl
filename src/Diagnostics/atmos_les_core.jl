@@ -166,7 +166,7 @@ function atmos_les_core_init(dgngrp::DiagnosticsGroup, currtime)
     mpirank = MPI.Comm_rank(mpicomm)
 
     # FIXME properly
-    if !isa(atmos.moisture, EquilMoist)
+    if !isa(moisture_model(atmos), EquilMoist)
         @warn """
             Diagnostics $(dgngrp.name): can only be used with the `EquilMoist` moisture model
             """
@@ -217,7 +217,7 @@ function atmos_les_core_collect(dgngrp::DiagnosticsGroup, currtime)
     Q = Settings.Q
     mpirank = MPI.Comm_rank(mpicomm)
     atmos = dg.balance_law
-    if !isa(atmos.moisture, EquilMoist)
+    if !isa(moisture_model(atmos), EquilMoist)
         @warn """
             Diagnostics $(dgngrp.name): can only be used with the `EquilMoist` moisture model
             """

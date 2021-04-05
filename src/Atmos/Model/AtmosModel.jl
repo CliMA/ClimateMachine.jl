@@ -11,6 +11,7 @@ export AtmosModel,
     Anelastic1D,
     reference_state,
     energy_model,
+    moisture_model,
     compressibility_model,
     turbulence_model,
     turbconv_model,
@@ -129,6 +130,7 @@ An `AtmosPhysics` for atmospheric physics
         param_set,
         ref_state,
         energy,
+        moisture,
         compressibility,
         turbulence,
         turbconv,
@@ -142,13 +144,15 @@ An `AtmosPhysics` for atmospheric physics
 # Fields
 $(DocStringExtensions.FIELDS)
 """
-struct AtmosPhysics{FT, PS, RS, E, C, T, TC, HD, VS, P, R, TR, LF}
+struct AtmosPhysics{FT, PS, RS, E, M, C, T, TC, HD, VS, P, R, TR, LF}
     "Parameter Set (type to dispatch on, e.g., planet parameters. See CLIMAParameters.jl package)"
     param_set::PS
     "Reference State (For initial conditions, or for linearisation when using implicit solvers)"
     ref_state::RS
     "Energy sub-model, can be energy-based or θ_liq_ice-based"
     energy::E
+    "Moisture Model (Equations for dynamics of moist variables)"
+    moisture::M
     "Compressibility switch"
     compressibility::C
     "Turbulence Closure (Equations for dynamics of under-resolved turbulent flows)"
@@ -181,7 +185,6 @@ default values for each field.
         physics,
         problem,
         orientation,
-        moisture,
         source,
         data_config,
     )
@@ -189,15 +192,13 @@ default values for each field.
 # Fields
 $(DocStringExtensions.FIELDS)
 """
-struct AtmosModel{FT, PH, PR, O, M, S, DC} <: BalanceLaw
+struct AtmosModel{FT, PH, PR, O, S, DC} <: BalanceLaw
     "Atmospheric physics"
     physics::PH
     "Problem (initial and boundary conditions)"
     problem::PR
     "An orientation model"
     orientation::O
-    "Moisture Model (Equations for dynamics of moist variables)"
-    moisture::M
     "Source Terms (Problem specific source terms)"
     source::S
     "Data Configuration (Helper field for experiment configuration)"
@@ -205,7 +206,7 @@ struct AtmosModel{FT, PH, PR, O, M, S, DC} <: BalanceLaw
 end
 
 parameter_set(atmos::AtmosModel) = atmos.physics.param_set
-moisture_model(atmos::AtmosModel) = atmos.moisture
+moisture_model(atmos::AtmosModel) = atmos.physics.moisture
 energy_model(atmos::AtmosModel) = atmos.physics.energy
 compressibility_model(atmos::AtmosModel) = atmos.physics.compressibility
 reference_state(atmos::AtmosModel) = atmos.physics.ref_state
@@ -284,6 +285,7 @@ function AtmosModel{FT}(
         param_set,
         ref_state,
         energy,
+        moisture,
         compressibility,
         turbulence,
         turbconv,
@@ -298,7 +300,6 @@ function AtmosModel{FT}(
         AtmosPhysics{FT, typeof.(phys_args)...}(phys_args...),
         problem,
         orientation,
-        moisture,
         prognostic_var_source_map(source),
         data_config,
     )
@@ -354,7 +355,7 @@ function vars_state(m::AtmosModel, st::Prognostic, FT)
         energy::vars_state(energy_model(m), st, FT) # TODO: adjust linearmodel
         turbulence::vars_state(turbulence_model(m), st, FT)
         hyperdiffusion::vars_state(hyperdiffusion_model(m), st, FT)
-        moisture::vars_state(m.moisture, st, FT)
+        moisture::vars_state(moisture_model(m), st, FT)
         # end of inclusion in `AtmosLinearModel`
         precipitation::vars_state(precipitation_model(m), st, FT)
         turbconv::vars_state(turbconv_model(m), st, FT)
@@ -369,7 +370,7 @@ function vars_state(m::AtmosModel, st::Primitive, FT)
         ρ::FT
         u::SVector{3, FT}
         p::FT
-        moisture::vars_state(m.moisture, st, FT)
+        moisture::vars_state(moisture_model(m), st, FT)
         turbconv::vars_state(turbconv_model(m), st, FT)
     end
 end
@@ -386,7 +387,7 @@ function vars_state(m::AtmosModel, st::Gradient, FT)
         turbulence::vars_state(turbulence_model(m), st, FT)
         turbconv::vars_state(turbconv_model(m), st, FT)
         hyperdiffusion::vars_state(hyperdiffusion_model(m), st, FT)
-        moisture::vars_state(m.moisture, st, FT)
+        moisture::vars_state(moisture_model(m), st, FT)
         lsforcing::vars_state(lsforcing_model(m), st, FT)
         precipitation::vars_state(precipitation_model(m), st, FT)
         tracers::vars_state(tracer_model(m), st, FT)
@@ -404,7 +405,7 @@ function vars_state(m::AtmosModel, st::GradientFlux, FT)
         turbulence::vars_state(turbulence_model(m), st, FT)
         turbconv::vars_state(turbconv_model(m), st, FT)
         hyperdiffusion::vars_state(hyperdiffusion_model(m), st, FT)
-        moisture::vars_state(m.moisture, st, FT)
+        moisture::vars_state(moisture_model(m), st, FT)
         lsforcing::vars_state(lsforcing_model(m), st, FT)
         precipitation::vars_state(precipitation_model(m), st, FT)
         tracers::vars_state(tracer_model(m), st, FT)
@@ -450,7 +451,7 @@ function vars_state(m::AtmosModel, st::Auxiliary, FT)
         turbulence::vars_state(turbulence_model(m), st, FT)
         turbconv::vars_state(turbconv_model(m), st, FT)
         hyperdiffusion::vars_state(hyperdiffusion_model(m), st, FT)
-        moisture::vars_state(m.moisture, st, FT)
+        moisture::vars_state(moisture_model(m), st, FT)
         precipitation::vars_state(precipitation_model(m), st, FT)
         tracers::vars_state(tracer_model(m), st, FT)
         radiation::vars_state(radiation_model(m), st, FT)
@@ -621,7 +622,7 @@ function compute_gradient_argument!(
         aux,
         t,
     )
-    compute_gradient_argument!(atmos.moisture, transform, state, aux, t)
+    compute_gradient_argument!(moisture_model(atmos), transform, state, aux, t)
     compute_gradient_argument!(
         precipitation_model(atmos),
         transform,
@@ -684,7 +685,14 @@ function compute_gradient_flux!(
         t,
     )
     # diffusivity of moisture components
-    compute_gradient_flux!(atmos.moisture, diffusive, ∇transform, state, aux, t)
+    compute_gradient_flux!(
+        moisture_model(atmos),
+        diffusive,
+        ∇transform,
+        state,
+        aux,
+        t,
+    )
     compute_gradient_flux!(
         lsforcing_model(atmos),
         diffusive,
@@ -842,7 +850,7 @@ function nodal_update_auxiliary_state!(
     aux::Vars,
     t::Real,
 )
-    atmos_nodal_update_auxiliary_state!(m.moisture, m, state, aux, t)
+    atmos_nodal_update_auxiliary_state!(moisture_model(m), m, state, aux, t)
     atmos_nodal_update_auxiliary_state!(
         precipitation_model(m),
         m,
@@ -1030,7 +1038,7 @@ function numerical_flux_first_order!(
     t,
     direction,
 ) where {S, A}
-    @assert balance_law.moisture isa DryModel
+    @assert moisture_model(balance_law) isa DryModel
 
     numerical_flux_first_order!(
         CentralNumericalFluxFirstOrder(),
@@ -1284,7 +1292,7 @@ function numerical_flux_first_order!(
     t,
     direction,
 ) where {S, A}
-    balance_law.moisture isa EquilMoist ||
+    moisture_model(balance_law) isa EquilMoist ||
         error("Must use a EquilMoist model for RoeNumericalFluxMoist")
     numerical_flux_first_order!(
         CentralNumericalFluxFirstOrder(),
@@ -1343,8 +1351,8 @@ function numerical_flux_first_order!(
         e_int,
         ρ,
         qt,
-        balance_law.moisture.maxiter,
-        balance_law.moisture.tolerance,
+        moisture_model(balance_law).maxiter,
+        moisture_model(balance_law).tolerance,
     )
     c̃ = sqrt((γ - 1) * (h̃ - (ũ[1]^2 + ũ[2]^2 + ũ[3]^2) / 2))
     (R_m, _cp_m, _cv_m, gamma) = gas_constants(ts)
@@ -1525,8 +1533,8 @@ function numerical_flux_first_order!(
 ) where {S, A}
 
 
-    @assert balance_law.moisture isa DryModel ||
-            balance_law.moisture isa EquilMoist
+    @assert moisture_model(balance_law) isa DryModel ||
+            moisture_model(balance_law) isa EquilMoist
 
     FT = eltype(fluxᵀn)
     param_set = parameter_set(balance_law)
@@ -1576,7 +1584,7 @@ function numerical_flux_first_order!(
     fluxᵀn.ρu = ρu_b * u_half .+ p_half * normal_vector
     fluxᵀn.energy.ρe = ρh_b * u_half
 
-    if balance_law.moisture isa EquilMoist
+    if moisture_model(balance_law) isa EquilMoist
         ρq⁻ = state_prognostic⁻.moisture.ρq_tot
         q⁻ = ρq⁻ / ρ⁻
         ρq⁺ = state_prognostic⁺.moisture.ρq_tot
