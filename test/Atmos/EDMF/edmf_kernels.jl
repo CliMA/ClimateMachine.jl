@@ -229,9 +229,20 @@ PressSource(m::EDMF) = PressSource{n_updrafts(m)}()
 eq_tends(
     pv::Union{Momentum, Energy, TotalMoisture},
     m::EDMF,
+    flux::Flux{SecondOrder},
+) = eq_tends(pv, m.coupling, flux)
+
+eq_tends(
+    pv::Union{Momentum, Energy, TotalMoisture},
+    ::Decoupled,
     ::Flux{SecondOrder},
-) = ()  # do _not_ add SGSFlux back to grid-mean
-# (SGSFlux(),) # add SGSFlux back to grid-mean
+) = ()
+
+eq_tends(
+    pv::Union{Momentum, Energy, TotalMoisture},
+    ::Coupled,
+    ::Flux{SecondOrder},
+) = (SGSFlux(),)
 
 # Turbconv tendencies
 eq_tends(pv::EDMFPrognosticVariable, m::AtmosModel, tt::Flux{O}) where {O} =

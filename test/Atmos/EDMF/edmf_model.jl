@@ -363,6 +363,26 @@ A `BalanceLaw` for the updraft subdomains arising in EDMF.
 """
 Base.@kwdef struct Updraft{FT <: AbstractFloat} <: BalanceLaw end
 
+abstract type Coupling end
+
+"""
+    Decoupled <: Coupling
+
+Dispatch on decoupled model (default)
+
+ - The EDMF SGS tendencies do not modify the grid-mean equations.
+"""
+struct Decoupled <: Coupling end
+
+"""
+    Coupled <: Coupling
+
+Dispatch on coupled model
+
+ - The EDMF SGS tendencies modify the grid-mean equations.
+"""
+struct Coupled <: Coupling end
+
 """
     EDMF <: TurbulenceConvectionModel
 
@@ -373,8 +393,19 @@ free parameters.
 # Fields
 $(DocStringExtensions.FIELDS)
 """
-Base.@kwdef struct EDMF{FT <: AbstractFloat, N, UP, EN, ED, P, S, MP, ML, SD} <:
-                   TurbulenceConvectionModel
+Base.@kwdef struct EDMF{
+    FT <: AbstractFloat,
+    N,
+    UP,
+    EN,
+    ED,
+    P,
+    S,
+    MP,
+    ML,
+    SD,
+    C,
+} <: TurbulenceConvectionModel
     "Updrafts"
     updraft::UP
     "Environment"
@@ -391,6 +422,8 @@ Base.@kwdef struct EDMF{FT <: AbstractFloat, N, UP, EN, ED, P, S, MP, ML, SD} <:
     mix_len::ML
     "Subdomain model"
     subdomains::SD
+    "Coupling mode"
+    coupling::C
 end
 
 """
@@ -419,6 +452,7 @@ Constructor for `EDMF` subgrid-scale scheme, given:
  - `micro_phys`, a `MicrophysicsModel`
  - `mix_len`, a `MixingLengthModel`
  - `subdomain`, a `SubdomainModel`
+ - `coupling`, a coupling type
 """
 function EDMF(
     FT,
@@ -433,6 +467,7 @@ function EDMF(
     micro_phys = MicrophysicsModel(FT),
     mix_len = MixingLengthModel{FT}(param_set),
     subdomain = SubdomainModel(FT, N_up),
+    coupling = Decoupled(),
 )
     args = (
         updraft,
@@ -443,6 +478,7 @@ function EDMF(
         micro_phys,
         mix_len,
         subdomain,
+        coupling,
     )
     return EDMF{FT, N_up, typeof.(args)...}(args...)
 end
