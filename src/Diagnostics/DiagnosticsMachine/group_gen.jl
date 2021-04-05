@@ -262,8 +262,8 @@ function generate_collect_calls(
             else
                 AT2 = impl_args[2][2] # the type of the second argument
                 @assert isa_bl(AT2)
-                AN1 = impl_args[1][1] # the name of the first argument
-                impl_extra_params = (:(getproperty(bl, $(QuoteNode(AN1)))),)
+                AT1 = impl_args[1][2] # the type of the first argument
+                impl_extra_params = (:(BalanceLaws.sub_model(bl, $AT1)),)
             end
             cc_ex = DiagnosticsMachine.dv_op(
                 cfg_type,

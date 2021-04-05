@@ -53,6 +53,12 @@ UpwardIntegrals
 DownwardIntegrals
 ```
 
+## Interface
+
+```@docs
+sub_model
+```
+
 ## Variable specification methods
 
 ```@docs

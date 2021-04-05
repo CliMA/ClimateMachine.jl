@@ -384,3 +384,11 @@ function cummulate_fast_solution! end
 function reconcile_from_fast_to_slow! end
 
 parameter_set(balance_law) = balance_law.param_set
+
+"""
+    sub_model(::BalanceLaw, ::Type{AbstractSubModel})
+
+Returns a tuple of balance law properties
+whose supertypes are `AbstractSubModel`.
+"""
+function sub_model end
