@@ -122,7 +122,6 @@ if generate_tutorials
                 documenter = false,
                 preprocess = mdpre,
             )
-            Literate.notebook(input)
         end
     end
 
