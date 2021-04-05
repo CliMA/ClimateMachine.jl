@@ -1,4 +1,5 @@
 import ClimateMachine.Mesh.Grids: DiscontinuousSpectralElementGrid
+import ClimateMachine.Mesh.Grids: polynomialorders
 
 function coordinates(grid::DiscontinuousSpectralElementGrid)
     x = view(grid.vgeo, :, grid.x1id, :)   # x-direction	
@@ -6,6 +7,7 @@ function coordinates(grid::DiscontinuousSpectralElementGrid)
     z = view(grid.vgeo, :, grid.x3id, :)   # z-direction
     return x, y, z
 end
+
 
 # some convenience functions
 function convention(
@@ -190,3 +192,66 @@ function DiscretizedDomain(
         grid,
     )
 end
+
+## Atmos Domain
+function DiscontinuousSpectralElementGrid(
+    Ω::AtmosDomain;
+    elements = (vertical = 2, horizontal = 4), 
+    polynomialorder = (vertical = 4, horizontal = 4),
+    mpicomm = MPI.COMM_WORLD,
+    boundary = (5, 6),
+    FT = Float64,
+    array = Array,
+)
+    Rrange = grid1d(Ω.radius, Ω.radius + Ω.height, nelem = elements.vertical)
+
+    topl = StackedCubedSphereTopology(
+        mpicomm,
+        elements.horizontal,
+        Rrange,
+        boundary = boundary, 
+    )
+
+    grid = DiscontinuousSpectralElementGrid(
+        topl,
+        FloatType = FT,
+        DeviceArray = array,
+        polynomialorder = (polynomialorder.vertical, polynomialorder.horizontal),
+        #meshwarp = ClimateMachine.Mesh.Topologies.cubedshellwarp,
+        meshwarp = cubedshellwarp,
+    )
+    return grid
+end
+
+function DiscretizedDomain(
+    domain::AtmosDomain;
+    elements = nothing,
+    polynomial_order = nothing,
+    overintegration_order = nothing,
+    FT = Float64,
+    mpicomm = MPI.COMM_WORLD,
+    array = ClimateMachine.array_type(),
+    topology = StackedBrickTopology,
+    brick_builder = uniform_brick_builder,
+)
+    new_polynomial_order  = convention(polynomial_order, Val(2)) 
+    new_polynomial_order = new_polynomial_order  .+ convention(overintegration_order, Val(2))
+    vertical, horizontal = new_polynomial_order
+    grid = DiscontinuousSpectralElementGrid(
+        domain,
+        elements = elements,
+        polynomialorder = (;vertical, horizontal),
+        FT = FT,
+        mpicomm = mpicomm,
+        array = array,
+    )
+    return DiscretizedDomain(
+        domain,
+        (; elements, polynomial_order, overintegration_order),
+        grid,
+    )
+end
+
+# extensions
+coordinates(grid::DiscretizedDomain) = coordinates(grid.numerical)
+polynomialorders(grid::DiscretizedDomain) = polynomialorders(grid.numerical)

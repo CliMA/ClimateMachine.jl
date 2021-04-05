@@ -10,11 +10,11 @@ ClimateMachine.init()
 ########
 Ωˣ = IntervalDomain(-2π, 2π, periodic = true)
 Ωʸ = IntervalDomain(-2π, 2π, periodic = true)
-Ωᶻ = IntervalDomain(-2π, 2π, periodic = true)
+Ωᶻ = IntervalDomain(0, 2π, periodic = false)
 
 grid = DiscretizedDomain(
     Ωˣ × Ωʸ × Ωᶻ;
-    elements = 13,
+    elements = 4,
     polynomial_order = 4,
     overintegration_order = 1,
 )
@@ -23,8 +23,9 @@ grid = DiscretizedDomain(
 # Define timestepping parameters
 ########
 start_time = 0
-end_time = 200.0
-Δt = 0.004
+Δt = 0.01
+end_time = 1000Δt
+
 method = SSPRK22Heuns
 
 timestepper = TimeStepper(method = method, timestep = Δt)
@@ -36,47 +37,35 @@ callbacks = (Info(), StateCheck(10))
 ########
 parameters = (
     ϵ = 0.1,  # perturbation size for initial condition
-    l = 0.5, # Gaussian width
-    k = 0.5, # Sinusoidal wavenumber
     ρₒ = 1, # reference density
     cₛ = sqrt(10), # sound speed
+    α = 1e-6,
+    g = 10.0,
+    θ = 100,
 )
 
 physics = FluidPhysics(;
     advection = NonLinearAdvectionTerm(),
     dissipation = ConstantViscosity{Float64}(μ = 0, ν = 0, κ = 0),
-    coriolis = SphereCoriolis(1e-8),
-    buoyancy = nothing,
+    coriolis = nothing,
+    buoyancy = buoyancy = Buoyancy{Float64}(α = parameters.α, g = parameters.g),
 )
 
 ########
 # Define initial conditions
 ########
 
-# The Bickley jet
-U₀(p, x, y, z) = cosh(y)^(-2)
-V₀(p, x, y, z) = 0
-W₀(p, x, y, z) = 0
-
-# Slightly off-center vortical perturbations
-Ψ₁(p, x, y, z) =
-    exp(-(y + p.l / 10)^2 / (2 * (p.l^2))) * cos(p.k * x) * cos(p.k * y)
-Ψ₂(p, x, y, z) =
-    exp(-(z + p.l / 10)^2 / (2 * (p.l^2))) * cos(p.k * y) * cos(p.k * z)
 
 # Vortical velocity fields (u, v, w) = (-∂ʸ, +∂ˣ, 0) Ψ₁ + (0, -∂ᶻ, +∂ʸ)Ψ₂ 
-u₀(p, x, y, z) =
-    Ψ₁(p, x, y, z) * (p.k * tan(p.k * y) + y / (p.l^2) + 1 / (10 * p.l))
-v₀(p, x, y, z) =
-    Ψ₂(p, x, y, z) * (p.k * tan(p.k * z) + z / (p.l^2) + 1 / (10 * p.l)) -
-    Ψ₁(p, x, y, z) * p.k * tan(p.k * x)
-w₀(p, x, y, z) = -Ψ₂(p, x, y, z) * p.k * tan(p.k * y)
-θ₀(p, x, y, z) = sin(p.k * y)
+u₀(p, x, y, z) = 0.0
+v₀(p, x, y, z) = 0.0
+w₀(p, x, y, z) = 0.0
+θ₀(p, x, y, z) = -1.0 * p.θ
 
-ρ₀(p, x, y, z) = p.ρₒ
-ρu₀(p, x...) = ρ₀(p, x...) * (p.ϵ * u₀(p, x...) + U₀(p, x...))
-ρv₀(p, x...) = ρ₀(p, x...) * (p.ϵ * v₀(p, x...) + V₀(p, x...))
-ρw₀(p, x...) = ρ₀(p, x...) * (p.ϵ * w₀(p, x...) + W₀(p, x...))
+ρ₀(p, x, y, z) = p.ρₒ / (p.cₛ^2) * (1 - p.θ * p.α * p.g * z  )
+ρu₀(p, x...) = ρ₀(p, x...) * u₀(p, x...) 
+ρv₀(p, x...) = ρ₀(p, x...) * v₀(p, x...) 
+ρw₀(p, x...) = ρ₀(p, x...) * w₀(p, x...) 
 ρθ₀(p, x...) = ρ₀(p, x...) * θ₀(p, x...)
 
 ρu⃗₀(p, x...) = @SVector [ρu₀(p, x...), ρv₀(p, x...), ρw₀(p, x...)]

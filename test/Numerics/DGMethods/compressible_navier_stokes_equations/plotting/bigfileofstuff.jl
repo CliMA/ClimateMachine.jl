@@ -2,7 +2,7 @@ using ClimateMachine
 using ClimateMachine.Mesh.Grids
 using ClimateMachine.Mesh.Elements
 import ClimateMachine.Mesh.Elements: baryweights
-using ClimateMachine.Mesh.Grids: polynomialorders
+import ClimateMachine.Mesh.Grids: polynomialorders
 using GaussQuadrature
 using Base.Threads
 
@@ -57,7 +57,7 @@ function coordinates(grid::DiscontinuousSpectralElementGrid)
 end
 
 """
-function cellcenters(Q; M = nothing)
+function cellcenters(grid; M = nothing)
 
 # Description
 Get the cell-centers of every element in the grid
@@ -70,11 +70,28 @@ Get the cell-centers of every element in the grid
 """
 function cellcenters(grid::DiscontinuousSpectralElementGrid)
     x, y, z = coordinates(grid)
-    M = view(grid.vgeo, :, grid.Mid, :)  # mass matrix
+    M = massmatrix(grid)  # mass matrix
     xC = cellaverage(x, M = M)
     yC = cellaverage(y, M = M)
     zC = cellaverage(z, M = M)
     return xC[:], yC[:], zC[:]
+end
+
+
+"""
+function massmatrix(grid; M = nothing)
+
+# Description
+Get the mass matrix of the grid
+
+# Arguments
+- `grid`: DiscontinuousSpectralElementGrid
+
+# Return
+- Tuple of cell-centers
+"""
+function massmatrix(grid)
+    return view(grid.vgeo, :, grid.Mid, :)
 end
 
 # find_element.jl

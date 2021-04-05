@@ -19,6 +19,11 @@ using ClimateMachine.DGMethods.NumericalFluxes
 using ClimateMachine.BalanceLaws
 using ClimateMachine.ODESolvers
 using ClimateMachine.Orientations
+using ClimateMachine.VTK
+
+# imports
+import ClimateMachine.VTK: writevtk
+import ClimateMachine.Mesh.Grids: polynomialorders
 
 # ×(a::SVector, b::SVector) = StaticArrays.cross(a, b)
 ⋅(a::SVector, b::SVector) = StaticArrays.dot(a, b)
@@ -28,10 +33,16 @@ abstract type AbstractFluid <: BalanceLaw end
 struct Fluid <: AbstractFluid end
 
 include("shared_source/domains.jl")
+include("shared_source/cubed_shell.jl")
 include("shared_source/grids.jl")
 include("shared_source/FluidBC.jl")
 include("shared_source/abstractions.jl")
 include("shared_source/callbacks.jl")
+include("shared_source/mass_preserving_filter.jl")
+include("plotting/bigfileofstuff.jl")
+include("plotting/ScalarFields.jl")
+# include("plotting/vizinanigans.jl")
+include("plotting/vectorfields.jl")
 
 """
 function coordinates(grid::DiscontinuousSpectralElementGrid)
@@ -50,24 +61,27 @@ function evolve!(simulation, spatial_model; refDat = ())
     Ns = polynomialorders(spatial_model)
 
     if haskey(spatial_model.grid.resolution, :overintegration_order)
-        Nover = spatial_model.grid.resolution.overintegration_order
+        Nover = convention(spatial_model.grid.resolution.overintegration_order, Val(ndims(spatial_model.grid.domain)))
     else
         Nover = (0, 0, 0)
+    end
+
+    if haskey(spatial_model.numerics, :staggering)
+        stagger_bool = spatial_model.numerics.staggering
+    else
+        stagger_bool = false
     end
 
     # only works if Nover > 0
     overintegration_filter!(Q, dg, Ns, Nover)
 
-    function custom_tendency(tendency, x...; kw...)
-        dg(tendency, x...; kw...)
-        overintegration_filter!(tendency, dg, Ns, Nover)
-    end
+    tendency = tendency_closure(dg, Ns, Nover, staggering = stagger_bool)
 
     t0 = simulation.time.start
     Δt = simulation.timestepper.timestep
     timestepper = simulation.timestepper.method
 
-    odesolver = timestepper(custom_tendency, Q, dt = Δt, t0 = t0)
+    odesolver = timestepper(tendency, Q, dt = Δt, t0 = t0)
 
     cbvector = create_callbacks(simulation, odesolver)
 
@@ -82,70 +96,100 @@ function evolve!(simulation, spatial_model; refDat = ())
         )
     end
 
-    ## Check results against reference
+    # Check results against reference if StateCheck callback is used
+    # TODO: TB: I don't think this should live within this function
+    if any(typeof.(simulation.callbacks) .<: StateCheck)
+      check_inds = findall(typeof.(simulation.callbacks) .<: StateCheck)
+      @assert length(check_inds) == 1 "Only use one StateCheck in callbacks!"
 
-    ClimateMachine.StateCheck.scprintref(cbvector[end])
-    if length(refDat) > 0
-        @test ClimateMachine.StateCheck.scdocheck(cbvector[end], refDat)
+      ClimateMachine.StateCheck.scprintref(cbvector[check_inds[1]])
+      if length(refDat) > 0
+        @test ClimateMachine.StateCheck.scdocheck(cbvector[check_inds[1]], refDat)
+      end
     end
 
     return Q
 end
 
-function visualize(
-    simulation::Simulation;
-    statenames = [string(i) for i in 1:size(simulation.state)[2]],
-    resolution = (32, 32, 32),
-)
-    a_, statesize, b_ = size(simulation.state)
-    mpistate = simulation.state
-    grid = simulation.model.grid
-    grid_helper = GridHelper(grid)
-    r = coordinates(grid)
-    states = []
-    ϕ = ScalarField(copy(r[1]), grid_helper)
-    r = uniform_grid(Ω, resolution = resolution)
-    # statesymbol = vars(Q).names[i] # doesn't work for vectors
-    for i in 1:statesize
-        ϕ .= mpistate[:, i, :]
-        ϕnew = ϕ(r...)
-        push!(states, ϕnew)
+function tendency_closure(dg, Ns, Nover; staggering = false)
+    if staggering
+        function staggered_tendency(tendency, x...; kw...)
+            dg(tendency, x...; kw...)
+            overintegration_filter!(tendency, dg, Ns, Nover)
+            staggering_filter!(tendency, dg, Ns, Nover)
+            return nothing
+        end
+    else
+        function custom_tendency(tendency, x...; kw...)
+            dg(tendency, x...; kw...)
+            overintegration_filter!(tendency, dg, Ns, Nover)
+            return nothing
+        end
     end
-    visualize([states...], statenames = statenames)
 end
 
 function overintegration_filter!(state_array, dgmodel, Ns, Nover)
     if sum(Nover) > 0
-        cutoff_order = Ns .+ Nover
-
-        cutoff =
-            ClimateMachine.Mesh.Filters.CutoffFilter(dgmodel.grid, cutoff_order)
+        cutoff_order = Ns .+ 1 # yes this is confusing
+        cutoff = MassPreservingCutoffFilter(dgmodel.grid, cutoff_order)
         num_state_prognostic = number_states(dgmodel.balance_law, Prognostic())
-
+        filterstates = 1:num_state_prognostic
         ClimateMachine.Mesh.Filters.apply!(
             state_array,
-            1:num_state_prognostic,
+            filterstates,
             dgmodel.grid,
             cutoff,
         )
+       
     end
 
     return nothing
 end
 
-# initialized on CPU so not problem, but could do kernel launch?
-function set_ic!(ϕ, s::Number, _...)
-    ϕ .= s
+function staggering_filter!(state_array, dgmodel, Ns, Nover)
+    if sum(Nover) > 0
+        cutoff_order = Ns .+ 0 # one polynomial order less than scalars
+        cutoff = MassPreservingCutoffFilter(dgmodel.grid, cutoff_order)
+        num_state_prognostic = number_states(dgmodel.balance_law, Prognostic())
+        filterstates = 2:4
+        ClimateMachine.Mesh.Filters.apply!(
+            state_array,
+            filterstates,
+            dgmodel.grid,
+            cutoff,
+        )
+       
+    end
+
     return nothing
 end
 
-function set_ic!(ϕ, s::Function, p, x, y, z)
-    _, nstates, _ = size(ϕ)
-    @inbounds for i in eachindex(x)
-        @inbounds for j in 1:nstates
-            ϕʲ = view(ϕ, :, j, :)
-            ϕʲ[i] = s(p, x[i], y[i], z[i])[j]
+function uniform_grid(Ω::AbstractDomain; resolution = (32, 32, 32))
+    dims = ndims(Ω)
+    resolution = resolution[1:dims]
+    uniform = []
+    for i in 1:dims
+        push!(uniform, range(Ω[i].min, Ω[i].max, length = resolution[i]))
+    end
+    return Tuple(uniform)
+end
+
+# most useful function in Julia
+function printcolors()
+    for i in 1:255
+        printstyled("color = "*string(i)*", ", color = i)
+        if i%10==0
+            println()
         end
     end
+end
+
+function writevtk(filename, simulation)
+    dg = simulation.model        
+    model = dg.balance_law
+    Q = simulation.state
+    statenames = flattenednames(vars_state(model, Prognostic(), eltype(Q)))
+    auxnames = flattenednames(vars_state(model, Auxiliary(), eltype(Q)))
+    writevtk(filename, Q, dg, statenames, dg.state_auxiliary, auxnames)
     return nothing
 end
