@@ -14,14 +14,14 @@ ClimateMachine.init()
 ########
 # Setup physical and numerical domains
 ########
-Ωˣ = IntervalDomain(0, 27e6, periodic = true)
+Ωˣ = IntervalDomain(0, 20e6, periodic = true)
 Ωʸ = IntervalDomain(0, 6e6, periodic = false)
 Ωᶻ = IntervalDomain(0, 30e3, periodic = false)
 
 grid = DiscretizedDomain(
     Ωˣ × Ωʸ × Ωᶻ;
-    elements = 10,
-    polynomial_order = 1,
+    elements = 8,
+    polynomial_order = 3,
     overintegration_order = 1,
 )
 
@@ -29,20 +29,22 @@ grid = DiscretizedDomain(
 # Define timestepping parameters
 ########
 start_time = 0
-end_time = 86400
-Δt = 0.05
-method = SSPRK22Heuns
+end_time = 86400*15
+Δt       = min_node_distance(grid.numerical) / 300.0 * 0.25
+method   = SSPRK22Heuns
 
 timestepper = TimeStepper(method = method, timestep = Δt)
 
-callbacks = (Info(), StateCheck(10))
+callbacks = (Info(), 
+             StateCheck(10), 
+             VTKState(; iteration = 50000, filepath = "output/baro_channel"))
 
 ########
 # Define physical parameters and parameterizations
 ########
 parameters = (
-    ρₒ = 1, # reference density
-    cₛ = sqrt(10), # sound speed
+    pₒ = 1.0e5,
+    cₛ = 330,#sqrt(330), # sound speed
     b = 2,
     uₚ = 1,
     Lₚ = 6e5,
@@ -52,7 +54,9 @@ parameters = (
     β₀ = -0,
     u₀ = 35,
     T₀ = 288,
-    gravity = 9.81,
+    g   = 9.80616,
+    R_d = 287.0,        
+    κ = 2/7
 )
 
 """
@@ -117,7 +121,7 @@ function cnse_init_state!(model::CNSE3D, state, aux,localgeo,t)
   FT = eltype(state)
   ### Unpack CLIMAParameters
   _planet_radius = FT(6.371e6)
-  gravity        = FT(9.81)
+  gravity        = FT(9.80616)
   cp             = FT(1000)
   R_gas          = FT(287.1)
   ### Global Variables
@@ -186,24 +190,25 @@ function cnse_init_state!(model::CNSE3D, state, aux,localgeo,t)
   ### Assign state variables for initial condition
   state.ρ = rho
   state.ρu = rho .* u⃗
-  state.ρθ = rho * thetaref
+  state.ρθ = rho * theta
 end
-
-
 
 physics = FluidPhysics(;
     advection = NonLinearAdvectionTerm(),
-    dissipation = ConstantViscosity{Float64}(μ = 0, ν = 1e-2, κ = 1e-2),
+    dissipation = ConstantViscosity{Float64}(μ = 0, ν = 75, κ = 75),
+    gravity = ThinShellGravity{Float64}(g = parameters.g),
     coriolis = nothing,
-    buoyancy = nothing,
+    eos      = DryIdealGas{Float64}(R = parameters.R_d, pₒ = parameters.pₒ, γ = 1/(1-parameters.κ)),
 )
 
 ########
 # Define boundary conditions
 ########
 ρu_bcs = (
+    north = Impenetrable(FreeSlip()),
+    south = Impenetrable(FreeSlip()),
     bottom = Impenetrable(NoSlip()),
-    top = Impenetrable(FreeSlip()),
+    top = Impenetrable(NoSlip()),
 )
 ρθ_bcs =
     (north = Insulating(), south = Insulating(),
