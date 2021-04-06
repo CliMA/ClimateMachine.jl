@@ -119,15 +119,18 @@ function config_risingbubble(
     else
         moisture = DryModel()
     end
-    model = AtmosModel{FT}(
-        AtmosLESConfigType,
+    physics = AtmosPhysics{FT}(
         param_set;
-        init_state_prognostic = init_risingbubble!,
         ref_state = ref_state,
         turbulence = ConstantKinematicViscosity(FT(0)),
         moisture = moisture,
-        source = (Gravity(),),
         tracers = NoTracers(),
+    )
+    model = AtmosModel{FT}(
+        AtmosLESConfigType,
+        physics;
+        init_state_prognostic = init_risingbubble!,
+        source = (Gravity(),),
     )
 
     config = ClimateMachine.AtmosLESConfiguration(

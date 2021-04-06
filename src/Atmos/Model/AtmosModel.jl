@@ -1,6 +1,7 @@
 module Atmos
 
 export AtmosModel,
+    AtmosPhysics,
     AtmosAcousticLinearModel,
     AtmosAcousticGravityLinearModel,
     HLLCNumericalFlux,
@@ -174,6 +175,46 @@ struct AtmosPhysics{FT, PS, RS, E, M, C, T, TC, HD, VS, P, R, TR, LF}
 end
 
 """
+    AtmosPhysics{FT}()
+
+Constructor for `AtmosPhysics`.
+"""
+function AtmosPhysics{FT}(
+    param_set::AbstractParameterSet;
+    energy = TotalEnergyModel(),
+    ref_state = HydrostaticState(DecayingTemperatureProfile{FT}(param_set),),
+    turbulence = SmagorinskyLilly{FT}(C_smag(param_set)),
+    turbconv = NoTurbConv(),
+    hyperdiffusion = NoHyperDiffusion(),
+    viscoussponge = NoViscousSponge(),
+    moisture = EquilMoist(),
+    precipitation = NoPrecipitation(),
+    radiation = NoRadiation(),
+    tracers = NoTracers(),
+    lsforcing = NoLSForcing(),
+    compressibility = Compressible(),
+) where {FT <: AbstractFloat}
+
+    args = (
+        param_set,
+        ref_state,
+        energy,
+        moisture,
+        compressibility,
+        turbulence,
+        turbconv,
+        hyperdiffusion,
+        viscoussponge,
+        precipitation,
+        radiation,
+        tracers,
+        lsforcing,
+    )
+    return AtmosPhysics{FT, typeof.(args)...}(args...)
+end
+
+
+"""
     AtmosModel <: BalanceLaw
 
 A `BalanceLaw` for atmosphere modeling. Users may over-ride prescribed
@@ -205,19 +246,33 @@ struct AtmosModel{FT, PH, PR, O, S, DC} <: BalanceLaw
     data_config::DC
 end
 
-parameter_set(atmos::AtmosModel) = atmos.physics.param_set
-moisture_model(atmos::AtmosModel) = atmos.physics.moisture
-energy_model(atmos::AtmosModel) = atmos.physics.energy
-compressibility_model(atmos::AtmosModel) = atmos.physics.compressibility
-reference_state(atmos::AtmosModel) = atmos.physics.ref_state
-turbulence_model(atmos::AtmosModel) = atmos.physics.turbulence
-turbconv_model(atmos::AtmosModel) = atmos.physics.turbconv
-hyperdiffusion_model(atmos::AtmosModel) = atmos.physics.hyperdiffusion
-viscoussponge_model(atmos::AtmosModel) = atmos.physics.viscoussponge
-precipitation_model(atmos::AtmosModel) = atmos.physics.precipitation
-radiation_model(atmos::AtmosModel) = atmos.physics.radiation
-tracer_model(atmos::AtmosModel) = atmos.physics.tracers
-lsforcing_model(atmos::AtmosModel) = atmos.physics.lsforcing
+parameter_set(atmos::AtmosModel) = parameter_set(atmos.physics)
+moisture_model(atmos::AtmosModel) = moisture_model(atmos.physics)
+energy_model(atmos::AtmosModel) = energy_model(atmos.physics)
+compressibility_model(atmos::AtmosModel) = compressibility_model(atmos.physics)
+reference_state(atmos::AtmosModel) = reference_state(atmos.physics)
+turbulence_model(atmos::AtmosModel) = turbulence_model(atmos.physics)
+turbconv_model(atmos::AtmosModel) = turbconv_model(atmos.physics)
+hyperdiffusion_model(atmos::AtmosModel) = hyperdiffusion_model(atmos.physics)
+viscoussponge_model(atmos::AtmosModel) = viscoussponge_model(atmos.physics)
+precipitation_model(atmos::AtmosModel) = precipitation_model(atmos.physics)
+radiation_model(atmos::AtmosModel) = radiation_model(atmos.physics)
+tracer_model(atmos::AtmosModel) = tracer_model(atmos.physics)
+lsforcing_model(atmos::AtmosModel) = lsforcing_model(atmos.physics)
+
+parameter_set(physics::AtmosPhysics) = physics.param_set
+moisture_model(physics::AtmosPhysics) = physics.moisture
+energy_model(physics::AtmosPhysics) = physics.energy
+compressibility_model(physics::AtmosPhysics) = physics.compressibility
+reference_state(physics::AtmosPhysics) = physics.ref_state
+turbulence_model(physics::AtmosPhysics) = physics.turbulence
+turbconv_model(physics::AtmosPhysics) = physics.turbconv
+hyperdiffusion_model(physics::AtmosPhysics) = physics.hyperdiffusion
+viscoussponge_model(physics::AtmosPhysics) = physics.viscoussponge
+precipitation_model(physics::AtmosPhysics) = physics.precipitation
+radiation_model(physics::AtmosPhysics) = physics.radiation
+tracer_model(physics::AtmosPhysics) = physics.tracers
+lsforcing_model(physics::AtmosPhysics) = physics.lsforcing
 
 abstract type Compressibilty end
 
@@ -257,47 +312,20 @@ Constructor for `AtmosModel` (where `AtmosModel <: BalanceLaw`).
 """
 function AtmosModel{FT}(
     orientation::Orientation,
-    param_set::AbstractParameterSet;
+    physics::AtmosPhysics;
     init_state_prognostic = nothing,
     problem = AtmosProblem(init_state_prognostic = init_state_prognostic),
-    energy = TotalEnergyModel(),
-    ref_state = HydrostaticState(DecayingTemperatureProfile{FT}(param_set),),
-    turbulence = SmagorinskyLilly{FT}(C_smag(param_set)),
-    turbconv = NoTurbConv(),
-    hyperdiffusion = NoHyperDiffusion(),
-    viscoussponge = NoViscousSponge(),
-    moisture = EquilMoist(),
-    precipitation = NoPrecipitation(),
-    radiation = NoRadiation(),
     source = (
         Gravity(),
         Coriolis(),
         GeostrophicForcing{FT}(7.62e-5, 0, 0),
-        turbconv_sources(turbconv)...,
+        turbconv_sources(turbconv_model(physics))...,
     ),
-    tracers = NoTracers(),
-    lsforcing = NoLSForcing(),
-    compressibility = Compressible(),
     data_config = nothing,
 ) where {FT <: AbstractFloat}
 
-    phys_args = (
-        param_set,
-        ref_state,
-        energy,
-        moisture,
-        compressibility,
-        turbulence,
-        turbconv,
-        hyperdiffusion,
-        viscoussponge,
-        precipitation,
-        radiation,
-        tracers,
-        lsforcing,
-    )
     atmos = (
-        AtmosPhysics{FT, typeof.(phys_args)...}(phys_args...),
+        physics,
         problem,
         orientation,
         prognostic_var_source_map(source),
@@ -315,11 +343,11 @@ and single stack configurations.
 """
 function AtmosModel{FT}(
     ::Union{Type{AtmosLESConfigType}, Type{SingleStackConfigType}},
-    param_set::AbstractParameterSet;
+    physics::AtmosPhysics;
     orientation = FlatOrientation(),
     kwargs...,
 ) where {FT <: AbstractFloat}
-    return AtmosModel{FT}(orientation, param_set; kwargs...)
+    return AtmosModel{FT}(orientation, physics; kwargs...)
 end
 
 """
@@ -330,11 +358,11 @@ configurations.
 """
 function AtmosModel{FT}(
     ::Type{AtmosGCMConfigType},
-    param_set::AbstractParameterSet;
+    physics::AtmosPhysics;
     orientation = SphericalOrientation(),
     kwargs...,
 ) where {FT <: AbstractFloat}
-    return AtmosModel{FT}(orientation, param_set; kwargs...)
+    return AtmosModel{FT}(orientation, physics; kwargs...)
 end
 
 """

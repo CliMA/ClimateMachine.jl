@@ -152,13 +152,17 @@ function config_problem(::Type{FT}, N, resolution, xmax, ymax, zmax) where {FT}
     )
 
     ## Set up the model
+    physics = AtmosPhysics{FT}(
+        param_set;
+        turbulence = Vreman(C_smag),
+        tracers = NTracers{ntracers, FT}(δ_χ),
+    )
+
     model = AtmosModel{FT}(
         AtmosLESConfigType,
-        param_set;
+        physics;
         problem = problem,
-        turbulence = Vreman(C_smag),
         source = (Gravity(),),
-        tracers = NTracers{ntracers, FT}(δ_χ),
         data_config = data_config,
     )
 

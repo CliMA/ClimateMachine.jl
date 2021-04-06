@@ -13,6 +13,7 @@ ClimateMachine.Atmos.AtmosProblem
 ## AtmosModel balance law
 
 ```@docs
+ClimateMachine.Atmos.AtmosPhysics
 ClimateMachine.Atmos.AtmosModel
 ```
 

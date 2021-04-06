@@ -125,12 +125,15 @@ function test_run(
     )
     # -------------- Define model ---------------------------------- #
     T_profile = DryAdiabaticProfile{FT}(param_set)
-    model = AtmosModel{FT}(
-        AtmosLESConfigType,
+    physics = AtmosPhysics{FT}(
         param_set;
-        init_state_prognostic = Initialise_Density_Current!,
         ref_state = HydrostaticState(T_profile),
         turbulence = AnisoMinDiss{FT}(1),
+    )
+    model = AtmosModel{FT}(
+        AtmosLESConfigType,
+        physics;
+        init_state_prognostic = Initialise_Density_Current!,
         source = (Gravity(),),
     )
     # -------------- Define DGModel --------------------------- #

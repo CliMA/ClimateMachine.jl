@@ -103,14 +103,17 @@ function main()
         init_state_prognostic = mms3_init_state!,
     )
 
-    model = AtmosModel{FT}(
-        AtmosLESConfigType,
+    physics = AtmosPhysics{FT}(
         param_set;
-        problem = problem,
-        orientation = NoOrientation(),
         ref_state = NoReferenceState(),
         turbulence = ConstantDynamicViscosity(FT(μ_exact), WithDivergence()),
         moisture = DryModel(),
+    )
+    model = AtmosModel{FT}(
+        AtmosLESConfigType,
+        physics;
+        problem = problem,
+        orientation = NoOrientation(),
         source = (MMSSource{3}(),),
     )
 

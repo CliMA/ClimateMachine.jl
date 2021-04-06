@@ -83,14 +83,17 @@ function test_run(
 
     # This is the base model which defines all the data (all other DGModels
     # for substepping components will piggy-back off of this models data)
-    fullmodel = AtmosModel{FT}(
-        AtmosLESConfigType,
+    fullphysics = AtmosPhysics{FT}(
         param_set;
-        init_state_prognostic = setup,
-        orientation = SphericalOrientation(),
         ref_state = HydrostaticState(T_profile),
         turbulence = Vreman(FT(0.23)),
         moisture = DryModel(),
+    )
+    fullmodel = AtmosModel{FT}(
+        AtmosLESConfigType,
+        fullphysics;
+        orientation = SphericalOrientation(),
+        init_state_prognostic = setup,
         source = (Gravity(),),
     )
     dg = DGModel(

@@ -37,13 +37,16 @@ function config_balanced(
 )
     ref_state = HydrostaticState(temp_profile; subtract_off = false)
 
-    model = AtmosModel{FT}(
-        config_type,
+    physics = AtmosPhysics{FT}(
         param_set;
         ref_state = ref_state,
         turbulence = ConstantDynamicViscosity(FT(0)),
         hyperdiffusion = NoHyperDiffusion(),
         moisture = DryModel(),
+    )
+    model = AtmosModel{FT}(
+        config_type,
+        physics;
         source = (Gravity(),),
         init_state_prognostic = init_to_ref_state!,
     )

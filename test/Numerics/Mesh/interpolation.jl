@@ -124,12 +124,17 @@ function run_brick_interpolation_test(
         DeviceArray = DA,
         polynomialorder = polynomialorders,
     )
-    model = AtmosModel{FT}(
-        AtmosLESConfigType,
+    physics = AtmosPhysics{FT}(
         param_set;
-        init_state_prognostic = Initialize_Brick_Interpolation_Test!,
         ref_state = NoReferenceState(),
         turbulence = ConstantDynamicViscosity(FT(0)),
+    )
+
+    model = AtmosModel{FT}(
+        AtmosLESConfigType,
+        physics;
+        orientation = SphericalOrientation(),
+        init_state_prognostic = Initialize_Brick_Interpolation_Test!,
         source = (Gravity(),),
     )
 
@@ -275,14 +280,17 @@ function run_cubed_sphere_interpolation_test(
         meshwarp = ClimateMachine.Mesh.Topologies.equiangular_cubed_sphere_warp,
     )
 
-    model = AtmosModel{FT}(
-        AtmosLESConfigType,
+    physics = AtmosPhysics{FT}(
         param_set;
-        init_state_prognostic = setup,
-        orientation = SphericalOrientation(),
         ref_state = NoReferenceState(),
         turbulence = ConstantDynamicViscosity(FT(0)),
         moisture = DryModel(),
+    )
+
+    model = AtmosModel{FT}(
+        AtmosLESConfigType,
+        physics;
+        init_state_prognostic = setup,
         source = (),
     )
 

@@ -262,14 +262,18 @@ function config_baroclinic_wave(
         init_state_prognostic = init_baroclinic_wave!,
     )
 
-    model = AtmosModel{FT}(
-        AtmosGCMConfigType,
+    physics = AtmosPhysics{FT}(
         param_set;
-        problem = problem,
         ref_state = ref_state,
         turbulence = ConstantKinematicViscosity(FT(0)),
         hyperdiffusion = hyperdiffusion,
         moisture = moisture,
+    )
+
+    model = AtmosModel{FT}(
+        AtmosGCMConfigType,
+        physics;
+        problem = problem,
         source = source,
     )
 

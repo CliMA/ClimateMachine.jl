@@ -68,14 +68,17 @@ function config_solid_body_rotation(FT, poly_order, resolution, ref_state)
 
     _planet_radius = FT(planet_radius(param_set))
 
-    model = AtmosModel{FT}(
-        AtmosGCMConfigType,
+    physics = AtmosPhysics{FT}(
         param_set;
-        init_state_prognostic = init_solid_body_rotation!,
         ref_state = ref_state,
         turbulence = ConstantKinematicViscosity(FT(0)),
         #hyperdiffusion = DryBiharmonic(FT(8 * 3600)),
         moisture = DryModel(),
+    )
+    model = AtmosModel{FT}(
+        AtmosGCMConfigType,
+        physics;
+        init_state_prognostic = init_solid_body_rotation!,
         source = (Gravity(), Coriolis()),
     )
 

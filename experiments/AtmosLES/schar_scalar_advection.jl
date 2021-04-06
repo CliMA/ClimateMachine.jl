@@ -161,15 +161,20 @@ function config_schar(FT, N, resolution, xmax, ymax, zmax)
 
     _C_smag = FT(0.21)
     _δχ = SVector{1, FT}(0)
-    model = AtmosModel{FT}(
-        AtmosLESConfigType,
+
+    physics = AtmosPhysics{FT}(
         param_set;
-        init_state_prognostic = init_schar!,
         ref_state = ref_state,
         turbulence = Vreman(_C_smag),
         moisture = DryModel(),
-        source = source,
         tracers = NTracers{1, FT}(_δχ),
+    )
+
+    model = AtmosModel{FT}(
+        AtmosLESConfigType,
+        physics;
+        init_state_prognostic = init_schar!,
+        source = source,
     )
 
     config = ClimateMachine.AtmosLESConfiguration(

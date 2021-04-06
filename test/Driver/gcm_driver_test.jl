@@ -72,13 +72,16 @@ function main()
     T_profile = IsothermalProfile(param_set, setup.T_ref)
     ref_state = HydrostaticState(T_profile)
     turbulence = ConstantDynamicViscosity(FT(0))
-    model = AtmosModel{FT}(
-        AtmosGCMConfigType,
+    physics = AtmosPhysics{FT}(
         param_set;
-        init_state_prognostic = setup,
         ref_state = ref_state,
         turbulence = turbulence,
         moisture = DryModel(),
+    )
+    model = AtmosModel{FT}(
+        AtmosGCMConfigType,
+        physics;
+        init_state_prognostic = setup,
         source = (Gravity(),),
     )
 

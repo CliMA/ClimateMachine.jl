@@ -250,23 +250,23 @@ function ekman_layer_model(
         AtmosBC(; turbconv = turbconv_bcs(turbconv)[2]),
     )
 
+    physics = AtmosPhysics{FT}(
+        param_set;
+        ref_state = ref_state,
+        turbulence = turbulence,
+        moisture = DryModel(),
+        turbconv = turbconv,
+        compressibility = compressibility,
+    )
+
     problem = AtmosProblem(
         init_state_prognostic = ics,
         boundaryconditions = boundary_conditions,
     )
 
     # Assemble model components
-    model = AtmosModel{FT}(
-        config_type,
-        param_set;
-        problem = problem,
-        ref_state = ref_state,
-        turbulence = turbulence,
-        moisture = DryModel(),
-        source = source,
-        turbconv = turbconv,
-        compressibility = compressibility,
-    )
+    model =
+        AtmosModel{FT}(config_type, physics; problem = problem, source = source)
 
     return model
 end

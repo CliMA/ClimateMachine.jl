@@ -187,14 +187,18 @@ hyperdiffusion_model = DryBiharmonic(FT(4 * 3600));
 # ## Instantiate the model
 # The Held Suarez setup was designed to produce an equilibrated state that is
 # comparable to the zonal mean of the Earth’s atmosphere.
-model = AtmosModel{FT}(
-    AtmosGCMConfigType,
+physics = AtmosPhysics{FT}(
     param_set;
-    init_state_prognostic = init_heldsuarez!,
     ref_state = ref_state,
     turbulence = turbulence_model,
     hyperdiffusion = hyperdiffusion_model,
     moisture = DryModel(),
+);
+
+model = AtmosModel{FT}(
+    AtmosGCMConfigType,
+    physics;
+    init_state_prognostic = init_heldsuarez!,
     source = (Gravity(), Coriolis(), HeldSuarezForcingTutorial(), sponge),
 );
 

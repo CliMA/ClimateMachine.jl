@@ -15,7 +15,9 @@ prognostic_vars(::RainSnowModel) = (Rain(), Snow())
 prognostic_vars(::NoTracers) = ()
 prognostic_vars(::NTracers{N}) where {N} = (Tracers{N}(),)
 
-prognostic_vars(m::AtmosModel) = (
+prognostic_vars(atmos::AtmosModel) = prognostic_vars(atmos.physics)
+
+prognostic_vars(m::AtmosPhysics) = (
     Mass(),
     Momentum(),
     prognostic_vars(energy_model(m))...,

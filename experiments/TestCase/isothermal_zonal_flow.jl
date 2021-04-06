@@ -93,13 +93,16 @@ function config_isothermal_zonal_flow(
     # Set up the atmosphere model
     exp_name = "IsothermalZonalFlow"
 
-    model = AtmosModel{FT}(
-        AtmosGCMConfigType,
+    physics = AtmosPhysics{FT}(
         param_set;
-        init_state_prognostic = init_isothermal_zonal_flow!,
         ref_state = ref_state,
         turbulence = ConstantKinematicViscosity(FT(0)),
         moisture = DryModel(),
+    )
+    model = AtmosModel{FT}(
+        AtmosGCMConfigType,
+        physics;
+        init_state_prognostic = init_isothermal_zonal_flow!,
         source = (Gravity(),),
     )
 

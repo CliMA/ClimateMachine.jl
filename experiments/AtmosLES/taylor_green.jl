@@ -94,14 +94,18 @@ function config_greenvortex(
     )
 
     _C_smag = FT(C_smag(param_set))
-    model = AtmosModel{FT}(
-        AtmosLESConfigType,                 # Flow in a box, requires the AtmosLESConfigType
+    physics = AtmosPhysics{FT}(
         param_set;                          # Parameter set corresponding to earth parameters
-        init_state_prognostic = init_greenvortex!,
         ref_state = NoReferenceState(),
-        orientation = NoOrientation(),
         turbulence = Vreman(_C_smag),       # Turbulence closure model
         moisture = DryModel(),
+    )
+
+    model = AtmosModel{FT}(
+        AtmosLESConfigType,                 # Flow in a box, requires the AtmosLESConfigType
+        physics;                            # Atmos physics
+        init_state_prognostic = init_greenvortex!,
+        orientation = NoOrientation(),
         source = (),
     )
 

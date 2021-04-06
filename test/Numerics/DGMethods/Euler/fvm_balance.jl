@@ -111,15 +111,14 @@ function test_run(
         source = (Gravity(), Coriolis())
     end
 
-    model = AtmosModel{FT}(
-        configtype,
+    physics = AtmosPhysics{FT}(
         param_set;
-        problem = problem,
         ref_state = ref_state,
         turbulence = ConstantDynamicViscosity(FT(0)),
         moisture = DryModel(),
-        source = source,
     )
+    model =
+        AtmosModel{FT}(configtype, physics; problem = problem, source = source)
 
     dg = DGFVModel(
         model,

@@ -217,15 +217,18 @@ function config_densitycurrent(
     ##md #     - [`init_state`](@ref init-dc)
 
     _C_smag = FT(0.21)
-    model = AtmosModel{FT}(
-        AtmosLESConfigType,                             # Flow in a box, requires the AtmosLESConfigType
+    physics = AtmosPhysics{FT}(
         param_set;                                      # Parameter set corresponding to earth parameters
-        init_state_prognostic = init_densitycurrent!,   # Apply the initial condition
         ref_state = ref_state,                          # Reference state
         turbulence = Vreman(_C_smag),                   # Turbulence closure model
         moisture = DryModel(),                          # Exclude moisture variables
-        source = (Gravity(),),                          # Gravity is the only source term here
         tracers = NoTracers(),                          # Tracer model with diffusivity coefficients
+    )
+    model = AtmosModel{FT}(
+        AtmosLESConfigType,                             # Flow in a box, requires the AtmosLESConfigType
+        physics;                                        # Atmos physics
+        init_state_prognostic = init_densitycurrent!,   # Apply the initial condition
+        source = (Gravity(),),                          # Gravity is the only source term here
     )
 
     ## Finally, we pass a `Problem Name` string, the mesh information, and the
