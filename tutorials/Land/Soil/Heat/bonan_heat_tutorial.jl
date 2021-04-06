@@ -8,7 +8,7 @@
 # tutorial.
 
 # The version of the heat equation we are solving here assumes no
-# sources or sinks and no diffusion of liquid water. It takes the form
+# sources or sinks and no flow of liquid water. It takes the form
 
 # ``
 # \frac{∂ ρe_{int}}{∂ t} =  ∇ ⋅ κ(θ_l, θ_i; ν, ...) ∇T
@@ -127,7 +127,7 @@ include(joinpath(clima_dir, "docs", "plothelpers.jl"));
 # # Determine soil parameters
 
 # Below are the soil component fractions for various soil
-# texture classes,  from Cosby et al. (1984) [1, 5].
+# texture classes,  from [Cosby1984](@cite) and [Bonan19a](@cite).
 # Note that these fractions are volumetric fractions, relative
 # to other soil solids, i.e. not including pore space. These are denoted `ν_ss_i`; the CliMA
 # Land Documentation uses the symbol `ν_i` to denote the volumetric fraction
@@ -178,20 +178,20 @@ porosity = porosity_array[soil_type_index];
 
 
 # This tutorial additionally compares the output of a ClimateMachine simulation with that
-# of Supplemental Program 2, Chapter 5, of Bonan (2019) [1].
+# of Supplemental Program 2, Chapter 5, of [Bonan19a](@cite).
 #  We found this useful as it
 # allows us compare results from our code against a published version.
 
 
-# The simulation code of [1] employs a formalism for the thermal
-# conductivity `κ` based on Johansen, 1975, [2]. It assumes
+# The simulation code of [Bonan19a](@cite) employs a formalism for the thermal
+# conductivity `κ` based on [Johanson1975](@cite). It assumes
 # no organic matter, and only requires the volumetric
 # fraction of soil solids for quartz and other minerals.
-# ClimateMachine employs the formalism of Balland and Arp (2005)[3],
+# ClimateMachine employs the formalism of [BallandArp2005](@cite),
 # which requires the
 # fraction of soil solids for quartz, gravel,
-# organic matter, and other minerals. Dai (2019)[4] found
-# model [3] to better match
+# organic matter, and other minerals. [Dai2019a](@cite) found
+# the model of [BallandArp2005](@cite) to better match
 # measured soil properties across a range of soil types.
 
 # To compare the output of the two simulations, we set the organic
@@ -208,7 +208,7 @@ porosity = porosity_array[soil_type_index];
 
 
 # We next calculate a few intermediate quantities needed for the
-# determination of the thermal conductivity [3]. These include
+# determination of the thermal conductivity ([BallandArp2005](@cite)). These include
 # the conductivity of the solid material, the conductivity
 # of saturated soil, and the conductivity of frozen saturated soil.
 
@@ -219,9 +219,9 @@ porosity = porosity_array[soil_type_index];
 κ_ice = FT(2.29); # W/m/K
 
 # The particle density of soil solids in moisture-free soil
-# is taken as a constant, across soil types, as in [1].
+# is taken as a constant, across soil types, as in [Bonan19a](@cite).
 # This is a good estimate for organic material free soil. The user is referred to
-# [3] for a more general expression.
+# [BallandArp2005](@cite) for a more general expression.
 ρp = FT(2700) # kg/m^3
 κ_solid = k_solid(ν_ss_om, ν_ss_quartz, κ_quartz, κ_minerals, κ_om)
 κ_sat_frozen = ksat_frozen(κ_solid, porosity, κ_ice)
@@ -421,7 +421,7 @@ ClimateMachine.invoke!(solver_config);
 state_types = (Prognostic(), Auxiliary())
 dons = dict_of_nodal_states(solver_config, state_types; interp = true)
 
-# # Plot results and comparison data from [1]
+# # Plot results and comparison data from [Bonan19a](@cite)
 
 z = get_z(solver_config.dg.grid; rm_dupes = true);
 T = dons["soil.heat.T"];
@@ -466,21 +466,8 @@ savefig("thermal_conductivity_comparison.png")
 # the boundary condition).
 
 # # References
-# [1] Bonan, G. Climate Change and Terrestrial Ecosystem Modeling (2019),
-# Cambridge University Press
-
-# [2] Johansen, O. 1975. Thermal conductivity of soils. Ph.D. thesis,
-# Trondheim, Norway. Cold Regions Research and Engineering Laboratory
-# Draft Translation 637, 1977, ADA 044002.
-
-# [3] Balland, V., and P. A. Arp (2005), Modeling soil thermal
-# conductivities over a wide range of conditions, J. Env. Eng. Sci., 4, 549–558.
-
-# [4] Dai, Y., N. W. amd Hua Yuan, S. Zhang, W. Shangguan, S. Liu, X. Lu,
-# and Y. Xin (2019a), Evaluation of soil thermal conductivity schemes for
-# use in land surface modeling, J. Adv. Model. Earth Sys., 11, 3454–3473.
-
-# [5] Cosby, B. J., Hornberger, G. M., Clapp, R. B., and Ginn, T. R. (1984).
-# A statistical exploration of the relationships of soil moisture
-# characteristics to the physical properties of soils. Water Resources
-# Research, 20, 682–690.
+# - [Bonan19a](@cite)
+# - [Johanson1975](@cite)
+# - [BallandArp2005](@cite)
+# - [Dai2019a](@cite)
+# - [Cosby1984](@cite)

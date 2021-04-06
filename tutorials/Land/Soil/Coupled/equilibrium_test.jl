@@ -135,7 +135,7 @@ include(joinpath(clima_dir, "docs", "plothelpers.jl"));
 
 # Set soil parameters to be consistent with sand.
 # Please see e.g. the [soil heat tutorial](../Heat/bonan_heat_tutorial.md)
-# for other soil type parameters, or [2].
+# for other soil type parameters, or [Cosby1984](@cite).
 
 # The porosity:
 porosity = FT(0.395);
@@ -149,7 +149,7 @@ porosity = FT(0.395);
 ν_ss_gravel = FT(0.0);
 # Other parameters include the hydraulic conductivity at saturation, the specific
 # storage, and the van Genuchten parameters for sand.
-# We recommend Chapter 8 of [1] for finding parameters
+# We recommend Chapter 8 of  [Bonan19a](@cite) for finding parameters
 # for other soil types.
 Ksat = FT(4.42 / 3600 / 100) # m/s
 S_s = FT(1e-3) #inverse meters
@@ -164,10 +164,10 @@ vg_α = FT(7.5); # inverse meters
 κ_liq = FT(0.57) # W/m/K
 κ_ice = FT(2.29); # W/m/K
 # The particle density of organic material-free soil is
-# equal to the particle density of quartz and other minerals [3]:
+# equal to the particle density of quartz and other minerals ([BallandArp2005](@cite)):
 ρp = FT(2700); # kg/m^3
 # We calculate the thermal conductivities for the solid material
-# and for saturated soil. These functions are taken from Balland and Arp (2005) [3].
+# and for saturated soil. These functions are taken from [BallandArp2005](@cite).
 κ_solid = k_solid(ν_ss_om, ν_ss_quartz, κ_quartz, κ_minerals, κ_om)
 κ_sat_frozen = ksat_frozen(κ_solid, porosity, κ_ice)
 κ_sat_unfrozen = ksat_unfrozen(κ_solid, porosity, κ_liq);
@@ -381,12 +381,6 @@ end;
 # # Run the integration
 ClimateMachine.invoke!(solver_config; user_callbacks = (callback,));
 
-
-# Get the final state and create plots:
-dons = dict_of_nodal_states(solver_config, state_types; interp = true)
-push!(dons_arr, dons)
-push!(time_data, gettime(solver_config.solver));
-
 # Get z-coordinate
 z = get_z(solver_config.dg.grid; rm_dupes = true);
 
@@ -402,7 +396,7 @@ export_plot(
     ("soil.water.ϑ_l",),
     joinpath(output_dir, "eq_moisture_plot.png");
     xlabel = "ϑ_l",
-    ylabel = "z (cm)",
+    ylabel = "z (m)",
     time_units = "(days)",
 )
 # ![](eq_moisture_plot.png)
@@ -414,7 +408,7 @@ export_plot(
     ("soil.water.K∇h[3]",),
     joinpath(output_dir, "eq_hydraulic_head_plot.png");
     xlabel = "K∇h (m/s)",
-    ylabel = "z (cm)",
+    ylabel = "z (m)",
     time_units = "(days)",
 )
 # ![](eq_hydraulic_head_plot.png)
@@ -426,7 +420,7 @@ export_plot(
     ("soil.heat.T",),
     joinpath(output_dir, "eq_temperature_plot.png");
     xlabel = "T (K)",
-    ylabel = "z (cm)",
+    ylabel = "z (m)",
     time_units = "(days)",
 )
 # ![](eq_temperature_plot.png)
@@ -438,7 +432,7 @@ export_plot(
     ("soil.heat.κ∇T[3]",),
     joinpath(output_dir, "eq_heat_plot.png");
     xlabel = "κ∇T",
-    ylabel = "z (cm)",
+    ylabel = "z (m)",
     time_units = "(days)",
 )
 # ![](eq_heat_plot.png)
@@ -465,19 +459,11 @@ export_plot(
 # for `T_f`. This results in `T_f = 288.056`, which is very close to the mean `T` we observe
 # after 3 days, of `288.054`.
 
-# One could also solve the ordinary differential equation for `ϑ_l` specified by
+# One could also solve the equation for `ϑ_l` specified by
 # ``∂ h/∂ z = 0`` to determine the functional form of the
 # equilibrium profile of the liquid water.
 
 # # References
-
-# [1] Bonan, G. Climate Change and Terrestrial Ecosystem Modeling (2019),
-# Cambridge University Press
-
-# [2] Cosby, B. J., Hornberger, G. M., Clapp, R. B., and Ginn, T. R. (1984).
-# A statistical exploration of the relationships of soil moisture
-# characteristics to the physical properties of soils. Water Resources
-# Research, 20, 682–690.
-
-# [3] Balland and Arp (2005) Modeling soil thermal conductivities over a wide
-# range of conditions, J. Env. Eng. Sci., 4, 549–558.
+# - [Bonan19a](@cite)
+# - [BallandArp2005](@cite)
+# - [Cosby1984](@cite)

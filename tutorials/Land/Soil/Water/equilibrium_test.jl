@@ -63,7 +63,7 @@
 # here, is that `K` only depends on the liquid moisture content.
 
 # Lastly, our formulation of this equation allows for a continuous solution in both
-# saturated and unsaturated areas, following [1].
+# saturated and unsaturated areas, following [Woodward00a](@cite).
 
 # # Preliminary setup
 
@@ -301,6 +301,4 @@ plot!(
 savefig(joinpath(output_dir, "equilibrium_test_ϑ_l_vG.png"))
 # ![](equilibrium_test_ϑ_l_vG.png)
 # # References
-# [1] Woodward, C. S., and C. N. Dawson (2000), Analysis of expanded mixed
-# finite element methods for a nonlinear parabolic equation modeling
-# flow into variably saturated porous media, SIAM J. Numer. Anal., 37, 701–724
+# - [Woodward00a](@cite)
