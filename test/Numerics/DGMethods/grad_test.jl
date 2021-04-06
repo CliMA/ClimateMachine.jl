@@ -63,12 +63,13 @@ end
 
 using Test
 function test_run(mpicomm, dim, direction, Ne, N, FT, ArrayType)
-
+    connectivity = dim == 3 ? :full : :face
     brickrange = ntuple(j -> range(FT(0); length = Ne[j] + 1, stop = 3), dim)
     topl = StackedBrickTopology(
         mpicomm,
         brickrange,
         periodicity = ntuple(j -> false, dim),
+        connectivity = connectivity,
     )
 
     grid = DiscontinuousSpectralElementGrid(

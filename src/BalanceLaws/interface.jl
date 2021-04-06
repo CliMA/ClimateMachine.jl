@@ -382,3 +382,5 @@ function initialize_states! end
 function tendency_from_slow_to_fast! end
 function cummulate_fast_solution! end
 function reconcile_from_fast_to_slow! end
+
+parameter_set(balance_law) = balance_law.param_set

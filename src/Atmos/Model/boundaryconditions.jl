@@ -53,20 +53,13 @@ function boundary_state!(
     state⁻,
     aux⁻,
     t,
-    args...,
+    state_int⁻,
+    aux_int⁻,
 )
-    atmos_boundary_state!(
-        nf,
-        bc,
-        atmos,
-        state⁺,
-        aux⁺,
-        n,
-        state⁻,
-        aux⁻,
-        t,
-        args...,
-    )
+
+    args = (; aux⁺, state⁻, aux⁻, t, n, state_int⁻, aux_int⁻)
+
+    atmos_boundary_state!(nf, bc, atmos, state⁺, args)
     # update moisture auxiliary variables (perform saturation adjustment, if necessary)
     # to make thermodynamic quantities consistent with the boundary state
     atmos_nodal_update_auxiliary_state!(atmos.moisture, atmos, state⁺, aux⁺, t)
@@ -81,13 +74,19 @@ function boundary_state!(
     nothing
 end
 
-function atmos_boundary_state!(nf, bc::AtmosBC, atmos, args...)
-    atmos_momentum_boundary_state!(nf, bc.momentum, atmos, args...)
-    atmos_energy_boundary_state!(nf, bc.energy, atmos, args...)
-    atmos_moisture_boundary_state!(nf, bc.moisture, atmos, args...)
-    atmos_precipitation_boundary_state!(nf, bc.precipitation, atmos, args...)
-    atmos_tracer_boundary_state!(nf, bc.tracer, atmos, args...)
-    turbconv_boundary_state!(nf, bc.turbconv, atmos, args...)
+function atmos_boundary_state!(nf, bc::AtmosBC, atmos, state⁺, args)
+    atmos_momentum_boundary_state!(nf, bc.momentum, atmos, state⁺, args)
+    atmos_energy_boundary_state!(nf, bc.energy, atmos, state⁺, args)
+    atmos_moisture_boundary_state!(nf, bc.moisture, atmos, state⁺, args)
+    atmos_precipitation_boundary_state!(
+        nf,
+        bc.precipitation,
+        atmos,
+        state⁺,
+        args,
+    )
+    atmos_tracer_boundary_state!(nf, bc.tracer, atmos, state⁺, args)
+    turbconv_boundary_state!(nf, bc.turbconv, atmos, state⁺, args)
 end
 
 
@@ -98,33 +97,32 @@ function normal_boundary_flux_second_order!(
     fluxᵀn::Vars{S},
     n⁻,
     state⁻,
-    diff⁻,
+    diffusive⁻,
     hyperdiff⁻,
     aux⁻,
     state⁺,
-    diff⁺,
+    diffusive⁺,
     hyperdiff⁺,
     aux⁺,
     t,
-    args...,
+    state_int⁻,
+    diffusive_int⁻,
+    aux_int⁻,
 ) where {S}
-    atmos_normal_boundary_flux_second_order!(
-        nf,
-        bc,
-        atmos,
-        fluxᵀn,
+
+    args = (;
         n⁻,
         state⁻,
-        diff⁻,
+        diffusive⁻,
         hyperdiff⁻,
         aux⁻,
-        state⁺,
-        diff⁺,
-        hyperdiff⁺,
-        aux⁺,
         t,
-        args...,
+        state_int⁻,
+        diffusive_int⁻,
+        aux_int⁻,
     )
+
+    atmos_normal_boundary_flux_second_order!(nf, bc, atmos, fluxᵀn, args)
 end
 
 function atmos_normal_boundary_flux_second_order!(

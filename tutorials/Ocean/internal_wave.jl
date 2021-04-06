@@ -109,7 +109,8 @@ model = HydrostaticBoussinesqSuperModel(
     coriolis = (f₀ = f, β = 0),
     buoyancy = (αᵀ = αᵀ,),
     boundary_tags = ((1, 1), (1, 1), (1, 2)),
-)
+);
+nothing
 
 # # Fetching data for an animation
 #
@@ -232,8 +233,8 @@ animation = @animate for (i, state) in enumerate(fetched_states)
         u_plot,
         layout = Plots.grid(2, 1, heights = (0.3, 0.7)),
         link = :x,
-        size = (1200, 600),
+        size = (600, 300),
     )
 end
 
-gif(animation, "internal_wave.gif", fps = 8) # hide
+gif(animation, "internal_wave.mp4", fps = 5) # hide

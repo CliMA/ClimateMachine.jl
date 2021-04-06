@@ -27,4 +27,6 @@ ClimateMachine.SurfaceFluxes.UniversalFunctions.Psi
 ```@docs
 ClimateMachine.SurfaceFluxes.surface_conditions
 ClimateMachine.SurfaceFluxes.exchange_coefficients
+ClimateMachine.SurfaceFluxes.recover_profile
+ClimateMachine.SurfaceFluxes.monin_obukhov_length
 ```

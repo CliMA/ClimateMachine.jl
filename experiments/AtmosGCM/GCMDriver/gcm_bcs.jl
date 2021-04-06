@@ -72,15 +72,15 @@ function (st::Varying_SST_TJ16)(state, aux, t)
 
     q_tot = state.moisture.ρq_tot / ρ
     q = PhasePartition(q_tot)
-
+    param_set = st.param_set
     e_int = internal_energy(st.orientation, state, aux)
-    T = air_temperature(st.param_set, e_int, q)
-    p = air_pressure(st.param_set, T, ρ, q)
+    T = air_temperature(param_set, e_int, q)
+    p = air_pressure(param_set, T, ρ, q)
 
-    _T_triple = T_triple(st.param_set)::FT          # triple point of water
-    _press_triple = press_triple(st.param_set)::FT  # sat water pressure at T_triple
-    _LH_v0 = LH_v0(st.param_set)::FT                # latent heat of vaporization at T_triple
-    _R_v = R_v(st.param_set)::FT                    # gas constant for water vapor
+    _T_triple::FT = T_triple(param_set)          # triple point of water
+    _press_triple::FT = press_triple(param_set)  # sat water pressure at T_triple
+    _LH_v0::FT = LH_v0(param_set)                # latent heat of vaporization at T_triple
+    _R_v::FT = R_v(param_set)                    # gas constant for water vapor
 
     q_sfc =
         eps / p *

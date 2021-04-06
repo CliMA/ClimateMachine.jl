@@ -1,20 +1,4 @@
-module ThreeDimensionalCompressibleNavierStokes
-
-export ThreeDimensionalCompressibleNavierStokesEquations
-
-using Test
-using StaticArrays
-using LinearAlgebra
-
-using ClimateMachine.Ocean
-using ClimateMachine.VariableTemplates
-using ClimateMachine.Mesh.Geometry
-using ClimateMachine.DGMethods
-using ClimateMachine.DGMethods.NumericalFluxes
-using ClimateMachine.BalanceLaws
-using ClimateMachine.Ocean: coriolis_parameter
-using ClimateMachine.Mesh.Geometry: LocalGeometry
-using ClimateMachine.MPIStateArrays: MPIStateArray
+include("../boilerplate.jl")
 
 import ClimateMachine.BalanceLaws:
     vars_state,
@@ -28,51 +12,9 @@ import ClimateMachine.BalanceLaws:
     wavespeed,
     boundary_conditions,
     boundary_state!
-import ClimateMachine.Ocean:
-    ocean_init_state!,
-    ocean_init_aux!,
-    ocean_boundary_state!,
-    _ocean_boundary_state!
+import ClimateMachine.DGMethods: DGModel
 import ClimateMachine.NumericalFluxes: numerical_flux_first_order!
-
-×(a::SVector, b::SVector) = StaticArrays.cross(a, b)
-⋅(a::SVector, b::SVector) = StaticArrays.dot(a, b)
-⊗(a::SVector, b::SVector) = a * b'
-
-abstract type TurbulenceClosure end
-struct ConstantViscosity{T} <: TurbulenceClosure
-    μ::T
-    ν::T
-    κ::T
-    function ConstantViscosity{T}(;
-        μ = T(1e-6),   # m²/s
-        ν = T(1e-6),   # m²/s
-        κ = T(1e-6),   # m²/s
-    ) where {T <: AbstractFloat}
-        return new{T}(μ, ν, κ)
-    end
-end
-
-abstract type CoriolisForce end
-struct fPlaneCoriolis{T} <: CoriolisForce
-    fₒ::T
-    β::T
-    function fPlaneCoriolis{T}(;
-        fₒ = T(1e-4), # Hz
-        β = T(1e-11), # Hz/m
-    ) where {T <: AbstractFloat}
-        return new{T}(fₒ, β)
-    end
-end
-
-abstract type Forcing end
-struct Buoyancy{T} <: Forcing
-    α::T # 1/K
-    g::T # m/s²
-    function Buoyancy{T}(; α = T(2e-4), g = T(10)) where {T <: AbstractFloat}
-        return new{T}(α, g)
-    end
-end
+import ClimateMachine.Orientations: vertical_unit_vector
 
 """
     ThreeDimensionalCompressibleNavierStokesEquations <: BalanceLaw
@@ -81,16 +23,23 @@ write out the equations here
 # Usage
     ThreeDimensionalCompressibleNavierStokesEquations()
 """
+abstract type AbstractFluid3D <: AbstractFluid end
+struct Fluid3D <: AbstractFluid3D end
+
 struct ThreeDimensionalCompressibleNavierStokesEquations{
+    I,
     D,
+    O,
     A,
     T,
     C,
     F,
     BC,
     FT,
-} <: BalanceLaw
+} <: AbstractFluid3D
+    initial_value_problem::I
     domain::D
+    orientation::O
     advection::A
     turbulence::T
     coriolis::C
@@ -99,17 +48,21 @@ struct ThreeDimensionalCompressibleNavierStokesEquations{
     cₛ::FT
     ρₒ::FT
     function ThreeDimensionalCompressibleNavierStokesEquations{FT}(
+        initial_value_problem::I,
         domain::D,
+        orientation::O,
         advection::A,
         turbulence::T,
         coriolis::C,
         forcing::F,
         boundary_conditions::BC;
-        cₛ = FT(sqrt(10)),  #m/s
+        cₛ = FT(sqrt(10)),  # m/s
         ρₒ = FT(1),  #kg/m³
-    ) where {FT <: AbstractFloat, D, A, T, C, F, BC}
-        return new{D, A, T, C, F, BC, FT}(
+    ) where {FT <: AbstractFloat, I, D, O, A, T, C, F, BC}
+        return new{I, D, O, A, T, C, F, BC, FT}(
+            initial_value_problem,
             domain,
+            orientation,
             advection,
             turbulence,
             coriolis,
@@ -132,30 +85,162 @@ function vars_state(m::CNSE3D, ::Prognostic, T)
 end
 
 function init_state_prognostic!(m::CNSE3D, state::Vars, aux::Vars, localgeo, t)
-    ocean_init_state!(m, state, aux, localgeo, t)
+    cnse_init_state!(m, state, aux, localgeo, t)
 end
 
-function vars_state(m::CNSE3D, ::Auxiliary, T)
+# default initial state if IVP == nothing
+function cnse_init_state!(model::CNSE3D, state, aux, localgeo, t)
+
+    x = aux.x
+    y = aux.y
+    z = aux.z
+
+    ρ = model.ρₒ
+    state.ρ = ρ
+    state.ρu = ρ * @SVector [-0, -0, -0]
+    state.ρθ = ρ
+
+    return nothing
+end
+
+# user defined initial state
+function cnse_init_state!(
+    model::CNSE3D{<:InitialValueProblem},
+    state,
+    aux,
+    localgeo,
+    t,
+)
+    x = aux.x
+    y = aux.y
+    z = aux.z
+
+    params = model.initial_value_problem.params
+    ic = model.initial_value_problem.initial_conditions
+
+    state.ρ = ic.ρ(params, x, y, z)
+    state.ρu = ic.ρu(params, x, y, z)
+    state.ρθ = ic.ρθ(params, x, y, z)
+
+    return nothing
+end
+
+function vars_state(m::CNSE3D, st::Auxiliary, T)
     @vars begin
         x::T
         y::T
         z::T
+        orientation::vars_state(m.orientation, st, T)
     end
 end
 
 function init_state_auxiliary!(
-    model::CNSE3D,
+    m::CNSE3D,
     state_auxiliary::MPIStateArray,
     grid,
     direction,
 )
+    # update the geopotential Φ in state_auxiliary.orientation.Φ
     init_state_auxiliary!(
-        model,
-        (model, aux, tmp, geom) -> ocean_init_aux!(model, aux, geom),
+        m,
+        (m, aux, tmp, geom) ->
+            orientation_nodal_init_aux!(m.orientation, m.domain, aux, geom),
         state_auxiliary,
         grid,
         direction,
     )
+
+    # update ∇Φ in state_auxiliary.orientation.∇Φ
+    orientation_gradient(m, m.orientation, state_auxiliary, grid, direction)
+
+    # store coordinates and potentially other stuff
+    init_state_auxiliary!(
+        m,
+        (m, aux, tmp, geom) -> cnse_init_aux!(m, aux, geom),
+        state_auxiliary,
+        grid,
+        direction,
+    )
+
+    return nothing
+end
+
+function orientation_gradient(
+    model::CNSE3D,
+    ::Orientation,
+    state_auxiliary,
+    grid,
+    direction,
+)
+    auxiliary_field_gradient!(
+        model,
+        state_auxiliary,
+        ("orientation.∇Φ",),
+        state_auxiliary,
+        ("orientation.Φ",),
+        grid,
+        direction,
+    )
+
+    return nothing
+end
+
+function orientation_gradient(::CNSE3D, ::NoOrientation, _...)
+    return nothing
+end
+
+function orientation_nodal_init_aux!(
+    ::SphericalOrientation,
+    domain::Tuple,
+    aux::Vars,
+    geom::LocalGeometry,
+)
+    norm_R = norm(geom.coord)
+    @inbounds aux.orientation.Φ = norm_R - domain[1]
+
+    return nothing
+end
+
+"""
+function orientation_nodal_init_aux!(
+    ::SuperSphericalOrientation,
+    domain::Tuple,
+    aux::Vars,
+    geom::LocalGeometry,
+)
+    norm_R = norm(geom.coord)
+    @inbounds aux.orientation.Φ = 1 / norm_R^2 
+end
+"""
+
+function orientation_nodal_init_aux!(
+    ::FlatOrientation,
+    domain::Tuple,
+    aux::Vars,
+    geom::LocalGeometry,
+)
+    @inbounds aux.orientation.Φ = geom.coord[3]
+
+    return nothing
+end
+
+function orientation_nodal_init_aux!(
+    ::NoOrientation,
+    domain::Tuple,
+    aux::Vars,
+    geom::LocalGeometry,
+)
+    return nothing
+end
+
+function cnse_init_aux!(::CNSE3D, aux, geom)
+    @inbounds begin
+        aux.x = geom.coord[1]
+        aux.y = geom.coord[2]
+        aux.z = geom.coord[3]
+    end
+
+    return nothing
 end
 
 function vars_state(m::CNSE3D, ::Gradient, T)
@@ -163,6 +248,7 @@ function vars_state(m::CNSE3D, ::Gradient, T)
         ∇ρ::T
         ∇u::SVector{3, T}
         ∇θ::T
+        ∇p::T
     end
 end
 
@@ -173,6 +259,12 @@ function compute_gradient_argument!(
     aux::Vars,
     t::Real,
 )
+    ρ = state.ρ
+    cₛ = model.cₛ
+    ρₒ = model.ρₒ
+
+    grad.∇p = (cₛ * ρ)^2 / (2 * ρₒ)
+
     compute_gradient_argument!(model.turbulence, grad, state, aux, t)
 end
 
@@ -202,6 +294,7 @@ function vars_state(m::CNSE3D, ::GradientFlux, T)
         μ∇ρ::SVector{3, T}
         ν∇u::SMatrix{3, 3, T, 9}
         κ∇θ::SVector{3, T}
+        ∇p::SVector{3, T}
     end
 end
 
@@ -213,6 +306,9 @@ function compute_gradient_flux!(
     aux::Vars,
     t::Real,
 )
+
+    gradflux.∇p = grad.∇p
+
     compute_gradient_flux!(
         model,
         model.turbulence,
@@ -260,7 +356,7 @@ end
     ρₒ = model.ρₒ
 
     flux.ρ += ρu
-    flux.ρu += (cₛ * ρ)^2 / (2 * ρₒ) * I
+    # flux.ρu += (cₛ * ρ)^2 / (2 * ρₒ) * I
 
     advective_flux!(model, model.advection, flux, state, aux, t)
 
@@ -324,6 +420,9 @@ end
     t::Real,
     direction,
 )
+
+    source.ρu -= gradflux.∇p
+
     coriolis_force!(model, model.coriolis, source, state, aux, t)
     forcing_term!(model, model.forcing, source, state, aux, t)
 
@@ -363,11 +462,16 @@ forcing_term!(::CNSE3D, ::Nothing, _...) = nothing
     g = buoy.g
     ρθ = state.ρθ
 
-    B = α * g * ρθ
+    # as temperature increase, density decreases
+    B = -α * g * ρθ
+    k̂ = vertical_unit_vector(model.orientation, aux)
 
-    # only in a box, need to generalize for sphere
-    source.ρu += @SVector [-0, -0, B]
+    # gravity points downward
+    source.ρu -= B * k̂
 end
+
+@inline vertical_unit_vector(::Orientation, aux) = aux.orientation.∇Φ
+@inline vertical_unit_vector(::NoOrientation, aux) = @SVector [0, 0, 1]
 
 @inline wavespeed(m::CNSE3D, _...) = m.cₛ
 
@@ -471,31 +575,84 @@ function numerical_flux_first_order!(
     return nothing
 end
 
-## Boundary Conditions
-
 boundary_conditions(model::CNSE3D) = model.boundary_conditions
 
 """
     boundary_state!(nf, ::CNSE3D, args...)
 applies boundary conditions for the hyperbolic fluxes
-dispatches to a function in OceanBoundaryConditions
+dispatches to a function in CNSEBoundaryConditions
 """
 @inline function boundary_state!(nf, bc, model::CNSE3D, args...)
-    return _ocean_boundary_state!(nf, bc, model, args...)
+    return _cnse_boundary_state!(nf, bc, model, args...)
 end
 
 """
-    ocean_boundary_state!(nf, bc::OceanBC, ::CNSE3D)
+    cnse_boundary_state!(nf, bc::FluidBC, ::CNSE3D)
 splits boundary condition application into velocity
 """
-@inline function ocean_boundary_state!(nf, bc::OceanBC, m::CNSE3D, args...)
-    ocean_boundary_state!(nf, bc.velocity, m, m.turbulence, args...)
-    ocean_boundary_state!(nf, bc.temperature, m, args...)
+@inline function cnse_boundary_state!(nf, bc::FluidBC, m::CNSE3D, args...)
+    cnse_boundary_state!(nf, bc.momentum, m, m.turbulence, args...)
+    cnse_boundary_state!(nf, bc.temperature, m, args...)
 
     return nothing
 end
 
 include("bc_momentum.jl")
-include("bc_tracer.jl")
+include("bc_temperature.jl")
 
+"""
+STUFF FOR ANDRE'S WRAPPERS
+"""
+
+function get_boundary_conditions(
+    model::SpatialModel{BL},
+) where {BL <: AbstractFluid3D}
+    bcs = model.boundary_conditions
+
+    west_east = (check_bc(bcs, :west), check_bc(bcs, :east))
+    south_north = (check_bc(bcs, :south), check_bc(bcs, :north))
+    bottom_top = (check_bc(bcs, :bottom), check_bc(bcs, :top))
+
+    return (west_east..., south_north..., bottom_top...)
+end
+
+function DGModel(
+    model::SpatialModel{BL};
+    initial_conditions = nothing,
+) where {BL <: AbstractFluid3D}
+    params = model.parameters
+    physics = model.physics
+
+    Lˣ, Lʸ, Lᶻ = length(model.grid.domain)
+    bcs = get_boundary_conditions(model)
+    FT = eltype(model.grid.numerical.vgeo)
+
+    if !isnothing(initial_conditions)
+        initial_conditions = InitialValueProblem(params, initial_conditions)
+    end
+
+    balance_law = CNSE3D{FT}(
+        initial_conditions,
+        (Lˣ, Lʸ, Lᶻ),
+        physics.orientation,
+        physics.advection,
+        physics.dissipation,
+        physics.coriolis,
+        physics.buoyancy,
+        bcs,
+        ρₒ = params.ρₒ,
+        cₛ = params.cₛ,
+    )
+
+    numerical_flux_first_order = model.numerics.flux # should be a function
+
+    rhs = DGModel(
+        balance_law,
+        model.grid.numerical,
+        numerical_flux_first_order,
+        CentralNumericalFluxSecondOrder(),
+        CentralNumericalFluxGradient(),
+    )
+
+    return rhs
 end

@@ -1,5 +1,5 @@
 using ..Atmos
-using ..Atmos: MoistureModel, PrecipitationModel, recover_thermo_state
+using ..Atmos: AbstractMoistureModel, PrecipitationModel, recover_thermo_state
 using ..Mesh.Topologies
 using ..Mesh.Grids
 using ..Thermodynamics
@@ -110,10 +110,10 @@ function vars_atmos_les_default_simple(m::AtmosModel, FT)
         w_ht_sgs::FT
 
         moisture::vars_atmos_les_default_simple(m.moisture, FT)
-        precipitation::vars_atmos_les_default_simple(m.precipitation, FT)
+        precipitation::vars_atmos_les_default_simple(precipitation_model(m), FT)
     end
 end
-vars_atmos_les_default_simple(::MoistureModel, FT) = @vars()
+vars_atmos_les_default_simple(::AbstractMoistureModel, FT) = @vars()
 function vars_atmos_les_default_simple(m::Union{EquilMoist, NonEquilMoist}, FT)
     @vars begin
         qt::FT                  # q_tot
@@ -179,7 +179,7 @@ function atmos_les_default_simple_sums!(
         sums,
     )
     atmos_les_default_simple_sums!(
-        atmos.precipitation,
+        precipitation_model(atmos),
         state,
         gradflux,
         thermo,
@@ -190,7 +190,7 @@ function atmos_les_default_simple_sums!(
     return nothing
 end
 function atmos_les_default_simple_sums!(
-    ::MoistureModel,
+    ::AbstractMoistureModel,
     state,
     gradflux,
     thermo,
@@ -260,7 +260,7 @@ function atmos_les_default_simple_sums!(
 end
 
 function atmos_les_default_clouds(
-    ::MoistureModel,
+    ::AbstractMoistureModel,
     thermo,
     idx,
     qc_gt_0_z,
@@ -309,10 +309,10 @@ function vars_atmos_les_default_ho(m::AtmosModel, FT)
         cov_w_ei::FT            # w′e_int′
 
         moisture::vars_atmos_les_default_ho(m.moisture, FT)
-        precipitation::vars_atmos_les_default_ho(m.precipitation, FT)
+        precipitation::vars_atmos_les_default_ho(precipitation_model(m), FT)
     end
 end
-vars_atmos_les_default_ho(::MoistureModel, FT) = @vars()
+vars_atmos_les_default_ho(::AbstractMoistureModel, FT) = @vars()
 function vars_atmos_les_default_ho(m::Union{EquilMoist, NonEquilMoist}, FT)
     @vars begin
         var_qt::FT              # q_tot′q_tot′
@@ -389,7 +389,7 @@ function atmos_les_default_ho_sums!(
         sums,
     )
     atmos_les_default_ho_sums!(
-        atmos.precipitation,
+        precipitation_model(atmos),
         state,
         thermo,
         MH,
@@ -401,7 +401,7 @@ function atmos_les_default_ho_sums!(
     return nothing
 end
 function atmos_les_default_ho_sums!(
-    ::MoistureModel,
+    ::AbstractMoistureModel,
     state,
     thermo,
     MH,
@@ -580,7 +580,8 @@ function atmos_les_default_collect(dgngrp::DiagnosticsGroup, currtime)
     nvertelem = topl_info.nvertelem
     nhorzelem = topl_info.nhorzrealelem
 
-    atmos.energy isa EnergyModel || error("EnergyModel only supported")
+    atmos.energy isa TotalEnergyModel ||
+        error("TotalEnergyModel only supported")
 
     # get needed arrays onto the CPU
     if array_device(Q) isa CPU
@@ -664,11 +665,11 @@ function atmos_les_default_collect(dgngrp::DiagnosticsGroup, currtime)
             ρq_liq_z[evk] += MH * thermo.moisture.q_liq * state.ρ * state.ρ
             ρq_ice_z[evk] += MH * thermo.moisture.q_ice * state.ρ * state.ρ
         end
-        if isa(atmos.precipitation, RainModel)
+        if isa(precipitation_model(atmos), RainModel)
             # for RWP
             ρq_rai_z[evk] += MH * state.precipitation.ρq_rai * state.ρ
         end
-        if isa(atmos.precipitation, RainSnowModel)
+        if isa(precipitation_model(atmos), RainSnowModel)
             # for RWP
             ρq_rai_z[evk] += MH * state.precipitation.ρq_rai * state.ρ
             # for SWP
@@ -702,14 +703,14 @@ function atmos_les_default_collect(dgngrp::DiagnosticsGroup, currtime)
                 ρq_ice_z[evk] = tot_ρq_ice_z / MH_z[evk]
             end
         end
-        if isa(atmos.precipitation, RainModel)
+        if isa(precipitation_model(atmos), RainModel)
             # for RWP
             tot_ρq_rai_z = MPI.Reduce(ρq_rai_z[evk], +, 0, mpicomm)
             if mpirank == 0
                 ρq_rai_z[evk] = tot_ρq_rai_z / MH_z[evk]
             end
         end
-        if isa(atmos.precipitation, RainSnowModel)
+        if isa(precipitation_model(atmos), RainSnowModel)
             # for RWP and SWP
             tot_ρq_rai_z = MPI.Reduce(ρq_rai_z[evk], +, 0, mpicomm)
             tot_ρq_sno_z = MPI.Reduce(ρq_sno_z[evk], +, 0, mpicomm)
@@ -758,10 +759,10 @@ function atmos_les_default_collect(dgngrp::DiagnosticsGroup, currtime)
             ρq_liq_z[evk] /= avg_rho
             ρq_ice_z[evk] /= avg_rho
         end
-        if isa(atmos.precipitation, RainModel)
+        if isa(precipitation_model(atmos), RainModel)
             ρq_rai_z[evk] /= avg_rho
         end
-        if isa(atmos.precipitation, RainSnowModel)
+        if isa(precipitation_model(atmos), RainSnowModel)
             ρq_rai_z[evk] /= avg_rho
             ρq_sno_z[evk] /= avg_rho
         end
@@ -848,10 +849,10 @@ function atmos_les_default_collect(dgngrp::DiagnosticsGroup, currtime)
             varvals["lwp"] = lwp
             varvals["iwp"] = iwp
         end
-        if isa(atmos.precipitation, RainModel)
+        if isa(precipitation_model(atmos), RainModel)
             varvals["rwp"] = rwp
         end
-        if isa(atmos.precipitation, RainSnowModel)
+        if isa(precipitation_model(atmos), RainSnowModel)
             varvals["rwp"] = rwp
             varvals["swp"] = swp
         end

@@ -137,17 +137,14 @@ function land_nodal_update_auxiliary_state!(
     t::Real,
 )
 
+    param_set = parameter_set(land)
     ϑ_l, θ_i = get_water_content(land.soil.water, aux, state, t)
     eff_porosity = soil.param_functions.porosity - θ_i
     θ_l = volumetric_liquid_fraction(ϑ_l, eff_porosity)
     ρc_ds = soil.param_functions.ρc_ds
-    ρc_s = volumetric_heat_capacity(θ_l, θ_i, ρc_ds, land.param_set)
-    aux.soil.heat.T = temperature_from_ρe_int(
-        state.soil.heat.ρe_int,
-        θ_i,
-        ρc_s,
-        land.param_set,
-    )
+    ρc_s = volumetric_heat_capacity(θ_l, θ_i, ρc_ds, param_set)
+    aux.soil.heat.T =
+        temperature_from_ρe_int(state.soil.heat.ρe_int, θ_i, ρc_s, param_set)
 end
 
 function compute_gradient_argument!(
@@ -160,17 +157,14 @@ function compute_gradient_argument!(
     t::Real,
 )
 
+    param_set = parameter_set(land)
     ϑ_l, θ_i = get_water_content(land.soil.water, aux, state, t)
     eff_porosity = soil.param_functions.porosity - θ_i
     θ_l = volumetric_liquid_fraction(ϑ_l, eff_porosity)
     ρc_ds = soil.param_functions.ρc_ds
-    ρc_s = volumetric_heat_capacity(θ_l, θ_i, ρc_ds, land.param_set)
-    transform.soil.heat.T = temperature_from_ρe_int(
-        state.soil.heat.ρe_int,
-        θ_i,
-        ρc_s,
-        land.param_set,
-    )
+    ρc_s = volumetric_heat_capacity(θ_l, θ_i, ρc_ds, param_set)
+    transform.soil.heat.T =
+        temperature_from_ρe_int(state.soil.heat.ρe_int, θ_i, ρc_s, param_set)
 end
 
 function compute_gradient_flux!(
@@ -183,10 +177,11 @@ function compute_gradient_flux!(
     aux::Vars,
     t::Real,
 )
+    param_set = parameter_set(land)
     ϑ_l, θ_i = get_water_content(land.soil.water, aux, state, t)
     eff_porosity = soil.param_functions.porosity - θ_i
     θ_l = volumetric_liquid_fraction(ϑ_l, eff_porosity)
-    κ_dry = k_dry(land.param_set, soil.param_functions)
+    κ_dry = k_dry(param_set, soil.param_functions)
     S_r = relative_saturation(θ_l, θ_i, soil.param_functions.porosity)
     kersten = kersten_number(θ_i, S_r, soil.param_functions)
     κ_sat = saturated_thermal_conductivity(
@@ -210,7 +205,8 @@ function flux_second_order!(
     aux::Vars,
     t::Real,
 )
-    ρe_int_l = volumetric_internal_energy_liq(aux.soil.heat.T, land.param_set)
+    param_set = parameter_set(land)
+    ρe_int_l = volumetric_internal_energy_liq(aux.soil.heat.T, param_set)
     diffusive_water_flux =
         -ρe_int_l .* get_diffusive_water_term(soil.water, diffusive)
     diffusive_heat_flux = -diffusive.soil.heat.κ∇T

@@ -1,4 +1,5 @@
 #!/usr/bin/env julia
+#! format: off
 #
 # Called with no arguments will replace the default system image with one that
 # includes the JuliaFormatter

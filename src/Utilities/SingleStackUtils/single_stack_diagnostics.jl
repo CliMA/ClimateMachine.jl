@@ -56,10 +56,6 @@ function single_stack_diagnostics(
             cache_fx2 = precompute(bl, _args_fx2, Flux{SecondOrder}())
             cache_src = precompute(bl, _args_src, Source())
 
-            # cache_fx1, cache_fx2, and cache_src have overlapping
-            # data, only need one copy, so merge:
-            cache = merge(cache_fx1, cache_fx2, cache_src)
-
             z = altitude(bl, aux)
 
             nt = (;
@@ -68,7 +64,9 @@ function single_stack_diagnostics(
                 aux = flattened_named_tuple(aux), # Vars -> flattened NamedTuples
                 ∇flux = flattened_named_tuple(∇flux), # Vars -> flattened NamedTuples
                 hyperdiff = flattened_named_tuple(hyperdiff), # Vars -> flattened NamedTuples
-                cache = cache,
+                cache_fx1,
+                cache_fx2,
+                cache_src,
             )
             # Flatten top level:
             flattened_named_tuple(nt)

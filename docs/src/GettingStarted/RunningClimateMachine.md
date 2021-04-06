@@ -146,6 +146,9 @@ ClimateMachine:
                         recent)
   --checkpoint-at-end   create a checkpoint at the end of the
                         simulation
+  --checkpoint-on-crash 
+                        create a checkpoint on a kernel crash (hurts
+                        performance!)
   --checkpoint-dir <path>
                         the directory in which to store checkpoints
                         (default: "checkpoint")

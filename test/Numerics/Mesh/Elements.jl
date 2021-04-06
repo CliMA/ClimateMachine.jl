@@ -1,5 +1,6 @@
 using ClimateMachine.Mesh.Elements
 using GaussQuadrature
+using LinearAlgebra
 using Test
 
 @testset "GaussQuadrature" begin
@@ -99,5 +100,25 @@ end
         @test sum(P5(r) .^ 2 .* w) ≈ IPN(test_type, 5)
         @test sum(P6(r) .^ 2 .* w) ≈ IPN(test_type, 6)
         @test D * P6(r) ≈ DP6(r)
+    end
+end
+
+@testset "Jacobip" begin
+    for T in (Float32, Float64, BigFloat)
+        let
+            α, β, N = T(0), T(0), 3 # α, β (for Legendre polynomials) & polynomial order
+            x, wt = Elements.lglpoints(T, N + 1) # lgl points for polynomial order N
+            V = Elements.jacobip(α, β, N, x)
+            # compare with orthonormalized exact solution
+            # https://en.wikipedia.org/wiki/Legendre_polynomials
+            V_exact = similar(V)
+            V_exact[:, 1] .= 1
+            V_exact[:, 2] .= x
+            V_exact[:, 3] .= (3 * x .^ 2 .- 1) / 2
+            V_exact[:, 4] .= (5 * x .^ 3 .- 3 * x) / 2
+            scale = 1 ./ sqrt.(diag(V_exact' * Diagonal(wt) * V_exact))
+            V_exact = V_exact * Diagonal(scale)
+            @test V ≈ V_exact
+        end
     end
 end

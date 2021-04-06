@@ -13,6 +13,8 @@ bib = CitationBibliography(joinpath(@__DIR__, "bibliography.bib"))
 @everywhere using ClimateMachine
 @everywhere using Documenter, Literate
 
+@everywhere const clima_dir = dirname(dirname(pathof(ClimateMachine)));
+
 @everywhere GENERATED_DIR = joinpath(@__DIR__, "src", "generated") # generated files directory
 rm(GENERATED_DIR, force = true, recursive = true)
 mkpath(GENERATED_DIR)
@@ -46,9 +48,10 @@ mathengine = MathJax(Dict(
 ))
 
 format = Documenter.HTML(
-    prettyurls = get(ENV, "CI", "") == "true",
+    prettyurls = get(ENV, "CI", "") != "" ? true : false,
     mathengine = mathengine,
     collapselevel = 1,
+    analytics = get(ENV, "CI", "") != "" ? "UA-191640394-1" : "",
 )
 
 makedocs(

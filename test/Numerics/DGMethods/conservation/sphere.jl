@@ -166,7 +166,7 @@ function test_run(mpicomm, ArrayType, N, Nhorz, Rrange, timeend, FT, dt)
         FloatType = FT,
         DeviceArray = ArrayType,
         polynomialorder = N,
-        meshwarp = Topologies.cubedshellwarp,
+        meshwarp = Topologies.equiangular_cubed_sphere_warp,
     )
     dg = DGModel(
         ConservationTestModel(),

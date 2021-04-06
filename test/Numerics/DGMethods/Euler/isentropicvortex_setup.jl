@@ -22,6 +22,7 @@ function (setup::IsentropicVortexSetup)(
 )
     FT = eltype(state)
     x = MVector(localgeo.coord)
+    param_set = parameter_set(bl)
 
     ρ∞ = setup.ρ∞
     p∞ = setup.p∞
@@ -49,12 +50,12 @@ function (setup::IsentropicVortexSetup)(
     T = T∞ * (1 - _kappa_d * vortex_speed^2 / 2 * ρ∞ / p∞ * exp(-(r / R)^2))
     # adiabatic/isentropic relation
     p = p∞ * (T / T∞)^(FT(1) / _kappa_d)
-    ρ = air_density(bl.param_set, T, p)
+    ρ = air_density(param_set, T, p)
 
     state.ρ = ρ
     state.ρu = ρ * u
     e_kin = u' * u / 2
-    state.energy.ρe = ρ * total_energy(bl.param_set, e_kin, FT(0), T)
+    state.energy.ρe = ρ * total_energy(param_set, e_kin, FT(0), T)
     if !(bl.moisture isa DryModel)
         state.moisture.ρq_tot = FT(0)
     end
@@ -91,9 +92,9 @@ function init_vortex_ref_state!(
     ρ∞ = setup.ρ∞
     p∞ = setup.p∞
     T∞ = setup.T∞
-
+    param_set = parameter_set(atmos)
     aux.ref_state.ρ = ρ∞
     aux.ref_state.p = p∞
     aux.ref_state.T = T∞
-    aux.ref_state.ρe = ρ∞ * internal_energy(atmos.param_set, T∞)
+    aux.ref_state.ρe = ρ∞ * internal_energy(param_set, T∞)
 end

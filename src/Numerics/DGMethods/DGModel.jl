@@ -30,6 +30,7 @@ struct DGFVModel{BL, G, FVR, NFND, NFD, GNF, AS, DS, HDS, D, DD, MD, GF, TF} <:
     modeldata::MD
     gradient_filter::GF
     tendency_filter::TF
+    check_for_crashes::Bool
 end
 
 function DGFVModel(
@@ -40,6 +41,7 @@ function DGFVModel(
     numerical_flux_second_order,
     numerical_flux_gradient;
     fill_nan = false,
+    check_for_crashes = false,
     state_auxiliary = create_state(
         balance_law,
         grid,
@@ -77,6 +79,7 @@ function DGFVModel(
         modeldata,
         gradient_filter,
         tendency_filter,
+        check_for_crashes,
     )
 end
 
@@ -95,6 +98,7 @@ struct DGModel{BL, G, NFND, NFD, GNF, AS, DS, HDS, D, DD, MD, GF, TF} <:
     modeldata::MD
     gradient_filter::GF
     tendency_filter::TF
+    check_for_crashes::Bool
 end
 
 function DGModel(
@@ -104,6 +108,7 @@ function DGModel(
     numerical_flux_second_order,
     numerical_flux_gradient;
     fill_nan = false,
+    check_for_crashes = false,
     state_auxiliary = create_state(
         balance_law,
         grid,
@@ -137,6 +142,7 @@ function DGModel(
         modeldata,
         gradient_filter,
         tendency_filter,
+        check_for_crashes,
     )
 end
 
@@ -283,11 +289,17 @@ function (dgfvm::DGFVModel)(tendency, state_prognostic, _, t, α, β)
             exchange_state_prognostic = MPIStateArrays.end_ghost_exchange!(
                 state_prognostic;
                 dependencies = exchange_state_prognostic,
+                check_for_crashes = dgfvm.check_for_crashes,
             )
 
             # Update_aux may start asynchronous work on the compute device and
             # we synchronize those here through a device event.
-            wait(device, exchange_state_prognostic)
+            checked_wait(
+                device,
+                exchange_state_prognostic,
+                nothing,
+                dgfvm.check_for_crashes,
+            )
             update_auxiliary_state!(
                 dgfvm,
                 dgfvm.balance_law,
@@ -330,7 +342,7 @@ function (dgfvm::DGFVModel)(tendency, state_prognostic, _, t, α, β)
         if num_state_gradient_flux > 0
             # Update_aux_diffusive may start asynchronous work on the compute device
             # and we synchronize those here through a device event.
-            wait(device, comp_stream)
+            checked_wait(device, comp_stream, nothing, dgfvm.check_for_crashes)
             update_auxiliary_state_gradient!(
                 dgfvm,
                 dgfvm.balance_law,
@@ -371,12 +383,18 @@ function (dgfvm::DGFVModel)(tendency, state_prognostic, _, t, α, β)
             exchange_state_gradient_flux = MPIStateArrays.end_ghost_exchange!(
                 dgfvm.state_gradient_flux;
                 dependencies = exchange_state_gradient_flux,
+                check_for_crashes = dgfvm.check_for_crashes,
             )
 
             # Update_aux_diffusive may start asynchronous work on the
             # compute device and we synchronize those here through a device
             # event.
-            wait(device, exchange_state_gradient_flux)
+            checked_wait(
+                device,
+                exchange_state_gradient_flux,
+                nothing,
+                dgfvm.check_for_crashes,
+            )
             update_auxiliary_state_gradient!(
                 dgfvm,
                 dgfvm.balance_law,
@@ -389,11 +407,17 @@ function (dgfvm::DGFVModel)(tendency, state_prognostic, _, t, α, β)
             exchange_state_prognostic = MPIStateArrays.end_ghost_exchange!(
                 state_prognostic;
                 dependencies = exchange_state_prognostic,
+                check_for_crashes = dgfvm.check_for_crashes,
             )
 
             # Update_aux may start asynchronous work on the compute device and
             # we synchronize those here through a device event.
-            wait(device, exchange_state_prognostic)
+            checked_wait(
+                device,
+                exchange_state_prognostic,
+                nothing,
+                dgfvm.check_for_crashes,
+            )
             update_auxiliary_state!(
                 dgfvm,
                 dgfvm.balance_law,
@@ -434,7 +458,7 @@ function (dgfvm::DGFVModel)(tendency, state_prognostic, _, t, α, β)
     # The synchronization here through a device event prevents CuArray based and
     # other default stream kernels from launching before the work scheduled in
     # this function is finished.
-    wait(device, comp_stream)
+    checked_wait(device, comp_stream, nothing, dgfvm.check_for_crashes)
 end
 
 """
@@ -522,11 +546,17 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
             exchange_state_prognostic = MPIStateArrays.end_ghost_exchange!(
                 state_prognostic;
                 dependencies = exchange_state_prognostic,
+                check_for_crashes = dg.check_for_crashes,
             )
 
             # Update_aux may start asynchronous work on the compute device and
             # we synchronize those here through a device event.
-            wait(device, exchange_state_prognostic)
+            checked_wait(
+                device,
+                exchange_state_prognostic,
+                nothing,
+                dg.check_for_crashes,
+            )
             update_auxiliary_state!(
                 dg,
                 dg.balance_law,
@@ -574,7 +604,7 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
         if num_state_gradient_flux > 0
             # Update_aux_diffusive may start asynchronous work on the compute device
             # and we synchronize those here through a device event.
-            wait(device, comp_stream)
+            checked_wait(device, comp_stream, nothing, dg.check_for_crashes)
             update_auxiliary_state_gradient!(
                 dg,
                 dg.balance_law,
@@ -610,6 +640,7 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
             exchange_Qhypervisc_grad = MPIStateArrays.end_ghost_exchange!(
                 Qhypervisc_grad,
                 dependencies = exchange_Qhypervisc_grad,
+                check_for_crashes = dg.check_for_crashes,
             )
         end
 
@@ -651,6 +682,7 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
             exchange_Qhypervisc_div = MPIStateArrays.end_ghost_exchange!(
                 Qhypervisc_div,
                 dependencies = exchange_Qhypervisc_div,
+                check_for_crashes = dg.check_for_crashes,
             )
         end
 
@@ -702,12 +734,18 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
                     MPIStateArrays.end_ghost_exchange!(
                         dg.state_gradient_flux;
                         dependencies = exchange_state_gradient_flux,
+                        check_for_crashes = dg.check_for_crashes,
                     )
 
                 # Update_aux_diffusive may start asynchronous work on the
                 # compute device and we synchronize those here through a device
                 # event.
-                wait(device, exchange_state_gradient_flux)
+                checked_wait(
+                    device,
+                    exchange_state_gradient_flux,
+                    nothing,
+                    dg.check_for_crashes,
+                )
                 update_auxiliary_state_gradient!(
                     dg,
                     dg.balance_law,
@@ -721,17 +759,24 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
                 exchange_Qhypervisc_grad = MPIStateArrays.end_ghost_exchange!(
                     Qhypervisc_grad;
                     dependencies = exchange_Qhypervisc_grad,
+                    check_for_crashes = dg.check_for_crashes,
                 )
             end
         else
             exchange_state_prognostic = MPIStateArrays.end_ghost_exchange!(
                 state_prognostic;
                 dependencies = exchange_state_prognostic,
+                check_for_crashes = dg.check_for_crashes,
             )
 
             # Update_aux may start asynchronous work on the compute device and
             # we synchronize those here through a device event.
-            wait(device, exchange_state_prognostic)
+            checked_wait(
+                device,
+                exchange_state_prognostic,
+                nothing,
+                dg.check_for_crashes,
+            )
             update_auxiliary_state!(
                 dg,
                 dg.balance_law,
@@ -771,7 +816,7 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
             dependencies = comp_stream,
         )
     end
-    wait(device, comp_stream)
+    checked_wait(device, comp_stream, nothing, dg.check_for_crashes)
 end
 
 function init_ode_state(
@@ -826,7 +871,7 @@ function init_ode_state(
             args...;
             ndrange = Np * nrealelem,
         )
-        wait(event) # XXX: This could be `wait(device, event)` once KA supports that.
+        wait(event)
         state_prognostic .= h_state_prognostic
         state_auxiliary .= h_state_auxiliary
     end
@@ -972,7 +1017,7 @@ function indefinite_stack_integral!(
         ndrange = (length(horzelems) * Nq[1], Nqj),
         dependencies = (event,),
     )
-    wait(device, event)
+    checked_wait(device, event, nothing, dg.check_for_crashes)
 end
 
 function reverse_indefinite_stack_integral!(
@@ -1013,7 +1058,7 @@ function reverse_indefinite_stack_integral!(
         ndrange = (length(horzelems) * Nq[1], Nqj),
         dependencies = (event,),
     )
-    wait(device, event)
+    checked_wait(device, event, nothing, dg.check_for_crashes)
 end
 
 # By default, we call update_auxiliary_state!, given
@@ -1075,7 +1120,7 @@ function update_auxiliary_state!(
             dependencies = (event,),
         )
     end
-    wait(device, event)
+    checked_wait(device, event, nothing, spacedisc.check_for_crashes)
 end
 
 """
@@ -1144,7 +1189,7 @@ function courant(
             ndrange = (nrealelem * Nq[1] * Nq[2] * Nqk),
             dependencies = (event,),
         )
-        wait(device, event)
+        checked_wait(device, event, nothing, dg.check_for_crashes)
 
         rank_courant_max = maximum(pointwise_courant)
     else
@@ -1643,11 +1688,13 @@ function launch_interface_divergence_of_gradients!(
                 CentralNumericalFluxDivergence(),
                 Qhypervisc_grad.data,
                 Qhypervisc_div.data,
+                dg.state_auxiliary.data,
                 dg.grid.vgeo,
                 dg.grid.sgeo,
                 dg.grid.vmap⁻,
                 dg.grid.vmap⁺,
                 dg.grid.elemtobndy,
+                t,
                 elems;
                 ndrange = ndrange,
                 dependencies = comp_stream,
@@ -1678,11 +1725,13 @@ function launch_interface_divergence_of_gradients!(
                 CentralNumericalFluxDivergence(),
                 Qhypervisc_grad.data,
                 Qhypervisc_div.data,
+                dg.state_auxiliary.data,
                 dg.grid.vgeo,
                 dg.grid.sgeo,
                 dg.grid.vmap⁻,
                 dg.grid.vmap⁺,
                 dg.grid.elemtobndy,
+                t,
                 elems;
                 ndrange = ndrange,
                 dependencies = comp_stream,

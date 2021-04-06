@@ -25,13 +25,14 @@ function init_risingbubble!(problem, bl, state, aux, localgeo, t)
     FT = eltype(state)
 
     (x, y, z) = localgeo.coord
+    param_set = parameter_set(bl)
 
     ## Unpack constant parameters
-    R_gas::FT = R_d(bl.param_set)
-    c_p::FT = cp_d(bl.param_set)
-    c_v::FT = cv_d(bl.param_set)
-    p0::FT = MSLP(bl.param_set)
-    _grav::FT = grav(bl.param_set)
+    R_gas::FT = R_d(param_set)
+    c_p::FT = cp_d(param_set)
+    c_v::FT = cv_d(param_set)
+    p0::FT = MSLP(param_set)
+    _grav::FT = grav(param_set)
     γ::FT = c_p / c_v
 
     ## Define bubble center and background potential temperature
@@ -45,7 +46,8 @@ function init_risingbubble!(problem, bl, state, aux, localgeo, t)
 
     ## TODO: clean this up, or add convenience function:
     ## This is configured in the reference hydrostatic state
-    θ_ref::FT = bl.ref_state.virtual_temperature_profile.T_surface
+    ref_state = reference_state(bl)
+    θ_ref::FT = ref_state.virtual_temperature_profile.T_surface
 
     ## Add the thermal perturbation:
     Δθ::FT = 0
@@ -58,19 +60,19 @@ function init_risingbubble!(problem, bl, state, aux, localgeo, t)
     ## Compute perturbed thermodynamic state:
     θ = θ_ref + Δθ                                      # potential temperature
     q_pt = PhasePartition(Δq_tot)
-    R_m = gas_constant_air(bl.param_set, q_pt)
-    _cp_m = cp_m(bl.param_set, q_pt)
-    _cv_m = cv_m(bl.param_set, q_pt)
+    R_m = gas_constant_air(param_set, q_pt)
+    _cp_m = cp_m(param_set, q_pt)
+    _cv_m = cv_m(param_set, q_pt)
     π_exner = FT(1) - _grav / (_cp_m * θ) * z           # exner pressure
     ρ = p0 / (R_gas * θ) * (π_exner)^(_cv_m / R_m)      # density
     T = θ * π_exner
 
     if bl.moisture isa EquilMoist
-        e_int = internal_energy(bl.param_set, T, q_pt)
-        ts = PhaseEquil(bl.param_set, e_int, ρ, Δq_tot)
+        e_int = internal_energy(param_set, T, q_pt)
+        ts = PhaseEquil(param_set, e_int, ρ, Δq_tot)
     else
-        e_int = internal_energy(bl.param_set, T)
-        ts = PhaseDry(bl.param_set, e_int, ρ)
+        e_int = internal_energy(param_set, T)
+        ts = PhaseDry(param_set, e_int, ρ)
     end
     ρu = SVector(FT(0), FT(0), FT(0))                   # momentum
     ## State (prognostic) variable assignment
@@ -102,7 +104,7 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax, with_moisture)
     _C_smag = FT(C_smag(param_set))
 
     if with_moisture
-        moisture = EquilMoist{FT}()
+        moisture = EquilMoist()
     else
         moisture = DryModel()
     end

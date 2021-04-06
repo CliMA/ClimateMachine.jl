@@ -17,7 +17,7 @@ struct NoTurbConvBC <: TurbConvBC end
 
 turbconv_bcs(::NoTurbConv) = (NoTurbConvBC(), NoTurbConvBC())
 
-function turbconv_boundary_state!(nf, bc_turbulence::NoTurbConvBC, bl, args...)
+function turbconv_boundary_state!(nf, bc_turbulence::NoTurbConvBC, bl, _...)
     nothing
 end
 
@@ -25,7 +25,7 @@ function turbconv_normal_boundary_flux_second_order!(
     nf,
     bc_turbulence::NoTurbConvBC,
     bl,
-    args...,
+    _...,
 )
     nothing
 end

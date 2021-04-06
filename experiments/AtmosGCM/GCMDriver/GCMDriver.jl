@@ -43,7 +43,7 @@ using ClimateMachine.VariableTemplates
 using ClimateMachine.Spectra: compute_gaussian!
 
 using ClimateMachine.BalanceLaws
-import ClimateMachine.BalanceLaws: source
+import ClimateMachine.BalanceLaws: source, prognostic_vars
 
 using CLIMAParameters
 using CLIMAParameters.Planet
@@ -66,9 +66,11 @@ include("heldsuarez_problem.jl")     # runs to equilibration
 # Initial conditions (common to all GCM experiments)
 function init_gcm_experiment!(problem, bl, state, aux, coords, t)
     FT = eltype(state)
-
+    param_set = parameter_set(bl)
     # General parameters
-    M_v::FT = molmass_ratio(bl.param_set) - 1 # constant for virtual temperature conversion - FIX: this assumes no initial liq/ice
+    # constant for virtual temperature conversion
+    # - FIX: this assumes no initial liq/ice
+    M_v::FT = molmass_ratio(param_set) - 1
 
     # Select initial perturbation
     u′, v′, w′, rand_pert =
@@ -97,12 +99,12 @@ function init_gcm_experiment!(problem, bl, state, aux, coords, t)
     phase_partition = PhasePartition(q_tot)
     T::FT = T_v / (1 + M_v * q_tot) # this needs to be adapted for ice and liq
 
-    ρ::FT = air_density(bl.param_set, T, p, phase_partition)
+    ρ::FT = air_density(param_set, T, p, phase_partition)
 
     ## potential & kinetic energy
     e_pot::FT = gravitational_potential(bl.orientation, aux)
     e_kin::FT = 0.5 * u_cart' * u_cart
-    e_tot::FT = total_energy(bl.param_set, e_kin, e_pot, T, phase_partition)
+    e_tot::FT = total_energy(param_set, e_kin, e_pot, T, phase_partition)
 
     ## Assign state variables
     state.ρ = ρ
@@ -168,7 +170,7 @@ function config_gcm_experiment(
         moisture = DryModel()
     else
         hyperdiffusion = EquilMoistBiharmonic(FT(8 * 3600))
-        moisture = EquilMoist{FT}()
+        moisture = EquilMoist()
     end
 
     # Set up the boundary conditions
@@ -193,7 +195,6 @@ function config_gcm_experiment(
         AtmosGCMConfigType,
         param_set;
         problem = problem,
-        orientation = orientation,
         ref_state = ref_state,
         turbulence = ConstantKinematicViscosity(FT(0)),
         hyperdiffusion = hyperdiffusion,

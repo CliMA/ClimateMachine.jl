@@ -51,7 +51,7 @@ function initial_condition!(
     ξn = dot(n, localgeo.coord)
     state.ρ = sin((ξn - α * t) * pi)
 end
-Dirichlet_data!(P::Pseudo1D, x...) = initial_condition!(P, x...)
+inhomogeneous_data!(::Val{0}, P::Pseudo1D, x...) = initial_condition!(P, x...)
 
 function do_output(mpicomm, vtkdir, vtkstep, dgfvm, Q, Qe, model, testname)
     ## Name of the file that this MPI rank will write
@@ -111,7 +111,8 @@ function test_run(
         DeviceArray = ArrayType,
         polynomialorder = N,
     )
-    model = AdvectionDiffusion{dim}(Pseudo1D{n, α}(), diffusion = false)
+    bcs = (InhomogeneousBC{0}(),)
+    model = AdvectionDiffusion{dim}(Pseudo1D{n, α}(), bcs, diffusion = false)
     dgfvm = DGFVModel(
         model,
         grid,
@@ -268,6 +269,7 @@ let
                     dim == 2 ? SVector{3, FT}(1 / sqrt(2), 1 / sqrt(2), 0) :
                     SVector{3, FT}(1 / sqrt(3), 1 / sqrt(3), 1 / sqrt(3))
                 α = FT(1)
+                connectivity = dim == 2 ? :face : :full
 
                 for fvmethod in (FVConstant(), FVLinear())
                     @info @sprintf """Configuration
@@ -286,12 +288,13 @@ let
                             range(FT(-1); length = N[1] * Ne + 1, stop = 1),
                         )
                         periodicity = ntuple(j -> false, dim)
-                        bc = ntuple(j -> (1, 2), dim)
+                        bc = ntuple(j -> (1, 1), dim)
                         topl = StackedBrickTopology(
                             mpicomm,
                             brickrange;
                             periodicity = periodicity,
                             boundary = bc,
+                            connectivity = connectivity,
                         )
                         dt = (α / 4) / (Ne * max(1, maximum(N))^2)
 

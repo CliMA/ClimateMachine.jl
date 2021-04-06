@@ -5,6 +5,7 @@ ClimateMachine.init(parse_clargs = true)
 using ClimateMachine.MPIStateArrays: euclidean_distance, norm
 using ClimateMachine.GenericCallbacks
 using ClimateMachine.ODESolvers
+using ClimateMachine.BalanceLaws: parameter_set
 using ClimateMachine.Mesh.Filters
 using ClimateMachine.VariableTemplates
 using ClimateMachine.Mesh.Grids: polynomialorders

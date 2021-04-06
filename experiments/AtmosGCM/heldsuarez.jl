@@ -21,8 +21,9 @@ using ClimateMachine.ConfigTypes
 using ClimateMachine.Diagnostics
 using ClimateMachine.GenericCallbacks
 using ClimateMachine.ODESolvers
-using ClimateMachine.TurbulenceClosures
+using ClimateMachine.StdDiagnostics
 using ClimateMachine.SystemSolvers: ManyColumnLU
+using ClimateMachine.TurbulenceClosures
 using ClimateMachine.Mesh.Filters
 using ClimateMachine.Mesh.Grids
 using ClimateMachine.TemperatureProfiles
@@ -31,7 +32,7 @@ using ClimateMachine.Thermodynamics:
 using ClimateMachine.VariableTemplates
 
 using ClimateMachine.BalanceLaws
-import ClimateMachine.BalanceLaws: source
+import ClimateMachine.BalanceLaws: source, prognostic_vars
 
 using LinearAlgebra
 using StaticArrays
@@ -46,8 +47,9 @@ const param_set = EarthParameterSet()
 function init_heldsuarez!(problem, bl, state, aux, localgeo, t)
     FT = eltype(state)
 
+    param_set = parameter_set(bl)
     # parameters
-    _a::FT = planet_radius(bl.param_set)
+    _a::FT = planet_radius(param_set)
 
     z_t::FT = 15e3
     λ_c::FT = π / 9
@@ -58,7 +60,7 @@ function init_heldsuarez!(problem, bl, state, aux, localgeo, t)
     # grid
     φ = latitude(bl.orientation, aux)
     λ = longitude(bl.orientation, aux)
-    z = altitude(bl.orientation, bl.param_set, aux)
+    z = altitude(bl.orientation, param_set, aux)
 
     # deterministic velocity perturbation
     F_z::FT = 1 - 3 * (z / z_t)^2 + 2 * (z / z_t)^3
@@ -102,16 +104,14 @@ function init_heldsuarez!(problem, bl, state, aux, localgeo, t)
 end
 
 """
-    HeldSuarezForcing{PV <: Union{Momentum,Energy}} <: TendencyDef{Source, PV}
+    HeldSuarezForcing <: TendencyDef{Source}
 
 Defines a forcing that parametrises radiative and frictional effects using
 Newtonian relaxation and Rayleigh friction, following Held and Suarez (1994)
 """
-struct HeldSuarezForcing{PV <: Union{Momentum, Energy}} <:
-       TendencyDef{Source, PV} end
+struct HeldSuarezForcing <: TendencyDef{Source} end
 
-HeldSuarezForcing() =
-    (HeldSuarezForcing{Momentum}(), HeldSuarezForcing{Energy}())
+prognostic_vars(::HeldSuarezForcing) = (Momentum(), Energy())
 
 function held_suarez_forcing_coefficients(bl, args)
     @unpack state, aux = args
@@ -120,12 +120,12 @@ function held_suarez_forcing_coefficients(bl, args)
 
     # Parameters
     T_ref = FT(255)
-
-    _R_d = FT(R_d(bl.param_set))
-    _day = FT(day(bl.param_set))
-    _grav = FT(grav(bl.param_set))
-    _cp_d = FT(cp_d(bl.param_set))
-    _p0 = FT(MSLP(bl.param_set))
+    param_set = parameter_set(bl)
+    _R_d = FT(R_d(param_set))
+    _day = FT(day(param_set))
+    _grav = FT(grav(param_set))
+    _cp_d = FT(cp_d(param_set))
+    _p0 = FT(MSLP(param_set))
 
     # Held-Suarez parameters
     k_a = FT(1 / (40 * _day))
@@ -154,18 +154,19 @@ function held_suarez_forcing_coefficients(bl, args)
     return (k_v = k_v, k_T = k_T, T_equil = T_equil)
 end
 
-function source(s::HeldSuarezForcing{Energy}, m, args)
+function source(::Energy, s::HeldSuarezForcing, m, args)
     @unpack state = args
     @unpack ts = args.precomputed
     nt = held_suarez_forcing_coefficients(m, args)
     FT = eltype(state)
-    _cv_d = FT(cv_d(m.param_set))
+    param_set = parameter_set(m)
+    _cv_d = FT(cv_d(param_set))
     @unpack k_T, T_equil = nt
     T = air_temperature(ts)
     return -k_T * state.ρ * _cv_d * (T - T_equil)
 end
 
-function source(s::HeldSuarezForcing{Momentum}, m, args)
+function source(::Momentum, s::HeldSuarezForcing, m, args)
     nt = held_suarez_forcing_coefficients(m, args)
     return -nt.k_v * projection_tangential(m, args.aux, args.state.ρu)
 end
@@ -195,7 +196,7 @@ function config_heldsuarez(FT, poly_order, resolution)
         turbulence = ConstantKinematicViscosity(FT(0)),
         hyperdiffusion = DryBiharmonic(FT(8 * 3600)),
         moisture = DryModel(),
-        source = (Gravity(), Coriolis(), HeldSuarezForcing()...),
+        source = (Gravity(), Coriolis(), HeldSuarezForcing()),
         tracers = tracers,
     )
 
@@ -248,7 +249,9 @@ function main()
     )
 
     # Set up diagnostics
-    dgn_config = config_diagnostics(FT, driver_config)
+    dgn_ssecs = cld(timeend, 2) + 30
+    dgn_interval = "$(dgn_ssecs)ssecs"
+    dgn_config = config_diagnostics(FT, driver_config, dgn_interval)
 
     # Set up user-defined callbacks
     filterorder = 20
@@ -273,9 +276,7 @@ function main()
     )
 end
 
-function config_diagnostics(FT, driver_config)
-    interval = "40000steps" # chosen to allow a single diagnostics collection
-
+function config_diagnostics(FT, driver_config, interval)
     _planet_radius = FT(planet_radius(param_set))
 
     info = driver_config.config_info
@@ -290,8 +291,7 @@ function config_diagnostics(FT, driver_config)
         resolution,
     )
 
-    dgngrp = setup_atmos_default_diagnostics(
-        AtmosGCMConfigType(),
+    dgngrp = StdDiagnostics.AtmosGCMDefault(
         interval,
         driver_config.name,
         interpol = interpol,

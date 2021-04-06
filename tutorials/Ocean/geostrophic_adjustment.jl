@@ -128,7 +128,8 @@ model = Ocean.HydrostaticBoussinesqSuperModel(
     coriolis = (f₀ = f, β = 0),
     boundary_tags = boundary_tags,
     boundary_conditions = boundary_conditions,
-)
+);
+nothing
 
 # !!! info "Horizontallly-periodic boundary conditions"
 #     To set horizontally-periodic boundary conditions with
@@ -220,4 +221,4 @@ animation = @animate for p in movie_plots
     )
 end
 
-gif(animation, "geostrophic_adjustment.gif", fps = 8) # hide
+gif(animation, "geostrophic_adjustment.mp4", fps = 5) # hide

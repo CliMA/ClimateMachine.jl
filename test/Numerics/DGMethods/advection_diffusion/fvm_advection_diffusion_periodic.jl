@@ -66,7 +66,7 @@ function initial_condition!(
     state.ρ = (ρ1, ρ2)
 end
 
-Dirichlet_data!(P::Pseudo1D, x...) = initial_condition!(P, x...)
+inhomogenous_data!(::Val{0}, P::Pseudo1D, x...) = initial_condition!(P, x...)
 
 
 function do_output(mpicomm, vtkdir, vtkstep, dgfvm, Q, Qe, model, testname)
@@ -137,12 +137,13 @@ function test_run(
 
     periodicity = ntuple(j -> true, dim)
     bc = ntuple(j -> (1, 2), dim)
-
+    connectivity = dim == 3 ? :full : :face
     topl = StackedBrickTopology(
         mpicomm,
         brickrange;
         periodicity = periodicity,
         boundary = bc,
+        connectivity = connectivity,
     )
 
     # One period

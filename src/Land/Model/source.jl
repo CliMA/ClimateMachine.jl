@@ -101,11 +101,12 @@ function land_source!(
 )
     FT = eltype(state)
 
-    _ρliq = FT(ρ_cloud_liq(land.param_set))
-    _ρice = FT(ρ_cloud_ice(land.param_set))
-    _Tfreeze = FT(T_freeze(land.param_set))
-    _LH_f0 = FT(LH_f0(land.param_set))
-    _g = FT(grav(land.param_set))
+    param_set = parameter_set(land)
+    _ρliq = FT(ρ_cloud_liq(param_set))
+    _ρice = FT(ρ_cloud_ice(param_set))
+    _Tfreeze = FT(T_freeze(param_set))
+    _LH_f0 = FT(LH_f0(param_set))
+    _g = FT(grav(param_set))
 
     ϑ_l, θ_i = get_water_content(land.soil.water, aux, state, t)
     eff_porosity = land.soil.param_functions.porosity - θ_i
@@ -119,8 +120,10 @@ function land_source!(
     # appropriate temperature range (T < _Tfreeze)
     ψ = -abs(_LH_f0 / _g / _Tfreeze * (T - _Tfreeze))
     hydraulics = land.soil.water.hydraulics
+    θ_r = land.soil.param_functions.θ_r
     θstar =
-        land.soil.param_functions.porosity *
+        θ_r +
+        (land.soil.param_functions.porosity - θ_r) *
         inverse_matric_potential(hydraulics, ψ)
 
     τft = max(source_type.Δt, source_type.τLTE)

@@ -24,7 +24,7 @@ function save_subdomain_temperature!(
     state::Vars,
     aux::Vars,
 )
-    N_up = n_updrafts(m.turbconv)
+    N_up = n_updrafts(turbconv_model(m))
     ts = recover_thermo_state(m, state, aux)
     ts_up = new_thermo_state_up(m, state, aux, ts)
     ts_en = new_thermo_state_en(m, state, aux, ts)

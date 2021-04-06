@@ -115,4 +115,16 @@ function interpolationmatrix(
     I
 end
 
+"""
+    jacobip(α, β, N, x)
+
+Returns a `(nx, N+1)` array containing the `N+1` Jacobi polynomials of order `N`, 
+with parameter `(α, β)`, evaluated on 1D grid `x`.
+"""
+function jacobip(α, β, N, x)
+    a, b = GaussQuadrature.jacobi_coefs(N, α, β)
+    V = GaussQuadrature.orthonormal_poly(x, a, b)
+    return V
+end
+
 end # module

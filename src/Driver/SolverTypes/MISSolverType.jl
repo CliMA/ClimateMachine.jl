@@ -1,4 +1,3 @@
-
 export MISSolverType
 
 """
@@ -117,7 +116,6 @@ function solversetup(
     t0,
     diffusion_direction,
 )
-
     # Extract fast model and define a DG model
     # for the fast processes (acoustic/gravity waves
     # in all spatial directions)
@@ -132,6 +130,7 @@ function solversetup(
         state_gradient_flux = dg.state_gradient_flux,
         states_higher_order = dg.states_higher_order,
         direction = EveryDirection(),
+        check_for_crashes = dg.check_for_crashes,
     )
 
     # Using the RemainderModel, we subtract away the
@@ -170,7 +169,6 @@ function solversetup(
     t0,
     diffusion_direction,
 )
-
     # Extract fast model and define a DG model
     # for the fast processes (acoustic/gravity waves
     # in all spatial directions)
@@ -186,6 +184,7 @@ function solversetup(
         state_gradient_flux = dg.state_gradient_flux,
         states_higher_order = dg.states_higher_order,
         direction = EveryDirection(),
+        check_for_crashes = dg.check_for_crashes,
     )
 
     # Using the RemainderModel, we subtract away the
@@ -214,6 +213,7 @@ function solversetup(
         state_gradient_flux = dg.state_gradient_flux,
         states_higher_order = dg.states_higher_order,
         direction = HorizontalDirection(),
+        check_for_crashes = dg.check_for_crashes,
     )
     fast_dg_v = DGModel(
         fast_model,
@@ -225,6 +225,7 @@ function solversetup(
         state_gradient_flux = dg.state_gradient_flux,
         states_higher_order = dg.states_higher_order,
         direction = VerticalDirection(),
+        check_for_crashes = dg.check_for_crashes,
     )
 
     fast_dg_tendencies = (fast_dg_h, fast_dg_v)

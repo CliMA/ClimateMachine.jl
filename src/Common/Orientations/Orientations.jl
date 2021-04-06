@@ -105,10 +105,11 @@ function init_aux!(
     grid,
     direction,
 )
+    param_set = parameter_set(m)
     init_state_auxiliary!(
         m,
         (m, aux, tmp, geom) ->
-            orientation_nodal_init_aux!(m.orientation, m.param_set, aux, geom),
+            orientation_nodal_init_aux!(m.orientation, param_set, aux, geom),
         state_auxiliary,
         grid,
         direction,

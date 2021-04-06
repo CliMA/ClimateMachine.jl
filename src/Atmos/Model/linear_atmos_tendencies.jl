@@ -4,37 +4,23 @@
 #####
 
 # Mass
-eq_tends(pv::PV, ::AtmosLinearModel, ::Flux{FirstOrder}) where {PV <: Mass} =
-    (Advect{PV}(),)
+eq_tends(::Mass, ::AtmosLinearModel, ::Flux{FirstOrder}) = (Advect(),)
 
 # Momentum
-eq_tends(
-    pv::PV,
-    ::AtmosLinearModel,
-    ::Flux{FirstOrder},
-) where {PV <: Momentum} = (LinearPressureGradient{PV}(),)
+eq_tends(::Momentum, ::AtmosLinearModel, ::Flux{FirstOrder}) =
+    (LinearPressureGradient(),)
 
 # Energy
-eq_tends(
-    pv::PV,
-    m::AtmosLinearModel,
-    tt::Flux{FirstOrder},
-) where {PV <: Energy} = (LinearEnergyFlux{PV}(),)
+eq_tends(::Energy, m::AtmosLinearModel, tt::Flux{FirstOrder}) =
+    (LinearEnergyFlux(),)
 
-# Moisture
+# AbstractMoistureVariable
 # TODO: Is this right?
-eq_tends(
-    pv::PV,
-    ::AtmosLinearModel,
-    ::Flux{FirstOrder},
-) where {PV <: Moisture} = ()
+eq_tends(::AbstractMoistureVariable, ::AtmosLinearModel, ::Flux{FirstOrder}) =
+    ()
 
 # Tracers
-eq_tends(
-    pv::PV,
-    ::AtmosLinearModel,
-    ::Flux{FirstOrder},
-) where {N, PV <: Tracers{N}} = ()
+eq_tends(::Tracers{N}, ::AtmosLinearModel, ::Flux{FirstOrder}) where {N} = ()
 
 #####
 ##### Second order fluxes
@@ -47,8 +33,5 @@ eq_tends(pv::PV, ::AtmosLinearModel, ::Flux{SecondOrder}) where {PV} = ()
 #####
 eq_tends(pv::PV, ::AtmosLinearModel, ::Source) where {PV} = ()
 
-eq_tends(
-    pv::PV,
-    ::AtmosAcousticGravityLinearModel,
-    ::Source,
-) where {PV <: Momentum} = (Gravity{PV}(),)
+eq_tends(pv::Momentum, ::AtmosAcousticGravityLinearModel, ::Source) =
+    (Gravity(),)

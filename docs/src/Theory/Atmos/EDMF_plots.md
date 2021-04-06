@@ -26,12 +26,15 @@ using ClimateMachine.VariableTemplates
 using ClimateMachine.Thermodynamics
 using ClimateMachine.BalanceLaws
 using ClimateMachine.TurbulenceConvection
+using CLIMAParameters: AbstractEarthParameterSet
+struct EarthParameterSet <: AbstractEarthParameterSet end
+const param_set = EarthParameterSet()
 include(joinpath(clima_dir, "test", "Atmos", "EDMF", "closures", "turbulence_functions.jl"))
 include(joinpath(clima_dir, "test", "Atmos", "EDMF", "edmf_model.jl"))
 using Plots
 FT = Float64;
 Grad_Ri = range(FT(-1), stop = 10 , length = 100);
-ml = MixingLengthModel{FT}();
+ml = MixingLengthModel{FT}(param_set);
 Pr_t = turbulent_Prandtl_number.(Ref(ml.Pr_n), Grad_Ri, Ref(ml.ω_pr))
 p1 = plot(Grad_Ri, Pr_t, xlabel=" gradient Richardson number");
 plot(p1, title="turbulent Prantl number")

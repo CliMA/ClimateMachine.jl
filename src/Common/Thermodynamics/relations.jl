@@ -47,6 +47,7 @@ export virtual_pottemp
 export exner
 export shum_to_mixing_ratio
 export mixing_ratios
+export vol_vapor_mixing_ratio
 export liquid_ice_pottemp
 export liquid_ice_pottemp_sat
 export relative_humidity
@@ -1537,7 +1538,7 @@ function saturation_adjustment_ρpq(
     q_tot::FT,
     phase_type::Type{<:PhaseEquil},
     maxiter::Int,
-    temperature_tol::FT = eps(FT),
+    temperature_tol::FT = sqrt(eps(FT)),
 ) where {FT <: Real, sat_adjust_method}
     tol = SolutionTolerance(temperature_tol)
     # Use `oftype` to preserve diagonalized type signatures:
@@ -2346,6 +2347,22 @@ Mixing ratios stored, in a phase partition, for
  - ice specific humidity
 """
 mixing_ratios(ts::ThermodynamicState) = mixing_ratios(PhasePartition(ts))
+
+"""
+    vol_vapor_mixing_ratio(param_set, q::PhasePartition)
+
+Volume mixing ratio of water vapor
+given a parameter set `param_set`
+and a phase partition, `q`.
+"""
+function vol_vapor_mixing_ratio(
+    param_set::APS,
+    q::PhasePartition{FT},
+) where {FT <: Real}
+    _molmass_ratio::FT = molmass_ratio(param_set)
+    q_vap = vapor_specific_humidity(q)
+    return _molmass_ratio * shum_to_mixing_ratio(q_vap, q.tot)
+end
 
 """
     relative_humidity(param_set, T, p, phase_type, q::PhasePartition)

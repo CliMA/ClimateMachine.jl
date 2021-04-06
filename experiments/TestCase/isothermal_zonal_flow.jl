@@ -36,14 +36,14 @@ CLIMAParameters.Planet.MSLP(::EarthParameterSet) = 1e5
 
 function init_isothermal_zonal_flow!(problem, bl, state, aux, localgeo, t)
     FT = eltype(state)
-
+    param_set = parameter_set(bl)
     φ = latitude(bl.orientation, aux)
     z = altitude(bl.orientation, param_set, aux)
 
-    _grav::FT = grav(bl.param_set)
-    _a::FT = planet_radius(bl.param_set)
-    _R_d::FT = R_d(bl.param_set)
-    _MSLP::FT = MSLP(bl.param_set)
+    _grav::FT = grav(param_set)
+    _a::FT = planet_radius(param_set)
+    _R_d::FT = R_d(param_set)
+    _MSLP::FT = MSLP(param_set)
 
     u₀ = FT(20)
     T₀ = FT(300)
@@ -69,14 +69,14 @@ function init_isothermal_zonal_flow!(problem, bl, state, aux, localgeo, t)
     exparg = fac1 - fac2 - fac3
     p = _MSLP * exp(exparg)
 
-    ρ = air_density(bl.param_set, T₀, p)
+    ρ = air_density(param_set, T₀, p)
 
     e_pot = gravitational_potential(bl.orientation, aux)
     e_kin = u_init' * u_init / 2
 
     state.ρ = ρ
     state.ρu = ρ * u_init
-    state.energy.ρe = ρ * total_energy(bl.param_set, e_kin, e_pot, T₀)
+    state.energy.ρe = ρ * total_energy(param_set, e_kin, e_pot, T₀)
 end
 
 function config_isothermal_zonal_flow(

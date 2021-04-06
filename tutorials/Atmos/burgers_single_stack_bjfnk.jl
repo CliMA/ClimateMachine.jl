@@ -1,4 +1,4 @@
-# # Single stack tutorial based on the 3D Burgers + tracer equations
+# # Single stack with HEVI solver tutorial based on the 3D Burgers + tracer equations
 
 # This tutorial implements the Burgers equations with a tracer field
 # in a single element stack. The flow is initialized with a horizontally
@@ -9,6 +9,7 @@
 #   * Initialize a [`BalanceLaw`](@ref ClimateMachine.BalanceLaws.BalanceLaw) in a single stack configuration;
 #   * Return the horizontal velocity field to a given profile (e.g., large-scale advection);
 #   * Remove any horizontal inhomogeneities or noise from the flow.
+#   * Use horizontal explicit vertical implicit (HEVI) solver in the Single stack setup
 #
 # The second and third bullet points are demonstrated imposing Rayleigh friction, horizontal
 # diffusion and 2D divergence damping to the horizontal momentum prognostic equation.
@@ -59,7 +60,7 @@
 
 # # Preliminary configuration
 
-# ## [Loading code](@id Loading-code-burgers)
+# ## [Loading code](@id Loading-code-burgers-bjfnk)
 
 # First, we'll load our pre-requisites
 #  - load external packages:
@@ -83,7 +84,7 @@ using ClimateMachine.Writers
 using ClimateMachine.DGMethods
 using ClimateMachine.DGMethods.NumericalFluxes
 using ClimateMachine.BalanceLaws:
-    BalanceLaw, Prognostic, Auxiliary, Gradient, GradientFlux
+    BalanceLaw, Prognostic, Auxiliary, Gradient, GradientFlux, parameter_set
 
 using ClimateMachine.Mesh.Geometry: LocalGeometry
 using ClimateMachine.MPIStateArrays
@@ -296,8 +297,9 @@ function compute_gradient_flux!(
     aux::Vars,
     t::Real,
 ) where {FT}
+    param_set = parameter_set(m)
     ∇ρu = ∇transform.ρu
-    ẑ = vertical_unit_vector(m.orientation, m.param_set, aux)
+    ẑ = vertical_unit_vector(m.orientation, param_set, aux)
     divergence = tr(∇ρu) - ẑ' * ∇ρu * ẑ
     diffusive.α∇ρcT = Diagonal(SVector(m.αh, m.αh, m.αv)) * ∇transform.ρcT
     diffusive.μ∇u = Diagonal(SVector(m.μh, m.μh, m.μv)) * ∇transform.u
@@ -317,7 +319,8 @@ function source!(
     aux::Vars,
     args...,
 ) where {FT}
-    ẑ = vertical_unit_vector(m.orientation, m.param_set, aux)
+    param_set = parameter_set(m)
+    ẑ = vertical_unit_vector(m.orientation, param_set, aux)
     z = aux.coord[3]
     ρ̄ū =
         state.ρ * SVector{3, FT}(
@@ -327,7 +330,7 @@ function source!(
         )
     ρu_p = state.ρu - ρ̄ū
     source.ρu -=
-        m.γ * projection_tangential(m.orientation, m.param_set, aux, ρu_p)
+        m.γ * projection_tangential(m.orientation, param_set, aux, ρu_p)
 end;
 
 # Compute advective flux.
@@ -413,6 +416,7 @@ function boundary_state!(
     m::BurgersEquation,
     state⁺::Vars,
     diff⁺::Vars,
+    hyperdiff⁺::Vars,
     aux⁺::Vars,
     n⁻,
     _...,
@@ -428,6 +432,7 @@ function boundary_state!(
     m::BurgersEquation,
     state⁺::Vars,
     diff⁺::Vars,
+    hyperdiff⁺::Vars,
     aux⁺::Vars,
     n⁻,
     _...,
@@ -448,6 +453,25 @@ nelem_vert = 10;
 # Specify the domain height
 zmax = m.zmax;
 
+# # Temporal discretization
+
+# This initializes the ODE
+# solver, the horizontal explicit vertical implicit scheme
+# with ARK2GiraldoKellyConstantinescu method.
+
+ode_solver_type = ClimateMachine.HEVISolverType(
+    FT;
+    solver_method = ARK2GiraldoKellyConstantinescu,
+    linear_max_subspace_size = Int(30),
+    linear_atol = FT(-1.0),
+    linear_rtol = FT(1e-5),
+    nonlinear_max_iterations = Int(10),
+    nonlinear_rtol = FT(1e-4),
+    nonlinear_ϵ = FT(1.e-10),
+    preconditioner_update_freq = Int(50),
+)
+
+
 # Establish a `ClimateMachine` single stack configuration
 driver_config = ClimateMachine.SingleStackConfiguration(
     "BurgersEquation",
@@ -457,6 +481,7 @@ driver_config = ClimateMachine.SingleStackConfiguration(
     param_set,
     m,
     numerical_flux_first_order = CentralNumericalFluxFirstOrder(),
+    solver_type = ode_solver_type,
 );
 
 # # Time discretization
@@ -473,57 +498,19 @@ timeend = FT(1);
 given_Fourier = FT(0.5);
 Fourier_bound = given_Fourier * Δ^2 / max(m.αh, m.μh, m.νd);
 Courant_bound = FT(0.5) * Δ;
+
+# We define the time step 50 times larger than that defined by CFL law
 dt = FT(50.0) * min(Fourier_bound, Courant_bound)
 
 # # Configure a `ClimateMachine` solver.
 
 # This initializes the state vector and allocates memory for the solution in
 # space (`dg` has the model `m`, which describes the PDEs as well as the
-# function used for initialization). This additionally initializes the ODE
-# solver, by default an explicit Low-Storage
-# [Runge-Kutta](https://en.wikipedia.org/wiki/Runge%E2%80%93Kutta_methods)
-# method.
+# function used for initialization). 
+
 
 solver_config =
     ClimateMachine.SolverConfiguration(t0, timeend, driver_config, ode_dt = dt);
-
-dg = solver_config.dg
-Q = solver_config.Q
-
-vdg = DGModel(
-    driver_config;
-    state_auxiliary = dg.state_auxiliary,
-    direction = VerticalDirection(),
-)
-
-
-
-linearsolver = BatchedGeneralizedMinimalResidual(
-    dg,
-    Q;
-    max_subspace_size = 30,
-    atol = -1.0,
-    rtol = 1e-5,
-)
-
-nonlinearsolver = JacobianFreeNewtonKrylovSolver(Q, linearsolver; tol = 1e-4)
-
-ode_solver = ARK548L2SA2KennedyCarpenter(
-    dg,
-    vdg,
-    NonLinearBackwardEulerSolver(
-        nonlinearsolver;
-        isadjustable = true,
-        preconditioner_update_freq = 1000,
-    ),
-    Q;
-    dt = dt,
-    t0 = 0,
-    split_explicit_implicit = false,
-    variant = NaiveVariant(),
-)
-
-solver_config.solver = ode_solver
 
 
 # ## Inspect the initial conditions for a single nodal stack
@@ -553,7 +540,7 @@ export_plot(
     time_data,
     state_data,
     ("ρcT",),
-    joinpath(output_dir, "initial_condition_T_nodal.png");
+    joinpath(output_dir, "initial_condition_T_nodal_bjfnk.png");
     xlabel = "ρcT at southwest node",
     ylabel = z_label,
 );
@@ -562,7 +549,7 @@ export_plot(
     time_data,
     state_data,
     ("ρu[1]",),
-    joinpath(output_dir, "initial_condition_u_nodal.png");
+    joinpath(output_dir, "initial_condition_u_nodal_bjfnk.png");
     xlabel = "ρu at southwest node",
     ylabel = z_label,
 );
@@ -571,13 +558,13 @@ export_plot(
     time_data,
     state_data,
     ("ρu[2]",),
-    joinpath(output_dir, "initial_condition_v_nodal.png");
+    joinpath(output_dir, "initial_condition_v_nodal_bjfnk.png");
     xlabel = "ρv at southwest node",
     ylabel = z_label,
 );
 
-# ![](initial_condition_T_nodal.png)
-# ![](initial_condition_u_nodal.png)
+# ![](initial_condition_T_nodal_bjfnk.png)
+# ![](initial_condition_u_nodal_bjfnk.png)
 
 # ## Inspect the initial conditions for the horizontal averages
 
@@ -603,7 +590,7 @@ export_plot(
     time_data,
     data_avg,
     ("ρu[1]",),
-    joinpath(output_dir, "initial_condition_avg_u.png");
+    joinpath(output_dir, "initial_condition_avg_u_bjfnk.png");
     xlabel = "Horizontal mean of ρu",
     ylabel = z_label,
 );
@@ -612,13 +599,13 @@ export_plot(
     time_data,
     data_var,
     ("ρu[1]",),
-    joinpath(output_dir, "initial_condition_variance_u.png");
+    joinpath(output_dir, "initial_condition_variance_u_bjfnk.png");
     xlabel = "Horizontal variance of ρu",
     ylabel = z_label,
 );
 
-# ![](initial_condition_avg_u.png)
-# ![](initial_condition_variance_u.png)
+# ![](initial_condition_avg_u_bjfnk.png)
+# ![](initial_condition_variance_u_bjfnk.png)
 
 # # Solver hooks / callbacks
 
@@ -689,7 +676,7 @@ export_plot(
     time_data,
     data_avg,
     ("ρu[1]"),
-    joinpath(output_dir, "solution_vs_time_u_avg.png");
+    joinpath(output_dir, "solution_vs_time_u_avg_bjfnk.png");
     xlabel = "Horizontal mean of ρu",
     ylabel = z_label,
 );
@@ -698,7 +685,7 @@ export_plot(
     time_data,
     data_var,
     ("ρu[1]"),
-    joinpath(output_dir, "variance_vs_time_u.png");
+    joinpath(output_dir, "variance_vs_time_u_bjfnk.png");
     xlabel = "Horizontal variance of ρu",
     ylabel = z_label,
 );
@@ -707,7 +694,7 @@ export_plot(
     time_data,
     data_avg,
     ("ρcT"),
-    joinpath(output_dir, "solution_vs_time_T_avg.png");
+    joinpath(output_dir, "solution_vs_time_T_avg_bjfnk.png");
     xlabel = "Horizontal mean of ρcT",
     ylabel = z_label,
 );
@@ -716,7 +703,7 @@ export_plot(
     time_data,
     data_var,
     ("ρcT"),
-    joinpath(output_dir, "variance_vs_time_T.png");
+    joinpath(output_dir, "variance_vs_time_T_bjfnk.png");
     xlabel = "Horizontal variance of ρcT",
     ylabel = z_label,
 );
@@ -725,15 +712,15 @@ export_plot(
     time_data,
     data_nodal,
     ("ρu[1]"),
-    joinpath(output_dir, "solution_vs_time_u_nodal.png");
+    joinpath(output_dir, "solution_vs_time_u_nodal_bjfnk.png");
     xlabel = "ρu at southwest node",
     ylabel = z_label,
 );
-# ![](solution_vs_time_u_avg.png)
-# ![](variance_vs_time_u.png)
-# ![](solution_vs_time_T_avg.png)
-# ![](variance_vs_time_T.png)
-# ![](solution_vs_time_u_nodal.png)
+# ![](solution_vs_time_u_avg_bjfnk.png)
+# ![](variance_vs_time_u_bjfnk.png)
+# ![](solution_vs_time_T_avg_bjfnk.png)
+# ![](variance_vs_time_T_bjfnk.png)
+# ![](solution_vs_time_u_nodal_bjfnk.png)
 
 # Rayleigh friction returns the horizontal velocity to the objective
 # profile on the timescale of the simulation (1 second), since `γ`∼1. The horizontal viscosity

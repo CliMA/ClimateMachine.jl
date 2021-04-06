@@ -38,7 +38,7 @@ end
 @inline linearized_pressure(atmos, state::Vars, aux::Vars) =
     linearized_pressure(
         atmos.moisture,
-        atmos.param_set,
+        parameter_set(atmos),
         atmos.orientation,
         state,
         aux,
@@ -106,8 +106,8 @@ function vars_state(lm::AtmosLinearModel, st::Prognostic, FT)
         ρ::FT
         ρu::SVector{3, FT}
         energy::vars_state(lm.atmos.energy, st, FT)
-        turbulence::vars_state(lm.atmos.turbulence, st, FT)
-        hyperdiffusion::vars_state(lm.atmos.hyperdiffusion, st, FT)
+        turbulence::vars_state(turbulence_model(lm.atmos), st, FT)
+        hyperdiffusion::vars_state(hyperdiffusion_model(lm.atmos), st, FT)
         moisture::vars_state(lm.atmos.moisture, st, FT)
     end
 end
@@ -164,7 +164,7 @@ function wavespeed(
     direction,
 )
     ref = aux.ref_state
-    return soundspeed_air(lm.atmos.param_set, ref.T)
+    return soundspeed_air(parameter_set(lm.atmos), ref.T)
 end
 
 boundary_conditions(atmoslm::AtmosLinearModel) = (AtmosBC(), AtmosBC())
@@ -173,15 +173,25 @@ function boundary_state!(
     nf::NumericalFluxFirstOrder,
     bc,
     atmoslm::AtmosLinearModel,
-    args...,
+    state⁺,
+    aux⁺,
+    n,
+    state⁻,
+    aux⁻,
+    t,
+    state_int⁻,
+    aux_int⁻,
 )
-    atmos_boundary_state!(nf, bc, atmoslm, args...)
+
+    args = (; aux⁺, state⁻, aux⁻, t, n, state_int⁻, aux_int⁻)
+
+    atmos_boundary_state!(nf, bc, atmoslm, state⁺, args)
 end
 function boundary_state!(
     nf::NumericalFluxSecondOrder,
     bc,
     atmoslm::AtmosLinearModel,
-    args...,
+    _...,
 )
     nothing
 end
@@ -203,7 +213,7 @@ init_state_prognostic!(
 struct AtmosAcousticLinearModel{M} <: AtmosLinearModel
     atmos::M
     function AtmosAcousticLinearModel(atmos::M) where {M}
-        if atmos.ref_state === NoReferenceState()
+        if reference_state(atmos) === NoReferenceState()
             error("AtmosAcousticLinearModel needs a model with a reference state")
         end
         new{M}(atmos)
@@ -236,7 +246,7 @@ end
 struct AtmosAcousticGravityLinearModel{M} <: AtmosLinearModel
     atmos::M
     function AtmosAcousticGravityLinearModel(atmos::M) where {M}
-        if atmos.ref_state === NoReferenceState()
+        if reference_state(atmos) === NoReferenceState()
             error("AtmosAcousticGravityLinearModel needs a model with a reference state")
         end
         new{M}(atmos)
@@ -296,7 +306,7 @@ function numerical_flux_first_order!(
     )
 
     atmos = balance_law.atmos
-    param_set = atmos.param_set
+    param_set = parameter_set(atmos)
 
     ρu⁻ = state_prognostic⁻.ρu
 
@@ -387,7 +397,7 @@ function numerical_flux_first_order!(
     )
 
     atmos = balance_law.atmos
-    param_set = atmos.param_set
+    param_set = parameter_set(atmos)
     FT = eltype(aux)
     ρu⁻ = state_prognostic⁻.ρu
 

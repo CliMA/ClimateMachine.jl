@@ -169,7 +169,7 @@ function run_test3(mpicomm, dim, Ne, N, FT, ArrayType)
             FloatType = FT,
             DeviceArray = ArrayType,
             polynomialorder = N,
-            meshwarp = Topologies.cubedshellwarp,
+            meshwarp = Topologies.equiangular_cubed_sphere_warp,
         )
 
         nrealelem = length(topl.realelems)
@@ -219,6 +219,7 @@ function run_test4(mpicomm, dim, Ne, N, FT, ArrayType)
         mpicomm,
         brickrange,
         periodicity = ntuple(j -> true, 2),
+        connectivity = :face,
     )
 
     grid = DiscontinuousSpectralElementGrid(
@@ -266,6 +267,7 @@ function run_test5(mpicomm, dim, Ne, N, FT, ArrayType)
         mpicomm,
         brickrange,
         periodicity = ntuple(j -> true, 2),
+        connectivity = :face,
     )
 
     grid = DiscontinuousSpectralElementGrid(

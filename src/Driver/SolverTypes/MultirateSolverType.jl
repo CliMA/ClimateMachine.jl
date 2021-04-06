@@ -1,4 +1,3 @@
-
 export MultirateSolverType
 
 """
@@ -142,7 +141,6 @@ function solversetup(
     t0,
     diffusion_direction,
 )
-
     # Extract fast model and define a DG model
     # for the fast processes (acoustic/gravity waves
     # in all spatial directions)
@@ -157,6 +155,7 @@ function solversetup(
         state_gradient_flux = dg.state_gradient_flux,
         states_higher_order = dg.states_higher_order,
         direction = EveryDirection(),
+        check_for_crashes = dg.check_for_crashes,
     )
 
     # Using the RemainderModel, we subtract away the
@@ -225,7 +224,6 @@ function solversetup(
     t0,
     diffusion_direction,
 )
-
     # Extract fast model and define a DG model
     # for the fast processes
     fast_model = ode_solver.fast_model(dg.balance_law)
@@ -241,6 +239,7 @@ function solversetup(
         state_gradient_flux = dg.state_gradient_flux,
         states_higher_order = dg.states_higher_order,
         direction = EveryDirection(),
+        check_for_crashes = dg.check_for_crashes,
     )
 
     # DG model for the vertical acoustic waves only
@@ -254,6 +253,7 @@ function solversetup(
         state_gradient_flux = dg.state_gradient_flux,
         states_higher_order = dg.states_higher_order,
         direction = VerticalDirection(),
+        check_for_crashes = dg.check_for_crashes,
     )
 
     # Compute fast time-step size from target ratio

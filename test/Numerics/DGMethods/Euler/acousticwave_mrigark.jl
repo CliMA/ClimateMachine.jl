@@ -1,7 +1,7 @@
 using ClimateMachine
 using ClimateMachine.ConfigTypes
 using ClimateMachine.Mesh.Topologies:
-    StackedCubedSphereTopology, cubedshellwarp, grid1d
+    StackedCubedSphereTopology, equiangular_cubed_sphere_warp, grid1d
 using ClimateMachine.Mesh.Grids:
     DiscontinuousSpectralElementGrid,
     VerticalDirection,
@@ -33,7 +33,8 @@ using ClimateMachine.Atmos:
     Gravity,
     HydrostaticState,
     AtmosAcousticGravityLinearModel,
-    AtmosAcousticLinearModel
+    AtmosAcousticLinearModel,
+    parameter_set
 using ClimateMachine.Orientations:
     SphericalOrientation, gravitational_potential, altitude, latitude, longitude
 using ClimateMachine.VariableTemplates: flattenednames
@@ -114,7 +115,7 @@ function test_run(
         FloatType = FT,
         DeviceArray = ArrayType,
         polynomialorder = polynomialorder,
-        meshwarp = cubedshellwarp,
+        meshwarp = equiangular_cubed_sphere_warp,
     )
     hmnd = min_node_distance(grid, HorizontalDirection())
     vmnd = min_node_distance(grid, VerticalDirection())
@@ -162,7 +163,7 @@ function test_run(
     rem_dg = remainder_DGModel(dg, (vacoustic_dg,))
 
     # determine the time step for the model components
-    acoustic_speed = soundspeed_air(fullmodel.param_set, FT(setup.T_ref))
+    acoustic_speed = soundspeed_air(param_set, FT(setup.T_ref))
     advection_speed = 1 # What's a reasonable number here?
 
     vacoustic_dt = vmnd / acoustic_speed
@@ -306,6 +307,7 @@ end
 function (setup::AcousticWaveSetup)(problem, bl, state, aux, localgeo, t)
     # callable to set initial conditions
     FT = eltype(state)
+    param_set = parameter_set(bl)
 
     λ = longitude(bl, aux)
     φ = latitude(bl, aux)
@@ -317,7 +319,7 @@ function (setup::AcousticWaveSetup)(problem, bl, state, aux, localgeo, t)
     Δp = setup.γ * f * g
     p = aux.ref_state.p + Δp
 
-    ts = PhaseDry_pT(bl.param_set, p, setup.T_ref)
+    ts = PhaseDry_pT(param_set, p, setup.T_ref)
     q_pt = PhasePartition(ts)
     e_pot = gravitational_potential(bl.orientation, aux)
     e_int = internal_energy(ts)

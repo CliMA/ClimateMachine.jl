@@ -532,15 +532,21 @@ function numerical_boundary_flux_divergence!(
     div_penalty::Vars{GL},
     normal_vector::SVector,
     grad⁻::Grad{GL},
+    state_auxiliary⁻::Vars{A},
     grad⁺::Grad{GL},
-) where {GL}
+    state_auxiliary⁺::Vars{A},
+    t,
+) where {GL, A}
     boundary_state!(
         numerical_flux,
         bctype,
         balance_law,
         grad⁺,
+        state_auxiliary⁺,
         normal_vector,
         grad⁻,
+        state_auxiliary⁻,
+        t,
     )
     numerical_flux_divergence!(
         numerical_flux,
@@ -733,10 +739,12 @@ function boundary_flux_second_order!(
         balance_law,
         state_prognostic⁺,
         state_gradient_flux⁺,
+        state_hyperdiffusive⁺,
         state_auxiliary⁺,
         normal_vector,
         state_prognostic⁻,
         state_gradient_flux⁻,
+        state_hyperdiffusive⁻,
         state_auxiliary⁻,
         t,
         state1⁻,
@@ -821,7 +829,7 @@ function numerical_boundary_flux_first_order!(
                 state_auxiliary_bottom1,
             ),
         )
-    end
+    end d -> throw(BoundsError(bcs, bctag))
 end
 
 function numerical_flux_second_order!(
@@ -918,7 +926,7 @@ function numerical_boundary_flux_second_order!(
                 state_auxiliary_bottom1,
             ),
         )
-    end
+    end d -> throw(BoundsError(bcs, bctag))
 end
 
 function numerical_boundary_flux_gradient!(
@@ -963,7 +971,7 @@ function numerical_boundary_flux_gradient!(
                 state_auxiliary_bottom1,
             ),
         )
-    end
+    end d -> throw(BoundsError(bcs, bctag))
 end
 
 end

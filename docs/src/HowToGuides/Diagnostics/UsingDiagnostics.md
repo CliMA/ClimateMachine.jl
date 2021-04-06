@@ -5,7 +5,8 @@ CurrentModule = ClimateMachine
 ```
 
 An experiment can configure ClimateMachine to output various diagnostic
-variables to NetCDF files. To do so, it must create a
+variables to NetCDF files at specifiable intervals during a simulation.
+To do so, it must create a
 [`ClimateMachine.DiagnosticsConfiguration`](@ref) which is passed to
 [`ClimateMachine.invoke!`](@ref) with the `diagnostics_config` keyword.
 
@@ -29,10 +30,20 @@ are:
 - `DumpAux` -- [`setup_dump_aux_diagnostics`](@ref)
 - `DumpTendencies` -- [`setup_dump_tendencies_diagnostics`](@ref)
 
-Each of these diagnostics groups contains a set of diagnostic variables.
-Currently, while users can define their own diagnostics groups,
-ClimateMachine does not provide any functionality to ease
-doing so. This capability is forthcoming.
+Each of these diagnostics groups contains a set of diagnostic
+variables.
+
+```@meta
+CurrentModule = ClimateMachine
+```
+
+Users can define their own diagnostics groups, and the
+[`ClimateMachine.DiagnosticsMachine`](@ref), currently in development,
+provides functionality to simplify doing so.
+
+```@meta
+CurrentModule = ClimateMachine.Diagnostics
+```
 
 Here is a code snippet adapted from the Taylor-Green vortex experiment,
 showing the creation of three diagnostics groups and their use:
@@ -92,5 +103,6 @@ interpolated grid, as specified above. Each group has a different
 interval specified, thus the number of entries in each NetCDF file
 (along the unlimited `time` dimension) will differ.
 
-When designing customized diagnostics groups, please use the above example as a template
-and refer to the [list of current diagnostics variables](@ref Diagnostics-vars). 
+When designing customized diagnostics groups, please use the above
+example as a template and refer to the [list of current diagnostics
+variables](@ref Diagnostics-vars).

@@ -91,6 +91,7 @@ import ClimateMachine.BalanceLaws:
     flux_first_order!,
     flux_second_order!,
     wavespeed,
+    parameter_set,
     boundary_conditions,
     boundary_state!,
     source!
@@ -129,6 +130,8 @@ struct KinematicModel{FT, PS, O, M, P, S, BC, IS, DC} <: BalanceLaw
     init_state_prognostic::IS
     data_config::DC
 end
+
+parameter_set(m::KinematicModel) = m.param_set
 
 function KinematicModel{FT}(
     ::Type{AtmosLESConfigType},
@@ -172,13 +175,14 @@ function nodal_init_state_auxiliary!(
     FT = eltype(aux)
     x, y, z = geom.coord
     dc = m.data_config
+    param_set = parameter_set(m)
 
-    _R_d::FT = R_d(m.param_set)
-    _cp_d::FT = cp_d(m.param_set)
-    _grav::FT = grav(m.param_set)
+    _R_d::FT = R_d(param_set)
+    _cp_d::FT = cp_d(param_set)
+    _grav::FT = grav(param_set)
 
     # TODO - should R_d and cp_d here be R_m and cp_m?
-    R_m, cp_m, cv_m, γ = gas_constants(m.param_set, PhasePartition(dc.qt_0))
+    R_m, cp_m, cv_m, γ = gas_constants(param_set, PhasePartition(dc.qt_0))
 
     # Pressure profile assuming hydrostatic and constant θ and qt profiles.
     # It is done this way to be consistent with Arabas paper.

@@ -4,20 +4,13 @@ export show_tendencies
 
 using PrettyTables
 
-first_param(t::TendencyDef{TT, PV}) where {TT, PV} = PV
+format_tend(tend_type) = "$(nameof(typeof(tend_type)))"
 
-function format_tend(tend_type, include_params)
-    t = "$(nameof(typeof(tend_type)))"
-    return include_params ? t * "{$(first_param(tend_type))}" : t
-end
-
-format_tends(tend_types, include_params) =
-    "(" * join(format_tend.(tend_types, include_params), ", ") * ")"
+format_tends(tend_types) = "(" * join(format_tend.(tend_types), ", ") * ")"
 
 """
     show_tendencies(
         bl;
-        include_params = false,
         include_module = false,
         table_complete = false,
     )
@@ -26,8 +19,6 @@ Show a table of the tendencies for each
 prognostic variable for the given balance law.
 
 ## Arguments
- - `include_params[ = true]` will include the type parameters for each of
-   the tendency fluxes and sources.
  - `include_module[ = false]` will print not remove the module where each
    prognostic variable is defined (e.g., `Atmos.Mass`).
  - `table_complete[ = false]` will print a warning (if false) that the
@@ -38,13 +29,7 @@ Requires definitions for
  - [`eq_tends`](@ref)
 for the balance law.
 """
-function show_tendencies(
-    bl;
-    include_params = false,
-    include_module = false,
-    table_complete = false,
-)
-    ip = include_params
+function show_tendencies(bl; include_module = false, table_complete = false)
     prog_vars = prognostic_vars(bl)
     if !isempty(prog_vars)
         header = [
@@ -57,7 +42,7 @@ function show_tendencies(
             eqs = collect(last.(split.(string.(typeof.(prog_vars)), ".")))
         end
         fmt_tends(tt) = map(prog_vars) do pv
-            format_tends(eq_tends(pv, bl, tt), ip)
+            format_tends(eq_tends(pv, bl, tt))
         end |> collect
         F1 = fmt_tends(Flux{FirstOrder}())
         F2 = fmt_tends(Flux{SecondOrder}())

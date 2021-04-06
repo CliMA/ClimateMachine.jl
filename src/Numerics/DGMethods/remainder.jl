@@ -105,6 +105,7 @@ function remainder_DGModel(
     modeldata = maindg.modeldata,
     gradient_filter = maindg.gradient_filter,
     tendency_filter = maindg.tendency_filter,
+    check_for_crashes = maindg.check_for_crashes,
 ) where {NumModels}
     FT = eltype(state_auxiliary)
 
@@ -160,6 +161,7 @@ function remainder_DGModel(
         modeldata,
         gradient_filter,
         tendency_filter,
+        check_for_crashes,
     )
 end
 

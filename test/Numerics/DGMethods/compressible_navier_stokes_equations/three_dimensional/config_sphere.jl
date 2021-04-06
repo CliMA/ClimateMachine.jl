@@ -9,15 +9,10 @@ function Config(
     numerical_flux_first_order = RoeNumericalFlux(),
     Nover = 0,
     boundary = (1, 1),
-    boundary_conditons = (ClimateMachine.Ocean.OceanBC(
-        Impenetrable(FreeSlip()),
-        Insulating(),
-    ),),
+    boundary_conditons = (FluidBC(Impenetrable(FreeSlip()), Insulating()),),
 )
     mpicomm = MPI.COMM_WORLD
     ArrayType = ClimateMachine.array_type()
-
-
 
     println(string(resolution.Nᶻ) * " elems in the vertical")
 
@@ -43,17 +38,15 @@ function Config(
         FloatType = FT,
         DeviceArray = ArrayType,
         polynomialorder = resolution.N + Nover,
-        meshwarp = cubedshellwarp,
+        meshwarp = equiangular_cubed_sphere_warp,
     )
 
-    model = ThreeDimensionalCompressibleNavierStokes.CNSE3D{FT}(
+    model = CNSE3D{FT}(
+        nothing,
         (domain.min_height, domain.max_height),
-        ClimateMachine.Ocean.NonLinearAdvectionTerm(),
-        ThreeDimensionalCompressibleNavierStokes.ConstantViscosity{FT}(
-            μ = params.μ,
-            ν = params.ν,
-            κ = params.κ,
-        ),
+        ClimateMachine.Orientations.SphericalOrientation(),
+        NonLinearAdvectionTerm(),
+        ConstantViscosity{FT}(μ = params.μ, ν = params.ν, κ = params.κ),
         nothing,
         nothing,
         boundary_conditons;
@@ -72,13 +65,7 @@ function Config(
     return Config(name, dg, Nover, mpicomm, ArrayType)
 end
 
-import ClimateMachine.Ocean: ocean_init_aux!
-
-function ocean_init_aux!(
-    ::ThreeDimensionalCompressibleNavierStokes.CNSE3D,
-    aux,
-    geom,
-)
+function cnse_init_aux!(::CNSE3D, aux, geom)
     @inbounds begin
         aux.x = geom.coord[1]
         aux.y = geom.coord[2]

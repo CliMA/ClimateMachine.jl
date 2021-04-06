@@ -15,27 +15,34 @@
 #  - `T₂` - the second order flux divergence (column vector)
 #  - `S` - the non-conservative source (column vector)
 
-export PrognosticVariable,
-    AbstractMomentum, AbstractEnergy, Moisture, Precipitation, AbstractTracers
+using DispatchedTuples
+
+export AbstractPrognosticVariable,
+    AbstractMomentumVariable,
+    AbstractEnergyVariable,
+    AbstractMoistureVariable,
+    AbstractPrecipitationVariable,
+    AbstractTracersVariable
 
 export FirstOrder, SecondOrder
 export AbstractTendencyType, Flux, Source
 export TendencyDef
-export eq_tends, prognostic_vars, fluxes, sources
+export prognostic_var_source_map
+export eq_tends, prognostic_vars
 
 """
-    PrognosticVariable
+    AbstractPrognosticVariable
 
 Subtypes are used for specifying
 each prognostic variable.
 """
-abstract type PrognosticVariable end
+abstract type AbstractPrognosticVariable end
 
-abstract type AbstractMomentum <: PrognosticVariable end
-abstract type AbstractEnergy <: PrognosticVariable end
-abstract type Moisture <: PrognosticVariable end
-abstract type Precipitation <: PrognosticVariable end
-abstract type AbstractTracers{N} <: PrognosticVariable end
+abstract type AbstractMomentumVariable <: AbstractPrognosticVariable end
+abstract type AbstractEnergyVariable <: AbstractPrognosticVariable end
+abstract type AbstractMoistureVariable <: AbstractPrognosticVariable end
+abstract type AbstractPrecipitationVariable <: AbstractPrognosticVariable end
+abstract type AbstractTracersVariable{N} <: AbstractPrognosticVariable end
 
 
 """
@@ -90,13 +97,13 @@ struct Source <: AbstractTendencyType end
 Subtypes are used for specifying
 each tendency definition.
 """
-abstract type TendencyDef{TT <: AbstractTendencyType, PV <: PrognosticVariable} end
+abstract type TendencyDef{TT <: AbstractTendencyType} end
 
 """
-    eq_tends(::PrognosticVariable, ::BalanceLaw, ::AbstractTendencyType)
+    eq_tends(::AbstractPrognosticVariable, ::BalanceLaw, ::AbstractTendencyType)
 
 A tuple of `TendencyDef`s given
- - `PrognosticVariable` prognostic variable
+ - `AbstractPrognosticVariable` prognostic variable
  - `AbstractTendencyType` tendency type
  - `BalanceLaw` balance law
 
@@ -111,10 +118,10 @@ function eq_tends end
 """
     prognostic_vars(::BalanceLaw)
 
-A tuple of `PrognosticVariable`s given
+A tuple of `AbstractPrognosticVariable`s given
 the `BalanceLaw`.
 
-i.e., a tuple of `PrognosticVariable`s
+i.e., a tuple of `AbstractPrognosticVariable`s
 corresponding to the column-vector `Yᵢ` in:
 
     `∂_t Yᵢ + (∇•F₁(Y))ᵢ + (∇•F₂(Y,G)))ᵢ = (S(Y,G))ᵢ`
@@ -127,10 +134,10 @@ prognostic_vars(::BalanceLaw) = ()
 Provide a hook to project individual tendencies.
 Return identity by defualt
 """
-projection(bl, ::TendencyDef{TT, PV}, args, x) where {TT, PV} = x
+projection(pv::PV, bl, ::TendencyDef{TT}, args, x) where {TT, PV} = x
 
 """
-    var, name = get_prog_state(state::Union{Vars, Grad}, pv::PrognosticVariable)
+    var, name = get_prog_state(state::Union{Vars, Grad}, pv::AbstractPrognosticVariable)
 
 Returns a tuple of two elements. `var` is a `Vars` or `Grad`
 object, and `name` is a Symbol. They should be linked such that
@@ -140,47 +147,12 @@ variable type `pv`.
 # Example
 
 ```julia
-get_prog_state(state, ::Moisture) = (state.moisture, :ρq_tot)
-var, name = get_prog_state(state, Moisture())
+get_prog_state(state, ::TotalMoisture) = (state.moisture, :ρq_tot)
+var, name = get_prog_state(state, TotalMoisture())
 @test getproperty(var, name) == state.moisture.ρq_tot
 ```
 """
 function get_prog_state end
-
-"""
-    sources(bl::BalanceLaw)
-
-A tuple of `TendencyDef{Source}`s
-given the `BalanceLaw`.
-
-i.e., a tuple of `TendencyDef{Source}`s
-corresponding to the column-vector `S` in:
-
-    `∂_t Yᵢ + (∇•F₁(Y))ᵢ + (∇•F₂(Y,G)))ᵢ = (S(Y,G))ᵢ`
-"""
-function sources(bl::BalanceLaw)
-    tend = eq_tends.(prognostic_vars(bl), Ref(bl), Ref(Source()))
-    tend = filter(x -> x ≠ nothing, tend)
-    return Tuple(Iterators.flatten(tend))
-end
-
-"""
-    fluxes(bl::BalanceLaw, order::O) where {O <: AbstractOrder}
-
-A tuple of `TendencyDef{Flux{O}}`s
-given the `BalanceLaw` and the `order::O`.
-
-i.e., a tuple of `TendencyDef{Flux{O}}`s
-corresponding to the column-vector `F₁`
-or `F₂` given the flux order `order::O` in:
-
-    `∂_t Yᵢ + (∇•F₁(Y))ᵢ + (∇•F₂(Y,G)))ᵢ = (S(Y,G))ᵢ`
-"""
-function fluxes(bl::BalanceLaw, order::O) where {O <: AbstractOrder}
-    tend = eq_tends.(prognostic_vars(bl), Ref(bl), Ref(Flux{O}()))
-    tend = filter(x -> x ≠ nothing, tend)
-    return Tuple(Iterators.flatten(tend))
-end
 
 """
     precompute(bl, args, ::AbstractTendencyType)
@@ -192,3 +164,31 @@ tendency terms. For example, computing a quantity
 that requires iteration.
 """
 precompute(bl, args, ::AbstractTendencyType) = NamedTuple()
+
+"""
+    prognostic_var_source_map(driver_sources::Tuple)
+
+A DispatchedTuple, given a Tuple
+of the driver/experiment sources.
+
+!!! note
+    `prognostic_vars`, which returns a Tuple
+    of prognostic variable types, must be
+    defined for boundary condition types.
+"""
+function prognostic_var_source_map(driver_sources::Tuple)
+    tup = map(driver_sources) do t
+        map(prognostic_vars(t)) do pv
+            (pv, t)
+        end
+    end
+    tup = tuple_of_tuples(tup)
+    return DispatchedTuple(tup)
+end
+
+# Flatten "tuple of tuple of tuples" to "tuple of tuples"
+tuple_of_tuples(a::Tuple{AbstractPrognosticVariable, T}) where {T} = (a,)
+tuple_of_tuples(a, b...) =
+    tuple(tuple_of_tuples(a)..., tuple_of_tuples(b...)...)
+tuple_of_tuples(a::Tuple) = tuple_of_tuples(a...)
+tuple_of_tuples(a::Tuple{}) = a

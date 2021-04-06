@@ -139,11 +139,13 @@ function test_run(
             stop = setup.domain_halflength,
         )
     end
+    connectivity = dims == 3 ? :full : :face
 
     topology = StackedBrickTopology(
         mpicomm,
         brickrange;
         periodicity = ntuple(_ -> true, dims),
+        connectivity = connectivity,
     )
 
     grid = DiscontinuousSpectralElementGrid(
@@ -180,9 +182,7 @@ function test_run(
 
     # Determine the time step
     elementsize = minimum(step.(brickrange))
-    dt =
-        elementsize / soundspeed_air(model.param_set, setup.T∞) /
-        polynomialorder^2
+    dt = elementsize / soundspeed_air(param_set, setup.T∞) / polynomialorder^2
     nsteps = ceil(Int, timeend / dt)
     dt = timeend / nsteps
 

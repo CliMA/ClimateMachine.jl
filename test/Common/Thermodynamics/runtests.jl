@@ -446,6 +446,10 @@ end
     @test mrs.tot == q_tot / (1 - q_tot)
     @test mrs.liq == q_liq / (1 - q_tot)
     @test mrs.ice == q_ice / (1 - q_tot)
+
+    vmrs = vol_vapor_mixing_ratio(param_set, q)
+    q_vap = vapor_specific_humidity(q)
+    @test vmrs ≈ _molmass_ratio * shum_to_mixing_ratio(q_vap, q.tot)
 end
 
 
@@ -989,7 +993,7 @@ end
         # p, ρ, q_pt_rec; test that this is equal to T_rec
         T_local =
             TD.air_temperature_from_ideal_gas_law.(param_set, p, ρ, q_pt_rec)
-        @test all(isapprox.(T_local, T_rec, atol = sqrt(eps(FT))))
+        @test all(isapprox.(T_local, T_rec, atol = 2sqrt(eps(FT))))
     end
 
 end

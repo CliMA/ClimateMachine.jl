@@ -56,8 +56,9 @@ function initial_condition!(
     # ξT = SVector(localgeo.coord) - ξn * n
     state.ρ = exp(-(ξn - μ - α * t)^2 / (4 * β * (δ + t))) / sqrt(1 + t / δ)
 end
-Dirichlet_data!(P::Pseudo1D, x...) = initial_condition!(P, x...)
-function Neumann_data!(
+inhomogeneous_data!(::Val{0}, P::Pseudo1D, x...) = initial_condition!(P, x...)
+function inhomogeneous_data!(
+    ::Val{1},
     ::Pseudo1D{n, α, β, μ, δ},
     ∇state,
     aux,
@@ -135,7 +136,17 @@ function test_run(
         DeviceArray = ArrayType,
         polynomialorder = N,
     )
-    model = AdvectionDiffusion{dim}(Pseudo1D{n, α, β, μ, δ}(), flux_bc = fluxBC)
+    bcs = (
+        InhomogeneousBC{0}(),
+        InhomogeneousBC{1}(),
+        HomogeneousBC{0}(),
+        HomogeneousBC{1}(),
+    )
+    model = AdvectionDiffusion{dim}(
+        Pseudo1D{n, α, β, μ, δ}(),
+        bcs,
+        flux_bc = fluxBC,
+    )
     dg = DGModel(
         model,
         grid,
@@ -307,7 +318,7 @@ let
                     β = FT(1 // 100)
                     μ = FT(-1 // 2)
                     δ = FT(1 // 10)
-
+                    connectivity = dim == 2 ? :face : :full
                     linearsolvertype = "Batched GMRES"
                     for l in 1:numlevels
                         Ne = 2^(l - 1) * base_num_elem
@@ -328,6 +339,7 @@ let
                                 ntuple(j -> (1, 2), dim - 1)...,
                                 (3, 4),
                             ),
+                            connectivity = connectivity,
                         )
                         dt = (α / 4) / (Ne * polynomialorder^2)
 

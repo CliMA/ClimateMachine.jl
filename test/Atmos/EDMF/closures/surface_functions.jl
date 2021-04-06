@@ -4,8 +4,6 @@ using Statistics
 
 """
     subdomain_surface_values(
-        surf::SurfaceModel,
-        turbconv::EDMF{FT},
         atmos::AtmosModel{FT},
         state::Vars,
         aux::Vars,
@@ -17,13 +15,22 @@ liquid water potential temperature (`θ_liq`), updraft total
 water specific humidity (`q_tot`), environmental variances of
 `θ_liq` and `q_tot`, environmental covariance of `θ_liq` with
 `q_tot`, and environmental TKE, given:
- - `surf`, a `SurfaceModel`
- - `turbconv`, an `EDMF` model
+
  - `atmos`, an `AtmosModel`
  - `state`, state variables
  - `aux`, auxiliary variables
  - `zLL`, height of the lowest nodal level
 """
+function subdomain_surface_values(
+    atmos::AtmosModel,
+    state::Vars,
+    aux::Vars,
+    zLL,
+)
+    turbconv = turbconv_model(atmos)
+    subdomain_surface_values(turbconv.surface, turbconv, atmos, state, aux, zLL)
+end
+
 function subdomain_surface_values(
     surf::SurfaceModel,
     turbconv::EDMF{FT},
@@ -33,7 +40,6 @@ function subdomain_surface_values(
     zLL::FT,
 ) where {FT}
 
-    turbconv = atmos.turbconv
     N_up = n_updrafts(turbconv)
     gm = state
     # TODO: change to new_thermo_state
@@ -43,7 +49,7 @@ function subdomain_surface_values(
     lv = latent_heat_vapor(ts)
     Π = exner(ts)
     ρ_inv = 1 / gm.ρ
-    surface_scalar_coeff = turbconv.surface.scalar_coeff
+    upd_surface_std = turbconv.surface.upd_surface_std
 
     θ_liq_surface_flux = surf.shf / Π / _cp_m
     q_tot_surface_flux = surf.lhf / lv
@@ -51,7 +57,7 @@ function subdomain_surface_values(
     oblength = turbconv.surface.obukhov_length
     ustar = turbconv.surface.ustar
 
-    unstable = oblength < 0
+    unstable = oblength < -eps(FT)
     fact = unstable ? (1 - surf.ψϕ_stab * zLL / oblength)^(-FT(2 // 3)) : 1
     tke_fact = unstable ? cbrt(zLL / oblength * zLL / oblength) : 0
     ustar² = ustar^2
@@ -66,23 +72,54 @@ function subdomain_surface_values(
     ts_new = new_thermo_state(atmos, state, aux)
     θ_liq = liquid_ice_pottemp(ts_new)
 
-    upd_θ_liq_surf = ntuple(N_up) do i
-        θ_liq + surface_scalar_coeff[i] * sqrt(max(θ_liq_cv, 0))
+    θ_liq_up_surf = ntuple(N_up) do i
+        θ_liq + upd_surface_std[i] * sqrt(max(θ_liq_cv, 0))
     end
 
     ρq_tot = atmos.moisture isa DryModel ? FT(0) : gm.moisture.ρq_tot
     q_tot_up_surf = ntuple(N_up) do i
-        ρq_tot * ρ_inv + surface_scalar_coeff[i] * sqrt(max(q_tot_cv, 0))
+        ρq_tot * ρ_inv + upd_surface_std[i] * sqrt(max(q_tot_cv, 0))
     end
 
-    return (
-        a_up_surf = a_up_surf,
-        upd_θ_liq_surf = upd_θ_liq_surf,
-        q_tot_up_surf = q_tot_up_surf,
-        θ_liq_cv = θ_liq_cv,
-        q_tot_cv = q_tot_cv,
-        θ_liq_q_tot_cv = θ_liq_q_tot_cv,
-        tke = tke,
+    return (;
+        a_up_surf,
+        θ_liq_up_surf,
+        q_tot_up_surf,
+        θ_liq_cv,
+        q_tot_cv,
+        θ_liq_q_tot_cv,
+        tke,
+    )
+end;
+
+function subdomain_surface_values(
+    surf::NeutralDrySurfaceModel,
+    turbconv::EDMF{FT},
+    atmos::AtmosModel{FT},
+    state::Vars,
+    aux::Vars,
+    zLL::FT,
+) where {FT}
+
+    N_up = n_updrafts(turbconv)
+    θ_liq_cv = FT(0)
+    q_tot_cv = FT(0)
+    θ_liq_q_tot_cv = FT(0)
+    tke = surf.κ_star² * surf.ustar * surf.ustar
+
+    ts_new = new_thermo_state(atmos, state, aux)
+    a_up_surf = ntuple(i -> FT(surf.a / N_up), N_up)
+    q_tot_up_surf = ntuple(i -> FT(0), N_up)
+    θ_liq_up_surf = ntuple(i -> liquid_ice_pottemp(ts_new), N_up)
+
+    return (;
+        a_up_surf,
+        θ_liq_up_surf,
+        q_tot_up_surf,
+        θ_liq_cv,
+        q_tot_cv,
+        θ_liq_q_tot_cv,
+        tke,
     )
 end;
 

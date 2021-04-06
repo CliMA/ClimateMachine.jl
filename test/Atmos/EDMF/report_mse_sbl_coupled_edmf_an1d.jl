@@ -13,14 +13,14 @@ data_file = Dataset(joinpath(PyCLES_output_dataset_path, "Gabls.nc"), "r")
 
 #! format: off
 best_mse = OrderedDict()
-best_mse["prog_ρ"] = 6.9637575838887369e-03
-best_mse["prog_ρu_1"] = 6.2604203232863292e+03
-best_mse["prog_ρu_2"] = 1.3200376252941846e-04
-best_mse["prog_turbconv_environment_ρatke"] = 2.3729827149654821e+02
-best_mse["prog_turbconv_environment_ρaθ_liq_cv"] = 8.7727378291873919e+01
-best_mse["prog_turbconv_updraft_1_ρa"] = 1.7947149151486141e+01
-best_mse["prog_turbconv_updraft_1_ρaw"] = 1.7799688543526015e-01
-best_mse["prog_turbconv_updraft_1_ρaθ_liq"] = 1.3315385576514325e+01
+best_mse["prog_ρ"] = 9.3808122133551899e-03
+best_mse["prog_ρu_1"] = 6.7648718002912910e+03
+best_mse["prog_ρu_2"] = 8.9568591962189448e-01
+best_mse["prog_turbconv_environment_ρatke"] = 3.9877808420252154e+02
+best_mse["prog_turbconv_environment_ρaθ_liq_cv"] = 8.1270320241616531e+01
+best_mse["prog_turbconv_updraft_1_ρa"] = 2.7223017351724246e+02
+best_mse["prog_turbconv_updraft_1_ρaw"] = 5.5909371368198686e+02
+best_mse["prog_turbconv_updraft_1_ρaθ_liq"] = 2.7933498788454813e+02
 #! format: on
 
 computed_mse = compute_mse(
@@ -31,11 +31,11 @@ computed_mse = compute_mse(
     data_file,
     "Gabls",
     best_mse,
-    60,
+    1800,
     plot_dir,
 )
 
-@testset "SBL EDMF Solution Quality Assurance (QA) tests" begin
+@testset "SBL Coupled EDMF Solution Quality Assurance (QA) tests" begin
     #! format: off
     test_mse(computed_mse, best_mse, "prog_ρ")
     test_mse(computed_mse, best_mse, "prog_ρu_1")

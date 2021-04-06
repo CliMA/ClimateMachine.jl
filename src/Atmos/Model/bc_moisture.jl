@@ -10,13 +10,13 @@ function atmos_moisture_boundary_state!(
     nf,
     bc_moisture::Impermeable,
     atmos,
-    args...,
+    _...,
 ) end
 function atmos_moisture_normal_boundary_flux_second_order!(
     nf,
     bc_moisture::Impermeable,
     atmos,
-    args...,
+    _...,
 ) end
 
 
@@ -33,25 +33,16 @@ function atmos_moisture_boundary_state!(
     nf,
     bc_moisture::PrescribedMoistureFlux,
     atmos,
-    args...,
+    _...,
 ) end
 function atmos_moisture_normal_boundary_flux_second_order!(
     nf,
     bc_moisture::PrescribedMoistureFlux,
     atmos,
     fluxᵀn,
-    n⁻,
-    state⁻,
-    diffusive⁻,
-    hyperdiffusive⁻,
-    aux⁻,
-    state⁺,
-    diffusive⁺,
-    hyperdiffusive⁺,
-    aux⁺,
-    t,
-    args...,
+    args,
 )
+    @unpack state⁻, aux⁻, t = args
 
     nρd_q_tot = -bc_moisture.fn(state⁻, aux⁻, t)
     fluxᵀn.ρ += nρd_q_tot
@@ -78,27 +69,16 @@ function atmos_moisture_boundary_state!(
     nf,
     bc_moisture::BulkFormulaMoisture,
     atmos,
-    args...,
+    _...,
 ) end
 function atmos_moisture_normal_boundary_flux_second_order!(
     nf,
     bc_moisture::BulkFormulaMoisture,
     atmos,
     fluxᵀn,
-    n⁻,
-    state⁻,
-    diffusive⁻,
-    hyperdiffusive⁻,
-    aux⁻,
-    state⁺,
-    diffusive⁺,
-    hyperdiffusive⁺,
-    aux⁺,
-    t,
-    state_int⁻,
-    diffusive_int⁻,
-    aux_int⁻,
+    args,
 )
+    @unpack state⁻, aux⁻, t, aux_int⁻, state_int⁻ = args
 
     u_int⁻ = state_int⁻.ρu / state_int⁻.ρ
     u_int⁻_tan = projection_tangential(atmos, aux_int⁻, u_int⁻)

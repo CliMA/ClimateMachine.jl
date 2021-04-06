@@ -14,6 +14,8 @@ using ..VariableTemplates:
 
 using Base.Broadcast: Broadcasted, BroadcastStyle, ArrayStyle
 
+struct ErrorOnRemoteNode <: Exception end
+
 # This is so we can do things like
 #   similar(Array{Float64}, Int, 3, 4)
 Base.similar(::Type{A}, ::Type{FT}, dims...) where {A <: Array, FT} =
@@ -29,7 +31,13 @@ cpuify(x::AbstractArray) = convert(Array, x)
 cpuify(x::Real) = x
 
 export MPIStateArray,
-    euclidean_distance, weightedsum, array_device, vars, show_not_finite_fields
+    euclidean_distance,
+    weightedsum,
+    array_device,
+    vars,
+    show_not_finite_fields,
+    ErrorOnRemoteNode,
+    checked_wait
 
 """
     MPIStateArray{FT, DATN<:AbstractArray{FT,3}, DAI1, DAV,
@@ -440,13 +448,17 @@ This function blocks on the host until the ghost halo is received from MPI.  A
 KernelAbstractions `Event` is returned that can be waited on to indicate when
 the data is ready on the device.
 """
-function end_ghost_exchange!(Q::MPIStateArray; dependencies = nothing)
+function end_ghost_exchange!(
+    Q::MPIStateArray;
+    dependencies = nothing,
+    check_for_crashes = false,
+)
     if any(r -> r == MPI.REQUEST_NULL, Q.recvreq)
         error("A ghost exchange must begin before it ends.")
     end
 
     progress = () -> iprobe_and_yield(Q.mpicomm)
-    wait(CPU(), MultiEvent(dependencies), progress)
+    checked_wait(CPU(), MultiEvent(dependencies), progress, check_for_crashes)
 
     __Isend!(Q)
 
@@ -886,6 +898,40 @@ function show_not_finite_fields(Q::MPIStateArray)
         @warn "Field(s) ($(join(not_finite_fields, ", ", ", and "))) are not finite (has NaNs or Inf)"
         flush(stdout)
     end
+end
+
+"""
+    checked_wait(device, event, progress = nothing, check = false)
+
+If `check` is `false`, simply perform a `wait(device, event, progress)`,
+otherwise, check for exceptions and synchronize with all other ranks, so
+that all throw an exception.
+"""
+function checked_wait(device::CPU, event, progress = nothing, check = false)
+    err = false
+    try
+        wait(device, event, progress)
+        if check
+            err = MPI.Allreduce(false, MPI.MAX, MPI.COMM_WORLD)
+        end
+    catch exc
+        if check
+            err = MPI.Allreduce(true, MPI.MAX, MPI.COMM_WORLD)
+        end
+        rethrow()
+    finally
+        if check && err
+            throw(ErrorOnRemoteNode())
+        end
+    end
+end
+function checked_wait(
+    device::CUDADevice,
+    event,
+    progress = nothing,
+    check = false,
+)
+    wait(device, event, progress)
 end
 
 end

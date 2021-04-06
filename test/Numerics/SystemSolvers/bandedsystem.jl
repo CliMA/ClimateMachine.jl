@@ -73,6 +73,7 @@ let
     @testset "$(@__FILE__) DGModel matrix" begin
         for FT in (Float64, Float32)
             for dim in (2, 3)
+                connectivity = dim == 3 ? :full : :face
                 for single_column in (false, true)
                     # Setup the topology
                     if dim == 2
@@ -87,7 +88,11 @@ let
                             range(FT(1); length = Nev + 1, stop = 2),
                         )
                     end
-                    topl = StackedBrickTopology(mpicomm, brickrange)
+                    topl = StackedBrickTopology(
+                        mpicomm,
+                        brickrange,
+                        connectivity = connectivity,
+                    )
 
                     # Warp mesh
                     function warpfun(ξ1, ξ2, ξ3)
@@ -113,7 +118,9 @@ let
                     β = FT(1 // 100)
                     μ = FT(-1 // 2)
                     δ = FT(1 // 10)
-                    model = AdvectionDiffusion{dim}(Pseudo1D{n, α, β, μ, δ}())
+                    bcs = (HomogeneousBC{0}(),)
+                    model =
+                        AdvectionDiffusion{dim}(Pseudo1D{n, α, β, μ, δ}(), bcs)
 
                     for (N, fvmethod) in (
                         ((4, 4), nothing),

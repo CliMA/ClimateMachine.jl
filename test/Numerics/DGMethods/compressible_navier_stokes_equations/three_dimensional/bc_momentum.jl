@@ -1,9 +1,9 @@
 """
-    ocean_boundary_state!(::NumericalFluxFirstOrder, ::Impenetrable{FreeSlip}, ::CNSE3D)
+    cnse_boundary_state!(::NumericalFluxFirstOrder, ::Impenetrable{FreeSlip}, ::CNSE3D)
 apply free slip boundary condition for velocity
 sets reflective ghost point
 """
-@inline function ocean_boundary_state!(
+@inline function cnse_boundary_state!(
     ::NumericalFluxFirstOrder,
     ::Impenetrable{FreeSlip},
     ::CNSE3D,
@@ -25,11 +25,11 @@ sets reflective ghost point
 end
 
 """
-    ocean_boundary_state!(::NumericalFluxGradient, ::Impenetrable{FreeSlip}, ::CNSE3D)
+    cnse_boundary_state!(::NumericalFluxGradient, ::Impenetrable{FreeSlip}, ::CNSE3D)
 apply free slip boundary condition for velocity
 sets non-reflective ghost point
 """
-function ocean_boundary_state!(
+function cnse_boundary_state!(
     ::NumericalFluxGradient,
     ::Impenetrable{FreeSlip},
     ::CNSE3D,
@@ -55,7 +55,7 @@ end
 apply free slip boundary condition for velocity
 apply zero numerical flux in the normal direction
 """
-function ocean_boundary_state!(
+function cnse_boundary_state!(
     ::NumericalFluxSecondOrder,
     ::Impenetrable{FreeSlip},
     ::CNSE3D,
@@ -77,11 +77,11 @@ function ocean_boundary_state!(
 end
 
 """
-    ocean_boundary_state!(::NumericalFluxFirstOrder, ::Impenetrable{NoSlip}, ::CNSE3D)
+    cnse_boundary_state!(::NumericalFluxFirstOrder, ::Impenetrable{NoSlip}, ::CNSE3D)
 apply no slip boundary condition for velocity
 sets reflective ghost point
 """
-@inline function ocean_boundary_state!(
+@inline function cnse_boundary_state!(
     ::NumericalFluxFirstOrder,
     ::Impenetrable{NoSlip},
     ::CNSE3D,
@@ -101,11 +101,11 @@ sets reflective ghost point
 end
 
 """
-    ocean_boundary_state!(::NumericalFluxGradient, ::Impenetrable{NoSlip}, ::CNSE3D)
+    cnse_boundary_state!(::NumericalFluxGradient, ::Impenetrable{NoSlip}, ::CNSE3D)
 apply no slip boundary condition for velocity
 set numerical flux to zero for U
 """
-@inline function ocean_boundary_state!(
+@inline function cnse_boundary_state!(
     ::NumericalFluxGradient,
     ::Impenetrable{NoSlip},
     ::CNSE3D,
@@ -125,11 +125,11 @@ set numerical flux to zero for U
 end
 
 """
-    ocean_boundary_state!(::NumericalFluxSecondOrder, ::Impenetrable{NoSlip}, ::CNSE3D)
+    cnse_boundary_state!(::NumericalFluxSecondOrder, ::Impenetrable{NoSlip}, ::CNSE3D)
 apply no slip boundary condition for velocity
 sets ghost point to have no numerical flux on the boundary for U
 """
-@inline function ocean_boundary_state!(
+@inline function cnse_boundary_state!(
     ::NumericalFluxSecondOrder,
     ::Impenetrable{NoSlip},
     ::CNSE3D,
@@ -151,10 +151,10 @@ sets ghost point to have no numerical flux on the boundary for U
 end
 
 """
-    ocean_boundary_state!(::Union{NumericalFluxFirstOrder, NumericalFluxGradient}, ::Penetrable{FreeSlip}, ::CNSE3D)
+    cnse_boundary_state!(::Union{NumericalFluxFirstOrder, NumericalFluxGradient}, ::Penetrable{FreeSlip}, ::CNSE3D)
 no mass boundary condition for penetrable
 """
-ocean_boundary_state!(
+cnse_boundary_state!(
     ::Union{NumericalFluxFirstOrder, NumericalFluxGradient},
     ::Penetrable{FreeSlip},
     ::CNSE3D,
@@ -163,11 +163,11 @@ ocean_boundary_state!(
 ) = nothing
 
 """
-    ocean_boundary_state!(::NumericalFluxSecondOrder, ::Penetrable{FreeSlip}, ::CNSE3D)
+    cnse_boundary_state!(::NumericalFluxSecondOrder, ::Penetrable{FreeSlip}, ::CNSE3D)
 apply free slip boundary condition for velocity
 apply zero numerical flux in the normal direction
 """
-function ocean_boundary_state!(
+function cnse_boundary_state!(
     ::NumericalFluxSecondOrder,
     ::Penetrable{FreeSlip},
     ::CNSE3D,
@@ -189,18 +189,18 @@ function ocean_boundary_state!(
 end
 
 """
-    ocean_boundary_state!(::Union{NumericalFluxFirstOrder, NumericalFluxGradient}, ::Impenetrable{KinematicStress}, ::HBModel)
+    cnse_boundary_state!(::Union{NumericalFluxFirstOrder, NumericalFluxGradient}, ::Impenetrable{MomentumFlux}, ::HBModel)
 apply kinematic stress boundary condition for velocity
 applies free slip conditions for first-order and gradient fluxes
 """
-function ocean_boundary_state!(
+function cnse_boundary_state!(
     nf::Union{NumericalFluxFirstOrder, NumericalFluxGradient},
-    ::Impenetrable{<:KinematicStress},
+    ::Impenetrable{<:MomentumFlux},
     model::CNSE3D,
     turb::TurbulenceClosure,
     args...,
 )
-    return ocean_boundary_state!(
+    return cnse_boundary_state!(
         nf,
         Impenetrable(FreeSlip()),
         model,
@@ -210,13 +210,13 @@ function ocean_boundary_state!(
 end
 
 """
-    ocean_boundary_state!(::NumericalFluxSecondOrder, ::Impenetrable{KinematicStress}, ::HBModel)
+    cnse_boundary_state!(::NumericalFluxSecondOrder, ::Impenetrable{MomentumFlux}, ::HBModel)
 apply kinematic stress boundary condition for velocity
 sets ghost point to have specified flux on the boundary for ν∇u
 """
-@inline function ocean_boundary_state!(
+@inline function cnse_boundary_state!(
     ::NumericalFluxSecondOrder,
-    bc::Impenetrable{<:KinematicStress},
+    bc::Impenetrable{<:MomentumFlux},
     model::CNSE3D,
     ::ConstantViscosity,
     state⁺,
@@ -230,24 +230,24 @@ sets ghost point to have specified flux on the boundary for ν∇u
     args...,
 )
     state⁺.ρu = state⁻.ρu
-    gradflux⁺.ν∇u = n⁻ * bc.drag.stress(state⁻, aux⁻, t)'
+    gradflux⁺.ν∇u = n⁻ * bc.drag.flux(state⁻, aux⁻, t)'
 
     return nothing
 end
 
 """
-    ocean_boundary_state!(::Union{NumericalFluxFirstOrder, NumericalFluxGradient}, ::Penetrable{KinematicStress}, ::HBModel)
+    cnse_boundary_state!(::Union{NumericalFluxFirstOrder, NumericalFluxGradient}, ::Penetrable{MomentumFlux}, ::HBModel)
 apply kinematic stress boundary condition for velocity
 applies free slip conditions for first-order and gradient fluxes
 """
-function ocean_boundary_state!(
+function cnse_boundary_state!(
     nf::Union{NumericalFluxFirstOrder, NumericalFluxGradient},
-    ::Penetrable{<:KinematicStress},
+    ::Penetrable{<:MomentumFlux},
     model::CNSE3D,
     turb::TurbulenceClosure,
     args...,
 )
-    return ocean_boundary_state!(
+    return cnse_boundary_state!(
         nf,
         Penetrable(FreeSlip()),
         model,
@@ -257,13 +257,13 @@ function ocean_boundary_state!(
 end
 
 """
-    ocean_boundary_state!(::NumericalFluxSecondOrder, ::Penetrable{KinematicStress}, ::HBModel)
+    cnse_boundary_state!(::NumericalFluxSecondOrder, ::Penetrable{MomentumFlux}, ::HBModel)
 apply kinematic stress boundary condition for velocity
 sets ghost point to have specified flux on the boundary for ν∇u
 """
-@inline function ocean_boundary_state!(
+@inline function cnse_boundary_state!(
     ::NumericalFluxSecondOrder,
-    bc::Penetrable{<:KinematicStress},
+    bc::Penetrable{<:MomentumFlux},
     shallow::CNSE3D,
     ::ConstantViscosity,
     state⁺,
@@ -277,7 +277,7 @@ sets ghost point to have specified flux on the boundary for ν∇u
     args...,
 )
     state⁺.ρu = state⁻.ρu
-    gradflux⁺.ν∇u = n⁻ * bc.drag.stress(state⁻, aux⁻, t)'
+    gradflux⁺.ν∇u = n⁻ * bc.drag.flux(state⁻, aux⁻, t)'
 
     return nothing
 end

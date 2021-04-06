@@ -171,9 +171,9 @@ end
 viscosity(m::SWModel) = (m.turbulence.ν, m.turbulence.ν, -0)
 viscosity(m::BarotropicModel) = (m.baroclinic.νʰ, m.baroclinic.νʰ, -0)
 
-gravity_speed(m::SWModel) = grav(m.param_set) * m.problem.H
+gravity_speed(m::SWModel) = grav(parameter_set(m)) * m.problem.H
 gravity_speed(m::BarotropicModel) =
-    grav(m.baroclinic.param_set) * m.baroclinic.problem.H
+    grav(parameter_set(m)) * m.baroclinic.problem.H
 
 function ocean_init_state!(
     m::Union{HBModel, OceanModel},
@@ -189,7 +189,7 @@ function ocean_init_state!(
     k = (2π / p.Lˣ, 2π / p.Lʸ, 2π / p.H)
     ν = (m.νʰ, m.νʰ, m.νᶻ)
 
-    gH = grav(m.param_set) * p.H
+    gH = grav(parameter_set(m)) * p.H
     @inbounds f = coriolis_parameter(m, p, coords[2])
 
     U, V, η = barotropic_state!(p.rotation, (coords..., t), ν, k, (gH, f))

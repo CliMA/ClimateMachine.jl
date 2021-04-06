@@ -22,15 +22,17 @@ Base.@kwdef struct SoilParamFunctions{FT} <: AbstractSoilParameterFunctions{FT}
     Ksat::FT = FT(NaN)
     "Specific storage of the soil. Units of m s-1."
     S_s::FT = FT(NaN)
-    "Volume fraction of gravels, relative to soil solids only. Units of m-3 m-3."
+    "Residual Water Fraction - default is zero; unitless."
+    θ_r::FT = FT(0.0)
+    "Volume fraction of gravels, relative to soil solids only; unitless."
     ν_ss_gravel::FT = FT(NaN)
-    "Volume fraction of SOM, relative to soil solids only. Units of m-3 m-3."
+    "Volume fraction of SOM, relative to soil solids only; unitless."
     ν_ss_om::FT = FT(NaN)
-    "Volume fraction of quartz, relative to soil solids only. Units of m-3 m-3."
+    "Volume fraction of quartz, relative to soil solids only; unitless."
     ν_ss_quartz::FT = FT(NaN)
     "Bulk volumetric heat capacity of dry soil. Units of J m-3 K-1."
     ρc_ds::FT = FT(NaN)
-    "Particle density for soil solids. Units of kg/m^3"
+    "Particle density for soil solids. Units of kg m-3"
     ρp::FT = FT(NaN)
     "Thermal conductivity of the soil solids. Units of W m-1 K-1."
     κ_solid::FT = FT(NaN)

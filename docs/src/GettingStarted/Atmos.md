@@ -18,10 +18,10 @@ possible options for each subcomponent.
     ref_state::RS = HydrostaticState(DecayingTemperatureProfile{FT}(param_set),)
     turbulence::T = SmagorinskyLilly{FT}(0.21),
     hyperdiffusion::HD = NoHyperDiffusion(),
-    moisture::M = EquilMoist{FT}(),
+    moisture::M = EquilMoist(),
     precipitation::P = NoPrecipitation(),
     radiation::R = NoRadiation(),
-    source::S = (Gravity(), Coriolis(), GeostrophicForcing(FT, 7.62e-5, 0, 0)),
+    source::S = (Gravity(), Coriolis(), GeostrophicForcing{FT}(7.62e-5, 0, 0)),
     tracers::TR = NoTracers(),
     boundarycondition::BC = AtmosBC(),
     init_state_prognostic::IS = nothing,
@@ -44,11 +44,10 @@ possible options for each subcomponent.
 ```
     ::Type{AtmosGCMConfigType},
     param_set::AbstractParameterSet;
-    orientation::O = SphericalOrientation(),
     ref_state::RS = HydrostaticState(DecayingTemperatureProfile{FT}(param_set),)
     turbulence::T = SmagorinskyLilly{FT}(C_smag(param_set)),
     hyperdiffusion::HD = NoHyperDiffusion(),
-    moisture::M = EquilMoist{FT}(),
+    moisture::M = EquilMoist(),
     precipitation::P = NoPrecipitation(),
     radiation::R = NoRadiation(),
     source::S = (Gravity(), Coriolis()),

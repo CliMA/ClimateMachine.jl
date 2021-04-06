@@ -24,13 +24,14 @@ function main()
         Nhorz,
         Rrange;
         boundary = (1, 2),
+        connectivity = :face,
     )
     grid = DiscontinuousSpectralElementGrid(
         topology;
         FloatType = FT,
         DeviceArray = DA,
         polynomialorder = N,
-        meshwarp = Topologies.cubedshellwarp,
+        meshwarp = Topologies.equiangular_cubed_sphere_warp,
     )
 
     let

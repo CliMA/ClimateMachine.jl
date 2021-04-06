@@ -38,6 +38,8 @@ apis = [
     "Arrays" => "APIs/Arrays/Arrays.md",
     "Diagnostics" => [
         "Diagnostics groups" => "APIs/Diagnostics/Diagnostics.md",
+        "DiagnosticsMachine" => "APIs/Diagnostics/DiagnosticsMachine.md",
+        "StdDiagnostics" => "APIs/Diagnostics/StdDiagnostics.md",
         "State Check" => "APIs/Diagnostics/StateCheck.md",
     ],
     "Input/Output" => ["Input/Output" => "APIs/InputOutput/index.md"],

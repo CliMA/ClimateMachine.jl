@@ -62,9 +62,10 @@ function initial_condition!(
     state.ρ = length(ns) == 1 ? ρ[1] : ρ
 end
 
-Dirichlet_data!(P::Pseudo1D, x...) = initial_condition!(P, x...)
+inhomogeneous_data!(::Val{0}, P::Pseudo1D, x...) = initial_condition!(P, x...)
 
-function Neumann_data!(
+function inhomogeneous_data!(
+    ::Val{1},
     ::Pseudo1D{ns, α, β, μ, δ},
     ∇state,
     aux,
@@ -135,7 +136,7 @@ function test_run(
     n_dg =
         dim == 2 ? SVector{3, FT}(1 / sqrt(2), 1 / sqrt(2), 0) :
         SVector{3, FT}(1 / sqrt(3), 1 / sqrt(3), 1 / sqrt(3))
-
+    connectivity = dim == 2 ? :face : :full
     if direction isa EveryDirection
         ns = (n_hd, n_vd, n_dg)
     elseif direction isa HorizontalDirection
@@ -163,6 +164,7 @@ function test_run(
         brickrange;
         periodicity = periodicity,
         boundary = bc,
+        connectivity = connectivity,
     )
 
     dt = (α / 4) * L[1] / (Ne * polynomialorders[1]^2)
@@ -187,9 +189,11 @@ function test_run(
         polynomialorder = polynomialorders,
     )
 
+    bcs = (InhomogeneousBC{0}(), InhomogeneousBC{1}())
     # Model being tested
     model = AdvectionDiffusion{dim}(
         Pseudo1D{ns, α, β, μ, δ}(),
+        bcs,
         num_equations = length(ns),
     )
 

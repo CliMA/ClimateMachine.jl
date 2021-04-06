@@ -30,6 +30,7 @@ const T∞ = 300.0
 
 function initialcondition!(problem, bl, state, aux, localgeo, t)
     FT = eltype(state)
+    param_set = parameter_set(bl)
 
     coord = localgeo.coord
 
@@ -47,12 +48,12 @@ function initialcondition!(problem, bl, state, aux, localgeo, t)
     T = FT(T∞)
     # adiabatic/isentropic relation
     p = FT(p∞) * (T / FT(T∞))^(FT(1) / _kappa_d)
-    ρ = air_density(bl.param_set, T, p)
+    ρ = air_density(param_set, T, p)
 
     state.ρ = ρ
     state.ρu = ρ * u
     e_kin = u' * u / 2
-    state.energy.ρe = ρ * total_energy(bl.param_set, e_kin, FT(0), T)
+    state.energy.ρe = ρ * total_energy(param_set, e_kin, FT(0), T)
 
     nothing
 end
@@ -73,6 +74,7 @@ let
     @testset "$(@__FILE__) DGModel matrix" begin
         for FT in (Float64, Float32)
             for dim in (2, 3)
+                connectivity = dim == 3 ? :full : :face
                 if dim == 2
                     brickrange = (
                         range(FT(0); length = Neh + 1, stop = 1),
@@ -86,7 +88,11 @@ let
                     )
                 end
                 μ = FT(2)
-                topl = StackedBrickTopology(mpicomm, brickrange)
+                topl = StackedBrickTopology(
+                    mpicomm,
+                    brickrange,
+                    connectivity = connectivity,
+                )
 
 
 
@@ -129,16 +135,14 @@ let
                 Δx_h = min_node_distance(grid, HorizontalDirection())
 
                 translation_speed = FT(norm([150.0, 150.0, 0.0]))
-                diff_speed_h =
-                    FT(μ / air_density(model.param_set, FT(T∞), FT(p∞)))
-                diff_speed_v =
-                    FT(μ / air_density(model.param_set, FT(T∞), FT(p∞)))
+
+                diff_speed_h = FT(μ / air_density(param_set, FT(T∞), FT(p∞)))
+                diff_speed_v = FT(μ / air_density(param_set, FT(T∞), FT(p∞)))
                 c_h =
-                    Δt * (
-                        translation_speed +
-                        soundspeed_air(model.param_set, FT(T∞))
-                    ) / Δx_h
-                c_v = Δt * (soundspeed_air(model.param_set, FT(T∞))) / Δx_v
+                    Δt *
+                    (translation_speed + soundspeed_air(param_set, FT(T∞))) /
+                    Δx_h
+                c_v = Δt * (soundspeed_air(param_set, FT(T∞))) / Δx_v
                 d_h = Δt * diff_speed_h / Δx_h^2
                 d_v = Δt * diff_speed_v / Δx_v^2
                 simtime = FT(0)

@@ -34,7 +34,8 @@ abstract type SurfaceFluxesModel end
 struct FVScheme end
 struct DGScheme end
 
-export surface_conditions, exchange_coefficients
+export surface_conditions,
+    exchange_coefficients, recover_profile, monin_obukhov_length
 
 """
     SurfaceFluxConditions{FT}
@@ -189,9 +190,10 @@ function surface_conditions(
         param_set,
         z_in,
         x_star,
-        θ_scale,
+        x_s,
         L_MO,
         z_0,
+        scheme,
         universal_func,
     )
 
@@ -220,6 +222,10 @@ end
 """
     compute_physical_scale(uf, z_in, z_0, x_in, x_s, transport, ::FVScheme)
 
+Returns u_star, θ_star, ... given equations (17), (18) for FV and (8), (9) for DG
+from Nishizawa & Kitamura (2018).
+
+## Arguments
  - `uf` universal function family
  - `z_in` Input height for the similarity functions. It is Δz for FV and the height
     of the first nodal point for DG
@@ -229,7 +235,6 @@ end
  - `x_s` surface values for state variable array `x`
  - `transport` Type of transport (momentum or heat)
 
-    Equations (17), (18) for FV and (8), (9) for DG from Nishizawa & Kitamura (2018)
 """
 function compute_physical_scale(
     uf::AbstractUniversalFunction{FT},
@@ -271,12 +276,72 @@ function compute_physical_scale(
     return _π_group⁻¹ * _von_karman_const / Σterms * (x_in - x_s)
 end
 
+"""
+    recover_profile(z, x_star, x_s, z_0, L_MO, transport, ::DGScheme, uf)
+
+Recover vertical profiles u(z), θ(z), ... using equations (4) and (5)
+for DG and (12), (13) for FV from Nishizawa & Kitamura (2018).
+
+## Arguments
+ - `z` Input height for evaluation
+ - `x_star` Surface layer scales for state variable array `x`.
+ - `x_s` surface values for state variable array `x`
+ - `z_0` roughness lengths for state variable array `x`
+ - `L_MO` Obukhov length
+ - `transport` Type of transport (momentum or heat)
+ - `uf` universal function family
+
+"""
+function recover_profile(
+    param_set::AbstractEarthParameterSet,
+    z,
+    x_star,
+    x_s,
+    z_0::Union{AbstractVector, FT},
+    L_MO,
+    transport,
+    ::DGScheme,
+    universal_func = Businger,
+) where {FT}
+    uf = universal_func(param_set, L_MO)
+    _von_karman_const::FT = von_karman_const(param_set)
+    _π_group = FT(UF.π_group(uf, transport))
+    temp1 = log(z / z_0)
+    temp2 = -psi(uf, z / uf.L, transport)
+    temp3 = psi(uf, z_0 / uf.L, transport)
+    Σterms = temp1 + temp2 + temp3
+    return _π_group * x_star * Σterms / _von_karman_const + x_s
+end
+
+function recover_profile(
+    param_set::AbstractEarthParameterSet,
+    z,
+    x_star,
+    x_s,
+    z_0::Union{AbstractVector, FT},
+    L_MO,
+    transport,
+    ::FVScheme,
+    universal_func = Businger,
+) where {FT}
+    uf = universal_func(param_set, L_MO)
+    _von_karman_const::FT = von_karman_const(param_set)
+    _π_group = FT(UF.π_group(uf, transport))
+    R_z0 = 1 - z_0 / z
+    temp1 = log(z / z_0)
+    temp2 = -Psi(uf, z / uf.L, transport)
+    temp3 = z_0 / z * Psi(uf, z_0 / uf.L, transport)
+    temp4 = R_z0 * (psi(uf, z_0 / uf.L, transport) - 1)
+    Σterms = temp1 + temp2 + temp3 + temp4
+    return _π_group * x_star * Σterms / _von_karman_const + x_s
+end
+
 ### Generic terms
 
 """
     monin_obukhov_length(param_set, u_star, θ_scale, wθ_surf_flux)
 
-Monin-Obukhov length. Eq. 3
+Returns the Monin-Obukhov length.
 """
 function monin_obukhov_length(
     param_set::AbstractEarthParameterSet,
@@ -287,8 +352,11 @@ function monin_obukhov_length(
     FT = typeof(u_star)
     _grav::FT = grav(param_set)
     _von_karman_const::FT = von_karman_const(param_set)
-    return -u_star^3 * θ_scale / (_von_karman_const * _grav * wθ_surf_flux)
+    return -u_star^3 * θ_scale /
+           (_von_karman_const * _grav * wθ_surf_flux + eps(FT))
 end
+
+monin_obukhov_length(sfc::SurfaceFluxConditions) = sfc.L_MO
 
 """
     exchange_coefficients(
@@ -342,32 +410,54 @@ end
         universal_func,
     )
 
-
+Returns the exchange coefficients for bulk transfer formulas associated
+with the frictional parameters `x_star` and the surface layer similarity
+profiles. Taken from equations (36) and (37) of Byun (1990).
 """
 function get_flux_coefficients(
     param_set,
-    z,
+    z_in,
     x_star::VFT,
-    θ_scale,
+    x_s,
     L_MO,
-    z0,
+    z0::Union{AbstractVector, FT},
+    scheme,
     universal_func,
-) where {VFT}
+) where {VFT, FT}
     N = length(x_star)
-    FT = typeof(z)
-    _von_karman_const::FT = von_karman_const(param_set)
-    uf = universal_func(param_set, L_MO)
-    psi_m = psi(uf, z / L_MO, MomentumTransport())
-    psi_h = psi(uf, z / L_MO, HeatTransport())
     z0_tup = Tuple(z0)
+    x_star_tup = Tuple(x_star)
+    x_s_tup = Tuple(x_s)
+    u_in = recover_profile(
+        param_set,
+        z_in,
+        x_star_tup[1],
+        x_s_tup[1],
+        (length(z0) > 1 ? z0_tup[1] : z0),
+        L_MO,
+        MomentumTransport(),
+        scheme,
+        universal_func,
+    )
     C = similar(x_star)
     C .= ntuple(Val(length(x_star))) do i
-        logζ_ψ_m = log(z / (length(z0) > 1 ? z0_tup[i] : z0) - psi_m)
-        logζ_ψ_h = log(z / (length(z0) > 1 ? z0_tup[i] : z0) - psi_h)
         if i == 1
-            C_i = _von_karman_const^2 / logζ_ψ_m^2
+            C_i = x_star[i]^2 / (u_in - x_s_tup[i])^2
         else
-            C_i = _von_karman_const^2 / logζ_ψ_m / logζ_ψ_h
+            ϕ_in = recover_profile(
+                param_set,
+                z_in,
+                x_star_tup[i],
+                x_s_tup[i],
+                (length(z0) > 1 ? z0_tup[i] : z0),
+                L_MO,
+                HeatTransport(),
+                scheme,
+                universal_func,
+            )
+            C_i =
+                x_star[1] * x_star[i] / (u_in - x_s_tup[1]) /
+                (ϕ_in - x_s_tup[i])
         end
         C_i
     end

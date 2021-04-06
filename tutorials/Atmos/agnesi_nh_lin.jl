@@ -112,13 +112,14 @@ function init_agnesi_hs_lin!(problem, bl, state, aux, localgeo, t)
 
     ## Problem float-type
     FT = eltype(state)
+    param_set = parameter_set(bl)
 
     ## Unpack constant parameters
-    R_gas::FT = R_d(bl.param_set)
-    c_p::FT = cp_d(bl.param_set)
-    c_v::FT = cv_d(bl.param_set)
-    p0::FT = MSLP(bl.param_set)
-    _grav::FT = grav(bl.param_set)
+    R_gas::FT = R_d(param_set)
+    c_p::FT = cp_d(param_set)
+    c_v::FT = cv_d(param_set)
+    p0::FT = MSLP(param_set)
+    _grav::FT = grav(param_set)
     γ::FT = c_p / c_v
 
     c::FT = c_v / R_gas
@@ -139,8 +140,8 @@ function init_agnesi_hs_lin!(problem, bl, state, aux, localgeo, t)
 
     ## Compute perturbed thermodynamic state:
     T = θ * π_exner
-    e_int = internal_energy(bl.param_set, T)
-    ts = PhaseDry(bl.param_set, e_int, ρ)
+    e_int = internal_energy(param_set, T)
+    ts = PhaseDry(param_set, e_int, ρ)
 
     ## initial velocity
     u = FT(10.0)
@@ -216,7 +217,7 @@ function config_agnesi_hs_lin(
 
     ## Pass the sponge parameters to the sponge calculator
     rayleigh_sponge =
-        RayleighSponge(FT, zmax, z_s, sponge_ampz, u_relaxation, 2)
+        RayleighSponge{FT}(zmax, z_s, sponge_ampz, u_relaxation, 2)
 
     ## Define the time integrator:
     ## We chose an explicit single-rate LSRK144 for this problem

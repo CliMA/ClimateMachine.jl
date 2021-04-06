@@ -203,11 +203,11 @@ function soil_init_aux!(
     S_l = effective_saturation(
         soil.param_functions.porosity,
         water.initialϑ_l(aux),
+        soil.param_functions.θ_r,
     )
     ψ = pressure_head(
         water.hydraulics,
-        soil.param_functions.porosity,
-        soil.param_functions.S_s,
+        soil.param_functions,
         water.initialϑ_l(aux),
         water.initialθ_i(aux),
     )
@@ -238,11 +238,11 @@ function land_nodal_update_auxiliary_state!(
     S_l = effective_saturation(
         soil.param_functions.porosity,
         state.soil.water.ϑ_l,
+        soil.param_functions.θ_r,
     )
     ψ = pressure_head(
         water.hydraulics,
-        soil.param_functions.porosity,
-        soil.param_functions.S_s,
+        soil.param_functions,
         state.soil.water.ϑ_l,
         state.soil.water.θ_i,
     )
@@ -274,11 +274,11 @@ function compute_gradient_argument!(
     S_l = effective_saturation(
         soil.param_functions.porosity,
         state.soil.water.ϑ_l,
+        soil.param_functions.θ_r,
     )
     ψ = pressure_head(
         water.hydraulics,
-        soil.param_functions.porosity,
-        soil.param_functions.S_s,
+        soil.param_functions,
         state.soil.water.ϑ_l,
         state.soil.water.θ_i,
     )

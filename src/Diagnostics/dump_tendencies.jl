@@ -128,7 +128,7 @@ function dump_tendencies_init(dgngrp, t)
                 for tend in eq_tends(pv, bl, tend_type)
                     flat_vals = flattened_tuple(
                         FlattenArr(),
-                        tend_fun(tend, bl, tend_args),
+                        tend_fun(pv, tend, bl, tend_args),
                     )
                     for i in 1:length(flat_vals)
                         varname = "$(progname)_$(tend_name(tend))_$(i)"
@@ -208,7 +208,7 @@ function dump_tendencies_collect(dgngrp, t)
                     for tend in eq_tends(pv, bl, tend_type)
                         flat_vals = flattened_tuple(
                             FlattenArr(),
-                            tend_fun(tend, bl, tend_args),
+                            tend_fun(pv, tend, bl, tend_args),
                         )
                         for i in 1:length(flat_vals)
                             varname = "$(progname)_$(tend_name(tend))_$(i)"

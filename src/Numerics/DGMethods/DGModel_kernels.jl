@@ -2364,17 +2364,20 @@ from volume to face, and (∇G)⋆ is the numerical fluxes for the gradients.
     divgradnumpenalty,
     Qhypervisc_grad,
     Qhypervisc_div,
+    state_auxiliary,
     vgeo,
     sgeo,
     vmap⁻,
     vmap⁺,
     elemtobndy,
+    t,
     elems,
 ) where {info}
     @uniform begin
         dim = info.dim
         FT = eltype(Qhypervisc_grad)
         ngradlapstate = number_states(balance_law, GradientLaplacian())
+        nauxstate = number_states(balance_law, Auxiliary())
         nface = info.nface
         Np = info.Np
         Nqk = info.Nqk
@@ -2386,6 +2389,8 @@ from volume to face, and (∇G)⋆ is the numerical fluxes for the gradients.
             faces = 1:(nface - 2)
         end
 
+        l_state_auxiliary⁻ = MArray{Tuple{nauxstate}, FT}(undef)
+        l_state_auxiliary⁺ = MArray{Tuple{nauxstate}, FT}(undef)
         l_grad⁻ = MArray{Tuple{3, ngradlapstate}, FT}(undef)
         l_grad⁺ = MArray{Tuple{3, ngradlapstate}, FT}(undef)
         l_div = MArray{Tuple{ngradlapstate}, FT}(undef)
@@ -2442,6 +2447,15 @@ from volume to face, and (∇G)⋆ is the numerical fluxes for the gradients.
                 Grad{vars_state(balance_law, GradientLaplacian(), FT)}(l_grad⁺),
             )
         else
+            # load state auxiliary (only needed for bcs !)
+            @unroll for s in 1:nauxstate
+                l_state_auxiliary⁻[s] = state_auxiliary[vid⁻, s, e⁻]
+            end
+
+            @unroll for s in 1:nauxstate
+                l_state_auxiliary⁺[s] = state_auxiliary[vid⁺, s, e⁺]
+            end
+
             bcs = boundary_conditions(balance_law)
             # TODO: there is probably a better way to unroll this loop
             Base.Cartesian.@nif 7 d -> bctag == d <= length(bcs) d -> begin
@@ -2457,9 +2471,16 @@ from volume to face, and (∇G)⋆ is the numerical fluxes for the gradients.
                     Grad{vars_state(balance_law, GradientLaplacian(), FT)}(
                         l_grad⁻,
                     ),
+                    Vars{vars_state(balance_law, Auxiliary(), FT)}(
+                        l_state_auxiliary⁻,
+                    ),
                     Grad{vars_state(balance_law, GradientLaplacian(), FT)}(
                         l_grad⁺,
                     ),
+                    Vars{vars_state(balance_law, Auxiliary(), FT)}(
+                        l_state_auxiliary⁺,
+                    ),
+                    t,
                 )
             end d -> throw(BoundsError(bcs, bctag))
         end

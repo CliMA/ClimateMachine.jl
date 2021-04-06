@@ -9,12 +9,12 @@ using ClimateMachine.SurfaceFluxes:
 No energy flux across the boundary.
 """
 struct Insulating <: EnergyBC end
-function atmos_energy_boundary_state!(nf, bc_energy::Insulating, atmos, args...) end
+function atmos_energy_boundary_state!(nf, bc_energy::Insulating, atmos, _...) end
 function atmos_energy_normal_boundary_flux_second_order!(
     nf,
     bc_energy::Insulating,
     atmos,
-    args...,
+    _...,
 ) end
 
 
@@ -31,16 +31,13 @@ function atmos_energy_boundary_state!(
     bc_energy::PrescribedTemperature,
     atmos,
     state⁺,
-    aux⁺,
-    n,
-    state⁻,
-    aux⁻,
-    t,
-    args...,
+    args,
 )
+    @unpack aux⁻, state⁻, t = args
     FT = eltype(aux⁻)
-    _T_0::FT = T_0(atmos.param_set)
-    _cv_d::FT = cv_d(atmos.param_set)
+    param_set = parameter_set(atmos)
+    _T_0::FT = T_0(param_set)
+    _cv_d::FT = cv_d(param_set)
 
     T = bc_energy.fn(state⁻, aux⁻, t)
     E_int⁺ = state⁺.ρ * _cv_d * (T - _T_0)
@@ -52,18 +49,9 @@ function atmos_energy_normal_boundary_flux_second_order!(
     bc_energy::PrescribedTemperature,
     atmos,
     fluxᵀn,
-    n⁻,
-    state⁻,
-    diffusive⁻,
-    hyperdiffusive⁻,
-    aux⁻,
-    state⁺,
-    diffusive⁺,
-    hyperdiffusive⁺,
-    aux⁺,
-    t,
-    args...,
+    args,
 )
+    @unpack state⁻, aux⁻, diffusive⁻, t, n⁻ = args
 
     # TODO: figure out a better way...
     ν, D_t, _ = turbulence_tensors(atmos, state⁻, diffusive⁻, aux⁻, t)
@@ -86,25 +74,16 @@ function atmos_energy_boundary_state!(
     nf,
     bc_energy::PrescribedEnergyFlux,
     atmos,
-    args...,
+    _...,
 ) end
 function atmos_energy_normal_boundary_flux_second_order!(
     nf,
     bc_energy::PrescribedEnergyFlux,
     atmos,
     fluxᵀn,
-    n⁻,
-    state⁻,
-    diffusive⁻,
-    hyperdiffusive⁻,
-    aux⁻,
-    state⁺,
-    diffusive⁺,
-    hyperdiffusive⁺,
-    aux⁺,
-    t,
-    args...,
+    args,
 )
+    @unpack state⁻, aux⁻, t = args
 
     # DG normal is defined in the outward direction
     # we want to prescribe the inward flux
@@ -120,24 +99,16 @@ across the boundary by `fn`, a function with signature
 struct Adiabaticθ{FN} <: EnergyBC
     fn::FN
 end
-function atmos_energy_boundary_state!(nf, bc_energy::Adiabaticθ, atmos, args...) end
+function atmos_energy_boundary_state!(nf, bc_energy::Adiabaticθ, atmos, _...) end
 function atmos_energy_normal_boundary_flux_second_order!(
     nf,
     bc_energy::Adiabaticθ,
     atmos,
     fluxᵀn,
-    n⁻,
-    state⁻,
-    diffusive⁻,
-    hyperdiffusive⁻,
-    aux⁻,
-    state⁺,
-    diffusive⁺,
-    hyperdiffusive⁺,
-    aux⁺,
-    t,
-    args...,
+    args,
 )
+    @unpack state⁻, aux⁻, t = args
+
     # DG normal is defined in the outward direction
     # we want to prescribe the inward flux
     fluxᵀn.energy.ρθ_liq_ice -= bc_energy.fn(state⁻, aux⁻, t)
@@ -158,36 +129,26 @@ function atmos_energy_boundary_state!(
     nf,
     bc_energy::BulkFormulaEnergy,
     atmos,
-    args...,
+    _...,
 ) end
 function atmos_energy_normal_boundary_flux_second_order!(
     nf,
     bc_energy::BulkFormulaEnergy,
     atmos,
     fluxᵀn,
-    n⁻,
-    state⁻,
-    diffusive⁻,
-    hyperdiffusive⁻,
-    aux⁻,
-    state⁺,
-    diffusive⁺,
-    hyperdiffusive⁺,
-    aux⁺,
-    t,
-    state_int⁻,
-    diffusive_int⁻,
-    aux_int⁻,
+    args,
 )
+    @unpack state⁻, aux⁻, t, state_int⁻, aux_int⁻ = args
 
     u_int⁻ = state_int⁻.ρu / state_int⁻.ρ
     u_int⁻_tan = projection_tangential(atmos, aux_int⁻, u_int⁻)
     normu_int⁻_tan = norm(u_int⁻_tan)
     C_h = bc_energy.fn_C_h(atmos, state⁻, aux⁻, t, normu_int⁻_tan)
     T, q_tot = bc_energy.fn_T_and_q_tot(atmos, state⁻, aux⁻, t)
+    param_set = parameter_set(atmos)
 
     # calculate MSE from the states at the boundary and at the interior point
-    ts = PhaseEquil_ρTq(atmos.param_set, state⁻.ρ, T, q_tot)
+    ts = PhaseEquil_ρTq(param_set, state⁻.ρ, T, q_tot)
     ts_int = recover_thermo_state(atmos, state_int⁻, aux_int⁻)
     e_pot = gravitational_potential(atmos.orientation, aux⁻)
     e_pot_int = gravitational_potential(atmos.orientation, aux_int⁻)
@@ -213,27 +174,17 @@ function atmos_energy_boundary_state!(
     nf,
     bc_energy::NishizawaEnergyFlux,
     atmos,
-    args...,
+    _...,
 ) end
 function atmos_energy_normal_boundary_flux_second_order!(
     nf,
     bc_energy::NishizawaEnergyFlux,
     atmos,
     fluxᵀn,
-    n⁻,
-    state⁻,
-    diffusive⁻,
-    hyperdiffusive⁻,
-    aux⁻,
-    state⁺,
-    diffusive⁺,
-    hyperdiffusive⁺,
-    aux⁺,
-    t,
-    state_int⁻,
-    diffusive_int⁻,
-    aux_int⁻,
+    args,
 )
+    @unpack state⁻, aux⁻, t, aux_int⁻, state_int⁻ = args
+    param_set = parameter_set(atmos)
     FT = eltype(state⁻)
     # Interior state
     u_int⁻ = state_int⁻.ρu / state_int⁻.ρ
@@ -268,7 +219,7 @@ function atmos_energy_normal_boundary_flux_second_order!(
     z_in = altitude(atmos, aux_int⁻)
 
     θ_flux, q_tot_flux = get_energy_flux(surface_conditions(
-        atmos.param_set,
+        param_set,
         MO_param_guess,
         x_in,
         x_s,
@@ -279,10 +230,9 @@ function atmos_energy_normal_boundary_flux_second_order!(
     ))
 
     # recover thermo state
-    ts_surf = PhaseEquil_ρTq(atmos.param_set, state⁻.ρ, T, q_tot)
+    ts_surf = PhaseEquil_ρTq(param_set, state⁻.ρ, T, q_tot)
     # Add sensible heat flux
     fluxᵀn.energy.ρe -= state⁻.ρ * θ_flux * cp_m(ts_surf)
     # Add latent heat flux
-    fluxᵀn.energy.ρe -=
-        state⁻.ρ * q_tot_flux * latent_heat_vapor(atmos.param_set, T)
+    fluxᵀn.energy.ρe -= state⁻.ρ * q_tot_flux * latent_heat_vapor(param_set, T)
 end

@@ -1,20 +1,4 @@
-module TwoDimensionalCompressibleNavierStokes
-
-export TwoDimensionalCompressibleNavierStokesEquations
-
-using Test
-using StaticArrays
-using LinearAlgebra
-
-using ClimateMachine.Ocean
-using ClimateMachine.VariableTemplates
-using ClimateMachine.Mesh.Geometry
-using ClimateMachine.DGMethods
-using ClimateMachine.DGMethods.NumericalFluxes
-using ClimateMachine.BalanceLaws
-using ClimateMachine.Ocean: coriolis_parameter
-using ClimateMachine.Mesh.Geometry: LocalGeometry
-using ClimateMachine.MPIStateArrays: MPIStateArray
+include("../boilerplate.jl")
 
 import ClimateMachine.BalanceLaws:
     vars_state,
@@ -28,51 +12,8 @@ import ClimateMachine.BalanceLaws:
     wavespeed,
     boundary_conditions,
     boundary_state!
-import ClimateMachine.Ocean:
-    ocean_init_state!,
-    ocean_init_aux!,
-    ocean_boundary_state!,
-    _ocean_boundary_state!
+import ClimateMachine.DGMethods: DGModel
 import ClimateMachine.NumericalFluxes: numerical_flux_first_order!
-
-×(a::SVector, b::SVector) = StaticArrays.cross(a, b)
-⋅(a::SVector, b::SVector) = StaticArrays.dot(a, b)
-⊗(a::SVector, b::SVector) = a * b'
-
-abstract type TurbulenceClosure end
-struct LinearDrag{T} <: TurbulenceClosure
-    λ::T
-end
-struct ConstantViscosity{T} <: TurbulenceClosure
-    ν::T
-    κ::T
-    function ConstantViscosity{T}(;
-        ν = FT(1e-6),   # m²/s
-        κ = FT(1e-6),   # m²/s
-    ) where {T <: AbstractFloat}
-        return new{T}(ν, κ)
-    end
-end
-
-abstract type CoriolisForce end
-struct fPlaneCoriolis{T} <: CoriolisForce
-    fₒ::T
-    β::T
-    function fPlaneCoriolis{T}(;
-        fₒ = T(1e-4), # Hz
-        β = T(1e-11), # Hz/m
-    ) where {T <: AbstractFloat}
-        return new{T}(fₒ, β)
-    end
-end
-
-abstract type Forcing end
-struct KinematicStress{T} <: Forcing
-    τₒ::T
-    function KinematicStress{T}(; τₒ = T(1e-4)) where {T <: AbstractFloat}
-        return new{T}(τₒ)
-    end
-end
 
 """
     TwoDimensionalCompressibleNavierStokesEquations <: BalanceLaw
@@ -86,8 +27,19 @@ write out the equations here
     TwoDimensionalCompressibleNavierStokesEquations()
 
 """
-struct TwoDimensionalCompressibleNavierStokesEquations{D, A, T, C, F, BC, FT} <:
-       BalanceLaw
+abstract type AbstractFluid2D <: AbstractFluid end
+struct Fluid2D <: AbstractFluid2D end
+struct TwoDimensionalCompressibleNavierStokesEquations{
+    I,
+    D,
+    A,
+    T,
+    C,
+    F,
+    BC,
+    FT,
+} <: AbstractFluid2D
+    initial_value_problem::I
     domain::D
     advection::A
     turbulence::T
@@ -97,6 +49,7 @@ struct TwoDimensionalCompressibleNavierStokesEquations{D, A, T, C, F, BC, FT} <:
     g::FT
     c::FT
     function TwoDimensionalCompressibleNavierStokesEquations{FT}(
+        initial_value_problem::I,
         domain::D,
         advection::A,
         turbulence::T,
@@ -105,8 +58,9 @@ struct TwoDimensionalCompressibleNavierStokesEquations{D, A, T, C, F, BC, FT} <:
         boundary_conditions::BC;
         g = FT(10), # m/s²
         c = FT(0),  #m/s
-    ) where {FT <: AbstractFloat, D, A, T, C, F, BC}
-        return new{D, A, T, C, F, BC, FT}(
+    ) where {FT <: AbstractFloat, I, D, A, T, C, F, BC}
+        return new{I, D, A, T, C, F, BC, FT}(
+            initial_value_problem,
             domain,
             advection,
             turbulence,
@@ -129,13 +83,47 @@ function vars_state(m::CNSE2D, ::Prognostic, T)
 end
 
 function init_state_prognostic!(m::CNSE2D, state::Vars, aux::Vars, localgeo, t)
-    ocean_init_state!(m, state, aux, localgeo, t)
+    cnse_init_state!(m, state, aux, localgeo, t)
+end
+
+# default initial state if IVP == nothing
+function cnse_init_state!(model::CNSE2D, state, aux, localgeo, t)
+    ρ = 1
+
+    state.ρ = ρ
+    state.ρu = ρ * @SVector [-0, -0]
+    state.ρθ = ρ
+
+    return nothing
+end
+
+# user defined initial state
+function cnse_init_state!(
+    model::CNSE2D{<:InitialValueProblem},
+    state,
+    aux,
+    localgeo,
+    t,
+)
+    x = aux.x
+    y = aux.y
+    z = aux.z
+
+    params = model.initial_value_problem.params
+    ic = model.initial_value_problem.initial_conditions
+
+    state.ρ = ic.ρ(params, x, y, z)
+    state.ρu = ic.ρu(params, x, y, z)
+    state.ρθ = ic.ρθ(params, x, y, z)
+
+    return nothing
 end
 
 function vars_state(m::CNSE2D, ::Auxiliary, T)
     @vars begin
         x::T
         y::T
+        z::T
     end
 end
 
@@ -147,11 +135,21 @@ function init_state_auxiliary!(
 )
     init_state_auxiliary!(
         model,
-        (model, aux, tmp, geom) -> ocean_init_aux!(model, aux, geom),
+        (model, aux, tmp, geom) -> cnse_init_aux!(model, aux, geom),
         state_auxiliary,
         grid,
         direction,
     )
+end
+
+function cnse_init_aux!(::CNSE2D, aux, geom)
+    @inbounds begin
+        aux.x = geom.coord[1]
+        aux.y = geom.coord[2]
+        aux.z = geom.coord[3]
+    end
+
+    return nothing
 end
 
 function vars_state(m::CNSE2D, ::Gradient, T)
@@ -512,23 +510,76 @@ boundary_conditions(model::CNSE2D) = model.boundary_conditions
     boundary_state!(nf, ::CNSE2D, args...)
 
 applies boundary conditions for the hyperbolic fluxes
-dispatches to a function in OceanBoundaryConditions
+dispatches to a function in CNSEBoundaryConditions
 """
 @inline function boundary_state!(nf, bc, model::CNSE2D, args...)
-    return _ocean_boundary_state!(nf, bc, model, args...)
+    return _cnse_boundary_state!(nf, bc, model, args...)
 end
 
 """
-    ocean_boundary_state!(nf, bc::OceanBC, ::CNSE2D)
+    CNSE_boundary_state!(nf, bc::FluidBC, ::CNSE2D)
 
 splits boundary condition application into velocity
 """
-@inline function ocean_boundary_state!(nf, bc::OceanBC, m::CNSE2D, args...)
-    return ocean_boundary_state!(nf, bc.velocity, m, m.turbulence, args...)
-    return ocean_boundary_state!(nf, bc.temperature, m, args...)
+@inline function cnse_boundary_state!(nf, bc::FluidBC, m::CNSE2D, args...)
+    return cnse_boundary_state!(nf, bc.momentum, m, m.turbulence, args...)
+    return cnse_boundary_state!(nf, bc.temperature, m, args...)
 end
 
-include("bc_velocity.jl")
+include("bc_momentum.jl")
 include("bc_tracer.jl")
 
+"""
+STUFF FOR ANDRE'S WRAPPERS
+"""
+
+function get_boundary_conditions(
+    model::SpatialModel{BL},
+) where {BL <: AbstractFluid2D}
+    bcs = model.boundary_conditions
+
+    west_east = (check_bc(bcs, :west), check_bc(bcs, :east))
+    south_north = (check_bc(bcs, :south), check_bc(bcs, :north))
+
+    return (west_east..., south_north...)
+end
+
+function DGModel(
+    model::SpatialModel{BL};
+    initial_conditions = nothing,
+) where {BL <: AbstractFluid2D}
+    params = model.parameters
+    physics = model.physics
+
+    Lˣ, Lʸ = length(model.grid.domain)
+    bcs = get_boundary_conditions(model)
+    FT = eltype(model.grid.numerical.vgeo)
+
+    if !isnothing(initial_conditions)
+        initial_conditions = InitialValueProblem(params, initial_conditions)
+    end
+
+    balance_law = CNSE2D{FT}(
+        initial_conditions,
+        (Lˣ, Lʸ),
+        physics.advection,
+        physics.dissipation,
+        physics.coriolis,
+        nothing,
+        bcs,
+        c = params.c,
+        g = params.g,
+    )
+
+    numerical_flux_first_order = model.numerics.flux # should be a function
+
+    rhs = DGModel(
+        balance_law,
+        model.grid.numerical,
+        numerical_flux_first_order,
+        CentralNumericalFluxSecondOrder(),
+        CentralNumericalFluxGradient(),
+    )
+
+    return rhs
 end

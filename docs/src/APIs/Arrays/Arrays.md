@@ -24,4 +24,5 @@ CMBuffers.CMBuffer
 
 ```@docs
 show_not_finite_fields
+checked_wait
 ```

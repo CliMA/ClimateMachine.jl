@@ -97,7 +97,7 @@ function atmos_les_default_perturbations_sums!(
     return nothing
 end
 function atmos_les_default_perturbations_sums!(
-    ::MoistureModel,
+    ::AbstractMoistureModel,
     state,
     thermo,
     sums,
@@ -137,7 +137,7 @@ function vars_atmos_les_default_perturbations(m::AtmosModel, FT)
         moisture::vars_atmos_les_default_perturbations(m.moisture, FT)
     end
 end
-vars_atmos_les_default_perturbations(::MoistureModel, FT) = @vars()
+vars_atmos_les_default_perturbations(::AbstractMoistureModel, FT) = @vars()
 function vars_atmos_les_default_perturbations(m::EquilMoist, FT)
     @vars begin
         qt_prime::FT                  # q_tot
@@ -188,7 +188,7 @@ function atmos_les_default_perturbations!(
     return nothing
 end
 function atmos_les_default_perturbations!(
-    ::MoistureModel,
+    ::AbstractMoistureModel,
     ::AtmosModel,
     state,
     thermo,

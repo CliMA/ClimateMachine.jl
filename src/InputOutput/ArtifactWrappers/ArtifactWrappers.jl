@@ -1,5 +1,6 @@
 module ArtifactWrappers
 
+using Downloads
 using Pkg.Artifacts
 using DocStringExtensions: FIELDS
 
@@ -94,7 +95,10 @@ function get_data_folder(art_wrap::ArtifactWrapper)
         filenames = [af.filename for af in art_wrap.artifact_files]
         urls = [af.url for af in art_wrap.artifact_files]
         for (url, filename) in zip(urls, filenames)
-            download("$(url)", joinpath(art_wrap.artifact_dir, filename))
+            Downloads.download(
+                "$(url)",
+                joinpath(art_wrap.artifact_dir, filename),
+            )
         end
         return art_wrap.artifact_dir
     else
@@ -113,7 +117,7 @@ function get_data_folder(art_wrap::ArtifactWrapper)
                 filenames = [af.filename for af in art_wrap.artifact_files]
                 urls = [af.url for af in art_wrap.artifact_files]
                 for (url, filename) in zip(urls, filenames)
-                    download("$(url)", joinpath(artifact_dir, filename))
+                    Downloads.download("$(url)", joinpath(artifact_dir, filename))
                 end
             end
 

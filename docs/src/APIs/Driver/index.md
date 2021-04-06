@@ -35,6 +35,7 @@ ConservationCheck
 
 ```@docs
 array_type
+datetime
 init
 invoke!
 ```

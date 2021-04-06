@@ -265,6 +265,7 @@ let
 
         result = zeros(FT, numlevels)
         for dim in (2, 3)
+            connectivity = dim == 2 ? :face : :full
             for direction in
                 (EveryDirection, HorizontalDirection, VerticalDirection)
                 for l in 1:numlevels
@@ -276,6 +277,7 @@ let
                         mpicomm,
                         brickrange;
                         periodicity = periodicity,
+                        connectivity = connectivity,
                     )
                     timeend = 1
                     outputtime = 1

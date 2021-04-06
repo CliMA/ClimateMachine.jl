@@ -66,12 +66,13 @@ function init_problem!(problem, bl, state, aux, localgeo, t)
 
     dc = bl.data_config
     FT = eltype(state)
+    param_set = parameter_set(bl)
 
-    _R_d::FT = R_d(bl.param_set)
-    _cp_d::FT = cp_d(bl.param_set)
-    _grav::FT = grav(bl.param_set)
-    _cv_d::FT = cv_d(bl.param_set)
-    _MSLP::FT = MSLP(bl.param_set)
+    _R_d::FT = R_d(param_set)
+    _cp_d::FT = cp_d(param_set)
+    _grav::FT = grav(param_set)
+    _cv_d::FT = cv_d(param_set)
+    _MSLP::FT = MSLP(param_set)
 
     γ::FT = _cp_d / _cv_d
     δT =
@@ -87,7 +88,7 @@ function init_problem!(problem, bl, state, aux, localgeo, t)
 
     q_tot = FT(0)
     e_pot = gravitational_potential(bl.orientation, aux)
-    ts = PhaseEquil_pTq(bl.param_set, P, T, q_tot)
+    ts = PhaseEquil_pTq(param_set, P, T, q_tot)
 
     ρu, ρv, ρw = FT(0), FT(0), ρ * δw
 

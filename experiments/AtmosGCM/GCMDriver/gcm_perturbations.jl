@@ -50,7 +50,8 @@ function init_perturbation(
     FT = eltype(state)
 
     # get parameters
-    _a = planet_radius(bl.param_set)::FT
+    param_set = parameter_set(bl)
+    _a::FT = planet_radius(param_set)
 
     φ = latitude(bl, aux)
     λ = longitude(bl, aux)
