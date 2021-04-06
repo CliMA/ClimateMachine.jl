@@ -341,7 +341,7 @@ end
 #
 #
 # - [VisIt](https://wci.llnl.gov/simulation/computer-codes/visit/)
-# - [Paraview](https://wci.llnl.gov/simulation/computer-codes/visit/)
+# - [Paraview](https://www.paraview.org/)
 # are two commonly used programs for `.vtu` files.
 #
 # For NetCDF or JLD2 diagnostics you may use any of the following tools:
