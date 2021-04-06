@@ -27,7 +27,7 @@ using ClimateMachine.BalanceLaws:
     BalanceLaw, Prognostic, Auxiliary, Gradient, GradientFlux, vars_state
 
 
-const FT = Float64;
+FT = Float64;
 
 function warp_constant_slope(xin, yin, zin; topo_max = 0.2, zmin = -5, xmax = 400)
     FT = eltype(xin)
@@ -69,13 +69,13 @@ include(joinpath(clima_dir, "docs", "plothelpers.jl"));
 
 
 N_poly = 1
-xres = FT(80)
+xres = FT(200)
 yres = FT(1)
 zres = FT(0.2)
 # Specify the domain boundaries.
 zmax = FT(0);
 zmin = FT(-2);
-xmax = 400
+xmax = FT(400)
 ymax = FT(1)
 Δz = FT(zres/2)
 # # Parameters
@@ -122,7 +122,7 @@ m_river = RiverModel(
 bc =  LandDomainBC(
 bottom_bc = LandComponentBC(soil_water = Neumann((aux,t)->eltype(aux)(0.0))),
 surface_bc = LandComponentBC(#soil_water = Dirichlet((aux,t)->eltype(aux)(0.4)),),
-                             soil_water = CATHYWaterBoundaryConditions(FT;
+                             soil_water = SurfaceDrivenWaterBoundaryConditions(FT;
                                                                                precip_model = DrivenConstantPrecip{FT}(precip_of_t),
                                                                                runoff_model = CoarseGridRunoff{FT}(Δz)
                                                                                )
@@ -153,9 +153,9 @@ function init_land_model!(land, state, aux, localgeo, time)
     state.river.area = eltype(state)(0)
     
 end
-#river_precip_of_t = (x,y,t) -> eltype(t)(0)
-#sources = (Precip{FT}(river_precip_of_t),)
-sources = (SoilRunoff{FT}(),)
+river_precip_of_t = (x,y,t) -> eltype(t)(-precip_of_t(t))
+sources = (Precip{FT}(river_precip_of_t),)
+#sources = (SoilRunoff{FT}(),)
 
 
 model = LandModel(
@@ -235,12 +235,12 @@ callback = GenericCallbacks.EveryXSimulationTime(
     area = Q[:, area_index, :]
     ϑ_below = Q[:, moisture_index, :]
     incident_water_flux = precip_of_t(t)
-
+    param_functions =soil_param_functions
     ∂h∂z =
         FT(1) .+
         (
-            pressure_head.(Ref(hydraulics), Ref(ν), Ref(specific_storage), ϑ_bc, Ref(θ_i)) .-
-            pressure_head.(Ref(hydraulics), Ref(ν), Ref(specific_storage), ϑ_below, Ref(θ_i))
+            pressure_head.(Ref(hydraulics), Ref(param_functions), ϑ_bc, Ref(θ_i)) .-
+            pressure_head.(Ref(hydraulics), Ref(param_functions), ϑ_below, Ref(θ_i))
         ) ./ Δz
     K =
         soil_param_functions.Ksat .* hydraulic_conductivity.(
@@ -279,7 +279,7 @@ cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(1) do
     nothing
 end
 #remove cbtmarfilter from list to stop TMAR
-ClimateMachine.invoke!(solver_config; user_callbacks = (cbtmarfilter, callback,));
+ClimateMachine.invoke!(solver_config; user_callbacks = (callback,));
 
 x = aux[:,1,:]
 y = aux[:,2,:]
@@ -341,8 +341,8 @@ end
 
 solution = analytic.(time_data, alpha, t_c, t_r, i, L, m)
 
-#plot(time_data ./ 60,solution, label = "base case")
-#plot!(time_data ./ 60, q , label = "sim")
+plot(time_data ./ 60,solution, label = "base case")
+plot!(time_data ./ 60, q , label = "sim")
 #plot!(time_data ./ 60, q , label = "K = 1e-1m/d,Δ = 0.05m", color = "red", linestyle = :dash)
 #plot!(ylim = [0,10.5])
 #plot!(yticks = [0,1,2,3,4,5,6,7,8,9,10])

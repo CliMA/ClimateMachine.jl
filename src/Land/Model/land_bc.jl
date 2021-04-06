@@ -4,7 +4,7 @@ export LandDomainBC,
     Neumann,
     NoBC,
     SurfaceDrivenWaterBoundaryConditions,
-    CATHYWaterBoundaryConditions
+    CATHYWaterBoundaryConditions,
     SurfaceDrivenHeatBoundaryConditions
 
 """

@@ -445,7 +445,7 @@ end
     y = aux[:,2,:]
     z = aux[:,3,:]
     ztrue = inverse_constant_slope.(x,y,z;topo_max = topo_max, zmin = zmin, xmax = xmax)
-    mask = ((FT.(x .== 182.88) .+ FT.(ztrue .== 0.0)) .== 2)
+    mask = ((FT.(round.(x .* 100) .== 18288) .+ FT.(ztrue .== 0.0)) .== 2)
 
     N = sum([length(dons[k]) ==3 for k in 1:n_outputs])
     # get prognostic variable area from nodal state (m^2)
@@ -497,7 +497,7 @@ end
     #test that river didnt affect soil
     @test sum(he.(z[:]) .- dons[N]["ϑ_l"][:]) < eps(FT)
     # test that soil didnt affect river
-    @test sqrt_rmse_over_max_q = sqrt(mean((analytic.(time_data, alpha, t_c, t_r, i, L, m) .- q).^4.0))/ maximum(q) < 3e-3
+    @test sqrt_rmse_over_max_q = sqrt(mean((solution .- q).^4.0))/ maximum(q) < 3e-3
 
 end
 
@@ -675,7 +675,7 @@ end
 end
 
 
-@testset " Integrating River and Soil at same time II - FV" begin
+@testset " Integrating River and Soil at same time II - FV, no Rusanov" begin
     FT = Float64;
     
     ClimateMachine.init(; disable_gpu = true);
@@ -850,7 +850,7 @@ end
 
 end
 
-
+#=
 @testset " Integrating River and Soil III - Maxwell slope" begin
     # quite slow, unclear if we need this - tests overland analytic solution in different regime
     FT = Float64;
@@ -1072,7 +1072,7 @@ end
     @test mean(abs.(solution .- q)) .< 1e-6 # 
 end
 
-
+=#
 
 
 #Maxwell - V - include as integration test? if so need data.
