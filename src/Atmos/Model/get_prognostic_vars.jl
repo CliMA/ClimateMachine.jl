@@ -19,7 +19,7 @@ prognostic_vars(m::AtmosModel) = (
     Mass(),
     Momentum(),
     prognostic_vars(energy_model(m))...,
-    prognostic_vars(m.moisture)...,
+    prognostic_vars(moisture_model(m))...,
     prognostic_vars(precipitation_model(m))...,
     prognostic_vars(tracer_model(m))...,
     prognostic_vars(turbconv_model(m))...,

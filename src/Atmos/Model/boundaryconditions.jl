@@ -62,7 +62,13 @@ function boundary_state!(
     atmos_boundary_state!(nf, bc, atmos, state⁺, args)
     # update moisture auxiliary variables (perform saturation adjustment, if necessary)
     # to make thermodynamic quantities consistent with the boundary state
-    atmos_nodal_update_auxiliary_state!(atmos.moisture, atmos, state⁺, aux⁺, t)
+    atmos_nodal_update_auxiliary_state!(
+        moisture_model(atmos),
+        atmos,
+        state⁺,
+        aux⁺,
+        t,
+    )
 end
 
 function boundary_state!(

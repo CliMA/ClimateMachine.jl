@@ -29,7 +29,7 @@ new_thermo_state_up(
     state::Vars,
     aux::Vars,
     ts::ThermodynamicState = recover_thermo_state(bl, state, aux),
-) = new_thermo_state_up(bl, bl.moisture, state, aux, ts)
+) = new_thermo_state_up(bl, moisture_model(bl), state, aux, ts)
 
 """
     new_thermo_state_en(bl, state, aux)
@@ -48,7 +48,7 @@ new_thermo_state_en(
     state::Vars,
     aux::Vars,
     ts::ThermodynamicState = recover_thermo_state(bl, state, aux),
-) = new_thermo_state_en(bl, bl.moisture, state, aux, ts)
+) = new_thermo_state_en(bl, moisture_model(bl), state, aux, ts)
 
 """
     recover_thermo_state_all(bl, state, aux)
@@ -62,8 +62,8 @@ function recover_thermo_state_all(bl, state, aux)
     ts = new_thermo_state(bl, state, aux)
     return (
         gm = ts,
-        en = new_thermo_state_en(bl, bl.moisture, state, aux, ts),
-        up = new_thermo_state_up(bl, bl.moisture, state, aux, ts),
+        en = new_thermo_state_en(bl, moisture_model(bl), state, aux, ts),
+        up = new_thermo_state_up(bl, moisture_model(bl), state, aux, ts),
     )
 end
 
@@ -89,7 +89,7 @@ function recover_thermo_state_up(
     aux,
     ts = new_thermo_state(bl, state, aux),
 )
-    return new_thermo_state_up(bl, bl.moisture, state, aux, ts)
+    return new_thermo_state_up(bl, moisture_model(bl), state, aux, ts)
 end
 
 """
@@ -114,7 +114,7 @@ function recover_thermo_state_en(
     aux,
     ts = new_thermo_state(bl, state, aux),
 )
-    return new_thermo_state_en(bl, bl.moisture, state, aux, ts)
+    return new_thermo_state_en(bl, moisture_model(bl), state, aux, ts)
 end
 
 ####

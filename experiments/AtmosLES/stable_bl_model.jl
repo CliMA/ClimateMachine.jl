@@ -150,7 +150,7 @@ function init_problem!(problem, bl, state, aux, localgeo, t)
     θ = θ_liq
     p = aux.ref_state.p
     # Establish thermodynamic state and moist phase partitioning
-    if bl.moisture isa DryModel
+    if moisture_model(bl) isa DryModel
         TS = PhaseDry_pθ(param_set, p, θ)
     else
         TS = PhaseEquil_pθq(param_set, p, θ_liq, q_tot)
@@ -172,7 +172,7 @@ function init_problem!(problem, bl, state, aux, localgeo, t)
     state.ρ = ρ
     state.ρu = SVector(ρu, ρv, ρw)
     state.energy.ρe = ρe_tot
-    if !(bl.moisture isa DryModel)
+    if !(moisture_model(bl) isa DryModel)
         state.moisture.ρq_tot = ρ * q_tot
     end
     add_perturbations!(state, localgeo)

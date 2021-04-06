@@ -160,7 +160,7 @@ function init_problem!(problem, bl, state, aux, localgeo, t)
     state.ρ = ρ
     state.ρu = SVector(ρu, ρv, ρw)
     state.energy.ρe = ρe_tot
-    if !(bl.moisture isa DryModel)
+    if !(moisture_model(bl) isa DryModel)
         state.moisture.ρq_tot = ρ * q_tot
     end
 
@@ -175,7 +175,7 @@ function surface_temperature_variation(bl, state, t)
     ρ = state.ρ
     θ_liq_sfc = FT(291.15) + FT(20) * sinpi(FT(t / 12 / 3600))
     param_set = parameter_set(bl)
-    if bl.moisture isa DryModel
+    if moisture_model(bl) isa DryModel
         TS = PhaseDry_ρθ(param_set, ρ, θ_liq_sfc)
     else
         q_tot = state.moisture.ρq_tot / ρ

@@ -118,7 +118,7 @@ function vars_atmos_gcm_default_simple_3d(atmos::AtmosModel, FT)
         vort::FT                # Ω₃
         vort2::FT               # Ω_bl₃
 
-        moisture::vars_atmos_gcm_default_simple_3d(atmos.moisture, FT)
+        moisture::vars_atmos_gcm_default_simple_3d(moisture_model(atmos), FT)
     end
 end
 vars_atmos_gcm_default_simple_3d(::AbstractMoistureModel, FT) = @vars()
@@ -165,7 +165,7 @@ function atmos_gcm_default_simple_3d_vars!(
     vars.vort2 = dyn_bli.Ω_bl₃
 
     atmos_gcm_default_simple_3d_vars!(
-        atmos.moisture,
+        moisture_model(atmos),
         state_prognostic,
         thermo,
         vars,

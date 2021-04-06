@@ -336,7 +336,7 @@ function init_bomex!(problem, bl, state, aux, localgeo, t)
     state.ρu = SVector(ρu, ρv, ρw)
     state.energy.ρe = ρe_tot
     state.moisture.ρq_tot = ρ * q_tot
-    if bl.moisture isa NonEquilMoist
+    if moisture_model(bl) isa NonEquilMoist
         state.moisture.ρq_liq = FT(0)
         state.moisture.ρq_ice = FT(0)
     end

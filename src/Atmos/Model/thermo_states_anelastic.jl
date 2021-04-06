@@ -16,7 +16,7 @@ new_thermo_state_anelastic(atmos::AtmosModel, state::Vars, aux::Vars) =
     new_thermo_state_anelastic(
         atmos,
         energy_model(atmos),
-        atmos.moisture,
+        moisture_model(atmos),
         state,
         aux,
     )
@@ -38,7 +38,7 @@ recover_thermo_state_anelastic(atmos::AtmosModel, state::Vars, aux::Vars) =
     new_thermo_state_anelastic(
         atmos,
         energy_model(atmos),
-        atmos.moisture,
+        moisture_model(atmos),
         state,
         aux,
     )

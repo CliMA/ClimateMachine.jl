@@ -405,7 +405,7 @@ function compute_gradient_argument!(
     ρ_inv = 1 / gm.ρ
     θ_liq_en = liquid_ice_pottemp(ts.en)
 
-    if m.moisture isa DryModel
+    if moisture_model(m) isa DryModel
         q_tot_en = FT(0)
     else
         q_tot_en = total_specific_humidity(ts.en)
@@ -419,7 +419,7 @@ function compute_gradient_argument!(
     en_tf.tke = en.ρatke / (env.a * gm.ρ)
     en_tf.θ_liq_cv = en.ρaθ_liq_cv / (env.a * gm.ρ)
 
-    if m.moisture isa DryModel
+    if moisture_model(m) isa DryModel
         en_tf.q_tot_cv = FT(0)
         en_tf.θ_liq_q_tot_cv = FT(0)
     else
@@ -577,7 +577,7 @@ function source(::en_ρaq_tot_cv, ::EntrDetr, atmos, args)
     N_up = n_updrafts(turbconv_model(atmos))
     q_tot_en = total_specific_humidity(ts_en)
     ρ_inv = 1 / gm.ρ
-    ρq_tot = atmos.moisture isa DryModel ? FT(0) : gm.moisture.ρq_tot
+    ρq_tot = moisture_model(atmos) isa DryModel ? FT(0) : gm.moisture.ρq_tot
 
     entr_detr = vuntuple(N_up) do i
         fix_void_up(
@@ -610,7 +610,7 @@ function source(::en_ρaθ_liq_q_tot_cv, ::EntrDetr, atmos, args)
     θ_liq = liquid_ice_pottemp(ts_gm)
     θ_liq_en = liquid_ice_pottemp(ts_en)
     ρ_inv = 1 / gm.ρ
-    ρq_tot = atmos.moisture isa DryModel ? FT(0) : gm.moisture.ρq_tot
+    ρq_tot = moisture_model(atmos) isa DryModel ? FT(0) : gm.moisture.ρq_tot
 
     entr_detr = vuntuple(N_up) do i
         fix_void_up(
@@ -811,7 +811,7 @@ function precompute(::EDMF, bl, args, ts, ::Flux{FirstOrder})
     a_up = vuntuple(N_up) do i
         fix_void_up(up[i].ρa, up[i].ρa * ρ_inv)
     end
-    if !(bl.moisture isa DryModel)
+    if !(moisture_model(bl) isa DryModel)
         q_tot_up = vuntuple(N_up) do i
             fix_void_up(up[i].ρa, up[i].ρaq_tot / up[i].ρa, gm.moisture.ρq_tot)
         end
@@ -829,8 +829,8 @@ function precompute(::EDMF, bl, args, ts, ::Flux{SecondOrder})
     turbconv = turbconv_model(bl)
     N_up = n_updrafts(turbconv)
     env = environment_vars(state, N_up)
-    ts_en = new_thermo_state_en(bl, bl.moisture, state, aux, ts_gm)
-    ts_up = new_thermo_state_up(bl, bl.moisture, state, aux, ts_gm)
+    ts_en = new_thermo_state_en(bl, moisture_model(bl), state, aux, ts_gm)
+    ts_up = new_thermo_state_up(bl, moisture_model(bl), state, aux, ts_gm)
 
     buoy = compute_buoyancy(bl, state, env, ts_en, ts_up, aux.ref_state)
 
@@ -933,8 +933,8 @@ function precompute(::EDMF, bl, args, ts, ::Source)
     # Get environment variables
     env = environment_vars(state, N_up)
     # Recover thermo states
-    ts_en = new_thermo_state_en(bl, bl.moisture, state, aux, ts_gm)
-    ts_up = new_thermo_state_up(bl, bl.moisture, state, aux, ts_gm)
+    ts_en = new_thermo_state_en(bl, moisture_model(bl), state, aux, ts_gm)
+    ts_up = new_thermo_state_up(bl, moisture_model(bl), state, aux, ts_gm)
     ρa_up = compute_ρa_up(bl, state, aux)
 
     Shear² =
@@ -1052,7 +1052,7 @@ function flux(::TotalMoisture, ::SGSFlux, atmos, args)
     gm = state
     ρ_inv = 1 / gm.ρ
     N_up = n_updrafts(turbconv_model(atmos))
-    ρq_tot = atmos.moisture isa DryModel ? FT(0) : gm.moisture.ρq_tot
+    ρq_tot = moisture_model(atmos) isa DryModel ? FT(0) : gm.moisture.ρq_tot
     ρaq_tot_up = vuntuple(i -> up[i].ρaq_tot, N_up)
     ρa_en = gm.ρ * env.a
     q_tot_en = total_specific_humidity(ts_en)
@@ -1175,7 +1175,7 @@ function turbconv_boundary_state!(
         up⁺[i].ρaw = FT(0)
         up⁺[i].ρa = gm⁻.ρ * a_up_surf[i]
         up⁺[i].ρaθ_liq = gm⁻.ρ * a_up_surf[i] * surf_vals.θ_liq_up_surf[i]
-        if !(atmos.moisture isa DryModel)
+        if !(moisture_model(atmos) isa DryModel)
             up⁺[i].ρaq_tot = gm⁻.ρ * a_up_surf[i] * surf_vals.q_tot_up_surf[i]
         else
             up⁺[i].ρaq_tot = FT(0)
@@ -1185,7 +1185,7 @@ function turbconv_boundary_state!(
     a_en = environment_area(gm⁻, N_up)
     en⁺.ρatke = gm⁻.ρ * a_en * surf_vals.tke
     en⁺.ρaθ_liq_cv = gm⁻.ρ * a_en * surf_vals.θ_liq_cv
-    if !(atmos.moisture isa DryModel)
+    if !(moisture_model(atmos) isa DryModel)
         en⁺.ρaq_tot_cv = gm⁻.ρ * a_en * surf_vals.q_tot_cv
         en⁺.ρaθ_liq_q_tot_cv = gm⁻.ρ * a_en * surf_vals.θ_liq_q_tot_cv
     else

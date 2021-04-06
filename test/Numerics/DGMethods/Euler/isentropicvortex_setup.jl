@@ -56,7 +56,7 @@ function (setup::IsentropicVortexSetup)(
     state.ρu = ρ * u
     e_kin = u' * u / 2
     state.energy.ρe = ρ * total_energy(param_set, e_kin, FT(0), T)
-    if !(bl.moisture isa DryModel)
+    if !(moisture_model(bl) isa DryModel)
         state.moisture.ρq_tot = FT(0)
     end
 end

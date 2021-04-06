@@ -102,7 +102,7 @@ function init_squall_line!(problem, bl, state, aux, localgeo, t, args...)
     state.energy.ρe = E
 
     state.moisture.ρq_tot = ρ * data_q
-    if bl.moisture isa NonEquilMoist
+    if moisture_model(bl) isa NonEquilMoist
         state.moisture.ρq_liq = FT(0)
         state.moisture.ρq_ice = FT(0)
     end

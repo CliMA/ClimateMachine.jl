@@ -126,7 +126,7 @@ function init_baroclinic_wave!(problem, bl, state, aux, localgeo, t)
     u_sphere = SVector{3, FT}(u_ref + u′, v_ref + v′, w_ref + w′)
     u_cart = sphr_to_cart_vec(bl.orientation, u_sphere, aux)
 
-    if bl.moisture isa DryModel
+    if moisture_model(bl) isa DryModel
         q_tot = FT(0)
     else
         ## Compute moisture profile
@@ -155,7 +155,7 @@ function init_baroclinic_wave!(problem, bl, state, aux, localgeo, t)
     state.ρu = ρ * u_cart
     state.energy.ρe = ρ * e_tot
 
-    if !(bl.moisture isa DryModel)
+    if !(moisture_model(bl) isa DryModel)
         state.moisture.ρq_tot = ρ * q_tot
     end
 

@@ -111,7 +111,7 @@ function init_gcm_experiment!(problem, bl, state, aux, coords, t)
     state.ρu = ρ * u_cart
     state.energy.ρe = ρ * e_tot * rand_pert
 
-    if bl.moisture isa EquilMoist
+    if moisture_model(bl) isa EquilMoist
         state.moisture.ρq_tot = ρ * q_tot
     end
 

@@ -67,7 +67,7 @@ function init_risingbubble!(problem, bl, state, aux, localgeo, t)
     ρ = p0 / (R_gas * θ) * (π_exner)^(_cv_m / R_m)      # density
     T = θ * π_exner
 
-    if bl.moisture isa EquilMoist
+    if moisture_model(bl) isa EquilMoist
         e_int = internal_energy(param_set, T, q_pt)
         ts = PhaseEquil(param_set, e_int, ρ, Δq_tot)
     else
@@ -85,7 +85,7 @@ function init_risingbubble!(problem, bl, state, aux, localgeo, t)
     state.ρ = ρ
     state.ρu = ρu
     state.energy.ρe = ρe_tot
-    if !(bl.moisture isa DryModel)
+    if !(moisture_model(bl) isa DryModel)
         state.moisture.ρq_tot = ρq_tot
     end
 end

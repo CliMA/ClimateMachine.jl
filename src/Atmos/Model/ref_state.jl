@@ -119,7 +119,7 @@ function ref_state_finalize_init!(
 
     # Update temperature to be exactly consistent with
     # p, ρ, and q_pt
-    if atmos.moisture isa DryModel
+    if moisture_model(atmos) isa DryModel
         ts = PhaseDry_ρp(param_set, ρ, p)
     else
         ts = PhaseEquil_ρpq(param_set, ρ, p, q_pt.tot)

@@ -46,7 +46,7 @@ function assign!(state, bl, nt, st::Prognostic, aux)
     state.ρu = SVector(state.ρ * u, state.ρ * v, state.ρ * w)
     param_set = parameter_set(bl)
     state.energy.ρe = state.ρ * total_energy(param_set, e_kin, e_pot, T, q_pt)
-    assign!(state, bl, bl.moisture, nt, st)
+    assign!(state, bl, moisture_model(bl), nt, st)
 end
 assign!(state, bl, moisture::DryModel, nt, ::Prognostic) = nothing
 assign!(state, bl, moisture::EquilMoist, nt, ::Prognostic) =
@@ -68,7 +68,7 @@ function assign!(state, bl, nt, st::Primitive, aux)
     state.u = SVector(u, v, w)
     state.p = p
     assign!(state, bl, compressibility_model(bl), nt, st, aux)
-    assign!(state, bl, bl.moisture, nt, st)
+    assign!(state, bl, moisture_model(bl), nt, st)
 end
 assign!(state, bl, moisture::DryModel, nt, ::Primitive) = nothing
 assign!(state, bl, moisture::EquilMoist, nt, ::Primitive) =

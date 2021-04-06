@@ -234,7 +234,7 @@ function init_dycoms!(problem, bl, state, aux, localgeo, t)
 
     state.moisture.ρq_tot = ρ * q_tot
 
-    if bl.moisture isa NonEquilMoist
+    if moisture_model(bl) isa NonEquilMoist
         q_init = PhasePartition(ts)
         state.moisture.ρq_liq = q_init.liq
         state.moisture.ρq_ice = q_init.ice

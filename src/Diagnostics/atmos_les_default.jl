@@ -109,7 +109,7 @@ function vars_atmos_les_default_simple(m::AtmosModel, FT)
         hi::FT
         w_ht_sgs::FT
 
-        moisture::vars_atmos_les_default_simple(m.moisture, FT)
+        moisture::vars_atmos_les_default_simple(moisture_model(m), FT)
         precipitation::vars_atmos_les_default_simple(precipitation_model(m), FT)
     end
 end
@@ -170,7 +170,7 @@ function atmos_les_default_simple_sums!(
     sums.w_ht_sgs += MH * d_h_tot[end] * state.ρ
 
     atmos_les_default_simple_sums!(
-        atmos.moisture,
+        moisture_model(atmos),
         state,
         gradflux,
         thermo,
@@ -308,7 +308,7 @@ function vars_atmos_les_default_ho(m::AtmosModel, FT)
         cov_w_thd::FT           # w′θ_dry′
         cov_w_ei::FT            # w′e_int′
 
-        moisture::vars_atmos_les_default_ho(m.moisture, FT)
+        moisture::vars_atmos_les_default_ho(moisture_model(m), FT)
         precipitation::vars_atmos_les_default_ho(precipitation_model(m), FT)
     end
 end
@@ -379,7 +379,7 @@ function atmos_les_default_ho_sums!(
     sums.cov_w_ei += MH * w′ * e_int′ * state.ρ
 
     atmos_les_default_ho_sums!(
-        atmos.moisture,
+        moisture_model(atmos),
         state,
         thermo,
         MH,
@@ -649,7 +649,7 @@ function atmos_les_default_collect(dgngrp::DiagnosticsGroup, currtime)
 
         idx = (Nqh * (eh - 1)) + (grid_info.Nq[2] * (j - 1)) + i
         cld_top, cld_base = atmos_les_default_clouds(
-            atmos.moisture,
+            moisture_model(atmos),
             thermo,
             idx,
             qc_gt_0_z[evk],
@@ -660,7 +660,8 @@ function atmos_les_default_collect(dgngrp::DiagnosticsGroup, currtime)
         )
 
         # FIXME properly
-        if isa(atmos.moisture, EquilMoist) || isa(atmos.moisture, NonEquilMoist)
+        if isa(moisture_model(atmos), EquilMoist) ||
+           isa(moisture_model(atmos), NonEquilMoist)
             # for LWP
             ρq_liq_z[evk] += MH * thermo.moisture.q_liq * state.ρ * state.ρ
             ρq_ice_z[evk] += MH * thermo.moisture.q_ice * state.ρ * state.ρ
@@ -688,7 +689,8 @@ function atmos_les_default_collect(dgngrp::DiagnosticsGroup, currtime)
         simple_avgs[evk] .= simple_avgs[evk] ./ MH_z[evk]
 
         # FIXME properly
-        if isa(atmos.moisture, EquilMoist) || isa(atmos.moisture, NonEquilMoist)
+        if isa(moisture_model(atmos), EquilMoist) ||
+           isa(moisture_model(atmos), NonEquilMoist)
             tot_qc_gt_0_z = MPI.Reduce(sum(qc_gt_0_z[evk]), +, 0, mpicomm)
             tot_horz_z = MPI.Reduce(length(qc_gt_0_z[evk]), +, 0, mpicomm)
             if mpirank == 0
@@ -721,7 +723,8 @@ function atmos_les_default_collect(dgngrp::DiagnosticsGroup, currtime)
         end
     end
     # FIXME properly
-    if isa(atmos.moisture, EquilMoist) || isa(atmos.moisture, NonEquilMoist)
+    if isa(moisture_model(atmos), EquilMoist) ||
+       isa(moisture_model(atmos), NonEquilMoist)
         cld_top = MPI.Reduce(cld_top, max, 0, mpicomm)
         if cld_top == FT(-100000)
             cld_top = NaN
@@ -755,7 +758,8 @@ function atmos_les_default_collect(dgngrp::DiagnosticsGroup, currtime)
 
         # for all the water paths
         # FIXME properly
-        if isa(atmos.moisture, EquilMoist) || isa(atmos.moisture, NonEquilMoist)
+        if isa(moisture_model(atmos), EquilMoist) ||
+           isa(moisture_model(atmos), NonEquilMoist)
             ρq_liq_z[evk] /= avg_rho
             ρq_ice_z[evk] /= avg_rho
         end
@@ -841,7 +845,8 @@ function atmos_les_default_collect(dgngrp::DiagnosticsGroup, currtime)
             varvals[varname] = davg
         end
 
-        if isa(atmos.moisture, EquilMoist) || isa(atmos.moisture, NonEquilMoist)
+        if isa(moisture_model(atmos), EquilMoist) ||
+           isa(moisture_model(atmos), NonEquilMoist)
             varvals["cld_frac"] = cld_frac
             varvals["cld_top"] = cld_top
             varvals["cld_base"] = cld_base

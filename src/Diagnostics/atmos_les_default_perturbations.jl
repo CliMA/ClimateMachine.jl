@@ -92,7 +92,12 @@ function atmos_les_default_perturbations_sums!(
     sums.ht += thermo.h_tot * state.ρ
     sums.hi += thermo.h_int * state.ρ
 
-    atmos_les_default_perturbations_sums!(atmos.moisture, state, thermo, sums)
+    atmos_les_default_perturbations_sums!(
+        moisture_model(atmos),
+        state,
+        thermo,
+        sums,
+    )
 
     return nothing
 end
@@ -134,7 +139,7 @@ function vars_atmos_les_default_perturbations(m::AtmosModel, FT)
         ht_prime::FT
         hi_prime::FT
 
-        moisture::vars_atmos_les_default_perturbations(m.moisture, FT)
+        moisture::vars_atmos_les_default_perturbations(moisture_model(m), FT)
     end
 end
 vars_atmos_les_default_perturbations(::AbstractMoistureModel, FT) = @vars()
@@ -177,7 +182,7 @@ function atmos_les_default_perturbations!(
     vars.hi_prime = thermo.h_int - ha.hi
 
     atmos_les_default_perturbations!(
-        atmos.moisture,
+        moisture_model(atmos),
         atmos,
         state,
         thermo,
