@@ -599,39 +599,6 @@ function precompute(atmos::AtmosModel, args, tt::Flux{FirstOrder})
     return (; ts, turbconv)
 end
 
-"""
-    flux_first_order!(
-        m::AtmosModel,
-        flux::Grad,
-        state::Vars,
-        aux::Vars,
-        t::Real
-    )
-
-Computes and assembles non-diffusive fluxes in the model
-equations.
-"""
-@inline function flux_first_order!(
-    atmos::AtmosModel,
-    flux::Grad,
-    state::Vars,
-    aux::Vars,
-    t::Real,
-    direction,
-)
-
-    tend = Flux{FirstOrder}()
-    _args = (; state, aux, t, direction)
-    args = merge(_args, (precomputed = precompute(atmos, _args, tend),))
-
-    map(prognostic_vars(atmos)) do prog
-        var, name = get_prog_state(flux, prog)
-        val = Σfluxes(prog, eq_tends(prog, atmos, tend), atmos, args)
-        setproperty!(var, name, val)
-    end
-    nothing
-end
-
 function compute_gradient_argument!(
     atmos::AtmosModel,
     transform::Vars,
@@ -782,41 +749,6 @@ function precompute(atmos::AtmosModel, args, tt::Flux{SecondOrder})
     turbulence = (ν = ν, D_t = D_t, τ = τ)
     turbconv = precompute(turbconv_model(atmos), atmos, args, ts, tt)
     return (; ts, turbconv, turbulence)
-end
-
-"""
-    flux_second_order!(
-        atmos::AtmosModel,
-        flux::Grad,
-        state::Vars,
-        diffusive::Vars,
-        hyperdiffusive::Vars,
-        aux::Vars,
-        t::Real
-    )
-Diffusive fluxes in AtmosModel. Viscosity, diffusivity are calculated
-in the turbulence subcomponent and accessed within the diffusive flux
-function. Contributions from subcomponents are then assembled (pointwise).
-"""
-@inline function flux_second_order!(
-    atmos::AtmosModel,
-    flux::Grad,
-    state::Vars,
-    diffusive::Vars,
-    hyperdiffusive::Vars,
-    aux::Vars,
-    t::Real,
-)
-    tend = Flux{SecondOrder}()
-    _args = (; state, aux, t, diffusive, hyperdiffusive)
-    args = merge(_args, (precomputed = precompute(atmos, _args, tend),))
-
-    map(prognostic_vars(atmos)) do prog
-        var, name = get_prog_state(flux, prog)
-        val = Σfluxes(prog, eq_tends(prog, atmos, tend), atmos, args)
-        setproperty!(var, name, val)
-    end
-    nothing
 end
 
 soundspeed_air(ts::ThermodynamicState, ::Anelastic1D) = 0
@@ -977,45 +909,6 @@ function precompute(atmos::AtmosModel, args, tt::Source)
     precipitation = precompute(precipitation_model(atmos), atmos, args, ts, tt)
     turbconv = precompute(turbconv_model(atmos), atmos, args, ts, tt)
     return (; ts, turbconv, precipitation)
-end
-
-"""
-    source!(
-        m::AtmosModel,
-        source::Vars,
-        state::Vars,
-        diffusive::Vars,
-        aux::Vars,
-        t::Real,
-        direction::Direction,
-    )
-
-Computes (and assembles) source terms `S(Y)` in:
-```
-∂Y
--- = - ∇ • F + S(Y)
-∂t
-```
-"""
-function source!(
-    atmos::AtmosModel,
-    source::Vars,
-    state::Vars,
-    diffusive::Vars,
-    aux::Vars,
-    t::Real,
-    direction,
-)
-    tend = Source()
-    _args = (; state, aux, t, direction, diffusive)
-    args = merge(_args, (precomputed = precompute(atmos, _args, tend),))
-
-    map(prognostic_vars(atmos)) do prog
-        var, name = get_prog_state(source, prog)
-        val = Σsources(prog, eq_tends(prog, atmos, tend), atmos, args)
-        setproperty!(var, name, val)
-    end
-    nothing
 end
 
 """
