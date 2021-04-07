@@ -66,13 +66,14 @@ function land_source!(
     direction,
 ) where {FT}
     bc = land.boundary_conditions.surface_bc.soil_water
-    #this is either i_c is rain > i_c or = rain if rain < i_c
-    #I dont think what is below will work for exfiltration
-    #what about if evap > precip?
-    #definitely needs work, but with precip only, flux into soil only, should be OK
     precip = bc.precip_model(t)
-    flux_into_soil = -norm(diffusive.soil.water.K∇h)
-    source.river.area  += -(precip - flux_into_soil)
+    # Assume that diffusive- is parallel or antiparallel to n^, since diff+ is
+    # Then
+    n̂ = diffusive.soil.water.K∇h/norm(diffusive.soil.water.K∇h)
+    flux_vector = -diffusive.soil.water.K∇h
+    precip_vector = n̂ * (0,0,precip)
+    leftover = norm(precip_vector - flux_vector)
+    source.river.area  += -leftover
                                       
 end
 

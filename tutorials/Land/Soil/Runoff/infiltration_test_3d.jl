@@ -69,9 +69,9 @@ include(joinpath(clima_dir, "docs", "plothelpers.jl"));
 
 
 N_poly = 1
-xres = FT(200)
+xres = FT(80)
 yres = FT(1)
-zres = FT(0.2)
+zres = FT(0.1)
 # Specify the domain boundaries.
 zmax = FT(0);
 zmin = FT(-2);
@@ -121,12 +121,13 @@ m_river = RiverModel(
 
 bc =  LandDomainBC(
 bottom_bc = LandComponentBC(soil_water = Neumann((aux,t)->eltype(aux)(0.0))),
-surface_bc = LandComponentBC(#soil_water = Dirichlet((aux,t)->eltype(aux)(0.4)),),
-                             soil_water = SurfaceDrivenWaterBoundaryConditions(FT;
-                                                                               precip_model = DrivenConstantPrecip{FT}(precip_of_t),
-                                                                               runoff_model = CoarseGridRunoff{FT}(Δz)
-                                                                               )
-                             ),
+    surface_bc = LandComponentBC(#soil_water = Neumann((aux,t)->eltype(aux)(0.0)),
+                                 #soil_water = Dirichlet((aux,t)->eltype(aux)(0.4)),),
+                                 soil_water = CATHYWaterBoundaryConditions(FT;
+                                                                                   precip_model = DrivenConstantPrecip{FT}(precip_of_t),
+                                                                                   runoff_model = CoarseGridRunoff{FT}(Δz)
+                                                                                   )
+                                 ),
     miny_bc = LandComponentBC(soil_water = Neumann((aux,t)->eltype(aux)(0.0)),
                               ),
     minx_bc = LandComponentBC(soil_water = Neumann((aux,t)->eltype(aux)(0.0)),
@@ -153,9 +154,9 @@ function init_land_model!(land, state, aux, localgeo, time)
     state.river.area = eltype(state)(0)
     
 end
-river_precip_of_t = (x,y,t) -> eltype(t)(-precip_of_t(t))
-sources = (Precip{FT}(river_precip_of_t),)
-#sources = (SoilRunoff{FT}(),)
+#river_precip_of_t = (x,y,t) -> eltype(t)(-precip_of_t(t))
+#sources = (Precip{FT}(river_precip_of_t),)
+sources = (SoilRunoff{FT}(),)
 
 
 model = LandModel(
@@ -187,7 +188,7 @@ driver_config = ClimateMachine.MultiColumnLandModel(
 # Choose the initial and final times, as well as a timestep.
 t0 = FT(0)
 timeend = FT(60* 300)
-dt = FT(1);
+dt = FT(1.5);
 const n_outputs = 500;
 const every_x_simulation_time = ceil(Int, timeend / n_outputs);
 solver_config =
@@ -234,34 +235,34 @@ callback = GenericCallbacks.EveryXSimulationTime(
     t = ODESolvers.gettime(solver_config.solver)
     area = Q[:, area_index, :]
     ϑ_below = Q[:, moisture_index, :]
-    incident_water_flux = precip_of_t(t)
-    param_functions =soil_param_functions
-    ∂h∂z =
-        FT(1) .+
-        (
-            pressure_head.(Ref(hydraulics), Ref(param_functions), ϑ_bc, Ref(θ_i)) .-
-            pressure_head.(Ref(hydraulics), Ref(param_functions), ϑ_below, Ref(θ_i))
-        ) ./ Δz
-    K =
-        soil_param_functions.Ksat .* hydraulic_conductivity.(
-    Ref(water.impedance_factor),
-    Ref(water.viscosity_factor),
-    Ref(water.moisture_factor),
-    Ref(hydraulics),
-    Ref(θ_i),
-    Ref(soil_param_functions.porosity),
-    Ref(T),
-    Ref(ϑ_bc / νp),
-        )
-    i_c = K .*  ∂h∂z
-    bcvval1 = get_bc1.(Ref(incident_water_flux),i_c)
-    
+#    incident_water_flux = precip_of_t(t)
+#    param_functions =soil_param_functions
+#    ∂h∂z =
+#        FT(1) .+
+#        (
+#            pressure_head.(Ref(hydraulics), Ref(param_functions), ϑ_bc, Ref(θ_i)) .-
+#            pressure_head.(Ref(hydraulics), Ref(param_functions), ϑ_below, Ref(θ_i))
+#        ) ./ Δz
+#    K =
+#        soil_param_functions.Ksat .* hydraulic_conductivity.(
+#    Ref(water.impedance_factor),
+#    Ref(water.viscosity_factor),
+#    Ref(water.moisture_factor),
+#    Ref(hydraulics),
+#    Ref(θ_i),
+#    Ref(soil_param_functions.porosity),
+#    Ref(T),
+#    Ref(ϑ_bc / νp),
+#        )
+#    i_c = K .*  ∂h∂z
+#    bcvval1 = get_bc1.(Ref(incident_water_flux),i_c)
+#    
     all_vars = Dict{String, Array}(
         "t" => [t],
         "area" => area,
         "ϑ_l" => ϑ_below,
-        "flux" => -bcvval1,
-        "i_c" => i_c,
+#        "flux" => -bcvval1,
+#        "i_c" => i_c,
         "grad" => grad[:,K∇h_index,:][:,3,:],
     )
     dons[iostep[1]] = all_vars
@@ -279,7 +280,7 @@ cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(1) do
     nothing
 end
 #remove cbtmarfilter from list to stop TMAR
-ClimateMachine.invoke!(solver_config; user_callbacks = (callback,));
+ClimateMachine.invoke!(solver_config; user_callbacks = (callback, cbtmarfilter));
 
 x = aux[:,1,:]
 y = aux[:,2,:]
@@ -289,10 +290,10 @@ mask = ((FT.(abs.(x .-xmax) .< 1e-10)) + FT.(abs.(ztrue) .< 1e-10)) .==2
 N = sum([length(dons[k]) !=0 for k in 1:n_outputs])
 # get prognostic variable area from nodal state (m^2)
 area = [mean(Array(dons[k]["area"])[mask[:]]) for k in 1:N]
-water = [mean(Array(dons[k]["ϑ_l"])[mask[:]]) for k in 1:N]
-flux =  [mean(Array(dons[k]["flux"])[mask[:]]) for k in 1:N]
-i_c =  [mean(Array(dons[k]["i_c"])[mask[:]]) for k in 1:N]
-gradf =  [mean(Array(dons[k]["grad"])[mask[:]]) for k in 1:N]
+#water = [mean(Array(dons[k]["ϑ_l"])[mask[:]]) for k in 1:N]
+#flux =  [mean(Array(dons[k]["flux"])[mask[:]]) for k in 1:N]
+#i_c =  [mean(Array(dons[k]["i_c"])[mask[:]]) for k in 1:N]
+#gradf =  [mean(Array(dons[k]["grad"])[mask[:]]) for k in 1:N]
 height = area
 time_data = [dons[l]["t"][1] for l in 1:N]
 #plot(time_data ./60, -precip_of_t.(time_data).+flux, label = "with infiltration")
@@ -340,13 +341,13 @@ end
 
 
 solution = analytic.(time_data, alpha, t_c, t_r, i, L, m)
+save("./tutorials/Land/Soil/Runoff/K2_V10_H80_P1_CATHY.jld2","dons",dons)
+#plot(time_data ./ 60,solution, label = "analytic; no interaction")
+#plot!(time_data ./ 60, q , label = "K = 0.01m/d,Δ = 0.2m", color = "red", linestyle = :dash)
+#plot!(time_data ./ 60, q , label = "K = 0.01m/d,Δz = 0.2m, Δx = 80, Npoly = 2", color = "red")
 
-plot(time_data ./ 60,solution, label = "base case")
-plot!(time_data ./ 60, q , label = "sim")
-#plot!(time_data ./ 60, q , label = "K = 1e-1m/d,Δ = 0.05m", color = "red", linestyle = :dash)
+
 #plot!(ylim = [0,10.5])
-#plot!(yticks = [0,1,2,3,4,5,6,7,8,9,10])
+#plot!(yticks = [0,0.0005,0.001,0.0015,0.002,0.0025])
 #plot!(xticks = [0,50,100,150,200,250,300])
-
-#q_001_01, q_001_02
 

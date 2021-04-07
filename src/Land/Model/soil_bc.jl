@@ -281,7 +281,7 @@ function soil_boundary_flux!(
 )
     FT = eltype(state⁻)
     if state⁻.river.area < eps(FT)
-        diff⁺.soil.water.K∇h = n̂ * (FT(2)*bc.precip_model(t))- diff⁻.soil.water.K∇h
+        diff⁺.soil.water.K∇h = n̂ * (-bc.precip_model(t))
     else
         diff⁺.soil.water.K∇h = diff⁻.soil.water.K∇h
     end
@@ -306,8 +306,8 @@ function soil_boundary_state!(
     if state⁻.river.area < eps(FT)
         nothing
     else
-        height = state⁻.river.area
-        state⁺.soil.water.ϑ_l = height*land.soil.param_functions.S_s+land.soil.param_functions.porosity
+        #height = state⁻.river.area
+        state⁺.soil.water.ϑ_l = land.soil.param_functions.porosity#+ height*land.soil.param_functions.S_s
     end
     
 end
