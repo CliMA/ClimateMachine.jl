@@ -124,6 +124,8 @@ struct DriverConfiguration{FT}
     #
     # Mesh details
     grid::DiscontinuousSpectralElementGrid
+    # Over-integration grid
+    qgrid::QuadratureGrid
     #
     # DGModel details
     numerical_flux_first_order::NumericalFluxFirstOrder
@@ -155,6 +157,9 @@ struct DriverConfiguration{FT}
         filter,
         config_info::ConfigSpecificInfo,
     )
+        fac = FT(1.5)
+        @assert fac > FT(1)
+        qgrid = QuadratureGrid(grid, fac)
         return new{FT}(
             config_type,
             name,
@@ -165,6 +170,7 @@ struct DriverConfiguration{FT}
             bl,
             mpicomm,
             grid,
+            qgrid,
             numerical_flux_first_order,
             numerical_flux_second_order,
             numerical_flux_gradient,
