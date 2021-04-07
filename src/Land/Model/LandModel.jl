@@ -1,6 +1,8 @@
 module Land
 
 using DocStringExtensions
+using UnPack
+using DispatchedTuples
 using LinearAlgebra, StaticArrays
 
 using CLIMAParameters
@@ -12,6 +14,11 @@ using ..MPIStateArrays
 using ..BalanceLaws
 import ..BalanceLaws:
     BalanceLaw,
+    prognostic_vars,
+    flux,
+    source,
+    eq_tends,
+    precompute,
     vars_state,
     flux_first_order!,
     flux_second_order!,
@@ -47,7 +54,7 @@ Users may over-ride prescribed default values for each field.
 # Fields
 $(DocStringExtensions.FIELDS)
 """
-struct LandModel{PS, S, LBC, SRC, IS} <: BalanceLaw
+struct LandModel{PS, S, LBC, SRC, SRCDT, IS} <: BalanceLaw
     "Parameter set"
     param_set::PS
     "Soil model"
@@ -56,6 +63,8 @@ struct LandModel{PS, S, LBC, SRC, IS} <: BalanceLaw
     boundary_conditions::LBC
     "Source Terms (Problem specific source terms)"
     source::SRC
+    "DispatchedTuple of sources"
+    source_dt::SRCDT
     "Initial Condition (Function to assign initial values of state variables)"
     init_state_prognostic::IS
 end
@@ -81,7 +90,15 @@ function LandModel(
     init_state_prognostic::IS = nothing,
 ) where {SRC, IS, LBC}
     @assert init_state_prognostic ≠ nothing
-    land = (param_set, soil, boundary_conditions, source, init_state_prognostic)
+    source_dt = prognostic_var_source_map(source)
+    land = (
+        param_set,
+        soil,
+        boundary_conditions,
+        source,
+        source_dt,
+        init_state_prognostic,
+    )
     return LandModel{typeof.(land)...}(land...)
 end
 
@@ -173,16 +190,16 @@ function flux_second_order!(
     aux::Vars,
     t::Real,
 )
-    flux_second_order!(
-        land,
-        land.soil,
-        flux,
-        state,
-        diffusive,
-        hyperdiffusive,
-        aux,
-        t,
-    )
+    tend = Flux{SecondOrder}()
+    _args = (; state, aux, t, diffusive, hyperdiffusive)
+    args = merge(_args, (precomputed = precompute(land, _args, tend),))
+
+    map(prognostic_vars(land)) do prog
+        var, name = get_prog_state(flux, prog)
+        val = Σfluxes(prog, eq_tends(prog, land, tend), land, args)
+        setproperty!(var, name, val)
+    end
+    nothing
 
 end
 
@@ -205,7 +222,16 @@ function source!(
     t::Real,
     direction,
 )
-    land_source!(land.source, land, source, state, diffusive, aux, t, direction)
+    tend = Source()
+    _args = (; state, aux, t, direction, diffusive)
+    args = merge(_args, (precomputed = precompute(land, _args, tend),))
+
+    map(prognostic_vars(land)) do prog
+        var, name = get_prog_state(source, prog)
+        val = Σsources(prog, eq_tends(prog, land, tend), land, args)
+        setproperty!(var, name, val)
+    end
+    nothing
 end
 
 
@@ -220,6 +246,8 @@ function init_state_prognostic!(
     land.init_state_prognostic(land, state, aux, coords, t, args...)
 end
 
+include("prog_types.jl")
+
 include("RadiativeEnergyFlux.jl")
 using .RadiativeEnergyFlux
 include("SoilWaterParameterizations.jl")
@@ -233,5 +261,10 @@ include("Runoff.jl")
 using .Runoff
 include("land_bc.jl")
 include("soil_bc.jl")
+
+include("prognostic_vars.jl")
+
 include("source.jl")
+include("land_tendencies.jl")
+
 end # Module
