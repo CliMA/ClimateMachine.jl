@@ -274,17 +274,17 @@ function config_squall_line(
         precipitation = RainSnowModel()
     end
 
-    problem = AtmosProblem(
-        boundaryconditions = (AtmosBC(), AtmosBC()),
-        init_state_prognostic = ics,
-    )
-
     physics = AtmosPhysics{FT}(
         param_set;
         ref_state = ref_state,
         moisture = moisture,
         precipitation = precipitation,
         turbulence = SmagorinskyLilly{FT}(C_smag),
+    )
+
+    problem = AtmosProblem(
+        boundaryconditions = (AtmosBC(physics), AtmosBC(physics)),
+        init_state_prognostic = ics,
     )
 
     model = AtmosModel{FT}(

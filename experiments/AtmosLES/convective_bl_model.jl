@@ -270,9 +270,18 @@ function convective_bl_model(
         )
     end
 
+    # Define the physics
+    physics = AtmosPhysics{FT}(
+        param_set;
+        turbulence = SmagorinskyLilly{FT}(C_smag),
+        moisture = moisture,
+        turbconv = turbconv,
+    )
+
     moisture_bcs = moisture_model == "dry" ? () : (; moisture = moisture_bc)
     boundary_conditions = (
-        AtmosBC(;
+        AtmosBC(
+            physics;
             momentum = Impenetrable(DragLaw(
                 # normPu_int is the internal horizontal speed
                 # P represents the projection onto the horizontal
@@ -282,7 +291,7 @@ function convective_bl_model(
             moisture_bcs...,
             turbconv = turbconv_bcs(turbconv)[1],
         ),
-        AtmosBC(; turbconv = turbconv_bcs(turbconv)[2]),
+        AtmosBC(physics; turbconv = turbconv_bcs(turbconv)[2]),
     )
 
     problem = AtmosProblem(
@@ -291,13 +300,6 @@ function convective_bl_model(
     )
 
     # Assemble model components
-    physics = AtmosPhysics{FT}(
-        param_set;
-        turbulence = SmagorinskyLilly{FT}(C_smag),
-        moisture = moisture,
-        turbconv = turbconv,
-    )
-
     model =
         AtmosModel{FT}(config_type, physics; problem = problem, source = source)
 

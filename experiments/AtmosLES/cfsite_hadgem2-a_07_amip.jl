@@ -396,9 +396,17 @@ function config_cfsites(
     # Boundary Conditions
     u_star = FT(0.28)
 
+    physics = AtmosPhysics{FT}(
+        param_set;
+        turbulence = Vreman{FT}(0.23),
+        moisture = EquilMoist(; maxiter = 5, tolerance = FT(2)),
+        lsforcing = HadGEMVertical(),
+    )
+
     problem = AtmosProblem(
         boundaryconditions = (
             AtmosBC(
+                physics;
                 momentum = Impenetrable(DragLaw(
                     (state, aux, t, normPu_int) -> (u_star / normPu_int)^2,
                 )),
@@ -408,15 +416,9 @@ function config_cfsites(
                         hfls / latent_heat_vapor(param_set, ts),
                 ),
             ),
-            AtmosBC(),
+            AtmosBC(physics;),
         ),
         init_state_prognostic = init_cfsites!,
-    )
-    physics = AtmosPhysics{FT}(
-        param_set;
-        turbulence = Vreman{FT}(0.23),
-        moisture = EquilMoist(; maxiter = 5, tolerance = FT(2)),
-        lsforcing = HadGEMVertical(),
     )
 
     model = AtmosModel{FT}(

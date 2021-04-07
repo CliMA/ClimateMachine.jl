@@ -235,9 +235,19 @@ function ekman_layer_model(
         )
     end
 
+    physics = AtmosPhysics{FT}(
+        param_set;
+        ref_state = ref_state,
+        turbulence = turbulence,
+        moisture = DryModel(),
+        turbconv = turbconv,
+        compressibility = compressibility,
+    )
+
     moisture_bcs = ()
     boundary_conditions = (
-        AtmosBC(;
+        AtmosBC(
+            physics;
             momentum = Impenetrable(DragLaw(
                 # normPu_int is the internal horizontal speed
                 # P represents the projection onto the horizontal
@@ -247,16 +257,7 @@ function ekman_layer_model(
             moisture_bcs...,
             turbconv = turbconv_bcs(turbconv)[1],
         ),
-        AtmosBC(; turbconv = turbconv_bcs(turbconv)[2]),
-    )
-
-    physics = AtmosPhysics{FT}(
-        param_set;
-        ref_state = ref_state,
-        turbulence = turbulence,
-        moisture = DryModel(),
-        turbconv = turbconv,
-        compressibility = compressibility,
+        AtmosBC(physics; turbconv = turbconv_bcs(turbconv)[2]),
     )
 
     problem = AtmosProblem(

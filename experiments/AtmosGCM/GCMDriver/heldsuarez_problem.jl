@@ -22,8 +22,9 @@ struct HeldSuarezProblem{BC, ISP, ISA, WP, BS, MP} <: AbstractAtmosProblem
     base_state::BS
     moisture_profile::MP
 end
-function HeldSuarezProblem(;
-    boundaryconditions = (AtmosBC(), AtmosBC()),
+function HeldSuarezProblem(
+    physics::AtmosPhysics;
+    boundaryconditions = (AtmosBC(physics;), AtmosBC(physics;)),
     perturbation = nothing,
     base_state = nothing,
     moisture_profile = nothing,

@@ -242,9 +242,19 @@ function config_baroclinic_wave(
 
     _C_drag = C_drag(param_set)::FT
     bulk_flux = Varying_SST_TJ16(param_set, SphericalOrientation(), moisture)
+
+    physics = AtmosPhysics{FT}(
+        param_set;
+        ref_state = ref_state,
+        turbulence = ConstantKinematicViscosity(FT(0)),
+        hyperdiffusion = hyperdiffusion,
+        moisture = moisture,
+    )
+
     problem = AtmosProblem(
         boundaryconditions = (
             AtmosBC(
+                physics;
                 energy = BulkFormulaEnergy(
                     (bl, state, aux, t, normPu_int) -> _C_drag,
                     (bl, state, aux, t) -> bulk_flux(state, aux, t),
@@ -257,17 +267,9 @@ function config_baroclinic_wave(
                     end,
                 ),
             ),
-            AtmosBC(),
+            AtmosBC(physics;),
         ),
         init_state_prognostic = init_baroclinic_wave!,
-    )
-
-    physics = AtmosPhysics{FT}(
-        param_set;
-        ref_state = ref_state,
-        turbulence = ConstantKinematicViscosity(FT(0)),
-        hyperdiffusion = hyperdiffusion,
-        moisture = moisture,
     )
 
     model = AtmosModel{FT}(

@@ -20,11 +20,16 @@ struct AtmosProblem{BCS, ISP, ISA} <: AbstractAtmosProblem
 end
 
 function AtmosProblem(;
-    boundaryconditions::BCS = (AtmosBC(), AtmosBC()),
+    physics = nothing,
+    boundaryconditions = nothing,
     init_state_prognostic::ISP = nothing,
     init_state_auxiliary::ISA = atmos_problem_init_state_auxiliary,
-) where {BCS, ISP, ISA}
+) where {ISP, ISA}
     @assert init_state_prognostic ≠ nothing
+    if boundaryconditions == nothing
+        @assert physics ≠ nothing
+        boundaryconditions = (AtmosBC(physics), AtmosBC(physics))
+    end
 
     problem = (boundaryconditions, init_state_prognostic, init_state_auxiliary)
 

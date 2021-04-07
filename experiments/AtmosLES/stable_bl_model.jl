@@ -289,9 +289,20 @@ function stable_bl_model(
         )
     end
 
+    # Define the physics
+    physics = AtmosPhysics{FT}(
+        param_set;
+        ref_state = ref_state,
+        turbulence = turbulence,
+        moisture = moisture,
+        turbconv = turbconv,
+        compressibility = compressibility,
+    )
+
     moisture_bcs = moisture_model == "dry" ? () : (; moisture = moisture_bc)
     boundary_conditions = (
-        AtmosBC(;
+        AtmosBC(
+            physics;
             momentum = Impenetrable(DragLaw(
                 # normPu_int is the internal horizontal speed
                 # P represents the projection onto the horizontal
@@ -301,7 +312,7 @@ function stable_bl_model(
             moisture_bcs...,
             turbconv = turbconv_bcs(turbconv)[1],
         ),
-        AtmosBC(; turbconv = turbconv_bcs(turbconv)[2]),
+        AtmosBC(physics; turbconv = turbconv_bcs(turbconv)[2]),
     )
 
     moisture_flux = FT(0)
@@ -311,14 +322,6 @@ function stable_bl_model(
     )
 
     # Assemble model components
-    physics = AtmosPhysics{FT}(
-        param_set;
-        ref_state = ref_state,
-        turbulence = turbulence,
-        moisture = moisture,
-        turbconv = turbconv,
-        compressibility = compressibility,
-    )
 
     model =
         AtmosModel{FT}(config_type, physics; problem = problem, source = source)

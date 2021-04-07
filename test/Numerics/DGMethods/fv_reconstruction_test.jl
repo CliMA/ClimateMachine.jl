@@ -72,7 +72,10 @@ end
         model = AtmosModel{FT}(
             AtmosLESConfigType,
             physics;
-            problem = AtmosProblem(init_state_prognostic = initialcondition!),
+            problem = AtmosProblem(;
+                physics = physics,
+                init_state_prognostic = initialcondition!,
+            ),
             orientation = FlatOrientation(),
         )
 
