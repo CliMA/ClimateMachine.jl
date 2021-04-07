@@ -23,6 +23,7 @@ Source
 TendencyDef
 eq_tends
 prognostic_vars
+get_prog_state
 projection
 precompute
 prognostic_var_source_map
