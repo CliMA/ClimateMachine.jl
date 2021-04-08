@@ -71,11 +71,32 @@ BrickMesh.centroidtocode
 
 Grids specify the approximation within each element, and any necessary warping.
 
+### Functions
 ```@docs
 Grids.get_z
 Grids.referencepoints
 Grids.min_node_distance
 Grids.DiscontinuousSpectralElementGrid
+Grids.computegeometry
+```
+
+## Metrics
+
+Metrics encode the computation of metric terms defined at each quadrature point, in each element.
+
+### Functions
+```@docs
+Metrics.creategrid
+Metrics.compute_reference_to_physical_coord_jacobian
+Metrics.computemetric
+```
+
+## GeomData
+GeomData groups data structures that collect geometric terms data needed at each quadrature point, in each element.
+### Types
+```@docs
+GeomData.VolumeGeometry
+GeomData.SurfaceGeometry
 ```
 
 ## Filters

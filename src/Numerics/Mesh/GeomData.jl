@@ -34,7 +34,7 @@ struct VolumeGeometry{Nq, A <: AbstractArray}
 end
 
 """
-    VolumeGeometry(FT, Nq::Tuple, nelems::Integer)
+   VolumeGeometry(FT, Nq::Tuple, nelems::Integer)
 
 Construct an empty `VolumeGeometry` object, in `FT` precision.
 - `Nq` is a tuple containing the number of quadrature points in each direction.
@@ -60,7 +60,7 @@ struct SurfaceGeometry{Nq, A <: AbstractArray}
 end
 
 """
-SurfaceGeometry(FT, Nq::Tuple, nface::Integer, nelem::Integer)
+   SurfaceGeometry(FT, Nq::Tuple, nface::Integer, nelem::Integer)
 
 Construct an empty `SurfaceGeometry` object, in `FT` precision.
 - `Nq` is a tuple containing the number of quadrature points in each direction.

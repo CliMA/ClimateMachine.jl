@@ -2,6 +2,8 @@ module Metrics
 
 using ..GeomData
 
+export creategrid, compute_reference_to_physical_coord_jacobian, computemetric
+
 """
     creategrid!(vgeo, elemtocoord, ξ)
 

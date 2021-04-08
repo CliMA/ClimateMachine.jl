@@ -9,7 +9,7 @@ using KernelAbstractions
 
 export DiscontinuousSpectralElementGrid, AbstractGrid
 export dofs_per_element, arraytype, dimensionality, polynomialorders
-export referencepoints, min_node_distance, get_z
+export referencepoints, min_node_distance, get_z, computegeometry
 export EveryDirection, HorizontalDirection, VerticalDirection, Direction
 
 abstract type Direction end
@@ -602,7 +602,7 @@ end
 # }}}
 
 """
-   commmapping(N, commelems, commfaces, nabrtocomm)
+    commmapping(N, commelems, commfaces, nabrtocomm)
 
 This function takes in a tuple of polynomial orders `N` and parts of a mesh (as
 returned from `connectmesh` such as `sendelems`, `sendfaces`, and `nabrtosend`)
