@@ -2,7 +2,7 @@ module GeomData
 
 export VolumeGeometry, SurfaceGeometry
 
-struct VolumeGeometry{Nq, A<:AbstractArray}
+struct VolumeGeometry{Nq, A <: AbstractArray}
     ξ1x1::A
     ξ2x1::A
     ξ3x1::A
@@ -28,8 +28,8 @@ struct VolumeGeometry{Nq, A<:AbstractArray}
     x2::A
     x3::A
     JcV::A
-    function VolumeGeometry{Nq}(args::A...) where {Nq, A<:AbstractArray}
-        new{Nq,A}(args...)
+    function VolumeGeometry{Nq}(args::A...) where {Nq, A <: AbstractArray}
+        new{Nq, A}(args...)
     end
 end
 
@@ -40,19 +40,22 @@ Construct an empty `VolumeGeometry` object, in `FT` precision.
 - `Nq` is a tuple containing the number of quadrature points in each direction.
 - `nelem` is the number of elements.
 """
-function VolumeGeometry(FT, Nq::NTuple{N,Int}, nelem::Int) where {N}
+function VolumeGeometry(FT, Nq::NTuple{N, Int}, nelem::Int) where {N}
     array = zeros(FT, prod(Nq), fieldcount(VolumeGeometry), nelem)
-    VolumeGeometry{Nq}(ntuple(j -> @view(array[:, j, :]), fieldcount(VolumeGeometry))...)
+    VolumeGeometry{Nq}(ntuple(
+        j -> @view(array[:, j, :]),
+        fieldcount(VolumeGeometry),
+    )...)
 end
 
-struct SurfaceGeometry{Nq, A<:AbstractArray}
+struct SurfaceGeometry{Nq, A <: AbstractArray}
     n1::A
     n2::A
     n3::A
     sωJ::A
     vωJI::A
-    function SurfaceGeometry{Nq}(args::A...) where {Nq, A<:AbstractArray}
-        new{Nq,A}(args...)
+    function SurfaceGeometry{Nq}(args::A...) where {Nq, A <: AbstractArray}
+        new{Nq, A}(args...)
     end
 end
 
@@ -64,11 +67,19 @@ Construct an empty `SurfaceGeometry` object, in `FT` precision.
 - `nface` is the number of faces.
 - `nelem` is the number of elements.
 """
-function SurfaceGeometry(FT, Nq::NTuple{N,Int}, nface::Int, nelem::Int) where {N}
+function SurfaceGeometry(
+    FT,
+    Nq::NTuple{N, Int},
+    nface::Int,
+    nelem::Int,
+) where {N}
     Np = prod(Nq)
     Nfp = div.(Np, Nq)
     array = zeros(FT, maximum(Nfp), fieldcount(SurfaceGeometry), nface, nelem)
-    SurfaceGeometry{Nfp}(ntuple(j -> @view(array[:, j, :, :]), fieldcount(SurfaceGeometry))...)
+    SurfaceGeometry{Nfp}(ntuple(
+        j -> @view(array[:, j, :, :]),
+        fieldcount(SurfaceGeometry),
+    )...)
 end
 
 end # module

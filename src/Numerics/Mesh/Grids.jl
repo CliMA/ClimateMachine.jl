@@ -869,20 +869,19 @@ function computegeometry(elemtocoord, D, ξ, ω, meshwarp)
     #
 
     # a) computes "topology coordinates" from reference coordinates ξ
-    Metrics.creategrid!(vgeo, elemtocoord, ξ...)
+    Metrics.creategrid!(vgeo, elemtocoord, ξ)
 
     # b) topology coordinates -> physical coordinates
     @inbounds for j in 1:length(x1)
-        (vgeo.x1[j], vgeo.x2[j], vgeo.x3[j]) = meshwarp(vgeo.x1[j], vgeo.x2[j], vgeo.x3[j])
+        (vgeo.x1[j], vgeo.x2[j], vgeo.x3[j]) =
+            meshwarp(vgeo.x1[j], vgeo.x2[j], vgeo.x3[j])
     end
 
-    setup_geom_factors_data!(vgeo, D...)
-
     # c) computes Jacobian matrix, ∂x/∂ξ
-    compute_dxdxi_jacobian!(vgeo, D...)
+    compute_reference_to_physical_coord_jacobian!(vgeo, D)
 
     # d) computes the metric terms
-    Metrics.computemetric!(vgeo, sgeo, D...)
+    Metrics.computemetric!(vgeo, sgeo, D)
 
     # Compute the metric terms
     p = reshape(1:Np, Nq)
@@ -904,7 +903,7 @@ function computegeometry(elemtocoord, D, ξ, ω, meshwarp)
     # since `ξ1` is the fastest dimension and `ξdim` the slowest the tensor
     # product order is reversed
     M = kron(1, reverse(ω)...)
-    vgeo.ωMJ .= M .*vgeo.ωJ
+    vgeo.ωMJ .= M .* vgeo.ωJ
     vgeo.ωJI .= 1 ./ vgeo.ωJ
     for d in 1:dim
         for f in (2d - 1):(2d)
