@@ -127,6 +127,37 @@ function spectral_filter_matrix(r, Nc, σ)
 end
 
 """
+    modified_filter_matrix(r, Nc, σ)
+
+Returns the filter matrix that takes function values at the interpolation
+`N+1` points, `r`, converts them into Legendre polynomial basis coefficients,
+multiplies
+```math
+σ((n-N_c)/(N-N_c))
+```
+against coefficients `n=Nc:N` and evaluates the resulting polynomial at the
+points `r`. Unlike spectral_filter_matrix, this allows for the identity matrix,
+to be applied.
+"""
+function modified_filter_matrix(r, Nc, σ)
+    N = length(r) - 1
+    T = eltype(r)
+
+    @assert N >= 0
+    @assert 0 <= Nc
+
+    Nc > N && return Array{T}(I, N + 1, N + 1)
+
+    a, b = GaussQuadrature.legendre_coefs(T, N)
+    V = (N == 0 ? ones(T, 1, 1) : GaussQuadrature.orthonormal_poly(r, a, b))
+
+    Σ = ones(T, N + 1)
+    Σ[(Nc:N) .+ 1] .= σ.(((Nc:N) .- Nc) ./ (N - Nc))
+
+    V * Diagonal(Σ) / V
+end
+
+"""
     ExponentialFilter(grid, Nc=0, s=32, α=-log(eps(eltype(grid))))
 
 Returns the spectral filter with the filter function
@@ -269,6 +300,46 @@ struct CutoffFilter{FM} <: AbstractSpectralFilter
         ξ = referencepoints(grid)
         filter_matrices =
             ntuple(i -> AT(spectral_filter_matrix(ξ[i], Nc[i], σ)), dim)
+        new{typeof(filter_matrices)}(filter_matrices)
+    end
+end
+
+
+"""
+    MassPreservingCutoffFilter(grid, Nc=polynomialorders(grid))
+Returns the spectral filter that zeros out polynomial modes greater than or
+equal to `Nc` while preserving the cell average value. Use this filter if the
+jacobian is nonconstant.
+"""
+struct MassPreservingCutoffFilter{FM} <: AbstractSpectralFilter
+    "filter matrices in all directions (tuple of filter matrices)"
+    filter_matrices::FM
+
+    function MassPreservingCutoffFilter(grid, Nc = polynomialorders(grid))
+        dim = dimensionality(grid)
+
+        # Support different filtering thresholds in different
+        # directions (default behavior is to apply the same threshold
+        # uniformly in all directions)
+        if Nc isa Integer
+            Nc = ntuple(i -> Nc, dim)
+        elseif Nc isa NTuple{2} && dim == 3
+            Nc = (Nc[1], Nc[1], Nc[2])
+        end
+        @assert length(Nc) == dim
+
+        # Tuple of polynomial degrees (N₁, N₂, N₃)
+        N = polynomialorders(grid)
+        # In 2D, we assume same polynomial order in the horizontal
+        @assert dim == 2 || N[1] == N[2]
+        @assert all(0 .<= Nc)
+
+        σ(η) = 0
+
+        AT = arraytype(grid)
+        ξ = referencepoints(grid)
+        filter_matrices =
+            ntuple(i -> AT(modified_filter_matrix(ξ[i], Nc[i], σ)), dim)
         new{typeof(filter_matrices)}(filter_matrices)
     end
 end
@@ -468,6 +539,73 @@ end
 
 function apply_async!(
     Q,
+    target::AbstractFilterTarget,
+    grid::DiscontinuousSpectralElementGrid,
+    filter::MassPreservingCutoffFilter;
+    dependencies,
+    state_auxiliary = nothing,
+    direction = EveryDirection(),
+)
+    topology = grid.topology
+
+    device = typeof(Q.data) <: Array ? CPU() : CUDADevice()
+
+    dim = dimensionality(grid)
+    N = polynomialorders(grid)
+    # Currently only support same polynomial in both horizontal directions
+    @assert dim == 2 || N[1] == N[2]
+    Nq = N .+ 1
+    Nq1 = Nq[1]
+    Nq2 = Nq[2]
+    Nq3 = dim == 2 ? 1 : Nq[dim]
+
+    nrealelem = length(topology.realelems)
+    # parallel sum info
+    nreduce = 2^ceil(Int, log2(Nq1 * Nq2 * Nq3))
+    event = dependencies
+
+    if direction isa EveryDirection || direction isa HorizontalDirection
+        @assert dim == 2 || Nq1 == Nq2
+        filtermatrix = filter.filter_matrices[1]
+        event = kernel_apply_mp_filter!(device, (Nq1, Nq2, Nq3))(
+            Val(nreduce),
+            Val(dim),
+            Val(N),
+            Val(vars(Q)),
+            Val(isnothing(state_auxiliary) ? nothing : vars(state_auxiliary)),
+            HorizontalDirection(),
+            Q.data,
+            isnothing(state_auxiliary) ? nothing : state_auxiliary.data,
+            target,
+            filtermatrix,
+            grid.vgeo,
+            ndrange = (nrealelem * Nq1, Nq2, Nq3),
+            dependencies = event,
+        )
+    end
+    if direction isa EveryDirection || direction isa VerticalDirection
+        filtermatrix = filter.filter_matrices[end]
+        event = kernel_apply_mp_filter!(device, (Nq1, Nq2, Nq3))(
+            Val(nreduce),
+            Val(dim),
+            Val(N),
+            Val(vars(Q)),
+            Val(isnothing(state_auxiliary) ? nothing : vars(state_auxiliary)),
+            VerticalDirection(),
+            Q.data,
+            isnothing(state_auxiliary) ? nothing : state_auxiliary.data,
+            target,
+            filtermatrix,
+            grid.vgeo,
+            ndrange = (nrealelem * Nq1, Nq2, Nq3),
+            dependencies = event,
+        )
+    end
+    return event
+end
+
+function apply_async!(
+    Q,
     indices::Union{Colon, AbstractRange, Tuple{Vararg{Integer}}},
     grid::DiscontinuousSpectralElementGrid,
     filter::AbstractFilter;
@@ -503,7 +641,7 @@ const _M = Grids._M
                         ) where {dim, N}
 
 Computational kernel: Applies the `filtermatrix` to `Q` given a
-custom target `target`.
+custom target `target` while preserving the cell average.
 
 The `direction` argument is used to control if the filter is applied in the
 horizontal and/or vertical reference directions.
@@ -743,4 +881,191 @@ end
     end
 end
 
+
+"""
+    kernel_apply_mp_filter!(::Val{dim}, ::Val{N}, direction,
+                         Q, state_auxiliary, target, filtermatrix
+                        ) where {dim, N}
+Computational kernel: Applies the `filtermatrix` to `Q` given a
+custom target `target`.
+The `direction` argument is used to control if the filter is applied in the
+"""
+@kernel function kernel_apply_mp_filter!(
+    ::Val{nreduce},
+    ::Val{dim},
+    ::Val{N},
+    ::Val{vars_Q},
+    ::Val{vars_state_auxiliary},
+    direction,
+    Q,
+    state_auxiliary,
+    target::AbstractFilterTarget,
+    filtermatrix,
+    vgeo,
+) where {nreduce, dim, N, vars_Q, vars_state_auxiliary}
+    @uniform begin
+        FT = eltype(Q)
+
+        Nqs = N .+ 1
+        Nq1 = Nqs[1]
+        Nq2 = Nqs[2]
+        Nq3 = dim == 2 ? 1 : Nqs[dim]
+
+        if direction isa EveryDirection
+            filterinξ1 = filterinξ2 = true
+            filterinξ3 = dim == 2 ? false : true
+        elseif direction isa HorizontalDirection
+            filterinξ1 = true
+            filterinξ2 = dim == 2 ? false : true
+            filterinξ3 = false
+        elseif direction isa VerticalDirection
+            filterinξ1 = false
+            filterinξ2 = dim == 2 ? true : false
+            filterinξ3 = dim == 2 ? false : true
+        end
+
+        nstates = varsize(vars_Q)
+        nfilterstates = number_state_filtered(target, FT)
+        nfilteraux =
+            isnothing(state_auxiliary) ? 0 : varsize(vars_state_auxiliary)
+
+        # ugly workaround around problems with @private
+        # hopefully will be soon fixed in KA
+        u_Q = MVector{nstates, FT}(undef)
+        u_Qfiltered = MVector{nfilterstates, FT}(undef)
+    end
+
+    l_Q = @localmem FT (Nq1, Nq2, Nq3, nfilterstates) # element local 
+    l_MQᴮ = @localmem FT (Nq1 * Nq2 * Nq3, nstates) # before applying filter
+    l_MQᴬ = @localmem FT (Nq1 * Nq2 * Nq3, nstates) # after applying filter
+    l_M = @localmem FT (Nq1 * Nq2 * Nq3) # local mass matrix
+
+    p_Q = @private FT (nstates,)
+    p_Qfiltered = @private FT (nfilterstates,) # scratch space for storing mat mul
+    p_aux = @private FT (nfilteraux,)
+
+    e = @index(Group, Linear)
+    i, j, k = @index(Local, NTuple)
+    ijk = @index(Local, Linear)
+
+    @inbounds begin
+
+        @unroll for s in 1:nstates
+            p_Q[s] = Q[ijk, s, e]
+        end
+
+        @unroll for s in 1:nfilteraux
+            p_aux[s] = state_auxiliary[ijk, s, e]
+        end
+
+        # Load mass matrix and pre-filtered mass weighted quantities to shared memory
+        l_M[ijk] = vgeo[ijk, _M, e]
+        @unroll for s in 1:nstates
+            l_MQᴮ[ijk, s] = l_M[ijk] * p_Q[s]
+        end
+
+        fill!(u_Qfiltered, -zero(FT))
+
+        compute_filter_argument!(
+            target,
+            Vars{vars_state_filtered(target, FT)}(u_Qfiltered),
+            Vars{vars_Q}(p_Q[:]),
+            Vars{vars_state_auxiliary}(p_aux[:]),
+        )
+
+        @unroll for fs in 1:nfilterstates
+            p_Qfiltered[fs] = zero(FT)
+        end
+
+        @unroll for fs in 1:nfilterstates
+            l_Q[i, j, k, fs] = u_Qfiltered[fs]
+        end
+
+        if filterinξ1
+            @synchronize
+            @unroll for n in 1:Nq1
+                @unroll for fs in 1:nfilterstates
+                    p_Qfiltered[fs] += filtermatrix[i, n] * l_Q[n, j, k, fs]
+                end
+            end
+
+            if filterinξ2 || filterinξ3
+                @synchronize
+                @unroll for fs in 1:nfilterstates
+                    l_Q[i, j, k, fs] = p_Qfiltered[fs]
+                    p_Qfiltered[fs] = zero(FT)
+                end
+            end
+        end
+
+        if filterinξ2
+            @synchronize
+            @unroll for n in 1:Nq2
+                @unroll for fs in 1:nfilterstates
+                    p_Qfiltered[fs] += filtermatrix[j, n] * l_Q[i, n, k, fs]
+                end
+            end
+
+            if filterinξ3
+                @synchronize
+                @unroll for fs in 1:nfilterstates
+                    l_Q[i, j, k, fs] = p_Qfiltered[fs]
+                    p_Qfiltered[fs] = zero(FT)
+                end
+            end
+        end
+
+        if filterinξ3
+            @synchronize
+            @unroll for n in 1:Nq3
+                @unroll for fs in 1:nfilterstates
+                    p_Qfiltered[fs] += filtermatrix[k, n] * l_Q[i, j, n, fs]
+                end
+            end
+        end
+
+        # work around for not being able to `Vars` `@private` arrays
+        @unroll for s in 1:nstates
+            u_Q[s] = p_Q[s]
+        end
+
+        compute_filter_result!(
+            target,
+            Vars{vars_Q}(u_Q),
+            Vars{vars_state_filtered(target, FT)}(p_Qfiltered[:]),
+            Vars{vars_state_auxiliary}(p_aux[:]),
+        )
+        # Store result and post-filtered mass weighted quantities
+        @unroll for s in 1:nstates
+            p_Q[s] = u_Q[s]
+            l_MQᴬ[ijk, s] = l_M[ijk] * p_Q[s]
+        end
+
+        @synchronize
+        @unroll for n in 11:-1:1
+            if nreduce ≥ (1 << n)
+                ijkshift = ijk + (1 << (n - 1))
+                if ijk ≤ (1 << (n - 1)) && ijkshift ≤ Nq1 * Nq2 * Nq3
+                    l_M[ijk] += l_M[ijkshift]
+                    @unroll for s in 1:nstates
+                        l_MQᴮ[ijk, s] += l_MQᴮ[ijkshift, s]
+                        l_MQᴬ[ijk, s] += l_MQᴬ[ijkshift, s]
+                    end
+                end
+                @synchronize
+            end
+        end
+
+        @synchronize
+        M⁻¹ = 1 / l_M[1]
+        # Reset the element average and store result
+        @unroll for s in 1:nstates
+            Q[ijk, s, e] = p_Q[s] + M⁻¹ * (l_MQᴮ[1, s] - l_MQᴬ[1, s])
+        end
+
+        @synchronize
+    end
+
 end
+
+end # end of module
