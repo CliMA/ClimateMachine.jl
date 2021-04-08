@@ -56,7 +56,7 @@ struct SoilRunoff{FT} <: LandSource{FT}
 end
 
 function land_source!(
-    source_type::SoilRunoff{FT},
+    source_type::SoilRunoff,
     land::LandModel,
     source::Vars,
     state::Vars,
@@ -64,15 +64,15 @@ function land_source!(
     aux::Vars,
     t::Real,
     direction,
-) where {FT}
+)
     bc = land.boundary_conditions.surface_bc.soil_water
     precip = bc.precip_model(t)
     # Assume that diffusive- is parallel or antiparallel to n^, since diff+ is
     # Then
     n̂ = diffusive.soil.water.K∇h/norm(diffusive.soil.water.K∇h)
     flux_vector = -diffusive.soil.water.K∇h
-    precip_vector = n̂ * (0,0,precip)
-    leftover = norm(precip_vector - flux_vector)
+    precip_vector = dot(n̂,(0,0,precip)) * n̂
+    leftover = norm(precip_vector .- flux_vector)
     source.river.area  += -leftover
                                       
 end

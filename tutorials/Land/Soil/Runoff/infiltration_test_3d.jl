@@ -27,7 +27,7 @@ using ClimateMachine.BalanceLaws:
     BalanceLaw, Prognostic, Auxiliary, Gradient, GradientFlux, vars_state
 
 
-FT = Float64;
+FT = Float32;
 
 function warp_constant_slope(xin, yin, zin; topo_max = 0.2, zmin = -5, xmax = 400)
     FT = eltype(xin)
@@ -48,16 +48,16 @@ end
 
 
 function warp_shift_up(xin, yin, zin; topo_max = 0.2, xmax = 400)
-    FT = eltype(xin)
-    zmax = FT((FT(1.0)-xin / xmax) * topo_max)
+    myFT = eltype(xin)
+    zmax = myFT((1.0-xin / xmax) * topo_max)
     zout = zin + zmax
     x, y, z = xin, yin, zout
     return x, y, z
 end
     
 function inverse_shift_up(xin, yin, zin; topo_max = 0.2, xmax = 400)
-    FT = eltype(xin)
-    zmax = FT((FT(1.0)-xin / xmax) * topo_max)
+    myFT = eltype(xin)
+    zmax = myFT((1.0-xin / xmax) * topo_max)
     zout = zin - zmax
     return zout
 end
@@ -67,23 +67,27 @@ ClimateMachine.init(; disable_gpu = true);
 const clima_dir = dirname(dirname(pathof(ClimateMachine)));
 include(joinpath(clima_dir, "docs", "plothelpers.jl"));
 
-
+dts = [6,2,1]
+p = [0.2,0.1,0.05]
+names = ["V20","V10","V05"]
+dt = FT(dts[2])
+zres = FT(p[2])
+name = names[2]
 N_poly = 1
-xres = FT(80)
-yres = FT(1)
-zres = FT(0.1)
+xres = FT(40.0)
+yres = FT(1.0)
 # Specify the domain boundaries.
-zmax = FT(0);
-zmin = FT(-2);
-xmax = FT(400)
-ymax = FT(1)
-Δz = FT(zres/2)
+zmax = FT(0.0)
+zmin = FT(-2.0)
+xmax = FT(400.0)
+ymax = FT(1.0)
+Δz = zres/2
 # # Parameters
 νp = 0.4
-Ksat = 6.94e-5/60
+Ksat =6.94e-5/60
 S_s = 5e-4
-vg_α = 1.0
-vg_n = 2.0
+vg_α = FT(1.0)
+vg_n = FT(2.0)
 vg_m = 1.0-1.0/vg_n
 θ_r = 0.08
 wt_depth = -1.0
@@ -102,6 +106,7 @@ soil_param_functions = SoilParamFunctions{FT}(
 );
 heaviside(x) = 0.5 * (sign(x) + 1)
 precip_of_t = (t) -> eltype(t)(-precip_rate*heaviside(precip_time-t))
+
 function he(z, z_interface, ν, Ss, vga, vgn, θ_r)
     m = 1.0-1.0/vgn
     if z < z_interface
@@ -120,10 +125,10 @@ m_river = RiverModel(
 )
 
 bc =  LandDomainBC(
-bottom_bc = LandComponentBC(soil_water = Neumann((aux,t)->eltype(aux)(0.0))),
+    bottom_bc = LandComponentBC(soil_water = Neumann((aux,t)->eltype(aux)(0.0))),
     surface_bc = LandComponentBC(#soil_water = Neumann((aux,t)->eltype(aux)(0.0)),
                                  #soil_water = Dirichlet((aux,t)->eltype(aux)(0.4)),),
-                                 soil_water = CATHYWaterBoundaryConditions(FT;
+                                 soil_water = SurfaceDrivenWaterBoundaryConditions(FT;
                                                                                    precip_model = DrivenConstantPrecip{FT}(precip_of_t),
                                                                                    runoff_model = CoarseGridRunoff{FT}(Δz)
                                                                                    )
@@ -188,9 +193,8 @@ driver_config = ClimateMachine.MultiColumnLandModel(
 # Choose the initial and final times, as well as a timestep.
 t0 = FT(0)
 timeend = FT(60* 300)
-dt = FT(1.5);
-const n_outputs = 500;
-const every_x_simulation_time = ceil(Int, timeend / n_outputs);
+n_outputs = 500;
+every_x_simulation_time = ceil(Int, timeend / n_outputs);
 solver_config =
     ClimateMachine.SolverConfiguration(t0, timeend, driver_config, ode_dt = dt);
 
@@ -235,34 +239,34 @@ callback = GenericCallbacks.EveryXSimulationTime(
     t = ODESolvers.gettime(solver_config.solver)
     area = Q[:, area_index, :]
     ϑ_below = Q[:, moisture_index, :]
-#    incident_water_flux = precip_of_t(t)
-#    param_functions =soil_param_functions
-#    ∂h∂z =
-#        FT(1) .+
-#        (
-#            pressure_head.(Ref(hydraulics), Ref(param_functions), ϑ_bc, Ref(θ_i)) .-
-#            pressure_head.(Ref(hydraulics), Ref(param_functions), ϑ_below, Ref(θ_i))
-#        ) ./ Δz
-#    K =
-#        soil_param_functions.Ksat .* hydraulic_conductivity.(
-#    Ref(water.impedance_factor),
-#    Ref(water.viscosity_factor),
-#    Ref(water.moisture_factor),
-#    Ref(hydraulics),
-#    Ref(θ_i),
-#    Ref(soil_param_functions.porosity),
-#    Ref(T),
-#    Ref(ϑ_bc / νp),
-#        )
-#    i_c = K .*  ∂h∂z
-#    bcvval1 = get_bc1.(Ref(incident_water_flux),i_c)
-#    
+    #    incident_water_flux = precip_of_t(t)
+    #    param_functions =soil_param_functions
+    #    ∂h∂z =
+    #        FT(1) .+
+    #        (
+    #            pressure_head.(Ref(hydraulics), Ref(param_functions), ϑ_bc, Ref(θ_i)) .-
+    #            pressure_head.(Ref(hydraulics), Ref(param_functions), ϑ_below, Ref(θ_i))
+    #        ) ./ Δz
+    #    K =
+    #        soil_param_functions.Ksat .* hydraulic_conductivity.(
+    #    Ref(water.impedance_factor),
+    #    Ref(water.viscosity_factor),
+    #    Ref(water.moisture_factor),
+    #    Ref(hydraulics),
+    #    Ref(θ_i),
+    #    Ref(soil_param_functions.porosity),
+    #    Ref(T),
+    #    Ref(ϑ_bc / νp),
+    #        )
+    #    i_c = K .*  ∂h∂z
+    #    bcvval1 = get_bc1.(Ref(incident_water_flux),i_c)
+    #    
     all_vars = Dict{String, Array}(
         "t" => [t],
         "area" => area,
         "ϑ_l" => ϑ_below,
-#        "flux" => -bcvval1,
-#        "i_c" => i_c,
+        #        "flux" => -bcvval1,
+        #        "i_c" => i_c,
         "grad" => grad[:,K∇h_index,:][:,3,:],
     )
     dons[iostep[1]] = all_vars
@@ -315,34 +319,37 @@ function dg(m,y, i, t_r, L, alpha, t)
     output = -y^(m-1)*m/i-y^(m-2)*m*(m-1)*(t-t_r)
     return output
 end
-    function analytic(t,alpha, t_c, t_r, i, L, m)
-        if t < t_c
-            return alpha*(i*t)^(m)
-        end
-        
-        if t <= t_r && t > t_c
-            return alpha*(i*t_c)^(m)
-        end
-        
-        if t > t_r
-            yL = (i*(t-t_r))
-            delta = 1
+function analytic(t,alpha, t_c, t_r, i, L, m)
+    if t < t_c
+        return alpha*(i*t)^(m)
+    end
+    
+    if t <= t_r && t > t_c
+        return alpha*(i*t_c)^(m)
+    end
+    
+    if t > t_r
+        yL = (i*(t-t_r))
+        delta = 1
+        error = g(m,yL,i,t_r,L,alpha,t)
+        while abs(error) > 1e-4
+            delta = -g(m,yL,i,t_r,L,alpha,t)/dg(m,yL,i,t_r,L,alpha,t)
+            yL = yL+ delta
             error = g(m,yL,i,t_r,L,alpha,t)
-            while abs(error) > 1e-4
-                delta = -g(m,yL,i,t_r,L,alpha,t)/dg(m,yL,i,t_r,L,alpha,t)
-                yL = yL+ delta
-                error = g(m,yL,i,t_r,L,alpha,t)
-            end
-            return alpha*yL^m    
-            
         end
+        return alpha*yL^m    
         
     end
+    
+end
 
 
-solution = analytic.(time_data, alpha, t_c, t_r, i, L, m)
-save("./tutorials/Land/Soil/Runoff/K2_V10_H80_P1_CATHY.jld2","dons",dons)
-#plot(time_data ./ 60,solution, label = "analytic; no interaction")
+#    solution = analytic.(time_data, alpha, t_c, t_r, i, L, m)
+filename = string(string("./tutorials/Land/Soil/Runoff/K2_",name),"_H40_P1.jld2")
+save(filename,"dons",dons)
+
+
+    #plot(time_data ./ 60,solution, label = "analytic; no interaction")
 #plot!(time_data ./ 60, q , label = "K = 0.01m/d,Δ = 0.2m", color = "red", linestyle = :dash)
 #plot!(time_data ./ 60, q , label = "K = 0.01m/d,Δz = 0.2m, Δx = 80, Npoly = 2", color = "red")
 
