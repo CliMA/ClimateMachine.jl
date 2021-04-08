@@ -197,9 +197,10 @@ function main(::Type{FT}, cl_args) where {FT}
     cb_boyd = GenericCallbacks.EveryXSimulationSteps(1) do
         Filters.apply!(
             solver_config.Q,
-            (turbconv_filters(turbconv)...,),
+            AtmosSpecificFilterPerturbations(driver_config.bl),
             solver_config.dg.grid,
-            BoydVandevenFilter(solver_config.dg.grid, 1, 4),
+            BoydVandevenFilter(solver_config.dg.grid, 1, 4);
+            state_auxiliary = solver_config.dg.state_auxiliary,
         )
         nothing
     end

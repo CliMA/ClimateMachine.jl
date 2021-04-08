@@ -14,6 +14,9 @@ vars_state(::θModel, ::Prognostic, FT) = @vars(ρθ_liq_ice::FT)
 vars_state(::θModel, ::Gradient, FT) = @vars(θ_liq_ice::FT)
 vars_state(::θModel, ::GradientFlux, FT) = @vars(∇θ_liq_ice::SVector{3, FT})
 
+vars_state_filtered(::θModel, FT) = @vars(θ_liq_ice::FT)
+vars_state_filtered(::TotalEnergyModel, FT) = @vars(e::FT)
+
 function compute_gradient_argument!(
     energy::TotalEnergyModel,
     atmos::AtmosModel,

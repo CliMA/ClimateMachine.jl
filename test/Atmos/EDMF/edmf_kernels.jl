@@ -9,12 +9,15 @@ using ClimateMachine.BalanceLaws
 using ClimateMachine.MPIStateArrays: MPIStateArray
 using ClimateMachine.DGMethods: LocalGeometry, DGModel
 
+import ClimateMachine.Mesh.Filters: vars_state_filtered
+
 import ClimateMachine.BalanceLaws:
     vars_state,
     prognostic_vars,
     prognostic_to_primitive!,
     primitive_to_prognostic!,
     get_prog_state,
+    get_specific_state,
     flux,
     precompute,
     source,
@@ -155,6 +158,25 @@ function vars_state(m::EDMF, st::GradientFlux, FT)
     )
 end
 
+function vars_state_filtered(::Updraft, FT)
+    @vars(a::FT, aw::FT, aθ_liq::FT, aq_tot::FT,)
+end
+
+function vars_state_filtered(m::NTuple{N, Updraft}, FT) where {N}
+    return Tuple{ntuple(i -> vars_state_filtered(m[i], FT), N)...}
+end
+
+function vars_state_filtered(::Environment, FT)
+    @vars(atke::FT, aθ_liq_cv::FT, aq_tot_cv::FT, aθ_liq_q_tot_cv::FT,)
+end
+
+function vars_state_filtered(m::EDMF, FT)
+    @vars(
+        environment::vars_state_filtered(m.environment, FT),
+        updraft::vars_state_filtered(m.updraft, FT)
+    )
+end
+
 abstract type EDMFPrognosticVariable <: AbstractPrognosticVariable end
 
 abstract type EnvironmentPrognosticVariable <: EDMFPrognosticVariable end
@@ -197,6 +219,23 @@ get_prog_state(state, ::up_ρaθ_liq{i}) where {i} =
     (state.turbconv.updraft[i], :ρaθ_liq)
 get_prog_state(state, ::up_ρaq_tot{i}) where {i} =
     (state.turbconv.updraft[i], :ρaq_tot)
+
+get_specific_state(state, ::en_ρatke) = (state.turbconv.environment, :atke)
+get_specific_state(state, ::en_ρaθ_liq_cv) =
+    (state.turbconv.environment, :aθ_liq_cv)
+get_specific_state(state, ::en_ρaq_tot_cv) =
+    (state.turbconv.environment, :aq_tot_cv)
+get_specific_state(state, ::en_ρaθ_liq_q_tot_cv) =
+    (state.turbconv.environment, :aθ_liq_q_tot_cv)
+
+get_specific_state(state, ::up_ρa{i}) where {i} =
+    (state.turbconv.updraft[i], :a)
+get_specific_state(state, ::up_ρaw{i}) where {i} =
+    (state.turbconv.updraft[i], :aw)
+get_specific_state(state, ::up_ρaθ_liq{i}) where {i} =
+    (state.turbconv.updraft[i], :aθ_liq)
+get_specific_state(state, ::up_ρaq_tot{i}) where {i} =
+    (state.turbconv.updraft[i], :aq_tot)
 
 struct EntrDetr{N_up} <: TendencyDef{Source} end
 struct PressSource{N_up} <: TendencyDef{Source} end
