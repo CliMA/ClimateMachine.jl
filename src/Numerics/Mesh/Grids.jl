@@ -486,24 +486,6 @@ function get_z(
     return reshape(grid.vgeo[(1:Nph:Np), _x3, :], :) * z_scale
 end
 
-function Base.getproperty(G::DiscontinuousSpectralElementGrid, s::Symbol)
-    if s ∈ keys(vgeoid)
-        vgeoid[s]
-    elseif s ∈ keys(sgeoid)
-        sgeoid[s]
-    else
-        getfield(G, s)
-    end
-end
-
-function Base.propertynames(G::DiscontinuousSpectralElementGrid)
-    (
-        fieldnames(DiscontinuousSpectralElementGrid)...,
-        keys(vgeoid)...,
-        keys(sgeoid)...,
-    )
-end
-
 # {{{ mappings
 """
     mappings(N, elemtoelem, elemtoface, elemtoordr)
@@ -692,61 +674,62 @@ function computegeometry_fvm(elemtocoord, D, ξ, ω, meshwarp)
     (vgeo_N1, sgeo_N1, x_vtk) =
         computegeometry(elemtocoord, D_N1, ξ_N1, ω_N1, meshwarp)
 
-    # Sort out the vgeo terms
-    @views begin
-        vgeo_N1_flds =
-            ntuple(fld -> reshape(vgeo_N1[:, fld, :], Nq_N1..., nelem), _nvgeo)
-    end
-
     # Allocate the storage for N = 0 volume metrics
-    vgeo = zeros(FT, Np, _nvgeo, nelem)
+    vgeo = VolumeGeometry(FT, Nq, nelem)
 
     # Counter to make sure we got all the vgeo terms
     num_vgeo_handled = 0
 
-    X = ntuple(j -> (@view vgeo[:, _x1 + j - 1, :]), dim)
-    Metrics.creategrid!(X..., elemtocoord, ξ...)
-    x1 = @view vgeo[:, _x1, :]
-    x2 = @view vgeo[:, _x2, :]
-    x3 = @view vgeo[:, _x3, :]
-    @inbounds for j in 1:length(x1)
-        (x1[j], x2[j], x3[j]) = meshwarp(x1[j], x2[j], x3[j])
+    Metrics.creategrid!(vgeo, elemtocoord, ξ)
+
+    @inbounds for j in 1:length(vgeo.x1)
+        (vgeo.x1[j], vgeo.x2[j], vgeo.x3[j]) .=
+            meshwarp(vgeo.x1[j], vgeo.x2[j], vgeo.x3[j])
     end
 
     num_vgeo_handled += 3
 
     @views begin
-        # _M should be a sum
-        vgeo[:, _M, :][:] .= sum(vgeo_N1_flds[_M], dims = findall(Nq .== 1))[:]
+        # ωJ should be a sum
+        vgeo.ωJ[:] .= sum(vgeo_N1.ωJ, dims = findall(Nq .== 1))[:]
         num_vgeo_handled += 1
 
-        # need to recompute _MI
-        vgeo[:, _MI, :] = 1 ./ vgeo[:, _M, :]
+        # need to recompute ωJI
+        vgeo.ωJI .= 1 ./ vgeo.ωJ
         num_vgeo_handled += 1
 
         # coordinates should just be averages
-        avg_den = 2 .^ sum(Nq .== 1)
-        for fld in (_JcV,)
-            vgeo[:, fld, :] =
-                sum(vgeo_N1_flds[fld], dims = findall(Nq .== 1))[:] / avg_den
-            num_vgeo_handled += 1
-        end
+        avg_den = 2^sum(Nq .== 1)
+        vgeo.JcV .= sum(vgeo_N1.JcV, dims = findall(Nq .== 1))[:] ./ avg_den
+        num_vgeo_handled += 1
 
         # For the metrics it is J * ξixk we approximate so multiply and divide the
         # mass matrix (which has the Jacobian determinant and the proper averaging
         # due to the quadrature weights)
-        M_N1 = vgeo_N1_flds[_M]
-        MI = vgeo[:, _MI, :]
-        for fld in
-            (_ξ1x1, _ξ2x1, _ξ3x1, _ξ1x2, _ξ2x2, _ξ3x2, _ξ1x3, _ξ2x3, _ξ3x3)
-            vgeo[:, fld, :] =
-                sum(M_N1 .* vgeo_N1_flds[fld], dims = findall(Nq .== 1))[:] .*
-                MI[:]
-            num_vgeo_handled += 1
-        end
+        ωJ_N1 = vgeo_N1.ωJ
+        ωJI = vgeo.ωJI
+        vgeo.ξ1x1 .=
+            sum(ωJ_N1 .* vgeo_N1.ξ1x1, dims = findall(Nq .== 1))[:] .* ωJI[:]
+        vgeo.ξ2x1 .=
+            sum(ωJ_N1 .* vgeo_N1.ξ2x1, dims = findall(Nq .== 1))[:] .* ωJI[:]
+        vgeo.ξ3x1 .=
+            sum(ωJ_N1 .* vgeo_N1.ξ3x1, dims = findall(Nq .== 1))[:] .* ωJI[:]
+        vgeo.ξ1x2 .=
+            sum(ωJ_N1 .* vgeo_N1.ξ1x2, dims = findall(Nq .== 1))[:] .* ωJI[:]
+        vgeo.ξ2x2 .=
+            sum(ωJ_N1 .* vgeo_N1.ξ2x2, dims = findall(Nq .== 1))[:] .* ωJI[:]
+        vgeo.ξ3x2 .=
+            sum(ωJ_N1 .* vgeo_N1.ξ3x2, dims = findall(Nq .== 1))[:] .* ωJI[:]
+        vgeo.ξ1x3 .=
+            sum(ωJ_N1 .* vgeo_N1.ξ1x3, dims = findall(Nq .== 1))[:] .* ωJI[:]
+        vgeo.ξ2x3 .=
+            sum(ωJ_N1 .* vgeo_N1.ξ2x3, dims = findall(Nq .== 1))[:] .* ωJI[:]
+        vgeo.ξ3x3 .=
+            sum(ωJ_N1 .* vgeo_N1.ξ3x3, dims = findall(Nq .== 1))[:] .* ωJI[:]
+        num_vgeo_handled += 9
 
-        # compute MH and JvC
-        horizontal_metrics(vgeo, Nq, ω)
+        # compute ωJH and JvC
+        horizontal_metrics!(vgeo, Nq, ω)
         num_vgeo_handled += 1
 
         # Make sure we handled all the vgeo terms
@@ -872,8 +855,8 @@ function computegeometry(elemtocoord, D, ξ, ω, meshwarp)
     Metrics.creategrid!(vgeo, elemtocoord, ξ)
 
     # b) topology coordinates -> physical coordinates
-    @inbounds for j in 1:length(x1)
-        (vgeo.x1[j], vgeo.x2[j], vgeo.x3[j]) =
+    @inbounds for j in 1:length(vgeo.x1)
+        (vgeo.x1[j], vgeo.x2[j], vgeo.x3[j]) .=
             meshwarp(vgeo.x1[j], vgeo.x2[j], vgeo.x3[j])
     end
 

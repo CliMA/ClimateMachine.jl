@@ -4,6 +4,7 @@ using ..GeomData
 
 export creategrid, compute_reference_to_physical_coord_jacobian, computemetric
 
+
 """
     creategrid!(vgeo, elemtocoord, ξ)
 
@@ -15,18 +16,18 @@ If `Nq = length(ξ)` and `nelem = size(elemtocoord, 3)` then the preallocated
 array `vgeo.x1` should be `Nq * nelem == length(x1)`.
 """
 function creategrid!(
-    vgeo::VolumeGeometry{NTuple{1, Int}, <:AbstractArray},
+    vgeo::VolumeGeometry{Nq, <:AbstractArray, <:AbstractArray},
     e2c,
-    ξ::NTuple{1, Int},
-)
+    ξ::NTuple{1, Vector{FT}},
+) where {Nq,FT}
     (d, nvert, nelem) = size(e2c)
     @assert d == 1
-    Nq = length(ξ)
-    vgeo.x1 = reshape(vgeo.x1, (Nq, nelem))
+    @assert Nq == map(length,ξ)
+    x1 = reshape(vgeo.x1, (Nq..., nelem))
 
-    # linear blend
+    # Linear blend
     @inbounds for e in 1:nelem
-        for i in 1:Nq
+        for i in 1:Nq[1]
             vgeo.x1[i, e] =
                 ((1 - ξ[i]) * e2c[1, 1, e] + (1 + ξ[i]) * e2c[1, 2, e]) / 2
         end
@@ -46,19 +47,19 @@ preallocated arrays `vgeo.x1` and `vgeo.x2` should be
 `prod(Nq) * nelem == size(vgeo.x1) == size(vgeo.x2)`.
 """
 function creategrid!(
-    vgeo::VolumeGeometry{NTuple{2, Int}, <:AbstractArray},
+    vgeo::VolumeGeometry{Nq, <:AbstractArray, <:AbstractArray},
     e2c,
-    ξ::NTuple{2, Int},
-)
+    ξ::NTuple{2,  Vector{FT}},
+) where {Nq,FT}
     (d, nvert, nelem) = size(e2c)
     @assert d == 2
     (ξ1, ξ2) = ξ
-    Nq = (length(ξ1), length(ξ2))
-    vgeo.x1 = reshape(vgeo.x1, (Nq..., nelem))
-    vgeo.x2 = reshape(vgeo.x2, (Nq..., nelem))
+    @assert Nq == map(length,ξ)
+    x1 = reshape(vgeo.x1, (Nq..., nelem))
+    x2 = reshape(vgeo.x2, (Nq..., nelem))
 
-    # # bilinear blend of corners
-    @inbounds for (f, n) in zip((vgeo.x1, vgeo.x2), 1:d)
+    # Bilinear blend of corners
+    @inbounds for (f, n) in zip((x1, x2), 1:d)
         for e in 1:nelem, j in 1:Nq[2], i in 1:Nq[1]
             f[i, j, e] =
                 (
@@ -84,20 +85,20 @@ If `Nq = (length(ξ1), length(ξ2), length(ξ3))` and
 and `vgeo.x3` should be `prod(Nq) * nelem == size(vgeo.x1) == size(vgeo.x2) == size(vgeo.x3)`.
 """
 function creategrid!(
-    vgeo::VolumeGeometry{NTuple{3, Int}, <:AbstractArray},
+    vgeo::VolumeGeometry{Nq, <:AbstractArray, <:AbstractArray},
     e2c,
-    ξ::NTuple{3, Int},
-)
+    ξ::NTuple{3,  Vector{FT}},
+) where {Nq,FT}
     (d, nvert, nelem) = size(e2c)
     @assert d == 3
     (ξ1, ξ2, ξ3) = ξ
-    Nq = (length(ξ1), length(ξ2), length(ξ3))
-    vgeo.x1 = reshape(vgeo.x1, (Nq..., nelem))
-    vgeo.x2 = reshape(vgeo.x2, (Nq..., nelem))
-    vgeo.x3 = reshape(vgeo.x3, (Nq..., nelem))
+    @assert Nq == map(length,ξ)
+    x1 = reshape(vgeo.x1, (Nq..., nelem))
+    x2 = reshape(vgeo.x2, (Nq..., nelem))
+    x3 = reshape(vgeo.x3, (Nq..., nelem))
 
-    # trilinear blend of corners
-    @inbounds for (f, n) in zip((vgeo.x1, vgeo.x2, vgeo.x3), 1:d)
+    # Trilinear blend of corners
+    @inbounds for (f, n) in zip((x1, x2, x3), 1:d)
         for e in 1:nelem, k in 1:Nq[3], j in 1:Nq[2], i in 1:Nq[1]
             f[i, j, k, e] =
                 (
@@ -129,7 +130,7 @@ Compute the Jacobian matrix, ∂x / ∂ξ, of the transformation from reference 
 for each quadrature point in element e.
 """
 function compute_reference_to_physical_coord_jacobian!(
-    vgeo::VolumeGeometry{NTuple{2, Int}, <:AbstractArray},
+    vgeo::VolumeGeometry{NTuple{2, Int}, <:AbstractArray, <:AbstractArray},
     D::NTuple{2, Int},
 )
     T = eltype(vgeo.x1)
@@ -170,7 +171,7 @@ Compute the Jacobian matrix, ∂x / ∂ξ, of the transformation from reference 
 each quadrature point in element e.
 """
 function compute_reference_to_physical_coord_jacobian!(
-    vgeo::VolumeGeometry{NTuple{3, Int}, <:AbstractArray},
+    vgeo::VolumeGeometry{NTuple{3, Int}, <:AbstractArray, <:AbstractArray},
     D::NTuple{3, Int},
 )
 
@@ -223,7 +224,7 @@ If `Nq = size(D, 1)` and `nelem = div(length(x1), Nq)` then the volume arrays
 arrays `sJ` and `n1` should be of length `nface * nelem` with `nface = 2`.
 """
 function computemetric!(
-    vgeo::VolumeGeometry{NTuple{1, Int}, <:AbstractArray},
+    vgeo::VolumeGeometry{NTuple{1, Int}, <:AbstractArray, <:AbstractArray},
     sgeo::SurfaceGeometry{NTuple{1, Int}, <:AbstractArray},
     D::NTuple{1, Int},
 )
@@ -241,7 +242,7 @@ function computemetric!(
     @inbounds for e in 1:nelem
         JcV[:, e] = ωJ[:, e] = D * x1[:, e]
 
-        # Update struct field entries
+        # Compute vertical Jacobian determinant and Jacobian determinant, det(∂x/∂ξ), per quadrature point
         for i in 1:Nq
             vgeo.JcV[i, e] = JcV[i, e]
             vgeo.ωJ[i, e] = ωJ[i, e]
@@ -278,7 +279,7 @@ and `sgeo.n2` should be of size `(maximum(Nq), nface, nelem)` with `nface = 4`
 
 """
 function computemetric!(
-    vgeo::VolumeGeometry{NTuple{2, Int}, <:AbstractArray},
+    vgeo::VolumeGeometry{NTuple{2, Int}, <:AbstractArray, <:AbstractArray},
     sgeo::SurfaceGeometry{NTuple{2, Int}, <:AbstractArray},
     D::NTuple{2, Int},
 )
@@ -311,17 +312,9 @@ function computemetric!(
             ξ2x1[i, j, e] = -x2ξ1 / ωJ[i, j, e]
             ξ1x2[i, j, e] = -x1ξ2 / ωJ[i, j, e]
             ξ2x2[i, j, e] = x1ξ1 / ωJ[i, j, e]
-
-            # Update volume struct field entries
-            vgeo.JcV[i + (j - 1) * Nq[1], e] = JcV[i, j, e]
-            vgeo.ωJ[i + (j - 1) * Nq[1], e] = ωJ[i, j, e]
-            vgeo.ξ1x1[i + (j - 1) * Nq[1], e] = ξ1x1[i, j, e]
-            vgeo.ξ2x1[i + (j - 1) * Nq[1], e] = ξ2x1[i, j, e]
-            vgeo.ξ1x2[i + (j - 1) * Nq[1], e] = ξ1x2[i, j, e]
-            vgeo.ξ2x2[i + (j - 1) * Nq[1], e] = ξ2x2[i, j, e]
         end
 
-        # Compute and update surface struct field entries
+        # Compute surface struct field entries
         for i in 1:maximum(Nfp)
             if i <= Nfp[1]
                 sgeo.n1[i, 1, e] = -ωJ[1, i, e] * ξ1x1[1, i, e]
@@ -383,7 +376,7 @@ Reference:
  - [Kopriva2006](@cite)
 """
 function computemetric!(
-    vgeo::VolumeGeometry{NTuple{3, Int}, <:AbstractArray},
+    vgeo::VolumeGeometry{NTuple{3, Int}, <:AbstractArray, <:AbstractArray},
     sgeo::SurfaceGeometry{NTuple{3, Int}, <:AbstractArray},
     D::NTuple{3, Int},
 )
@@ -441,10 +434,6 @@ function computemetric!(
                 x3ξ1 * (x1ξ2 * x2ξ3 - x2ξ2 * x1ξ3)
             )
 
-            # Update volume struct field entries
-            vgeo.JcV[i + (j - 1) * Nq[1] + (k - 1) * Nq[3], e] = JcV[i, j, k, e]
-            vgeo.J[i + (j - 1) * Nq[1] + (k - 1) * Nq[3], e] = J[i, j, k, e]
-
             JI2[i, j, k] = 1 / (2 * ωJ[i, j, k, e])
 
             yzr[i, j, k] = x2[i, j, k, e] * x3ξ1 - x3[i, j, k, e] * x2ξ1
@@ -492,29 +481,9 @@ function computemetric!(
             ξ1x3[i, j, k, e] *= JI2[i, j, k]
             ξ2x3[i, j, k, e] *= JI2[i, j, k]
             ξ3x3[i, j, k, e] *= JI2[i, j, k]
-
-            # Update volume struct field entries
-            vgeo.ξ1x1[i + (j - 1) * Nq[1] + (k - 1) * Nq[3], e] =
-                ξ1x1[i, j, k, e]
-            vgeo.ξ2x1[i + (j - 1) * Nq[1] + (k - 1) * Nq[3], e] =
-                ξ2x1[i, j, k, e]
-            vgeo.ξ3x1[i + (j - 1) * Nq[1] + (k - 1) * Nq[3], e] =
-                ξ3x1[i, j, k, e]
-            vgeo.ξ1x2[i + (j - 1) * Nq[1] + (k - 1) * Nq[3], e] =
-                ξ1x2[i, j, k, e]
-            vgeo.ξ2x2[i + (j - 1) * Nq[1] + (k - 1) * Nq[3], e] =
-                ξ2x2[i, j, k, e]
-            vgeo.ξ3x2[i + (j - 1) * Nq[1] + (k - 1) * Nq[3], e] =
-                ξ3x2[i, j, k, e]
-            vgeo.ξ1x3[i + (j - 1) * Nq[1] + (k - 1) * Nq[3], e] =
-                ξ1x3[i, j, k, e]
-            vgeo.ξ2x3[i + (j - 1) * Nq[1] + (k - 1) * Nq[3], e] =
-                ξ2x3[i, j, k, e]
-            vgeo.ξ3x3[i + (j - 1) * Nq[1] + (k - 1) * Nq[3], e] =
-                ξ3x3[i, j, k, e]
         end
 
-        # Compute and update surface struct field entries
+        # Compute surface struct field entries
         # faces 1 & 2
         for k in 1:Nq[3], j in 1:Nq[2]
             n = j + (k - 1) * Nq[2]

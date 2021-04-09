@@ -2,7 +2,8 @@ module GeomData
 
 export VolumeGeometry, SurfaceGeometry
 
-struct VolumeGeometry{Nq, A <: AbstractArray}
+struct VolumeGeometry{Nq, AA <: AbstractArray, A <: AbstractArray}
+    array::AA
     ξ1x1::A
     ξ2x1::A
     ξ3x1::A
@@ -28,8 +29,11 @@ struct VolumeGeometry{Nq, A <: AbstractArray}
     x2::A
     x3::A
     JcV::A
-    function VolumeGeometry{Nq}(args::A...) where {Nq, A <: AbstractArray}
-        new{Nq, A}(args...)
+    function VolumeGeometry{Nq}(
+        array::AA,
+        args::A...,
+    ) where {Nq, AA, A <: AbstractArray}
+        new{Nq, AA, A}(array, args...)
     end
 end
 
@@ -42,10 +46,10 @@ Construct an empty `VolumeGeometry` object, in `FT` precision.
 """
 function VolumeGeometry(FT, Nq::NTuple{N, Int}, nelem::Int) where {N}
     array = zeros(FT, prod(Nq), fieldcount(VolumeGeometry), nelem)
-    VolumeGeometry{Nq}(ntuple(
-        j -> @view(array[:, j, :]),
-        fieldcount(VolumeGeometry),
-    )...)
+    VolumeGeometry{Nq}(
+        array,
+        ntuple(j -> @view(array[:, j, :]), fieldcount(VolumeGeometry) - 1)...,
+    )
 end
 
 struct SurfaceGeometry{Nq, A <: AbstractArray}

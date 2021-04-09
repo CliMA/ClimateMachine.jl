@@ -42,7 +42,7 @@ const _nsgeo = Grids._nsgeo
 
             (vgeo, sgeo, _) =
                 Grids.computegeometry(e2c, D, ξ, ω, (x...) -> identity(x))
-            vgeo = reshape(vgeo, Nq..., _nvgeo, nelem)
+            vgeo = reshape(vgeo.array, Nq..., _nvgeo, nelem)
             @test vgeo[:, _x1, 1] ≈ (ξ[1] .- 1) / 2
             @test vgeo[:, _x1, 2] ≈ 5 * (ξ[1] .+ 1)
 
@@ -83,7 +83,7 @@ const _nsgeo = Grids._nsgeo
 
             (vgeo, sgeo, _) =
                 Grids.computegeometry(e2c, D, ξ, ω, (x...) -> identity(x))
-            vgeo = reshape(vgeo, Nq..., _nvgeo, nelem)
+            vgeo = reshape(vgeo.array, Nq..., _nvgeo, nelem)
             @test vgeo[1, _x1, 1] ≈ sum(e2c[:, :, 1]) / 2
             @test vgeo[1, _x1, 2] ≈ sum(e2c[:, :, 2]) / 2
 
@@ -203,7 +203,7 @@ end
 
             (vgeo, sgeo, _) =
                 Grids.computegeometry(e2c, D, ξ, ω, (x...) -> identity(x))
-            vgeo = reshape(vgeo, Nq..., _nvgeo, nelem)
+            vgeo = reshape(vgeo.array, Nq..., _nvgeo, nelem)
 
             @test (@view vgeo[:, :, _x1, :]) ≈ x_exact
             @test (@view vgeo[:, :, _x2, :]) ≈ y_exact
@@ -252,7 +252,7 @@ end
                     ω,
                     (x...) -> identity(x),
                 )
-                vgeo = reshape(vgeo, Nq..., _nvgeo, nelem)
+                vgeo = reshape(vgeo.array, Nq..., _nvgeo, nelem)
                 ξ1, ξ2 = vgeo[:, :, _x1, :], vgeo[:, :, _x2, :]
                 (fx1ξ1(ξ1, ξ2), fx1ξ2(ξ1, ξ2), fx2ξ1(ξ1, ξ2), fx2ξ2(ξ1, ξ2))
             end
@@ -261,7 +261,7 @@ end
 
             meshwarp(ξ1, ξ2, _) = (f(ξ1, ξ2)..., 0)
             (vgeo, sgeo, _) = Grids.computegeometry(e2c, D, ξ, ω, meshwarp)
-            vgeo = reshape(vgeo, Nq..., _nvgeo, nelem)
+            vgeo = reshape(vgeo.array, Nq..., _nvgeo, nelem)
             x1 = @view vgeo[:, :, _x1, :]
             x2 = @view vgeo[:, :, _x2, :]
 
@@ -311,7 +311,7 @@ end
 
             meshwarp(ξ1, ξ2, _) = (f(ξ1, ξ2)..., 0)
             (vgeo, sgeo, _) = Grids.computegeometry(e2c, D, ξ, ω, meshwarp)
-            vgeo = reshape(vgeo, Nq..., _nvgeo, nelem)
+            vgeo = reshape(vgeo.array, Nq..., _nvgeo, nelem)
             x1 = @view vgeo[:, :, _x1, :]
             x2 = @view vgeo[:, :, _x2, :]
 
@@ -391,7 +391,7 @@ end
 
             meshwarp(ξ1, ξ2, _) = (fx1(ξ1, ξ2), fx2(ξ1, ξ2), 0)
             (vgeo, sgeo, _) = Grids.computegeometry(e2c, D, ξ, ω, meshwarp)
-            vgeo = reshape(vgeo, Nq..., _nvgeo, nelem)
+            vgeo = reshape(vgeo.array.array, Nq..., _nvgeo, nelem)
             @test x1 ≈ vgeo[:, :, _x1, :]
             @test x2 ≈ vgeo[:, :, _x2, :]
 
@@ -586,7 +586,7 @@ end
 
         (vgeo, sgeo, _) =
             Grids.computegeometry(e2c, D, ξ, ω, (x...) -> identity(x))
-        vgeo = reshape(vgeo, Nq..., _nvgeo, nelem)
+        vgeo = reshape(vgeo.array, Nq..., _nvgeo, nelem)
 
         @test (@view vgeo[:, :, :, _x1, :]) ≈ x_exact
         @test (@view vgeo[:, :, :, _x2, :]) ≈ y_exact
@@ -685,7 +685,7 @@ end
         (x1ξ1, x1ξ2, x1ξ3, x2ξ1, x2ξ2, x2ξ3, x3ξ1, x3ξ2, x3ξ3) = let
             (vgeo, _) =
                 Grids.computegeometry(e2c, D, ξ, ω, (x...) -> identity(x))
-            vgeo = reshape(vgeo, Nq..., _nvgeo, nelem)
+            vgeo = reshape(vgeo.array, Nq..., _nvgeo, nelem)
             ξ1 = vgeo[:, :, :, _x1, :]
             ξ2 = vgeo[:, :, :, _x2, :]
             ξ3 = vgeo[:, :, :, _x3, :]
@@ -718,7 +718,7 @@ end
         ξ3x3 = (x1ξ1 .* x2ξ2 - x1ξ2 .* x2ξ1) ./ J
 
         (vgeo, sgeo, _) = Grids.computegeometry(e2c, D, ξ, ω, f)
-        vgeo = reshape(vgeo, Nq..., _nvgeo, nelem)
+        vgeo = reshape(vgeo.array, Nq..., _nvgeo, nelem)
 
         @test (@view vgeo[:, :, :, _M, :]) ≈
               J .* reshape(kron(reverse(ω)...), Nq..., 1)
@@ -846,7 +846,7 @@ end
         nelem = size(e2c, 3)
 
         (vgeo, sgeo, _) = Grids.computegeometry(e2c, D, ξ, ω, f)
-        vgeo = reshape(vgeo, Nq..., _nvgeo, nelem)
+        vgeo = reshape(vgeo.array, Nq..., _nvgeo, nelem)
 
         (Cx1, Cx2, Cx3) = (zeros(FT, Nq...), zeros(FT, Nq...), zeros(FT, Nq...))
 
@@ -981,7 +981,7 @@ end
             meshwarp(ξ1, ξ2, ξ3) =
                 (fx1(ξ1, ξ2, ξ3), fx2(ξ1, ξ2, ξ3), fx3(ξ1, ξ2, ξ3))
             (vgeo, sgeo, _) = Grids.computegeometry(e2c, D, ξ, ω, meshwarp)
-            vgeo = reshape(vgeo, Nq..., _nvgeo, nelem)
+            vgeo = reshape(vgeo.array, Nq..., _nvgeo, nelem)
 
             @test x1 ≈ vgeo[:, :, :, _x1, :]
             @test x2 ≈ vgeo[:, :, :, _x2, :]
