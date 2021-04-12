@@ -160,9 +160,13 @@ function init_state_prognostic!(bl::DryAtmosModel,
     e_int = _cv_d * T
 
     ## Assign state variables
-    state.ρ = ρ
-    state.ρu = ρ * u_cart
-    state.ρe = ρ * (e_int + e_kin + e_pot)
+    #state.ρ = ρ
+    #state.ρu = ρ * u_cart
+    #state.ρe = ρ * (e_int + e_kin + e_pot)
+    
+    state.ρ = aux.ref_state.ρ
+    state.ρu = SVector{3, FT}(0, 0, 0)
+    state.ρe = aux.ref_state.ρe
     nothing
 end
 
@@ -308,6 +312,22 @@ function run(
     end
     cbcfl = EveryXSimulationSteps(100) do
             simtime = gettime(odesolver) 
+
+            @views begin
+              ρ = Array(Q.data[:, 1, :])
+              ρu = Array(Q.data[:, 2, :])
+              ρv = Array(Q.data[:, 3, :])
+              ρw = Array(Q.data[:, 4, :])
+            end
+
+            u = ρu ./ ρ
+            v = ρv ./ ρ
+            w = ρw ./ ρ
+
+            ue = extrema(u)
+            ve = extrema(v)
+            we = extrema(w)
+
             c_v = courant(
                 nondiffusive_courant,
                 esdg,
@@ -347,11 +367,14 @@ function run(
 
             @info @sprintf """CFL
                               simtime = %.16e
+                              u = (%.4e, %.4e)
+                              v = (%.4e, %.4e)
+                              w = (%.4e, %.4e)
                               Acoustic (vertical) Courant number    = %.2g
                               Acoustic (horizontal) Courant number  = %.2g
                               Advection (vertical) Courant number   = %.2g
                               Advection (horizontal) Courant number = %.2g
-                              """ simtime c_v c_h ca_v ca_h
+                              """ simtime ue... ve... we... c_v c_h ca_v ca_h
     end
     callbacks = (cbinfo, cbcfl)
 

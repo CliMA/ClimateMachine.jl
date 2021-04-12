@@ -5,7 +5,7 @@ using ClimateMachine.Mesh.Topologies:
 using ClimateMachine.Mesh.Grids:
     DiscontinuousSpectralElementGrid, VerticalDirection, min_node_distance
 using ClimateMachine.Mesh.Filters
-using ClimateMachine.DGMethods: ESDGModel, init_ode_state
+using ClimateMachine.DGMethods: ESDGModel, init_ode_state, courant
 using ClimateMachine.DGMethods.NumericalFluxes:
     RusanovNumericalFlux,
     CentralNumericalFluxGradient,
@@ -55,7 +55,7 @@ function init_state_prognostic!(bl::DryAtmosModel,
     f = (1 + cos(FT(π) * β)) / 2
     g = sin(problem.nv * FT(π) * z / problem.domain_height)
     Δp = problem.γ * f * g
-    p = aux.ref_state.p + Δp
+    p = aux.ref_state.p# + Δp
 
     _cv_d::FT = cv_d(param_set)
     _R_d::FT = R_d(param_set)
@@ -82,7 +82,8 @@ function main()
     numelem_vert = 5
 
     #timeend = 5 * 60 * 60
-    timeend = 33 * 60 * 60 # Full simulation
+    #timeend = 33 * 60 * 60 # Full simulation
+    timeend = 100 * 24 * 3600
     outputtime = 60
 
 
@@ -220,6 +221,75 @@ function run(
         end
     end
     callbacks = (cbinfo,)
+
+    cbcfl = EveryXSimulationSteps(100) do
+            simtime = gettime(odesolver) 
+
+            @views begin
+              ρ = Array(Q.data[:, 1, :])
+              ρu = Array(Q.data[:, 2, :])
+              ρv = Array(Q.data[:, 3, :])
+              ρw = Array(Q.data[:, 4, :])
+            end
+
+            u = ρu ./ ρ
+            v = ρv ./ ρ
+            w = ρw ./ ρ
+
+            ue = extrema(u)
+            ve = extrema(v)
+            we = extrema(w)
+
+            c_v = courant(
+                nondiffusive_courant,
+                esdg,
+                model,
+                Q,
+                dt,
+                simtime,
+                VerticalDirection(),
+            )
+            c_h = courant(
+                nondiffusive_courant,
+                esdg,
+                model,
+                Q,
+                dt,
+                simtime,
+                HorizontalDirection(),
+            )
+            ca_v = courant(
+                advective_courant,
+                esdg,
+                model,
+                Q,
+                dt,
+                simtime,
+                VerticalDirection(),
+            )
+            ca_h = courant(
+                advective_courant,
+                esdg,
+                model,
+                Q,
+                dt,
+                simtime,
+                HorizontalDirection(),
+            )
+
+            @info @sprintf """CFL
+                              simtime = %.16e
+                              u = (%.4e, %.4e)
+                              v = (%.4e, %.4e)
+                              w = (%.4e, %.4e)
+                              Acoustic (vertical) Courant number    = %.2g
+                              Acoustic (horizontal) Courant number  = %.2g
+                              Advection (vertical) Courant number   = %.2g
+                              Advection (horizontal) Courant number = %.2g
+                              """ simtime ue... ve... we... c_v c_h ca_v ca_h
+    end
+    callbacks = (cbinfo, cbcfl)
+
 
     if output_vtk
         # create vtk dir
