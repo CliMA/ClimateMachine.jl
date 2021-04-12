@@ -2,7 +2,7 @@ module JLD2Writers
 
 using JLD2
 
-using ClimateMachine.Ocean.Domains: DiscontinuousSpectralElementGrid
+using ClimateMachine.Ocean.Domains: SpectralElementGrid
 using ClimateMachine.Ocean: current_step, current_time
 using ..Fields: SpectralElementField
 
@@ -44,7 +44,7 @@ function JLD2Writer(
 
     # Convert grid to CPU
     cpu_grid =
-        DiscontinuousSpectralElementGrid(model.domain, array_type = array_type)
+        SpectralElementGrid(model.domain, array_type = array_type)
 
     # Initialize output
     overwrite_existing && isfile(filepath) && rm(filepath; force = true)

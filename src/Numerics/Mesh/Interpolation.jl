@@ -47,7 +47,7 @@ $(DocStringExtensions.FIELDS)
 # Usage
 
     InterpolationBrick(
-        grid::DiscontinuousSpectralElementGrid{FT},
+        grid::SpectralElementGrid{FT},
         xbnd::Array{FT,2},
         xres,
     ) where FT <: AbstractFloat
@@ -130,7 +130,7 @@ struct InterpolationBrick{
     x3i_all::UI16VD
 
     function InterpolationBrick(
-        grid::DiscontinuousSpectralElementGrid{FT},
+        grid::SpectralElementGrid{FT},
         xbnd::Array{FT, 2},
         x1g::AbstractArray{FT, 1},
         x2g::AbstractArray{FT, 1},
@@ -612,7 +612,7 @@ $(DocStringExtensions.FIELDS)
 
 # Usage
 
-    InterpolationCubedSphere(grid::DiscontinuousSpectralElementGrid, vert_range::AbstractArray{FT}, nhor::Int, lat_res::FT, long_res::FT, rad_res::FT) where {FT <: AbstractFloat}
+    InterpolationCubedSphere(grid::SpectralElementGrid, vert_range::AbstractArray{FT}, nhor::Int, lat_res::FT, long_res::FT, rad_res::FT) where {FT <: AbstractFloat}
 
 This interpolation structure and the corresponding functions works for a cubed sphere topology. The data is interpolated along a lat/long/rad grid.
 
@@ -698,7 +698,7 @@ struct InterpolationCubedSphere{
     longi_all::UI16VD
 
     function InterpolationCubedSphere(
-        grid::DiscontinuousSpectralElementGrid,
+        grid::SpectralElementGrid,
         vert_range::AbstractArray{FT},
         nhor::Int,
         lat_grd::AbstractArray{FT, 1},

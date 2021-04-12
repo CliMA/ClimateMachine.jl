@@ -33,7 +33,7 @@ function Config(
     println("poly order is " * string(resolution.N))
     println("OI order is " * string(Nover))
 
-    grid = DiscontinuousSpectralElementGrid(
+    grid = SpectralElementGrid(
         topology,
         FloatType = FT,
         DeviceArray = ArrayType,

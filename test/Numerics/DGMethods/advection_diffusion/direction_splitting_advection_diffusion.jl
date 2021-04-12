@@ -105,7 +105,7 @@ function test_run(
     level,
 )
     topology = create_topology(topo(), mpicomm, Ne, FT)
-    grid = DiscontinuousSpectralElementGrid(
+    grid = SpectralElementGrid(
         topology,
         FloatType = FT,
         DeviceArray = ArrayType,

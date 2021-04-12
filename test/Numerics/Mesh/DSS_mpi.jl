@@ -30,7 +30,7 @@ function test_dss_stacked_3d()
         boundary = ((1, 2), (3, 4), (5, 6)),
         connectivity = :full,
     )
-    grid = DiscontinuousSpectralElementGrid(
+    grid = SpectralElementGrid(
         topl,
         FloatType = FT,
         DeviceArray = DA,

@@ -155,7 +155,7 @@ function test_run(
 
     outputtime = Ne * dt
 
-    grid = DiscontinuousSpectralElementGrid(
+    grid = SpectralElementGrid(
         topl,
         FloatType = FT,
         DeviceArray = ArrayType,

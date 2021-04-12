@@ -174,7 +174,7 @@ function test_run(
 ) where {FT}
 
     topology = BrickTopology(mpicomm, brickrange, periodicity = periodicity)
-    grid = DiscontinuousSpectralElementGrid(
+    grid = SpectralElementGrid(
         topology,
         polynomialorder = polynomialorder,
         DeviceArray = ArrayType,

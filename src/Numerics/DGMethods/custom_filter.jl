@@ -30,7 +30,7 @@ function custom_filter!(::AbstractCustomFilter, balance_law, state, aux) end
 
 function apply!(
     custom_filter::AbstractCustomFilter,
-    grid::DiscontinuousSpectralElementGrid,
+    grid::SpectralElementGrid,
     m::BalanceLaw,
     state_prognostic::MPIStateArray,
     state_auxiliary::MPIStateArray,

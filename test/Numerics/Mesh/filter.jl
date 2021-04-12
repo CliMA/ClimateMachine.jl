@@ -32,7 +32,7 @@ ClimateMachine.init()
             -1.0:2.0:1.0,
         )
 
-        grid = ClimateMachine.Mesh.Grids.DiscontinuousSpectralElementGrid(
+        grid = ClimateMachine.Mesh.Grids.SpectralElementGrid(
             topology;
             polynomialorder = N,
             FloatType = Float64,
@@ -61,7 +61,7 @@ ClimateMachine.init()
             MPI.COMM_SELF,
             -1.0:2.0:1.0,
         )
-        grid = ClimateMachine.Mesh.Grids.DiscontinuousSpectralElementGrid(
+        grid = ClimateMachine.Mesh.Grids.SpectralElementGrid(
             topology;
             polynomialorder = N,
             FloatType = Float64,
@@ -82,7 +82,7 @@ ClimateMachine.init()
             MPI.COMM_SELF,
             -1.0:2.0:1.0,
         )
-        grid = ClimateMachine.Mesh.Grids.DiscontinuousSpectralElementGrid(
+        grid = ClimateMachine.Mesh.Grids.SpectralElementGrid(
             topology;
             polynomialorder = N,
             FloatType = T,
@@ -119,7 +119,7 @@ ClimateMachine.init()
             MPI.COMM_SELF,
             -1.0:2.0:1.0,
         )
-        grid = ClimateMachine.Mesh.Grids.DiscontinuousSpectralElementGrid(
+        grid = ClimateMachine.Mesh.Grids.SpectralElementGrid(
             topology;
             polynomialorder = N,
             FloatType = T,
@@ -216,7 +216,7 @@ end
                 )
 
                 grid =
-                    ClimateMachine.Mesh.Grids.DiscontinuousSpectralElementGrid(
+                    ClimateMachine.Mesh.Grids.SpectralElementGrid(
                         topl,
                         FloatType = FT,
                         DeviceArray = ClimateMachine.array_type(),
@@ -282,7 +282,7 @@ end
                 )
 
                 grid =
-                    ClimateMachine.Mesh.Grids.DiscontinuousSpectralElementGrid(
+                    ClimateMachine.Mesh.Grids.SpectralElementGrid(
                         topl,
                         FloatType = FT,
                         DeviceArray = ClimateMachine.array_type(),
@@ -359,7 +359,7 @@ end
                 periodicity = ntuple(j -> true, dim),
             )
 
-            grid = ClimateMachine.Mesh.Grids.DiscontinuousSpectralElementGrid(
+            grid = ClimateMachine.Mesh.Grids.SpectralElementGrid(
                 topl,
                 FloatType = FT,
                 DeviceArray = ClimateMachine.array_type(),
@@ -448,7 +448,7 @@ end
             boundary = (5, 6),
         )
 
-        grid = ClimateMachine.Mesh.Grids.DiscontinuousSpectralElementGrid(
+        grid = ClimateMachine.Mesh.Grids.SpectralElementGrid(
             topl,
             FloatType = FT,
             DeviceArray = ClimateMachine.array_type(),

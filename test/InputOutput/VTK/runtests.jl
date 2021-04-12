@@ -94,7 +94,7 @@ end
 using MPI
 MPI.Initialized() || MPI.Init()
 using ClimateMachine.Mesh.Topologies: BrickTopology
-using ClimateMachine.Mesh.Grids: DiscontinuousSpectralElementGrid
+using ClimateMachine.Mesh.Grids: SpectralElementGrid
 using ClimateMachine.VTK: writevtk_helper
 
 let
@@ -141,7 +141,7 @@ let
                             )
                         end
                 end
-                grid = DiscontinuousSpectralElementGrid(
+                grid = SpectralElementGrid(
                     topl,
                     FloatType = FT,
                     DeviceArray = Array,

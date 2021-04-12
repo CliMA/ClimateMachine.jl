@@ -126,7 +126,7 @@ function test_run(
     model,
     test,
 ) where {FT}
-    grid = DiscontinuousSpectralElementGrid(
+    grid = SpectralElementGrid(
         topl,
         FloatType = FT,
         DeviceArray = ArrayType,

@@ -42,7 +42,7 @@ function test_vertical_integral_model(::Type{FT}, time; refDat = ()) where {FT}
         periodicity = (true, true),
         boundary = ((0, 0), (0, 0)),
     )
-    grid_2D = DiscontinuousSpectralElementGrid(
+    grid_2D = SpectralElementGrid(
         topl_2D,
         FloatType = FT,
         DeviceArray = ArrayType,
@@ -56,7 +56,7 @@ function test_vertical_integral_model(::Type{FT}, time; refDat = ()) where {FT}
         periodicity = (true, true, false),
         boundary = ((0, 0), (0, 0), (1, 2)),
     )
-    grid_3D = DiscontinuousSpectralElementGrid(
+    grid_3D = SpectralElementGrid(
         topl_3D,
         FloatType = FT,
         DeviceArray = ArrayType,

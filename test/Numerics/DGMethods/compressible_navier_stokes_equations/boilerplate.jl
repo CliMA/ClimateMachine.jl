@@ -34,11 +34,11 @@ include("shared_source/abstractions.jl")
 include("shared_source/callbacks.jl")
 
 """
-function coordinates(grid::DiscontinuousSpectralElementGrid)
+function coordinates(grid::SpectralElementGrid)
 # Description
 Gets the (x,y,z) coordinates corresponding to the grid
 # Arguments
-- `grid`: DiscontinuousSpectralElementGrid
+- `grid`: SpectralElementGrid
 # Return
 - `x, y, z`: views of x, y, z coordinates
 """

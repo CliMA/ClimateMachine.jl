@@ -1,6 +1,6 @@
-import ClimateMachine.Mesh.Grids: DiscontinuousSpectralElementGrid
+import ClimateMachine.Mesh.Grids: SpectralElementGrid
 
-function coordinates(grid::DiscontinuousSpectralElementGrid)
+function coordinates(grid::SpectralElementGrid)
     x = view(grid.vgeo, :, grid.x1id, :)   # x-direction	
     y = view(grid.vgeo, :, grid.x2id, :)   # y-direction	
     z = view(grid.vgeo, :, grid.x3id, :)   # z-direction
@@ -56,9 +56,9 @@ end
 
 # Grid Constructor
 """
-function DiscontinuousSpectralElementGrid(domain::ProductDomain; elements = nothing, polynomialorder = nothing)
+function SpectralElementGrid(domain::ProductDomain; elements = nothing, polynomialorder = nothing)
 # Description 
-Computes a DiscontinuousSpectralElementGrid as specified by a product domain
+Computes a SpectralElementGrid as specified by a product domain
 # Arguments
 -`domain`: A product domain object
 # Keyword Arguments 
@@ -71,9 +71,9 @@ Computes a DiscontinuousSpectralElementGrid as specified by a product domain
 -`brickbuilder`: default = uniform_brick_builder, 
   brickrange=uniform_brick_builder(domain, elements)
 # Return 
-A DiscontinuousSpectralElementGrid object
+A SpectralElementGrid object
 """
-function DiscontinuousSpectralElementGrid(
+function SpectralElementGrid(
     domain::ProductDomain;
     elements = nothing,
     polynomialorder = nothing,
@@ -144,7 +144,7 @@ function DiscontinuousSpectralElementGrid(
         connectivity = connectivity,
     )
 
-    grid = DiscontinuousSpectralElementGrid(
+    grid = SpectralElementGrid(
         topl,
         FloatType = FT,
         DeviceArray = array,
@@ -174,7 +174,7 @@ function DiscretizedDomain(
     brick_builder = uniform_brick_builder,
 )
 
-    grid = DiscontinuousSpectralElementGrid(
+    grid = SpectralElementGrid(
         domain,
         elements = elements,
         polynomialorder = polynomial_order .+ overintegration_order,

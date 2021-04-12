@@ -27,7 +27,7 @@ include("mms_model.jl")
 
 function test_run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, FT, dt)
 
-    grid = DiscontinuousSpectralElementGrid(
+    grid = SpectralElementGrid(
         topl,
         FloatType = FT,
         DeviceArray = ArrayType,

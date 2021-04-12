@@ -18,7 +18,7 @@ using ..Ocean: FreeSlip, Impenetrable, Insulating, OceanBC, Penetrable
 using ..Ocean.Fields: SpectralElementField
 
 using ...Mesh.Filters: CutoffFilter, ExponentialFilter
-using ...Mesh.Grids: polynomialorders, DiscontinuousSpectralElementGrid
+using ...Mesh.Grids: polynomialorders, SpectralElementGrid
 
 using ClimateMachine:
     LS3NRK33Heuns,
@@ -100,7 +100,7 @@ function HydrostaticBoussinesqSuperModel(;
     # Change global setting if its set here
     Settings.array_type = array_type
 
-    grid = DiscontinuousSpectralElementGrid(
+    grid = SpectralElementGrid(
         domain;
         boundary_tags = boundary_tags,
         mpicomm = mpicomm,

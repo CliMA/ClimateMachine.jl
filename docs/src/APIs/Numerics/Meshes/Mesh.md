@@ -75,7 +75,7 @@ Grids specify the approximation within each element, and any necessary warping.
 Grids.get_z
 Grids.referencepoints
 Grids.min_node_distance
-Grids.DiscontinuousSpectralElementGrid
+Grids.SpectralElementGrid
 ```
 
 ## DSS

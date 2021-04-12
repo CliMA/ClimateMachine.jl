@@ -24,7 +24,7 @@ using ..VariableTemplates
 
 """
     get_vars_from_nodal_stack(
-        grid::DiscontinuousSpectralElementGrid{T, dim, N},
+        grid::SpectralElementGrid{T, dim, N},
         Q::MPIStateArray,
         vars;
         vrange::UnitRange = 1:size(Q, 3),
@@ -44,7 +44,7 @@ the horizontal nodal coordinates.
 Variables listed in `exclude` are skipped.
 """
 function get_vars_from_nodal_stack(
-    grid::DiscontinuousSpectralElementGrid{T, dim, N},
+    grid::SpectralElementGrid{T, dim, N},
     Q::MPIStateArray,
     vars;
     vrange::UnitRange = 1:size(Q, 3),
@@ -125,7 +125,7 @@ end
 
 """
     get_vars_from_element_stack(
-        grid::DiscontinuousSpectralElementGrid{T, dim, N},
+        grid::SpectralElementGrid{T, dim, N},
         Q::MPIStateArray,
         vars;
         vrange::UnitRange = 1:size(Q, 3),
@@ -139,7 +139,7 @@ are the number of nodal points per element in the horizontal plane.
 Variables listed in `exclude` are skipped.
 """
 function get_vars_from_element_stack(
-    grid::DiscontinuousSpectralElementGrid{T, dim, N},
+    grid::SpectralElementGrid{T, dim, N},
     Q::MPIStateArray,
     vars;
     vrange::UnitRange = 1:size(Q, 3),
@@ -167,7 +167,7 @@ end
 
 """
     get_horizontal_mean(
-        grid::DiscontinuousSpectralElementGrid{T, dim, N},
+        grid::SpectralElementGrid{T, dim, N},
         Q::MPIStateArray,
         vars;
         vrange::UnitRange = 1:size(Q, 3),
@@ -184,7 +184,7 @@ horizontal as this is intended for the single stack configuration.
 Variables listed in `exclude` are skipped.
 """
 function get_horizontal_mean(
-    grid::DiscontinuousSpectralElementGrid{T, dim, N},
+    grid::SpectralElementGrid{T, dim, N},
     Q::MPIStateArray,
     vars;
     vrange::UnitRange = 1:size(Q, 3),
@@ -219,7 +219,7 @@ end
 
 """
     get_horizontal_variance(
-        grid::DiscontinuousSpectralElementGrid{T, dim, N},
+        grid::SpectralElementGrid{T, dim, N},
         Q::MPIStateArray,
         vars;
         vrange::UnitRange = 1:size(Q, 3),
@@ -236,7 +236,7 @@ horizontal as this is intended for the single stack configuration.
 Variables listed in `exclude` are skipped.
 """
 function get_horizontal_variance(
-    grid::DiscontinuousSpectralElementGrid{T, dim, N},
+    grid::SpectralElementGrid{T, dim, N},
     Q::MPIStateArray,
     vars;
     vrange::UnitRange = 1:size(Q, 3),
@@ -277,7 +277,7 @@ end
 """
     reduce_nodal_stack(
         op::Function,
-        grid::DiscontinuousSpectralElementGrid{T, dim, N},
+        grid::SpectralElementGrid{T, dim, N},
         Q::MPIStateArray,
         vars::NamedTuple,
         var::String;
@@ -291,7 +291,7 @@ the final value returned by `op` and `z` is the index within `vrange` where the
 """
 function reduce_nodal_stack(
     op::Function,
-    grid::DiscontinuousSpectralElementGrid{T, dim, N},
+    grid::SpectralElementGrid{T, dim, N},
     Q::MPIStateArray,
     vars::Type,
     var::String;
@@ -347,7 +347,7 @@ end
 """
     reduce_element_stack(
         op::Function,
-        grid::DiscontinuousSpectralElementGrid{T, dim, N},
+        grid::SpectralElementGrid{T, dim, N},
         Q::MPIStateArray,
         vars::NamedTuple,
         var::String;
@@ -361,7 +361,7 @@ the final value returned by `op` and `z` is the index within `vrange` where the
 """
 function reduce_element_stack(
     op::Function,
-    grid::DiscontinuousSpectralElementGrid{T, dim, N},
+    grid::SpectralElementGrid{T, dim, N},
     Q::MPIStateArray,
     vars::Type,
     var::String;
@@ -388,7 +388,7 @@ end
 
 """
     horizontally_average!(
-        grid::DiscontinuousSpectralElementGrid{T, dim, N},
+        grid::SpectralElementGrid{T, dim, N},
         Q::MPIStateArray,
         i_vars,
     ) where {T, dim, N}
@@ -402,7 +402,7 @@ indexes `i_vars`, in `MPIStateArray` `Q`.
     no horizontal fluxes for a single stack configuration.
 """
 function horizontally_average!(
-    grid::DiscontinuousSpectralElementGrid{T, dim, N},
+    grid::SpectralElementGrid{T, dim, N},
     Q::MPIStateArray,
     i_vars,
 ) where {T, dim, N}
@@ -482,7 +482,7 @@ end
 """
     NodalStack(
             bl::BalanceLaw,
-            grid::DiscontinuousSpectralElementGrid,
+            grid::SpectralElementGrid,
             prognostic,
             auxiliary,
             diffusive,
@@ -540,7 +540,7 @@ struct NodalStack{N, BL, G, S, VR, TI, TJ, CI, IN}
     interp::IN
     function NodalStack(
         bl::BalanceLaw,
-        grid::DiscontinuousSpectralElementGrid;
+        grid::SpectralElementGrid;
         prognostic,
         auxiliary,
         diffusive,

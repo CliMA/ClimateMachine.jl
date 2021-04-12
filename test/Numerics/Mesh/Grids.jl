@@ -13,7 +13,7 @@ MPI.Initialized() || MPI.Init()
         Np = prod(Nq)
         Nfp = div.(Np, Nq)
 
-        grid = DiscontinuousSpectralElementGrid(
+        grid = SpectralElementGrid(
             topology,
             FloatType = Float64,
             DeviceArray = Array,
@@ -51,7 +51,7 @@ end
         Np = prod(Nq)
         Nfp = div.(Np, Nq)
 
-        grid = DiscontinuousSpectralElementGrid(
+        grid = SpectralElementGrid(
             topology,
             FloatType = Float64,
             DeviceArray = Array,

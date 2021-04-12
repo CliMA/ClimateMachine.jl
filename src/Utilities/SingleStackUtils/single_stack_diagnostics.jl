@@ -10,7 +10,7 @@ flattened_named_tuple(v::Nothing, ft::FlattenType = FlattenArr()) = nothing
 
 """
     single_stack_diagnostics(
-        grid::DiscontinuousSpectralElementGrid,
+        grid::SpectralElementGrid,
         bl::BalanceLaw,
         t::Real,
         direction;
@@ -35,7 +35,7 @@ and all the nested NamedTuples, merged together,
 from the `precompute` methods.
 """
 function single_stack_diagnostics(
-    grid::DiscontinuousSpectralElementGrid,
+    grid::SpectralElementGrid,
     bl::BalanceLaw,
     t::Real,
     direction;

@@ -117,7 +117,7 @@ function test_run(
     dt,
 )
     # -------------- Define grid ----------------------------------- #
-    grid = DiscontinuousSpectralElementGrid(
+    grid = SpectralElementGrid(
         topl,
         FloatType = FT,
         DeviceArray = ArrayType,

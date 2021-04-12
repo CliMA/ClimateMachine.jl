@@ -52,7 +52,7 @@ function test_run(mpicomm, Ne_horz, Ne_vert, N, FT, ArrayType, direction)
     Rrange = range(FT(1 // 2); length = Ne_vert + 1, stop = FT(1))
     topl = StackedCubedSphereTopology(mpicomm, Ne_horz, Rrange)
 
-    grid = DiscontinuousSpectralElementGrid(
+    grid = SpectralElementGrid(
         topl,
         FloatType = FT,
         DeviceArray = ArrayType,

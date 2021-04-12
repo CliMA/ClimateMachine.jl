@@ -118,7 +118,7 @@ function run_brick_interpolation_test(
         brickrange,
         periodicity = (true, true, false),
     )
-    grid = DiscontinuousSpectralElementGrid(
+    grid = SpectralElementGrid(
         topl,
         FloatType = FT,
         DeviceArray = DA,
@@ -272,7 +272,7 @@ function run_cubed_sphere_interpolation_test(
 
     topology = StackedCubedSphereTopology(mpicomm, numelem_horz, vert_range)
 
-    grid = DiscontinuousSpectralElementGrid(
+    grid = SpectralElementGrid(
         topology,
         FloatType = FT,
         DeviceArray = DA,
