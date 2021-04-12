@@ -56,7 +56,7 @@ let
                         (ξ1, ξ2, ξ3)
                     end
 
-                    grid = DiscontinuousSpectralElementGrid(
+                    grid = SpectralElementGrid(
                         topl,
                         FloatType = FT,
                         DeviceArray = ArrayType,

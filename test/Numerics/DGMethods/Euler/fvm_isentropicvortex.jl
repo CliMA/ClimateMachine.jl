@@ -148,7 +148,7 @@ function test_run(
         connectivity = connectivity,
     )
 
-    grid = DiscontinuousSpectralElementGrid(
+    grid = SpectralElementGrid(
         topology,
         FloatType = FT,
         DeviceArray = ArrayType,

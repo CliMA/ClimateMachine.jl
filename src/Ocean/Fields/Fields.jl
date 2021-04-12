@@ -5,7 +5,7 @@ export SpectralElementField, assemble, data
 using CUDA
 using Printf
 
-using ClimateMachine.Mesh.Grids: DiscontinuousSpectralElementGrid
+using ClimateMachine.Mesh.Grids: SpectralElementGrid
 using ClimateMachine.MPIStateArrays: MPIStateArray
 using ..Domains: AbstractDomain
 
@@ -32,7 +32,7 @@ assuming that `state.realdata` lives on `RectangularDomain`.
 """
 function SpectralElementField(
     domain::AbstractDomain,
-    grid::DiscontinuousSpectralElementGrid,
+    grid::SpectralElementGrid,
     state::MPIStateArray,
     variable_index::Int,
 )

@@ -52,7 +52,7 @@ end
                 periodicity = ntuple(j -> true, dim),
             )
 
-            grid = ClimateMachine.Mesh.Grids.DiscontinuousSpectralElementGrid(
+            grid = ClimateMachine.Mesh.Grids.SpectralElementGrid(
                 topl,
                 FloatType = FT,
                 DeviceArray = ClimateMachine.array_type(),

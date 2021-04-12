@@ -111,7 +111,7 @@ function test_run(
     vtkdir,
     outputtime,
 )
-    grid = DiscontinuousSpectralElementGrid(
+    grid = SpectralElementGrid(
         topl,
         FloatType = FT,
         DeviceArray = ArrayType,

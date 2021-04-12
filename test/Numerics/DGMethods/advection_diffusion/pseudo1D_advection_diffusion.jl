@@ -124,7 +124,7 @@ function test_run(
     fluxBC,
 )
 
-    grid = DiscontinuousSpectralElementGrid(
+    grid = SpectralElementGrid(
         topl,
         FloatType = FT,
         DeviceArray = ArrayType,

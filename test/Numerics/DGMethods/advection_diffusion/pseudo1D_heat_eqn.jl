@@ -107,7 +107,7 @@ function test_run(
     dt = timeend / numberofsteps
     @info "time step" dt numberofsteps dt * numberofsteps timeend
 
-    grid = DiscontinuousSpectralElementGrid(
+    grid = SpectralElementGrid(
         topl,
         FloatType = FT,
         DeviceArray = ArrayType,

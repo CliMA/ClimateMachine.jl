@@ -9,7 +9,7 @@ using LinearAlgebra
 using KernelAbstractions
 using DocStringExtensions
 
-export DiscontinuousSpectralElementGrid, AbstractGrid
+export SpectralElementGrid, AbstractGrid
 export dofs_per_element, arraytype, dimensionality, polynomialorders
 export referencepoints, min_node_distance, get_z
 export EveryDirection, HorizontalDirection, VerticalDirection, Direction
@@ -147,7 +147,7 @@ const sgeoid = (
 # }}}
 
 """
-    DiscontinuousSpectralElementGrid(topology; FloatType, DeviceArray,
+    SpectralElementGrid(topology; FloatType, DeviceArray,
                                      polynomialorder,
                                      meshwarp = (x...)->identity(x))
 
@@ -167,7 +167,7 @@ The optional `meshwarp` function allows the coordinate points to be warped after
 the mesh is created; the mesh degrees of freedom are orginally assigned using a
 trilinear blend of the element corner locations.
 """
-struct DiscontinuousSpectralElementGrid{
+struct SpectralElementGrid{
     T,
     dim,
     N,
@@ -264,7 +264,7 @@ struct DiscontinuousSpectralElementGrid{
     facemap::Union{DAI3, Nothing}
 
     # Constructor for a tuple of polynomial orders
-    function DiscontinuousSpectralElementGrid(
+    function SpectralElementGrid(
         topology::AbstractTopology{dim};
         polynomialorder,
         FloatType,
@@ -412,13 +412,11 @@ struct DiscontinuousSpectralElementGrid{
 end
 
 """
-    referencepoints(::DiscontinuousSpectralElementGrid)
+    referencepoints(::SpectralElementGrid)
 
 Returns the 1D interpolation points used for the reference element.
 """
-function referencepoints(
-    ::DiscontinuousSpectralElementGrid{FT, dim, N},
-) where {FT, dim, N}
+function referencepoints(::SpectralElementGrid{FT, dim, N}) where {FT, dim, N}
     ξω = ntuple(
         j ->
             N[j] == 0 ? Elements.glpoints(FT, N[j]) :
@@ -431,7 +429,7 @@ end
 
 """
     min_node_distance(
-        ::DiscontinuousSpectralElementGrid,
+        ::SpectralElementGrid,
         direction::Direction=EveryDirection())
     )
 
@@ -440,7 +438,7 @@ the reference coordinate directions.  The direction controls which reference
 directions are considered.
 """
 min_node_distance(
-    grid::DiscontinuousSpectralElementGrid,
+    grid::SpectralElementGrid,
     direction::Direction = EveryDirection(),
 ) = min_node_distance(grid.minΔ, direction)
 
@@ -493,7 +491,7 @@ Get the Gauss-Lobatto points along the Z-coordinate.
  - `rm_dupes`: removes duplicate Gauss-Lobatto points
 """
 function get_z(
-    grid::DiscontinuousSpectralElementGrid{T, dim, N};
+    grid::SpectralElementGrid{T, dim, N};
     z_scale = 1,
     rm_dupes = false,
 ) where {T, dim, N}
@@ -520,7 +518,7 @@ function get_z(
     return reshape(grid.vgeo[(1:Nph:Np), _x3, :], :) * z_scale
 end
 
-function Base.getproperty(G::DiscontinuousSpectralElementGrid, s::Symbol)
+function Base.getproperty(G::SpectralElementGrid, s::Symbol)
     if s ∈ keys(vgeoid)
         vgeoid[s]
     elseif s ∈ keys(sgeoid)
@@ -530,12 +528,8 @@ function Base.getproperty(G::DiscontinuousSpectralElementGrid, s::Symbol)
     end
 end
 
-function Base.propertynames(G::DiscontinuousSpectralElementGrid)
-    (
-        fieldnames(DiscontinuousSpectralElementGrid)...,
-        keys(vgeoid)...,
-        keys(sgeoid)...,
-    )
+function Base.propertynames(G::SpectralElementGrid)
+    (fieldnames(SpectralElementGrid)..., keys(vgeoid)..., keys(sgeoid)...)
 end
 
 # {{{ mappings

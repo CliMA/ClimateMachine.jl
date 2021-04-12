@@ -362,14 +362,14 @@ with the code
 Filters.apply!(Q, (3, 4), grid, TMARFilter())
 ```
 
-where `grid` is the associated `DiscontinuousSpectralElementGrid`.
+where `grid` is the associated `SpectralElementGrid`.
 """
 struct TMARFilter <: AbstractFilter end
 
 """
     Filters.apply!(Q::MPIStateArray,
         target,
-        grid::DiscontinuousSpectralElementGrid,
+        grid::SpectralElementGrid,
         filter::AbstractSpectralFilter;
         kwargs...)
 
@@ -406,7 +406,7 @@ Filters.apply!(Q, ("moisture.ρq_tot",), grid, CutoffFilter(grid);
 function apply!(
     Q,
     target,
-    grid::DiscontinuousSpectralElementGrid,
+    grid::SpectralElementGrid,
     filter::AbstractFilter;
     kwargs...,
 )
@@ -419,7 +419,7 @@ end
 
 
 """
-    Filters.apply_async!(Q, target, grid::DiscontinuousSpectralElementGrid,
+    Filters.apply_async!(Q, target, grid::SpectralElementGrid,
         filter::AbstractFilter;
         dependencies,
         kwargs...)
@@ -438,7 +438,7 @@ function apply_async! end
 function apply_async!(
     Q,
     target::AbstractFilterTarget,
-    grid::DiscontinuousSpectralElementGrid,
+    grid::SpectralElementGrid,
     filter::AbstractSpectralFilter;
     dependencies,
     state_auxiliary = nothing,
@@ -505,7 +505,7 @@ end
 function apply_async!(
     Q,
     target::AbstractFilterTarget,
-    grid::DiscontinuousSpectralElementGrid,
+    grid::SpectralElementGrid,
     ::TMARFilter;
     dependencies,
 )
@@ -540,7 +540,7 @@ end
 function apply_async!(
     Q,
     target::AbstractFilterTarget,
-    grid::DiscontinuousSpectralElementGrid,
+    grid::SpectralElementGrid,
     filter::MassPreservingCutoffFilter;
     dependencies,
     state_auxiliary = nothing,
@@ -607,7 +607,7 @@ end
 function apply_async!(
     Q,
     indices::Union{Colon, AbstractRange, Tuple{Vararg{Integer}}},
-    grid::DiscontinuousSpectralElementGrid,
+    grid::SpectralElementGrid,
     filter::AbstractFilter;
     kwargs...,
 )
@@ -620,7 +620,7 @@ end
 function apply_async!(
     Q,
     vs::Tuple,
-    grid::DiscontinuousSpectralElementGrid,
+    grid::SpectralElementGrid,
     filter::AbstractFilter;
     kwargs...,
 )

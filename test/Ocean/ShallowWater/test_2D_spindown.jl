@@ -47,7 +47,7 @@ function run_hydrostatic_spindown(; refDat = ())
         periodicity = (true, true),
         boundary = ((0, 0), (0, 0)),
     )
-    grid_2D = DiscontinuousSpectralElementGrid(
+    grid_2D = SpectralElementGrid(
         topl_2D,
         FloatType = FT,
         DeviceArray = ArrayType,

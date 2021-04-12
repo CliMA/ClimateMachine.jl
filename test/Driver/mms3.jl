@@ -136,7 +136,7 @@ function main()
                 x3 + x1 / 4 + x2^2 / 2 + sin(x1 * x2 * x3),
             )
         end
-    grid = DiscontinuousSpectralElementGrid(
+    grid = SpectralElementGrid(
         topl,
         FloatType = FT,
         DeviceArray = ClimateMachine.array_type(),

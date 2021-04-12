@@ -13,8 +13,7 @@ import ClimateMachine.DGMethods: DGFVModel, init_ode_state
 import ClimateMachine.GenericCallbacks:
     EveryXWallTimeSeconds, EveryXSimulationSteps
 import ClimateMachine.MPIStateArrays: MPIStateArray, euclidean_distance
-import ClimateMachine.Mesh.Grids:
-    DiscontinuousSpectralElementGrid, EveryDirection
+import ClimateMachine.Mesh.Grids: SpectralElementGrid, EveryDirection
 import ClimateMachine.Mesh.Topologies: StackedBrickTopology
 import ClimateMachine.ODESolvers: LSRK54CarpenterKennedy, solve!, gettime
 import ClimateMachine.VTK: writevtk, writepvtu
@@ -105,7 +104,7 @@ function test_run(
     outputtime,
 )
 
-    grid = DiscontinuousSpectralElementGrid(
+    grid = SpectralElementGrid(
         topl,
         FloatType = FT,
         DeviceArray = ArrayType,

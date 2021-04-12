@@ -145,7 +145,7 @@ end
 
 using Test
 function test_run(mpicomm, topl, ArrayType, N, FT, Rinner, Router)
-    grid = DiscontinuousSpectralElementGrid(
+    grid = SpectralElementGrid(
         topl,
         FloatType = FT,
         DeviceArray = ArrayType,

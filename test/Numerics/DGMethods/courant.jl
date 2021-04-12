@@ -96,7 +96,7 @@ let
 
 
 
-                grid = DiscontinuousSpectralElementGrid(
+                grid = SpectralElementGrid(
                     topl,
                     FloatType = FT,
                     DeviceArray = ArrayType,

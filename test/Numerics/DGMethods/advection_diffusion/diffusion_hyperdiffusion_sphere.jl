@@ -95,7 +95,7 @@ end
 
 function run(mpicomm, ArrayType, topl, N, timeend, FT, vtkdir, outputtime)
 
-    grid = DiscontinuousSpectralElementGrid(
+    grid = SpectralElementGrid(
         topl,
         FloatType = FT,
         DeviceArray = ArrayType,

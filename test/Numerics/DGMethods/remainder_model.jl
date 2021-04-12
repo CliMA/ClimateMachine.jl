@@ -72,7 +72,7 @@ function test_run(
     )
     topology = StackedCubedSphereTopology(mpicomm, numelem_horz, vert_range)
 
-    grid = DiscontinuousSpectralElementGrid(
+    grid = SpectralElementGrid(
         topology,
         FloatType = FT,
         DeviceArray = ArrayType,

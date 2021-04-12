@@ -72,7 +72,7 @@ function test_run(mpicomm, dim, direction, Ne, N, FT, ArrayType)
         connectivity = connectivity,
     )
 
-    grid = DiscontinuousSpectralElementGrid(
+    grid = SpectralElementGrid(
         topl,
         FloatType = FT,
         DeviceArray = ArrayType,

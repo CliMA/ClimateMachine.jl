@@ -182,7 +182,7 @@ function test_run(
     Vertical polynomial order   = %s
       """ fvmethod ArrayType FT dim direction polynomialorders[1] polynomialorders[end]
 
-    grid = DiscontinuousSpectralElementGrid(
+    grid = SpectralElementGrid(
         topl,
         FloatType = FT,
         DeviceArray = ArrayType,

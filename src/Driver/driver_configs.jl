@@ -123,7 +123,7 @@ struct DriverConfiguration{FT}
     mpicomm::MPI.Comm
     #
     # Mesh details
-    grid::DiscontinuousSpectralElementGrid
+    grid::SpectralElementGrid
     #
     # DGModel details
     numerical_flux_first_order::NumericalFluxFirstOrder
@@ -147,7 +147,7 @@ struct DriverConfiguration{FT}
         param_set::AbstractParameterSet,
         bl::BalanceLaw,
         mpicomm::MPI.Comm,
-        grid::DiscontinuousSpectralElementGrid,
+        grid::SpectralElementGrid,
         numerical_flux_first_order::NumericalFluxFirstOrder,
         numerical_flux_second_order::NumericalFluxSecondOrder,
         numerical_flux_gradient::NumericalFluxGradient,
@@ -276,7 +276,7 @@ function AtmosLESConfiguration(
         boundary = boundary,
     )
 
-    grid = DiscontinuousSpectralElementGrid(
+    grid = SpectralElementGrid(
         topology,
         FloatType = FT,
         DeviceArray = array_type,
@@ -405,7 +405,7 @@ function AtmosGCMConfiguration(
         boundary = (1, 2),
     )
 
-    grid = DiscontinuousSpectralElementGrid(
+    grid = SpectralElementGrid(
         topology,
         FloatType = FT,
         DeviceArray = array_type,
@@ -517,7 +517,7 @@ function OceanBoxGCMConfiguration(
         boundary = boundary,
     )
 
-    grid = DiscontinuousSpectralElementGrid(
+    grid = SpectralElementGrid(
         topology,
         FloatType = FT,
         DeviceArray = array_type,
@@ -616,7 +616,7 @@ function SingleStackConfiguration(
         boundary = boundary,
     )
 
-    grid = DiscontinuousSpectralElementGrid(
+    grid = SpectralElementGrid(
         topology,
         FloatType = FT,
         DeviceArray = array_type,
@@ -728,7 +728,7 @@ function MultiColumnLandModel(
         boundary = boundary,
     )
 
-    grid = DiscontinuousSpectralElementGrid(
+    grid = SpectralElementGrid(
         topology,
         FloatType = FT,
         DeviceArray = array_type,

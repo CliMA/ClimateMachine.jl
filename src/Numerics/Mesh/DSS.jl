@@ -10,7 +10,7 @@ export dss!
 
 """
     dss3d(Q::MPIStateArray,
-        grid::DiscontinuousSpectralElementGrid)
+        grid::SpectralElementGrid)
 
 This function computes the 3D direct stiffness summation for all variables in the MPIStateArray.
 
@@ -20,7 +20,7 @@ This function computes the 3D direct stiffness summation for all variables in th
 """
 function dss!(
     Q::MPIStateArray,
-    grid::DiscontinuousSpectralElementGrid{FT, 3};
+    grid::SpectralElementGrid{FT, 3};
     max_threads = 256,
 ) where {FT}
     DA = arraytype(grid)                                      # device array

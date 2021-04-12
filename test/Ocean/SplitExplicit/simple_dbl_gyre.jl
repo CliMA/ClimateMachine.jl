@@ -127,7 +127,7 @@ function main(; restart = 0)
     brickrange_2D = (xrange, yrange)
     topl_2D =
         BrickTopology(mpicomm, brickrange_2D, periodicity = (false, false))
-    grid_2D = DiscontinuousSpectralElementGrid(
+    grid_2D = SpectralElementGrid(
         topl_2D,
         FloatType = FT,
         DeviceArray = ArrayType,
@@ -141,7 +141,7 @@ function main(; restart = 0)
         periodicity = (false, false, false),
         boundary = ((1, 1), (1, 1), (2, 3)),
     )
-    grid_3D = DiscontinuousSpectralElementGrid(
+    grid_3D = SpectralElementGrid(
         topl_3D,
         FloatType = FT,
         DeviceArray = ArrayType,

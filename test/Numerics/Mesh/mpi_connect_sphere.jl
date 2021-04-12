@@ -26,7 +26,7 @@ function main()
         boundary = (1, 2),
         connectivity = :face,
     )
-    grid = DiscontinuousSpectralElementGrid(
+    grid = SpectralElementGrid(
         topology;
         FloatType = FT,
         DeviceArray = DA,

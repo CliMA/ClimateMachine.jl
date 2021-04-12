@@ -4,7 +4,7 @@ using ClimateMachine: Settings
 
 using ClimateMachine.Mesh.Topologies: StackedBrickTopology
 
-import ClimateMachine.Mesh.Grids: DiscontinuousSpectralElementGrid
+import ClimateMachine.Mesh.Grids: SpectralElementGrid
 
 #####
 ##### RectangularDomain
@@ -49,7 +49,7 @@ name_it(Ne) = (x = Ne[1], y = Ne[2], z = Ne[3])
 Returns a `RectangularDomain` representing the product of `x, y, z` intervals,
 specified by 2-tuples.
 
-The `RectangularDomain` is meshed with a simple `DiscontinuousSpectralElementGrid`
+The `RectangularDomain` is meshed with a simple `SpectralElementGrid`
 with an isotropic polynomial order `Np` and a 3-tuple of `Ne`lements
 giving the number of elements in `x, y, z`.
 
@@ -119,7 +119,7 @@ end
 array_type(domain::RectangularDomain) = Settings.array_type
 eltype(::RectangularDomain{FT}) where {FT} = FT
 
-function DiscontinuousSpectralElementGrid(
+function SpectralElementGrid(
     domain::RectangularDomain{FT};
     boundary_tags = ((0, 0), (0, 0), (1, 2)),
     array_type = Settings.array_type,
@@ -143,7 +143,7 @@ function DiscontinuousSpectralElementGrid(
         boundary = boundary_tags,
     )
 
-    grid = DiscontinuousSpectralElementGrid(
+    grid = SpectralElementGrid(
         topology,
         FloatType = FT,
         DeviceArray = array_type,

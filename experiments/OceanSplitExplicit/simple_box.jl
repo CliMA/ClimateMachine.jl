@@ -31,7 +31,7 @@ const param_set = EarthParameterSet()
 
 struct OceanSplitExplicitSpecificInfo <: ConfigSpecificInfo
     model_2D::BalanceLaw
-    grid_2D::DiscontinuousSpectralElementGrid
+    grid_2D::SpectralElementGrid
     dg::DGModel
 end
 
@@ -75,13 +75,13 @@ function OceanSplitExplicitConfiguration(
         boundary = boundary,
     )
 
-    grid_2D = DiscontinuousSpectralElementGrid(
+    grid_2D = SpectralElementGrid(
         topology_2D,
         FloatType = FT,
         DeviceArray = array_type,
         polynomialorder = polyorder_horz,
     )
-    grid_3D = DiscontinuousSpectralElementGrid(
+    grid_3D = SpectralElementGrid(
         topology_3D,
         FloatType = FT,
         DeviceArray = array_type,

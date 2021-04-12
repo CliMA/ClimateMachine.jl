@@ -115,7 +115,7 @@ function test_run(mpicomm, dim, polynomialorders, level, ArrayType, FT)
     Vertical polynomial order   = %s
       """ ArrayType FT dim polynomialorders[1] polynomialorders[end]
 
-    grid = DiscontinuousSpectralElementGrid(
+    grid = SpectralElementGrid(
         topl,
         FloatType = FT,
         DeviceArray = ArrayType,

@@ -28,7 +28,7 @@ into `realdata`, assuming that `realdata` lives on `domain::RectangularDomain`.
 """
 function SpectralElementField(
     domain::RectangularDomain{FT},
-    grid::DiscontinuousSpectralElementGrid,
+    grid::SpectralElementGrid,
     realdata::AbstractArray,
     data::Union{AbstractArray, Nothing} = nothing,
     realelems::Union{UnitRange, Nothing} = nothing,

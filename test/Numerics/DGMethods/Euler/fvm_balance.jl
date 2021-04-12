@@ -89,7 +89,7 @@ function test_run(
         meshwarp = equiangular_cubed_sphere_warp
     end
 
-    grid = DiscontinuousSpectralElementGrid(
+    grid = SpectralElementGrid(
         topology,
         FloatType = FT,
         DeviceArray = ArrayType,

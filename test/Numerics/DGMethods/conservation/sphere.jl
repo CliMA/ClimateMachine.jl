@@ -161,7 +161,7 @@ function test_run(mpicomm, ArrayType, N, Nhorz, Rrange, timeend, FT, dt)
 
     topl = StackedCubedSphereTopology(mpicomm, Nhorz, Rrange)
 
-    grid = DiscontinuousSpectralElementGrid(
+    grid = SpectralElementGrid(
         topl,
         FloatType = FT,
         DeviceArray = ArrayType,

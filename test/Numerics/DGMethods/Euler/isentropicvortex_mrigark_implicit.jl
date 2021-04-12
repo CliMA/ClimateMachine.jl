@@ -128,7 +128,7 @@ function test_run(
         periodicity = ntuple(_ -> true, dims),
     )
 
-    grid = DiscontinuousSpectralElementGrid(
+    grid = SpectralElementGrid(
         topology,
         FloatType = FT,
         DeviceArray = ArrayType,

@@ -59,7 +59,7 @@ function init_state_prognostic!(
 end
 
 function test_hmean(
-    grid::DiscontinuousSpectralElementGrid{T, dim, Ns},
+    grid::SpectralElementGrid{T, dim, Ns},
     Q::MPIStateArray,
     vars,
 ) where {T, dim, Ns}
@@ -69,7 +69,7 @@ function test_hmean(
 end
 
 function test_hvar(
-    grid::DiscontinuousSpectralElementGrid{T, dim, Ns},
+    grid::SpectralElementGrid{T, dim, Ns},
     Q::MPIStateArray,
     vars,
 ) where {T, dim, Ns}
@@ -79,7 +79,7 @@ function test_hvar(
 end
 
 function test_horizontally_ave(
-    grid::DiscontinuousSpectralElementGrid{T, dim, Ns},
+    grid::SpectralElementGrid{T, dim, Ns},
     Q_in::MPIStateArray,
     vars,
 ) where {T, dim, Ns}
@@ -93,7 +93,7 @@ function test_horizontally_ave(
 end
 
 function target_meanprof(
-    grid::DiscontinuousSpectralElementGrid{T, dim, Ns},
+    grid::SpectralElementGrid{T, dim, Ns},
 ) where {T, dim, Ns}
     Nqs = Ns .+ 1
     Nq_v = Nqs[end]
@@ -105,7 +105,7 @@ function target_meanprof(
 end
 
 function target_varprof(
-    grid::DiscontinuousSpectralElementGrid{T, dim, Ns},
+    grid::SpectralElementGrid{T, dim, Ns},
 ) where {T, dim, Ns}
     Nqs = Ns .+ 1
     Nq_v = Nqs[end]

@@ -39,7 +39,7 @@ function run_test1(mpicomm, dim, Ne, N, FT, ArrayType)
         periodicity = (false, false, false),
     )
 
-    grid = DiscontinuousSpectralElementGrid(
+    grid = SpectralElementGrid(
         topl,
         FloatType = FT,
         DeviceArray = ArrayType,
@@ -103,7 +103,7 @@ function run_test2(mpicomm, dim, Ne, N, FT, ArrayType)
         periodicity = (false, false, false),
     )
 
-    grid = DiscontinuousSpectralElementGrid(
+    grid = SpectralElementGrid(
         topl,
         FloatType = FT,
         DeviceArray = ArrayType,
@@ -164,7 +164,7 @@ function run_test3(mpicomm, dim, Ne, N, FT, ArrayType)
         Nvert = 2^(l - 1) * base_Nvert
         Rrange = grid1d(FT(Rinner), FT(Router); nelem = Nvert)
         topl = StackedCubedSphereTopology(mpicomm, Nhorz, Rrange)
-        grid = DiscontinuousSpectralElementGrid(
+        grid = SpectralElementGrid(
             topl,
             FloatType = FT,
             DeviceArray = ArrayType,
@@ -222,7 +222,7 @@ function run_test4(mpicomm, dim, Ne, N, FT, ArrayType)
         connectivity = :face,
     )
 
-    grid = DiscontinuousSpectralElementGrid(
+    grid = SpectralElementGrid(
         topl,
         FloatType = FT,
         DeviceArray = ArrayType,
@@ -270,7 +270,7 @@ function run_test5(mpicomm, dim, Ne, N, FT, ArrayType)
         connectivity = :face,
     )
 
-    grid = DiscontinuousSpectralElementGrid(
+    grid = SpectralElementGrid(
         topl,
         FloatType = FT,
         DeviceArray = ArrayType,

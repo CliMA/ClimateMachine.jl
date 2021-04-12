@@ -9,9 +9,9 @@ using Base.Threads
 
 # Depending on CliMa version 
 # old, should return a tuple of polynomial orders
-# polynomialorders(::DiscontinuousSpectralElementGrid{T, dim, N}) where {T, dim, N} = Tuple([N for i in 1:dim])
+# polynomialorders(::SpectralElementGrid{T, dim, N}) where {T, dim, N} = Tuple([N for i in 1:dim])
 # new, should return a tuple of polynomial orders
-# polynomialorders(::DiscontinuousSpectralElementGrid{T, dim, N}) where {T, dim, N} = N
+# polynomialorders(::SpectralElementGrid{T, dim, N}) where {T, dim, N} = N
 
 # utils.jl
 """
@@ -38,18 +38,18 @@ function cellaverage(Q; M = nothing)
 end
 
 """
-function coordinates(grid::DiscontinuousSpectralElementGrid)
+function coordinates(grid::SpectralElementGrid)
 
 # Description
 Gets the (x,y,z) coordinates corresponding to the grid
 
 # Arguments
-- `grid`: DiscontinuousSpectralElementGrid
+- `grid`: SpectralElementGrid
 
 # Return
 - `x, y, z`: views of x, y, z coordinates
 """
-function coordinates(grid::DiscontinuousSpectralElementGrid)
+function coordinates(grid::SpectralElementGrid)
     x = view(grid.vgeo, :, grid.x1id, :)   # x-direction	
     y = view(grid.vgeo, :, grid.x2id, :)   # y-direction	
     z = view(grid.vgeo, :, grid.x3id, :)   # z-direction
@@ -63,12 +63,12 @@ function cellcenters(Q; M = nothing)
 Get the cell-centers of every element in the grid
 
 # Arguments
-- `grid`: DiscontinuousSpectralElementGrid
+- `grid`: SpectralElementGrid
 
 # Return
 - Tuple of cell-centers
 """
-function cellcenters(grid::DiscontinuousSpectralElementGrid)
+function cellcenters(grid::SpectralElementGrid)
     x, y, z = coordinates(grid)
     M = view(grid.vgeo, :, grid.Mid, :)  # mass matrix
     xC = cellaverage(x, M = M)
@@ -156,7 +156,7 @@ struct InterpolationHelper{S, T}
     cartesianindex::T
 end
 
-function InterpolationHelper(g::DiscontinuousSpectralElementGrid)
+function InterpolationHelper(g::SpectralElementGrid)
     porders = polynomialorders(g)
     if length(porders) == 3
         npx, npy, npz = porders
@@ -204,7 +204,7 @@ end
 addup(xC, tol) = sum(abs.(xC[1] .- xC) .≤ tol)
 
 # only valid for cartesian domains
-function ElementHelper(g::DiscontinuousSpectralElementGrid)
+function ElementHelper(g::SpectralElementGrid)
     porders = polynomialorders(g)
     x, y, z = coordinates(g)
     xC, yC, zC = cellcenters(g)
@@ -247,7 +247,7 @@ struct GridHelper{S, T, V}
     grid::V
 end
 
-function GridHelper(g::DiscontinuousSpectralElementGrid)
+function GridHelper(g::SpectralElementGrid)
     return GridHelper(InterpolationHelper(g), ElementHelper(g), g)
 end
 

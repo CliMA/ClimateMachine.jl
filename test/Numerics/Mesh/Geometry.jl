@@ -32,7 +32,7 @@ MPI.Initialized() || MPI.Init()
         periodicity = (true, true, false),
     )
 
-    grid = DiscontinuousSpectralElementGrid(
+    grid = SpectralElementGrid(
         topl,
         FloatType = FT,
         DeviceArray = ArrayType,
