@@ -70,10 +70,17 @@ function land_source!(
     # Assume that diffusive- is parallel or antiparallel to n^, since diff+ is
     # Then
     n̂ = diffusive.soil.water.K∇h/norm(diffusive.soil.water.K∇h)
+
     flux_vector = -diffusive.soil.water.K∇h
     precip_vector = dot(n̂,(0,0,precip)) * n̂
-    leftover = norm(precip_vector .- flux_vector)
-    source.river.area  += -leftover
+    Δ = precip_vector .- flux_vector
+    S  = dot(Δ,n̂)
+    if S< eltype(state)(0.0) # More precip than infiltration, or e.g. precip = 0 but exfiltration
+        leftover = -S
+    else
+        leftover = eltype(state)(0.0) # no reinfiltration
+    end
+    source.river.area += leftover
                                       
 end
 

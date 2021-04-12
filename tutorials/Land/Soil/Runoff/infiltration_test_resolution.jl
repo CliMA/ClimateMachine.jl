@@ -25,7 +25,7 @@ using ClimateMachine.VariableTemplates
 using ClimateMachine.SingleStackUtils
 using ClimateMachine.BalanceLaws:
     BalanceLaw, Prognostic, Auxiliary, Gradient, GradientFlux, vars_state
-
+using JLD2, FileIO
 
 FT = Float32;
 
@@ -67,7 +67,7 @@ ClimateMachine.init(; disable_gpu = true);
 const clima_dir = dirname(dirname(pathof(ClimateMachine)));
 include(joinpath(clima_dir, "docs", "plothelpers.jl"));
 
-dts = [6,2,1]
+dts = [4,1,0.5]
 p = [0.2,0.1,0.05]
 names = ["V20","V10","V05"]
 for index in [1,2,3]
@@ -290,7 +290,7 @@ for index in [1,2,3]
     y = aux[:,2,:]
     z = aux[:,3,:]
     ztrue = inverse_shift_up.(x,y,z;topo_max = topo_max, xmax = xmax)
-    mask = ((FT.(abs.(x .-xmax) .< 1e-10)) + FT.(abs.(ztrue) .< 1e-10)) .==2
+    mask = ((FT.(abs.(x .-xmax) .< 1e-4)) + FT.(abs.(ztrue) .< 1e-4)) .==2
     N = sum([length(dons[k]) !=0 for k in 1:n_outputs])
     # get prognostic variable area from nodal state (m^2)
     area = [mean(Array(dons[k]["area"])[mask[:]]) for k in 1:N]
@@ -346,7 +346,9 @@ for index in [1,2,3]
     
     #    solution = analytic.(time_data, alpha, t_c, t_r, i, L, m)
     filename = string(string("./tutorials/Land/Soil/Runoff/K2_",names[index]),"_H80_P1.jld2")
-    save(filename,"dons",dons)
+    save(filename,"dons", dons)
+    filename = string(string("./tutorials/Land/Soil/Runoff/K2_aux_",names[index]),"_H80_P1.jld2")
+    save(filename,"aux", aux)
 end
 
     #plot(time_data ./ 60,solution, label = "analytic; no interaction")
