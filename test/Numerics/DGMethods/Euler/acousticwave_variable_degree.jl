@@ -2,8 +2,7 @@ using ClimateMachine
 using ClimateMachine.ConfigTypes
 using ClimateMachine.Mesh.Topologies:
     StackedCubedSphereTopology, equiangular_cubed_sphere_warp, grid1d
-using ClimateMachine.Mesh.Grids:
-    SpectralElementGrid, VerticalDirection
+using ClimateMachine.Mesh.Grids: SpectralElementGrid, VerticalDirection
 using ClimateMachine.Mesh.Filters
 using ClimateMachine.DGMethods: DGModel, init_ode_state, remainder_DGModel
 using ClimateMachine.DGMethods.NumericalFluxes:

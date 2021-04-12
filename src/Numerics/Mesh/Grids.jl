@@ -416,9 +416,7 @@ end
 
 Returns the 1D interpolation points used for the reference element.
 """
-function referencepoints(
-    ::SpectralElementGrid{FT, dim, N},
-) where {FT, dim, N}
+function referencepoints(::SpectralElementGrid{FT, dim, N}) where {FT, dim, N}
     ξω = ntuple(
         j ->
             N[j] == 0 ? Elements.glpoints(FT, N[j]) :
@@ -531,11 +529,7 @@ function Base.getproperty(G::SpectralElementGrid, s::Symbol)
 end
 
 function Base.propertynames(G::SpectralElementGrid)
-    (
-        fieldnames(SpectralElementGrid)...,
-        keys(vgeoid)...,
-        keys(sgeoid)...,
-    )
+    (fieldnames(SpectralElementGrid)..., keys(vgeoid)..., keys(sgeoid)...)
 end
 
 # {{{ mappings

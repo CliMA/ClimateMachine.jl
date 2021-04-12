@@ -43,8 +43,7 @@ function JLD2Writer(
 )
 
     # Convert grid to CPU
-    cpu_grid =
-        SpectralElementGrid(model.domain, array_type = array_type)
+    cpu_grid = SpectralElementGrid(model.domain, array_type = array_type)
 
     # Initialize output
     overwrite_existing && isfile(filepath) && rm(filepath; force = true)

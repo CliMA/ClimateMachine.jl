@@ -215,13 +215,12 @@ end
                     periodicity = ntuple(j -> true, dim),
                 )
 
-                grid =
-                    ClimateMachine.Mesh.Grids.SpectralElementGrid(
-                        topl,
-                        FloatType = FT,
-                        DeviceArray = ClimateMachine.array_type(),
-                        polynomialorder = N,
-                    )
+                grid = ClimateMachine.Mesh.Grids.SpectralElementGrid(
+                    topl,
+                    FloatType = FT,
+                    DeviceArray = ClimateMachine.array_type(),
+                    polynomialorder = N,
+                )
 
                 filter = ClimateMachine.Mesh.Filters.CutoffFilter(grid, 2)
 
@@ -281,13 +280,12 @@ end
                     periodicity = ntuple(j -> true, dim),
                 )
 
-                grid =
-                    ClimateMachine.Mesh.Grids.SpectralElementGrid(
-                        topl,
-                        FloatType = FT,
-                        DeviceArray = ClimateMachine.array_type(),
-                        polynomialorder = N,
-                    )
+                grid = ClimateMachine.Mesh.Grids.SpectralElementGrid(
+                    topl,
+                    FloatType = FT,
+                    DeviceArray = ClimateMachine.array_type(),
+                    polynomialorder = N,
+                )
 
                 filter = ClimateMachine.Mesh.Filters.MassPreservingCutoffFilter(
                     grid,
