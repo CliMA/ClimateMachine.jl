@@ -682,11 +682,17 @@ function computegeometry_fvm(elemtocoord, D, ξ, ω, meshwarp)
 
     Metrics.creategrid!(vgeo, elemtocoord, ξ)
 
+    x1 = vgeo.x1
+    x2 = vgeo.x2
+    x3 = vgeo.x3
     @inbounds for j in 1:length(vgeo.x1)
-        (vgeo.x1[j], vgeo.x2[j], vgeo.x3[j]) .=
-            meshwarp(vgeo.x1[j], vgeo.x2[j], vgeo.x3[j])
+        (x1[j], x2[j], x3[j]) = meshwarp(vgeo.x1[j], vgeo.x2[j], vgeo.x3[j])
     end
 
+    # Update data in vgeo
+    vgeo.x1 .= x1
+    vgeo.x2 .= x2
+    vgeo.x3 .= x3
     num_vgeo_handled += 3
 
     @views begin
@@ -855,13 +861,20 @@ function computegeometry(elemtocoord, D, ξ, ω, meshwarp)
     Metrics.creategrid!(vgeo, elemtocoord, ξ)
 
     # b) topology coordinates -> physical coordinates
+    x1 = vgeo.x1
+    x2 = vgeo.x2
+    x3 = vgeo.x3
     @inbounds for j in 1:length(vgeo.x1)
-        (vgeo.x1[j], vgeo.x2[j], vgeo.x3[j]) .=
-            meshwarp(vgeo.x1[j], vgeo.x2[j], vgeo.x3[j])
+        (x1[j], x2[j], x3[j]) = meshwarp(vgeo.x1[j], vgeo.x2[j], vgeo.x3[j])
     end
 
+    # Update data in vgeo
+    vgeo.x1 .= x1
+    vgeo.x2 .= x2
+    vgeo.x3 .= x3
+
     # c) computes Jacobian matrix, ∂x/∂ξ
-    compute_reference_to_physical_coord_jacobian!(vgeo, D)
+    Metrics.compute_reference_to_physical_coord_jacobian!(vgeo, D)
 
     # d) computes the metric terms
     Metrics.computemetric!(vgeo, sgeo, D)

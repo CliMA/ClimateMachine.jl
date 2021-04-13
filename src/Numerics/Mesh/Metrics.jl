@@ -4,7 +4,6 @@ using ..GeomData
 
 export creategrid, compute_reference_to_physical_coord_jacobian, computemetric
 
-
 """
     creategrid!(vgeo, elemtocoord, ξ)
 
@@ -19,17 +18,18 @@ function creategrid!(
     vgeo::VolumeGeometry{Nq, <:AbstractArray, <:AbstractArray},
     e2c,
     ξ::NTuple{1, Vector{FT}},
-) where {Nq,FT}
+) where {Nq, FT}
     (d, nvert, nelem) = size(e2c)
     @assert d == 1
-    @assert Nq == map(length,ξ)
+    @assert Nq == map(length, ξ)
+    (ξ1,) = ξ
     x1 = reshape(vgeo.x1, (Nq..., nelem))
 
     # Linear blend
     @inbounds for e in 1:nelem
         for i in 1:Nq[1]
             vgeo.x1[i, e] =
-                ((1 - ξ[i]) * e2c[1, 1, e] + (1 + ξ[i]) * e2c[1, 2, e]) / 2
+                ((1 - ξ1[i]) * e2c[1, 1, e] + (1 + ξ1[i]) * e2c[1, 2, e]) / 2
         end
     end
     nothing
@@ -49,12 +49,12 @@ preallocated arrays `vgeo.x1` and `vgeo.x2` should be
 function creategrid!(
     vgeo::VolumeGeometry{Nq, <:AbstractArray, <:AbstractArray},
     e2c,
-    ξ::NTuple{2,  Vector{FT}},
-) where {Nq,FT}
+    ξ::NTuple{2, Vector{FT}},
+) where {Nq, FT}
     (d, nvert, nelem) = size(e2c)
     @assert d == 2
     (ξ1, ξ2) = ξ
-    @assert Nq == map(length,ξ)
+    @assert Nq == map(length, ξ)
     x1 = reshape(vgeo.x1, (Nq..., nelem))
     x2 = reshape(vgeo.x2, (Nq..., nelem))
 
@@ -87,12 +87,12 @@ and `vgeo.x3` should be `prod(Nq) * nelem == size(vgeo.x1) == size(vgeo.x2) == s
 function creategrid!(
     vgeo::VolumeGeometry{Nq, <:AbstractArray, <:AbstractArray},
     e2c,
-    ξ::NTuple{3,  Vector{FT}},
-) where {Nq,FT}
+    ξ::NTuple{3, Vector{FT}},
+) where {Nq, FT}
     (d, nvert, nelem) = size(e2c)
     @assert d == 3
     (ξ1, ξ2, ξ3) = ξ
-    @assert Nq == map(length,ξ)
+    @assert Nq == map(length, ξ)
     x1 = reshape(vgeo.x1, (Nq..., nelem))
     x2 = reshape(vgeo.x2, (Nq..., nelem))
     x3 = reshape(vgeo.x3, (Nq..., nelem))
@@ -117,7 +117,39 @@ function creategrid!(
 end
 
 """
-    compute_reference_to_physical_coord_jacobian!(vgeo, D1, D2)
+    compute_reference_to_physical_coord_jacobian!(vgeo, D)
+
+Input arguments:
+- vgeo::VolumeGeometry, a struct containing the volumetric geometric factors
+- D::NTuple{2,Int}, a tuple of derivative matrices, i.e., D = (D1,), where:
+    - D1::DAT2, 1-D derivative operator on the device in the first dimension
+
+Compute the Jacobian matrix, ∂x / ∂ξ, of the transformation from reference coordinates,
+`ξ1`, to physical coordinates, `vgeo.x1`, for each quadrature point in element e.
+"""
+function compute_reference_to_physical_coord_jacobian!(
+    vgeo::VolumeGeometry{Nq, <:AbstractArray, <:AbstractArray},
+    D::NTuple{1, Int},
+) where {Nq}
+    T = eltype(vgeo.x1)
+    (D1,) = D
+    @assert Nq == map(size(D, 1))
+
+    vgeo.x1ξ1 = zero(T)
+
+    for e in 1:nelem
+        for i in 1:Nq[1]
+            for n in 1:Nq[1]
+                vgeo.x1ξ1[i, e] += D1[i, n] * vgeo.x1[n, e]
+            end
+        end
+    end
+
+    return vgeo
+end
+
+"""
+    compute_reference_to_physical_coord_jacobian!(vgeo, D)
 
 Input arguments:
 - vgeo::VolumeGeometry, a struct containing the volumetric geometric factors
@@ -130,12 +162,12 @@ Compute the Jacobian matrix, ∂x / ∂ξ, of the transformation from reference 
 for each quadrature point in element e.
 """
 function compute_reference_to_physical_coord_jacobian!(
-    vgeo::VolumeGeometry{NTuple{2, Int}, <:AbstractArray, <:AbstractArray},
+    vgeo::VolumeGeometry{Nq, <:AbstractArray, <:AbstractArray},
     D::NTuple{2, Int},
-)
+) where {Nq}
     T = eltype(vgeo.x1)
     (D1, D2) = D
-    Nq = (size(D1, 1), size(D2, 1))
+    @assert Nq == map(size(D, 1))
 
     vgeo.x1ξ1 .= vgeo.x1ξ2 .= zero(T)
     vgeo.x2ξ1 .= vgeo.x2ξ2 .= zero(T)
@@ -157,7 +189,7 @@ function compute_reference_to_physical_coord_jacobian!(
 end
 
 """
-    compute_reference_to_physical_coord_jacobian!(vgeo, D1, D2, D3)
+    compute_reference_to_physical_coord_jacobian!(vgeo, D)
 
 Input arguments:
 - vgeo::VolumeGeometry, a struct containing the volumetric geometric factors
@@ -171,13 +203,13 @@ Compute the Jacobian matrix, ∂x / ∂ξ, of the transformation from reference 
 each quadrature point in element e.
 """
 function compute_reference_to_physical_coord_jacobian!(
-    vgeo::VolumeGeometry{NTuple{3, Int}, <:AbstractArray, <:AbstractArray},
+    vgeo::VolumeGeometry{Nq, <:AbstractArray, <:AbstractArray},
     D::NTuple{3, Int},
-)
+) where {Nq}
 
     T = eltype(vgeo.x1)
     (D1, D2, D3) = D
-    Nq = (size(D1, 1), size(D2, 1), size(D3, 1))
+    @assert Nq == map(size(D, 1))
 
     vgeo.x1ξ1 .= vgeo.x1ξ2 .= vgeo.x1ξ3 .= zero(T)
     vgeo.x2ξ1 .= vgeo.x2ξ2 .= vgeo.x2ξ3 .= zero(T)
@@ -240,12 +272,10 @@ function computemetric!(
     sωJ = reshape(sgeo.sωJ, (1, nface, nelem))
 
     @inbounds for e in 1:nelem
-        JcV[:, e] = ωJ[:, e] = D * x1[:, e]
-
-        # Compute vertical Jacobian determinant and Jacobian determinant, det(∂x/∂ξ), per quadrature point
+        # Compute vertical Jacobian determinant, JcV, and Jacobian determinant, det(∂x/∂ξ), per quadrature point
         for i in 1:Nq
-            vgeo.JcV[i, e] = JcV[i, e]
-            vgeo.ωJ[i, e] = ωJ[i, e]
+            vgeo.JcV[i, e] = JcV[i, e] = hypot(vgeo.x1ξ1)
+            vgeo.ωJ[i, e] = ωJ[i, e] = vgeo.x1ξ1
         end
     end
 
@@ -303,7 +333,7 @@ function computemetric!(
     for e in 1:nelem
         for j in 1:Nq[2], i in 1:Nq[1]
 
-            # Compute vertical Jacobian determinant per quadrature point
+            # Compute vertical Jacobian determinant, JcV, per quadrature point
             JcV[i, j, e] = hypot(x1ξ2, x2ξ2)
             # Compute Jacobian determinant, det(∂x/∂ξ), per quadrature point
             ωJ[i, j, e] = x1ξ1 * x2ξ2 - x2ξ1 * x1ξ2
@@ -425,7 +455,7 @@ function computemetric!(
     @inbounds for e in 1:nelem
         for k in 1:Nq[3], j in 1:Nq[2], i in 1:Nq[1]
 
-            # Compute vertical Jacobian determinant per quadrature point
+            # Compute vertical Jacobian determinant, JcV, per quadrature point
             JcV[i, j, k, e] = hypot(x1ξ3, x2ξ3, x3ξ3)
             # Compute Jacobian determinant, det(∂x/∂ξ), per quadrature point
             J[i, j, k, e] = (
