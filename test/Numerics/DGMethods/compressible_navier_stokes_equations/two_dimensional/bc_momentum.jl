@@ -255,7 +255,7 @@ sets ghost point to have specified flux on the boundary for ν∇u
     t,
 )
     state⁺.ρu = state⁻.ρu
-    gradflux⁺.ν∇u = n⁻ * bc.drag.flux(state⁻, aux⁻, t)'
+    gradflux⁺.ν∇u = n⁻ * bc.drag(state⁻, aux⁻, t)'
 
     return nothing
 end
@@ -303,7 +303,7 @@ sets ghost point to have specified flux on the boundary for ν∇u
     t,
 )
     state⁺.ρu = state⁻.ρu
-    gradflux⁺.ν∇u = n⁻ * bc.drag.flux(state⁻, aux⁻, t)'
+    gradflux⁺.ν∇u = n⁻ * bc.drag(state⁻, aux⁻, t)'
 
     return nothing
 end

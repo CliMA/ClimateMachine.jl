@@ -1,4 +1,4 @@
-include("../boilerplate.jl")
+include("../shared_source/boilerplate.jl")
 
 import ClimateMachine.BalanceLaws:
     vars_state,
@@ -279,8 +279,8 @@ end
     ρu = state.ρu
     ρθ = state.ρθ
 
-    u = ρu / ρ
-    θ = ρθ / ρ
+    u = ρu
+    θ = ρθ
 
     grad.∇ρ = ρ
     grad.∇u = u
@@ -447,6 +447,23 @@ coriolis_force!(::CNSE3D, ::Nothing, _...) = nothing
 
     return nothing
 end
+
+@inline function coriolis_force!(
+    model::CNSE3D,
+    coriolis::SphereCoriolis,
+    source,
+    state,
+    aux,
+    t,
+)
+    # f × u
+    Ω = coriolis.Ω
+    f = @SVector [-0, -0, 2Ω]
+    ρu = state.ρu
+    source.ρu -= f × ρu
+    return nothing
+end
+
 
 forcing_term!(::CNSE3D, ::Nothing, _...) = nothing
 

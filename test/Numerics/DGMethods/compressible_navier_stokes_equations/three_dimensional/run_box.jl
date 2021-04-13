@@ -1,6 +1,6 @@
 #!/usr/bin/env julia --project
 
-include("../boilerplate.jl")
+include("../shared_source/boilerplate.jl")
 include("ThreeDimensionalCompressibleNavierStokesEquations.jl")
 
 ClimateMachine.init()
@@ -52,11 +52,15 @@ physics = FluidPhysics(;
 ρu_bcs = (
     bottom = Impenetrable(NoSlip()),
     top = Impenetrable(MomentumFlux(
-        (state, aux, t) -> (@SVector [0.01 / state.ρ, -0, -0]),
+        flux = (p, state, aux, t) -> (@SVector [p.τ / state.ρ, -0, -0]),
+        params = (τ = 0.01,),
     )),
 )
-ρθ_bcs =
-    (bottom = Insulating(), top = TemperatureFlux((state, aux, t) -> (0.1)))
+ρθ_bcs = (
+    bottom = Insulating(),
+    top = TemperatureFlux(flux = (p, state, aux, t) -> (p.Q)),
+    params = (Q = 0.1,), # positive means removing heat
+)
 BC = (ρθ = ρθ_bcs, ρu = ρu_bcs)
 
 ########

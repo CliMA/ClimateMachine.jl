@@ -1,4 +1,4 @@
-include("../boilerplate.jl")
+include("../shared_source/boilerplate.jl")
 
 import ClimateMachine.BalanceLaws:
     vars_state,

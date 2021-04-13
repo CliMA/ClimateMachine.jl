@@ -11,9 +11,12 @@ Base.@kwdef struct FluidBC{M, T} <: BoundaryCondition
     temperature::T = Insulating()
 end
 
-abstract type MomentumBC end
-abstract type MomentumDragBC end
-abstract type TemperatureBC end
+abstract type StateBC end
+abstract type MomentumBC <: StateBC end
+abstract type MomentumDragBC <: StateBC end
+abstract type TemperatureBC <: StateBC end
+
+(bc::StateBC)(state, aux, t) = bc.flux(bc.params, state, aux, t)
 
 """
     Impenetrable(drag::MomentumDragBC) :: MomentumBC
@@ -58,12 +61,9 @@ Applies the specified kinematic stress on momentum normal to the boundary.
 Prescribe the net inward kinematic stress across the boundary by `stress`,
 a function with signature `stress(problem, state, aux, t)`, returning the flux (in m²/s²).
 """
-struct MomentumFlux{T} <: MomentumDragBC
-    flux::T
-
-    function MomentumFlux(flux::T = nothing) where {T}
-        new{T}(flux)
-    end
+Base.@kwdef struct MomentumFlux{𝒯, 𝒫} <: MomentumDragBC
+    flux::𝒯 = nothing
+    params::𝒫 = nothing
 end
 
 """
@@ -79,12 +79,9 @@ struct Insulating <: TemperatureBC end
 Prescribe the net inward temperature flux across the boundary by `flux`,
 a function with signature `flux(problem, state, aux, t)`, returning the flux (in m⋅K/s).
 """
-struct TemperatureFlux{T} <: TemperatureBC
-    flux::T
-
-    function TemperatureFlux(flux::T = nothing) where {T}
-        new{T}(flux)
-    end
+Base.@kwdef struct TemperatureFlux{𝒯, 𝒫} <: TemperatureBC
+    flux::𝒯 = nothing
+    params::𝒫 = nothing
 end
 
 function check_bc(bcs, label)

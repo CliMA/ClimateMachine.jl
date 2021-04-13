@@ -190,3 +190,74 @@ function DiscretizedDomain(
         grid,
     )
 end
+
+## SphericalShellDomain
+
+function DiscontinuousSpectralElementGrid(
+    Ω::SphericalShellDomain;
+    elements = (vertical = 2, horizontal = 4),
+    polynomialorder = (vertical = 4, horizontal = 4),
+    mpicomm = MPI.COMM_WORLD,
+    boundary = (5, 6),
+    FT = Float64,
+    array = Array,
+)
+    Rrange = grid1d(
+        Ω.radius - Ω.depth,
+        Ω.radius + Ω.height,
+        nelem = elements.vertical,
+    )
+
+    topl = StackedCubedSphereTopology(
+        mpicomm,
+        elements.horizontal,
+        Rrange,
+        boundary = boundary,
+    )
+
+    grid = DiscontinuousSpectralElementGrid(
+        topl,
+        FloatType = FT,
+        DeviceArray = array,
+        polynomialorder = (
+            polynomialorder.vertical,
+            polynomialorder.horizontal,
+        ),
+        meshwarp = equiangular_cubed_sphere_warp,
+    )
+    return grid
+end
+
+function DiscretizedDomain(
+    domain::SphericalShellDomain;
+    elements = nothing,
+    polynomial_order = nothing,
+    overintegration_order = nothing,
+    FT = Float64,
+    mpicomm = MPI.COMM_WORLD,
+    array = ClimateMachine.array_type(),
+    topology = StackedBrickTopology,
+    brick_builder = uniform_brick_builder,
+)
+    new_polynomial_order = convention(polynomial_order, Val(2))
+    new_polynomial_order =
+        new_polynomial_order .+ convention(overintegration_order, Val(2))
+    vertical, horizontal = new_polynomial_order
+    grid = DiscontinuousSpectralElementGrid(
+        domain,
+        elements = elements,
+        polynomialorder = (; vertical, horizontal),
+        FT = FT,
+        mpicomm = mpicomm,
+        array = array,
+    )
+    return DiscretizedDomain(
+        domain,
+        (; elements, polynomial_order, overintegration_order),
+        grid,
+    )
+end
+
+# extensions
+coordinates(grid::DiscretizedDomain) = coordinates(grid.numerical)
+polynomialorders(grid::DiscretizedDomain) = polynomialorders(grid.numerical)

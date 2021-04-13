@@ -1,6 +1,6 @@
 #!/usr/bin/env julia --project
 
-include("../boilerplate.jl")
+include("../shared_source/boilerplate.jl")
 include("ThreeDimensionalCompressibleNavierStokesEquations.jl")
 
 ClimateMachine.init()

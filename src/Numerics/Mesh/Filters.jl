@@ -11,7 +11,8 @@ using ...MPIStateArrays
 using ...VariableTemplates: @vars, varsize, Vars, varsindices
 
 export AbstractSpectralFilter, AbstractFilter
-export ExponentialFilter, CutoffFilter, TMARFilter, BoydVandevenFilter
+export ExponentialFilter,
+    CutoffFilter, MassPreservingCutoffFilter, TMARFilter, BoydVandevenFilter
 
 abstract type AbstractFilter end
 abstract type AbstractSpectralFilter <: AbstractFilter end
@@ -307,6 +308,7 @@ end
 
 """
     MassPreservingCutoffFilter(grid, Nc=polynomialorders(grid))
+    
 Returns the spectral filter that zeros out polynomial modes greater than or
 equal to `Nc` while preserving the cell average value. Use this filter if the
 jacobian is nonconstant.
