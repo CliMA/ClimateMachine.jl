@@ -53,6 +53,14 @@ struct fPlaneCoriolis{T} <: CoriolisForce
     end
 end
 
+struct SphereCoriolis{T} <: CoriolisForce
+    Ω::T
+    function SphereCoriolis{T}(;
+        Ω = T(2π / 86400), # Hz
+    ) where {T <: AbstractFloat}
+        return new{T}(Ω)
+    end
+end
 struct KinematicStress{T} <: Forcing
     τₒ::T
     function KinematicStress{T}(; τₒ = T(1e-4)) where {T <: AbstractFloat}

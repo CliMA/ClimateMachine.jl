@@ -27,11 +27,15 @@ using ClimateMachine.Orientations
 abstract type AbstractFluid <: BalanceLaw end
 struct Fluid <: AbstractFluid end
 
-include("shared_source/domains.jl")
-include("shared_source/grids.jl")
-include("shared_source/FluidBC.jl")
-include("shared_source/abstractions.jl")
-include("shared_source/callbacks.jl")
+include("domains.jl")
+include("grids.jl")
+include("abstractions.jl")
+include("callbacks.jl")
+include("FluidBC.jl")
+include("ScalarFields.jl")
+include("VectorFields.jl")
+# include("../plotting/bigfileofstuff.jl")
+# include("../plotting/vizinanigans.jl")
 
 """
 function coordinates(grid::DiscontinuousSpectralElementGrid)
@@ -116,10 +120,9 @@ end
 
 function overintegration_filter!(state_array, dgmodel, Ns, Nover)
     if sum(Nover) > 0
-        cutoff_order = Ns .+ Nover
+        cutoff_order = Ns .+ 1
 
-        cutoff =
-            ClimateMachine.Mesh.Filters.CutoffFilter(dgmodel.grid, cutoff_order)
+        cutoff = MassPreservingCutoffFilter(dgmodel.grid, cutoff_order)
         num_state_prognostic = number_states(dgmodel.balance_law, Prognostic())
 
         ClimateMachine.Mesh.Filters.apply!(
@@ -148,4 +151,35 @@ function set_ic!(ϕ, s::Function, p, x, y, z)
         end
     end
     return nothing
+end
+
+
+# filter below here
+using ClimateMachine.Mesh.Filters
+using KernelAbstractions
+using KernelAbstractions.Extras: @unroll
+import ClimateMachine.Mesh.Filters: apply_async!
+import ClimateMachine.Mesh.Filters: AbstractFilterTarget
+import ClimateMachine.Mesh.Filters:
+    number_state_filtered,
+    vars_state_filtered,
+    compute_filter_argument!,
+    compute_filter_result!
+
+function modified_filter_matrix(r, Nc, σ)
+    N = length(r) - 1
+    T = eltype(r)
+
+    @assert N >= 0
+    @assert 0 <= Nc
+
+    a, b = GaussQuadrature.legendre_coefs(T, N)
+    V = (N == 0 ? ones(T, 1, 1) : GaussQuadrature.orthonormal_poly(r, a, b))
+
+    Σ = ones(T, N + 1)
+    if Nc ≤ N
+        Σ[(Nc:N) .+ 1] .= σ.(((Nc:N) .- Nc) ./ (N - Nc))
+    end
+
+    V * Diagonal(Σ) / V
 end

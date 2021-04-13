@@ -77,6 +77,22 @@ function cellcenters(grid::DiscontinuousSpectralElementGrid)
     return xC[:], yC[:], zC[:]
 end
 
+"""
+function massmatrix(grid; M = nothing)
+
+# Description
+Get the mass matrix of the grid
+
+# Arguments
+- `grid`: DiscontinuousSpectralElementGrid
+
+# Return
+- Tuple of cell-centers
+"""
+function massmatrix(grid)
+    return view(grid.vgeo, :, grid.Mid, :)
+end
+
 # find_element.jl
 # 3D version
 function findelement(xC, yC, zC, location, p, lin)

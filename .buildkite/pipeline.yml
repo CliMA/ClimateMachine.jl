@@ -1467,7 +1467,27 @@ steps:
   - label: "gpu_cnse_sphere_3D"
     key: "gpu_cnse_sphere_3D"
     command:
-      - "mpiexec julia --color=yes --project test/Numerics/DGMethods/compressible_navier_stokes_equations/three_dimensional/test_sphere.jl "
+      - "mpiexec julia --color=yes --project test/Numerics/DGMethods/compressible_navier_stokes_equations/sphere/test_sphere.jl "
+    agents:
+      config: gpu
+      queue: central
+      slurm_ntasks: 3
+      slurm_gres: "gpu:1"
+
+  - label: "gpu_cnse_sphere_heat_3D"
+    key: "gpu_cnse_sphere_heat_3D"
+    command:
+      - "mpiexec julia --color=yes --project test/Numerics/DGMethods/compressible_navier_stokes_equations/sphere/test_heat_equation.jl "
+    agents:
+      config: gpu
+      queue: central
+      slurm_ntasks: 3
+      slurm_gres: "gpu:1"
+
+  - label: "gpu_cnse_sphere_balance_3D"
+    key: "gpu_cnse_sphere_balance_3D"
+    command:
+      - "mpiexec julia --color=yes --project test/Numerics/DGMethods/compressible_navier_stokes_equations/sphere/test_hydrostatic_balance.jl "
     agents:
       config: gpu
       queue: central

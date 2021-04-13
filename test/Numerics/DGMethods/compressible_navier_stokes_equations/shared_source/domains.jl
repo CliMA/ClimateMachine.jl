@@ -170,3 +170,23 @@ function ∂(Ω::ProductDomain)
     end
     return Boundaries(Tuple(splitb))
 end
+
+Base.@kwdef struct SphericalShellDomain{ℛ, ℋ, 𝒟} <: AbstractDomain
+    radius::ℛ = 6378e3
+    height::ℋ = 30e3
+    depth::𝒟 = 3e3
+end
+
+
+length(Ω::SphericalShellDomain) = (Ω.radius, Ω.radius, Ω.height - Ω.depth)
+ndims(Ω::SphericalShellDomain) = 3
+
+function AtmosDomain(; radius = 6378e3, height = 30e3)
+    depth = 0
+    return SphericalShellDomain(; radius, height, depth)
+end
+
+function OceanDomain(; radius = 6378e3, depth = 3e3)
+    height = 0
+    return SphericalShellDomain(; radius, height, depth)
+end
