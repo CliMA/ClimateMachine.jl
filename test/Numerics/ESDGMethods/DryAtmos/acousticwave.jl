@@ -31,7 +31,7 @@ const output_vtk = false
 #CLIMAParameters.Planet.planet_radius(::EarthParameterSet) = 6.371e6 / 120.0
 
 Base.@kwdef struct AcousticWave{FT} <: AbstractDryAtmosProblem
-    domain_height::FT = 10e3
+    domain_height::FT = 30e3
     T_ref::FT = 300
     α::FT = 3
     γ::FT = 100
@@ -158,13 +158,14 @@ function run(
     # determine the time step
     element_size = (problem.domain_height / numelem_vert)
     acoustic_speed = soundspeed_air(param_set, FT(problem.T_ref))
+    
     #dt_factor = 445
-    dt_factor = 100
     #dt_factor = 100
-    dt = dt_factor * element_size / acoustic_speed / polynomialorder^2
-    #dx = min_node_distance(grid)
-    #cfl = 1.0
-    #dt = cfl * dx / acoustic_speed
+    #dt = dt_factor * element_size / acoustic_speed / polynomialorder^2
+
+    dx = min_node_distance(grid)
+    cfl = 19.0
+    dt = cfl * dx / acoustic_speed
 
     # Adjust the time step so we exactly hit 1 hour for VTK output
     dt = 60 * 60 / ceil(60 * 60 / dt)

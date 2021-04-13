@@ -4,6 +4,7 @@ using ClimateMachine.Mesh.Topologies:
     StackedCubedSphereTopology, cubedshellwarp, grid1d
 using ClimateMachine.Mesh.Grids
 using ClimateMachine.Mesh.Filters
+using ClimateMachine.Atmos: AtmosFilterPerturbations
 using ClimateMachine.DGMethods: ESDGModel, init_ode_state, courant
 using ClimateMachine.DGMethods.NumericalFluxes
 using ClimateMachine.ODESolvers
@@ -149,6 +150,7 @@ function init_state_prognostic!(bl::DryAtmosModel,
     end
     w′::FT = 0
     u_sphere = SVector{3, FT}(u_ref + u′, v_ref + v′, w_ref + w′)
+    #u_sphere = SVector{3, FT}(u_ref, v_ref, w_ref)
     u_cart = sphr_to_cart_vec(u_sphere, φ, λ)
 
     ## temperature & density
@@ -160,13 +162,13 @@ function init_state_prognostic!(bl::DryAtmosModel,
     e_int = _cv_d * T
 
     ## Assign state variables
-    #state.ρ = ρ
-    #state.ρu = ρ * u_cart
-    #state.ρe = ρ * (e_int + e_kin + e_pot)
+    state.ρ = ρ
+    state.ρu = ρ * u_cart
+    state.ρe = ρ * (e_int + e_kin + e_pot)
     
-    state.ρ = aux.ref_state.ρ
-    state.ρu = SVector{3, FT}(0, 0, 0)
-    state.ρe = aux.ref_state.ρe
+    #state.ρ = aux.ref_state.ρ
+    #state.ρu = SVector{3, FT}(0, 0, 0)
+    #state.ρe = aux.ref_state.ρe
     nothing
 end
 
@@ -177,15 +179,15 @@ function main()
 
     mpicomm = MPI.COMM_WORLD
 
-    polynomialorder = 4
+    polynomialorder = 3
 
-    numelem_horz = 12
-    numelem_vert = 6
+    numelem_horz = 8
+    numelem_vert = 5
 
     #timeend = 5 * 43200
     #outputtime = 600
 
-    timeend = 12 * 24 * 3600
+    timeend = 30 * 24 * 3600
     outputtime = 24 * 3600
 
     FT = Float64
@@ -262,8 +264,9 @@ function run(
     acoustic_speed = soundspeed_air(param_set, FT(330))
     #dt_factor = 1
     #dt = dt_factor * element_size / acoustic_speed / polynomialorder^2
-    dx = min_node_distance(grid, HorizontalDirection())
-    cfl = 0.05
+    #dx = min_node_distance(grid, HorizontalDirection())
+    dx = min_node_distance(grid)
+    cfl = 4
     dt = cfl * dx / acoustic_speed
 
     Q = init_ode_state(esdg, FT(0))
@@ -377,6 +380,21 @@ function run(
                               """ simtime ue... ve... we... c_v c_h ca_v ca_h
     end
     callbacks = (cbinfo, cbcfl)
+
+
+    #filterorder = 14
+    #filter = ExponentialFilter(grid, 0, filterorder)
+    #cbfilter = EveryXSimulationSteps(1) do
+    #    Filters.apply!(
+    #        Q,
+    #        AtmosFilterPerturbations(model),
+    #        grid,
+    #        filter,
+    #        state_auxiliary = esdg.state_auxiliary,
+    #    )
+    #    nothing
+    #end
+    #callbacks = (callbacks..., cbfilter)
 
     if output_vtk
         # create vtk dir
