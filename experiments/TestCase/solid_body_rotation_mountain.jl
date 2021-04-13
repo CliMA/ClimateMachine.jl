@@ -92,7 +92,7 @@ function config_solid_body_rotation(FT, poly_order, resolution, ref_state)
         model = model,
         numerical_flux_first_order = RoeNumericalFlux(),
         meshwarp = set_topofun(
-            cubedshelltopowarp,                   ## Topography warp function 
+            cubed_sphere_topo_warp,                   ## Topography warp function
             _planet_radius,                       ## Domain inner radius
             _planet_radius + domain_height,       ## Domain outer radius
             DCMIPMountain(),                      ## Problem specific dispatch
