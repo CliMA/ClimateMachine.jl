@@ -67,15 +67,7 @@
 #
 # ## Boilerplate (Using Modules)
 #
-# The setup of this problem is taken from Case 6 of:
-# @article{giraldoRestelli2008a,
-#   author = {{Giraldo},F.~X. and {Restelli},M.},
-#   title = {A study of spectral element and discontinuous {G}alerkin methods for the {Navier-Stokes} equations in nonhydrostatic mesoscale atmospheric modeling: {E}quation sets and test cases},
-#   journal = {J. Comput. Phys.},
-#   year  = {2008},
-#   volume = {227},
-#   pages  = {3849-3877},
-# },
+# The setup of this problem is taken from Case 6 of [giraldoRestelli2008a](@cite)
 #
 using ClimateMachine
 ClimateMachine.init(parse_clargs = true);
