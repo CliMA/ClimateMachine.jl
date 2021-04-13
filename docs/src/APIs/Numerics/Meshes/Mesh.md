@@ -45,7 +45,7 @@ Topologies.equidistant_cubed_sphere_warp
 Topologies.equidistant_cubed_sphere_unwarp
 Topologies.hasboundary
 Topologies.compute_lat_long
-Topologies.cubedshelltopowarp
+Topologies.cubed_sphere_topo_warp
 Topologies.grid1d
 ```
 

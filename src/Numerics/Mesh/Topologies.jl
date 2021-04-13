@@ -16,7 +16,7 @@ export AbstractTopology,
     EquidistantCubedSphere,
     EquiangularCubedSphere,
     isstacked,
-    cubedshelltopowarp,
+    cubed_sphere_topo_warp,
     compute_lat_long,
     compute_analytical_topography,
     cubed_sphere_warp,
@@ -174,13 +174,13 @@ struct BoxElementTopology{dim, T, nb} <: AbstractTopology{dim, T, nb}
     bndytoface::NTuple{nb, Array{Int64, 1}}
 
     """
-    Element to locally unique vertex number; `elemtouvert[v,e]` is the `v`th vertex 
+    Element to locally unique vertex number; `elemtouvert[v,e]` is the `v`th vertex
     of element `e`
     """
     elemtouvert::Union{Array{Int64, 2}, Nothing}
 
     """
-    Vertex connectivity information for direct stiffness summation; 
+    Vertex connectivity information for direct stiffness summation;
     `vtconn[vtconnoff[i]:vtconnoff[i+1]-1] == vtconn[lvt1, lelem1, lvt2, lelem2, ....]`
     for each rank-local unique vertex number,
     where `lvt1` is the element-local vertex number of element `lelem1`, etc.
@@ -194,9 +194,9 @@ struct BoxElementTopology{dim, T, nb} <: AbstractTopology{dim, T, nb}
     vtconnoff::Union{AbstractArray{Int64, 1}, Nothing}
 
     """
-    Face connectivity information for direct stiffness summation; 
+    Face connectivity information for direct stiffness summation;
     `fcconn[ufc,:] = [lfc1, lelem1, lfc2, lelem2, ordr]`
-    where `ufc` is the rank-local unique face number, and 
+    where `ufc` is the rank-local unique face number, and
     `lfc1` is the element-local face number of element `lelem1`, etc.,
     and ordr is the relative orientation. Faces, not shared by multiple
     elements are ignored.
@@ -204,7 +204,7 @@ struct BoxElementTopology{dim, T, nb} <: AbstractTopology{dim, T, nb}
     fcconn::Union{AbstractArray{Int64, 2}, Nothing}
 
     """
-    Edge connectivity information for direct stiffness summation; 
+    Edge connectivity information for direct stiffness summation;
     `edgconn[edgconnoff[i]:edgconnoff[i+1]-1] == edgconn[ledg1, orient, lelem1, ledg2, orient, lelem2, ...]`
     for each rank-local unique edge number,
     where `ledg1` is the element-local edge number, `orient1` is orientation (forward/reverse) of dof along edge.
@@ -1965,7 +1965,7 @@ end
 
 """
     NoTopography <: AnalyticalTopography
-Allows definition of fallback methods in case cubedshelltopowarp is used with
+Allows definition of fallback methods in case cubed_sphere_topo_warp is used with
 no prescribed topography function.
 """
 struct NoTopography <: AnalyticalTopography end
@@ -2008,7 +2008,7 @@ function compute_analytical_topography(
 end
 
 """
-    cubedshelltopowarp(a, b, c, R = max(abs(a), abs(b), abs(c));
+    cubed_sphere_topo_warp(a, b, c, R = max(abs(a), abs(b), abs(c));
                        r_inner = _planet_radius,
                        r_outer = _planet_radius + domain_height,
                        topography = NoTopography())
@@ -2019,7 +2019,7 @@ spherical shell of radius `R` based on the equiangular gnomonic grid proposed by
 compute_analytical_topography function. Defaults to smooth cubed sphere unless otherwise specified
 via the AnalyticalTopography type.
 """
-function cubedshelltopowarp(
+function cubed_sphere_topo_warp(
     a,
     b,
     c,
