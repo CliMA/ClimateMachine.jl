@@ -1,7 +1,7 @@
 module Mesh
 include("BrickMesh.jl")
 include("Topologies.jl")
-include("GeomData.jl")
+include("GeometricFactors.jl")
 include("Metrics.jl")
 include("Elements.jl")
 include("Grids.jl")

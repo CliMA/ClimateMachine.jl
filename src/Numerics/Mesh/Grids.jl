@@ -1,5 +1,5 @@
 module Grids
-using ..Topologies, ..GeomData
+using ..Topologies, ..GeometricFactors
 import ..Metrics, ..Elements
 import ..BrickMesh
 
@@ -697,7 +697,8 @@ function computegeometry_fvm(elemtocoord, D, ξ, ω, meshwarp)
 
     @views begin
         # ωJ should be a sum
-        vgeo.ωJ[:] .= sum(vgeo_N1.ωJ, dims = findall(Nq .== 1))[:]
+        ωJ_N1 = reshape(vgeo_N1.ωJ, (Nq_N1..., nelem))
+        vgeo.ωJ[:] .= sum(ωJ_N1, dims = findall(Nq .== 1))[:]
         num_vgeo_handled += 1
 
         # need to recompute ωJI
@@ -706,32 +707,44 @@ function computegeometry_fvm(elemtocoord, D, ξ, ω, meshwarp)
 
         # coordinates should just be averages
         avg_den = 2^sum(Nq .== 1)
-        vgeo.JcV .= sum(vgeo_N1.JcV, dims = findall(Nq .== 1))[:] ./ avg_den
+        JcV_N1 = reshape(vgeo_N1.JcV, (Nq_N1..., nelem))
+        vgeo.JcV[:] .= sum(JcV_N1, dims = findall(Nq .== 1))[:] ./ avg_den
         num_vgeo_handled += 1
 
         # For the metrics it is J * ξixk we approximate so multiply and divide the
         # mass matrix (which has the Jacobian determinant and the proper averaging
         # due to the quadrature weights)
-        ωJ_N1 = vgeo_N1.ωJ
+        ωJ_N1 = reshape(vgeo_N1.ωJ, (Nq_N1..., nelem))
         ωJI = vgeo.ωJI
-        vgeo.ξ1x1 .=
-            sum(ωJ_N1 .* vgeo_N1.ξ1x1, dims = findall(Nq .== 1))[:] .* ωJI[:]
-        vgeo.ξ2x1 .=
-            sum(ωJ_N1 .* vgeo_N1.ξ2x1, dims = findall(Nq .== 1))[:] .* ωJI[:]
-        vgeo.ξ3x1 .=
-            sum(ωJ_N1 .* vgeo_N1.ξ3x1, dims = findall(Nq .== 1))[:] .* ωJI[:]
-        vgeo.ξ1x2 .=
-            sum(ωJ_N1 .* vgeo_N1.ξ1x2, dims = findall(Nq .== 1))[:] .* ωJI[:]
-        vgeo.ξ2x2 .=
-            sum(ωJ_N1 .* vgeo_N1.ξ2x2, dims = findall(Nq .== 1))[:] .* ωJI[:]
-        vgeo.ξ3x2 .=
-            sum(ωJ_N1 .* vgeo_N1.ξ3x2, dims = findall(Nq .== 1))[:] .* ωJI[:]
-        vgeo.ξ1x3 .=
-            sum(ωJ_N1 .* vgeo_N1.ξ1x3, dims = findall(Nq .== 1))[:] .* ωJI[:]
-        vgeo.ξ2x3 .=
-            sum(ωJ_N1 .* vgeo_N1.ξ2x3, dims = findall(Nq .== 1))[:] .* ωJI[:]
-        vgeo.ξ3x3 .=
-            sum(ωJ_N1 .* vgeo_N1.ξ3x3, dims = findall(Nq .== 1))[:] .* ωJI[:]
+
+        ξ1x1_N1 = reshape(vgeo_N1.ξ1x1, (Nq_N1..., nelem))
+        ξ2x1_N1 = reshape(vgeo_N1.ξ2x1, (Nq_N1..., nelem))
+        ξ3x1_N1 = reshape(vgeo_N1.ξ3x1, (Nq_N1..., nelem))
+        ξ1x2_N1 = reshape(vgeo_N1.ξ1x2, (Nq_N1..., nelem))
+        ξ2x2_N1 = reshape(vgeo_N1.ξ2x2, (Nq_N1..., nelem))
+        ξ3x2_N1 = reshape(vgeo_N1.ξ3x2, (Nq_N1..., nelem))
+        ξ1x3_N1 = reshape(vgeo_N1.ξ1x3, (Nq_N1..., nelem))
+        ξ2x3_N1 = reshape(vgeo_N1.ξ2x3, (Nq_N1..., nelem))
+        ξ3x3_N1 = reshape(vgeo_N1.ξ3x3, (Nq_N1..., nelem))
+
+        vgeo.ξ1x1[:] .=
+            sum(ωJ_N1 .* ξ1x1_N1, dims = findall(Nq .== 1))[:] .* ωJI[:]
+        vgeo.ξ2x1[:] .=
+            sum(ωJ_N1 .* ξ2x1_N1, dims = findall(Nq .== 1))[:] .* ωJI[:]
+        vgeo.ξ3x1[:] .=
+            sum(ωJ_N1 .* ξ3x1_N1, dims = findall(Nq .== 1))[:] .* ωJI[:]
+        vgeo.ξ1x2[:] .=
+            sum(ωJ_N1 .* ξ1x2_N1, dims = findall(Nq .== 1))[:] .* ωJI[:]
+        vgeo.ξ2x2[:] .=
+            sum(ωJ_N1 .* ξ2x2_N1, dims = findall(Nq .== 1))[:] .* ωJI[:]
+        vgeo.ξ3x2[:] .=
+            sum(ωJ_N1 .* ξ3x2_N1, dims = findall(Nq .== 1))[:] .* ωJI[:]
+        vgeo.ξ1x3[:] .=
+            sum(ωJ_N1 .* ξ1x3_N1, dims = findall(Nq .== 1))[:] .* ωJI[:]
+        vgeo.ξ2x3[:] .=
+            sum(ωJ_N1 .* ξ2x3_N1, dims = findall(Nq .== 1))[:] .* ωJI[:]
+        vgeo.ξ3x3[:] .=
+            sum(ωJ_N1 .* ξ3x3_N1, dims = findall(Nq .== 1))[:] .* ωJI[:]
         num_vgeo_handled += 9
 
         # compute ωJH and JvC
@@ -744,10 +757,9 @@ function computegeometry_fvm(elemtocoord, D, ξ, ω, meshwarp)
 
     # Sort out the sgeo terms
     @views begin
-        sgeo = zeros(FT, _nsgeo, maximum(Nfp), nface, nelem)
+        sgeo = SurfaceGeometry(FT, Nq, nface, nelem)
 
         # for the volume inverse mass matrix
-        MI = vgeo[:, _MI, :]
         p = reshape(1:Np, Nq)
         if dim == 1
             fmask = (p[1:1], p[Nq[1]:Nq[1]])
@@ -768,10 +780,13 @@ function computegeometry_fvm(elemtocoord, D, ξ, ω, meshwarp)
                 # number of points matches means that we keep all the data
                 # (N = 0 is not on the face)
                 if Nfp[d] == Nfp_N1[d]
-                    sgeo[:, 1:Nfp[d], f, :] .= sgeo_N1[:, 1:Nfp[d], f, :]
+                    sgeo.n1[:, f, :] .= sgeo_N1.n1[:, f, :]
+                    sgeo.n2[:, f, :] .= sgeo_N1.n2[:, f, :]
+                    sgeo.n3[:, f, :] .= sgeo_N1.n3[:, f, :]
+                    sgeo.sωJ[:, f, :] .= sgeo_N1.sωJ[:, f, :]
 
                     # Volume inverse mass will be wrong so reset it
-                    sgeo[_vMI, 1:Nfp[d], f, :] .= MI[fmask[f], :]
+                    sgeo.vωJI[:, f, :] .= vgeo.ωJI[fmask[f], :]
                 else
                     # Counter to make sure we got all the sgeo terms
                     num_sgeo_handled = 0
@@ -780,32 +795,62 @@ function computegeometry_fvm(elemtocoord, D, ξ, ω, meshwarp)
                     Nq_f = (Nq[1:(d - 1)]..., Nq[(d + 1):dim]...)
                     Nq_f_N1 = (Nq_N1[1:(d - 1)]..., Nq_N1[(d + 1):dim]...)
                     sM_N1 = reshape(
-                        sgeo_N1[_sM, 1:Nfp_N1[d], f, :],
+                        sgeo_N1.sωJ[1:Nfp_N1[d], f, :],
                         Nq_f_N1...,
                         nelem,
                     )
-                    sgeo[_sM, 1:Nfp[d], f, :][:] .=
+                    sgeo.sωJ[1:Nfp[d], f, :][:] .=
                         sum(sM_N1, dims = findall(Nq_f .== 1))[:]
                     num_sgeo_handled += 1
 
                     # Normals (like metrics in the volume) need to be computed
                     # scaled by surface Jacobian which we can do with the
                     # surface mass matrices
-                    sM = sgeo[_sM, 1:Nfp[d], f, :]
-                    for fld in (_n1, _n2, _n3)
-                        fld_N1 = reshape(
-                            sgeo_N1[fld, 1:Nfp_N1[d], f, :],
-                            Nq_f_N1...,
-                            nelem,
-                        )
-                        sgeo[fld, 1:Nfp[d], f, :][:] .=
-                            sum(sM_N1 .* fld_N1, dims = findall(Nq_f .== 1))[:] ./
-                            sM[:]
-                        num_sgeo_handled += 1
-                    end
+                    sM = sgeo.sωJ[1:Nfp[d], f, :]
+
+                    fld_N1_n1 = reshape(
+                        sgeo_N1.n1[1:Nfp_N1[d], f, :],
+                        Nq_f_N1...,
+                        nelem,
+                    )
+                    fld_N1_n2 = reshape(
+                        sgeo_N1.n2[1:Nfp_N1[d], f, :],
+                        Nq_f_N1...,
+                        nelem,
+                    )
+                    fld_N1_n3 = reshape(
+                        sgeo_N1.n3[1:Nfp_N1[d], f, :],
+                        Nq_f_N1...,
+                        nelem,
+                    )
+
+                    sgeo.n1[1:Nfp[d], f, :][:] .=
+                        sum(sM_N1 .* fld_N1_n1, dims = findall(Nq_f .== 1))[:] ./
+                        sM[:]
+
+                    sgeo.n2[1:Nfp[d], f, :][:] .=
+                        sum(sM_N1 .* fld_N1_n2, dims = findall(Nq_f .== 1))[:] ./
+                        sM[:]
+
+                    sgeo.n3[1:Nfp[d], f, :][:] .=
+                        sum(sM_N1 .* fld_N1_n3, dims = findall(Nq_f .== 1))[:] ./
+                        sM[:]
+
+                    num_sgeo_handled += 3
+                    # for fld in (_n1, _n2, _n3)
+                    # fld_N1 = reshape(
+                    #     sgeo_N1[fld, 1:Nfp_N1[d], f, :],
+                    #     Nq_f_N1...,
+                    #     nelem,
+                    # )
+                    # sgeo[fld, 1:Nfp[d], f, :][:] .=
+                    #     sum(sM_N1 .* fld_N1, dims = findall(Nq_f .== 1))[:] ./
+                    #     sM[:]
+                    # num_sgeo_handled += 1
+                    # end
 
                     # set the volume inverse mass matrix
-                    sgeo[_vMI, 1:Nfp[d], f, :] .= MI[fmask[f], :]
+                    sgeo.vωJI[1:Nfp[d], f, :] .= vgeo.ωJI[fmask[f], :]
                     num_sgeo_handled += 1
 
                     # Make sure we handled all the vgeo terms
@@ -847,37 +892,36 @@ function computegeometry(elemtocoord, D, ξ, ω, meshwarp)
     Np = prod(Nq)
     Nfp = div.(Np, Nq)
 
+    # Initialize volume and surface geometric term data structures
     vgeo = VolumeGeometry(FT, Nq, nelem)
-
     sgeo = SurfaceGeometry(FT, Nq, nface, nelem)
 
-    # TODO:
-    # - split out (c),(d)
-    # - to get analytic derivatives, we need to be able differentiate through (a,b)
-    #   - combines (a,b,c)
-    #
-
-    # a) computes "topology coordinates" from reference coordinates ξ
+    # a) Compute "topology coordinates" from reference coordinates ξ
     Metrics.creategrid!(vgeo, elemtocoord, ξ)
 
-    # b) topology coordinates -> physical coordinates
+    # Create local variables
     x1 = vgeo.x1
     x2 = vgeo.x2
     x3 = vgeo.x3
+
+    # b) Map "topology coordinates" -> physical coordinates
     @inbounds for j in 1:length(vgeo.x1)
         (x1[j], x2[j], x3[j]) = meshwarp(vgeo.x1[j], vgeo.x2[j], vgeo.x3[j])
     end
 
-    # Update data in vgeo
+    # Update global data in vgeo
     vgeo.x1 .= x1
     vgeo.x2 .= x2
     vgeo.x3 .= x3
 
-    # c) computes Jacobian matrix, ∂x/∂ξ
-    Metrics.compute_reference_to_physical_coord_jacobian!(vgeo, D)
+    # c) Compute Jacobian matrix, ∂x/∂ξ
+    Metrics.compute_reference_to_physical_coord_jacobian!(vgeo, nelem, D)
 
-    # d) computes the metric terms
+    # d) Compute the metric terms
     Metrics.computemetric!(vgeo, sgeo, D)
+
+    # Note:
+    # To get analytic derivatives, we need to be able differentiate through (a,b) and combine (a,b,c)
 
     # Compute the metric terms
     p = reshape(1:Np, Nq)
@@ -899,7 +943,7 @@ function computegeometry(elemtocoord, D, ξ, ω, meshwarp)
     # since `ξ1` is the fastest dimension and `ξdim` the slowest the tensor
     # product order is reversed
     M = kron(1, reverse(ω)...)
-    vgeo.ωMJ .= M .* vgeo.ωJ
+    vgeo.ωJ .*= M
     vgeo.ωJI .= 1 ./ vgeo.ωJ
     for d in 1:dim
         for f in (2d - 1):(2d)
@@ -918,7 +962,7 @@ function computegeometry(elemtocoord, D, ξ, ω, meshwarp)
             sM[1:Nfp[d], f] .= dim > 1 ? kron(1, ωf...) : one(FT)
         end
     end
-    sgeo.sωMJ .= sM .* sgeo.sωJ
+    sgeo.sωJ .*= sM
 
     # compute MH and JvC
     horizontal_metrics!(vgeo, Nq, ω)
@@ -944,6 +988,7 @@ function horizontal_metrics!(vgeo::VolumeGeometry, Nq, ω)
 
     MH = dim == 1 ? 1 : kron(ones(1, Nq[dim]), reverse(ω[1:(dim - 1)])...)[:]
     M = vec(kron(1, reverse(ω)...))
+
     J = vgeo.ωJ ./ M
 
     # Compute |r'(ξ3)| for vertical line integrals

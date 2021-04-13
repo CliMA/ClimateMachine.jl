@@ -1,4 +1,4 @@
-module GeomData
+module GeometricFactors
 
 export VolumeGeometry, SurfaceGeometry
 
@@ -13,6 +13,13 @@ struct VolumeGeometry{Nq, AA <: AbstractArray, A <: AbstractArray}
     ξ1x3::A
     ξ2x3::A
     ξ3x3::A
+    ωJ::A
+    ωJI::A
+    ωJH::A
+    x1::A
+    x2::A
+    x3::A
+    JcV::A
     x1ξ1::A
     x2ξ1::A
     x3ξ1::A
@@ -22,13 +29,6 @@ struct VolumeGeometry{Nq, AA <: AbstractArray, A <: AbstractArray}
     x1ξ3::A
     x2ξ3::A
     x3ξ3::A
-    ωJ::A
-    ωJI::A
-    ωJH::A
-    x1::A
-    x2::A
-    x3::A
-    JcV::A
     function VolumeGeometry{Nq}(
         array::AA,
         args::A...,
@@ -38,7 +38,7 @@ struct VolumeGeometry{Nq, AA <: AbstractArray, A <: AbstractArray}
 end
 
 """
-   VolumeGeometry(FT, Nq::Tuple, nelems::Integer)
+   VolumeGeometry(FT, Nq::NTuple{N, Int}, nelems::Int)
 
 Construct an empty `VolumeGeometry` object, in `FT` precision.
 - `Nq` is a tuple containing the number of quadrature points in each direction.
@@ -64,7 +64,7 @@ struct SurfaceGeometry{Nq, A <: AbstractArray}
 end
 
 """
-   SurfaceGeometry(FT, Nq::Tuple, nface::Integer, nelem::Integer)
+   SurfaceGeometry(FT, Nq::NTuple{N, Int}, nface::Int, nelem::Int)
 
 Construct an empty `SurfaceGeometry` object, in `FT` precision.
 - `Nq` is a tuple containing the number of quadrature points in each direction.

@@ -91,12 +91,12 @@ Metrics.compute_reference_to_physical_coord_jacobian
 Metrics.computemetric
 ```
 
-## GeomData
-GeomData groups data structures that collect geometric terms data needed at each quadrature point, in each element.
+## GeometricFactors
+GeometricFactors groups data structures that collect geometric terms data needed at each quadrature point, in each element.
 ### Types
 ```@docs
-GeomData.VolumeGeometry
-GeomData.SurfaceGeometry
+GeometricFactors.VolumeGeometry
+GeometricFactors.SurfaceGeometry
 ```
 
 ## Filters

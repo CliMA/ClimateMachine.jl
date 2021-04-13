@@ -1,6 +1,6 @@
 module Metrics
 
-using ..GeomData
+using ..GeometricFactors
 
 export creategrid, compute_reference_to_physical_coord_jacobian, computemetric
 
@@ -21,7 +21,6 @@ function creategrid!(
 ) where {Nq, FT}
     (d, nvert, nelem) = size(e2c)
     @assert d == 1
-    @assert Nq == map(length, ξ)
     (ξ1,) = ξ
     x1 = reshape(vgeo.x1, (Nq..., nelem))
 
@@ -54,7 +53,6 @@ function creategrid!(
     (d, nvert, nelem) = size(e2c)
     @assert d == 2
     (ξ1, ξ2) = ξ
-    @assert Nq == map(length, ξ)
     x1 = reshape(vgeo.x1, (Nq..., nelem))
     x2 = reshape(vgeo.x2, (Nq..., nelem))
 
@@ -92,7 +90,6 @@ function creategrid!(
     (d, nvert, nelem) = size(e2c)
     @assert d == 3
     (ξ1, ξ2, ξ3) = ξ
-    @assert Nq == map(length, ξ)
     x1 = reshape(vgeo.x1, (Nq..., nelem))
     x2 = reshape(vgeo.x2, (Nq..., nelem))
     x3 = reshape(vgeo.x3, (Nq..., nelem))
@@ -117,7 +114,7 @@ function creategrid!(
 end
 
 """
-    compute_reference_to_physical_coord_jacobian!(vgeo, D)
+    compute_reference_to_physical_coord_jacobian!(vgeo, nelem, D)
 
 Input arguments:
 - vgeo::VolumeGeometry, a struct containing the volumetric geometric factors
@@ -129,13 +126,16 @@ Compute the Jacobian matrix, ∂x / ∂ξ, of the transformation from reference 
 """
 function compute_reference_to_physical_coord_jacobian!(
     vgeo::VolumeGeometry{Nq, <:AbstractArray, <:AbstractArray},
-    D::NTuple{1, Int},
-) where {Nq}
+    nelem,
+    D::NTuple{1, Matrix{FT}},
+) where {Nq, FT}
+
+    @assert Nq == map(d -> size(d, 1), D)
+
     T = eltype(vgeo.x1)
     (D1,) = D
-    @assert Nq == map(size(D, 1))
 
-    vgeo.x1ξ1 = zero(T)
+    vgeo.x1ξ1 .= zero(T)
 
     for e in 1:nelem
         for i in 1:Nq[1]
@@ -149,7 +149,7 @@ function compute_reference_to_physical_coord_jacobian!(
 end
 
 """
-    compute_reference_to_physical_coord_jacobian!(vgeo, D)
+    compute_reference_to_physical_coord_jacobian!(vgeo, nelem, D)
 
 Input arguments:
 - vgeo::VolumeGeometry, a struct containing the volumetric geometric factors
@@ -163,24 +163,34 @@ for each quadrature point in element e.
 """
 function compute_reference_to_physical_coord_jacobian!(
     vgeo::VolumeGeometry{Nq, <:AbstractArray, <:AbstractArray},
-    D::NTuple{2, Int},
-) where {Nq}
+    nelem,
+    D::NTuple{2, Matrix{FT}},
+) where {Nq, FT}
+
+    @assert Nq == map(d -> size(d, 1), D)
+
     T = eltype(vgeo.x1)
     (D1, D2) = D
-    @assert Nq == map(size(D, 1))
 
-    vgeo.x1ξ1 .= vgeo.x1ξ2 .= zero(T)
-    vgeo.x2ξ1 .= vgeo.x2ξ2 .= zero(T)
+    x1 = reshape(vgeo.x1, (Nq..., nelem))
+    x2 = reshape(vgeo.x2, (Nq..., nelem))
+    x1ξ1 = reshape(vgeo.x1ξ1, (Nq..., nelem))
+    x2ξ1 = reshape(vgeo.x2ξ1, (Nq..., nelem))
+    x1ξ2 = reshape(vgeo.x1ξ2, (Nq..., nelem))
+    x2ξ2 = reshape(vgeo.x2ξ2, (Nq..., nelem))
+
+    x1ξ1 .= x1ξ2 .= zero(T)
+    x2ξ1 .= x2ξ2 .= zero(T)
 
     for e in 1:nelem
         for j in 1:Nq[2], i in 1:Nq[1]
             for n in 1:Nq[1]
-                vgeo.x1ξ1[i, j, e] += D1[i, n] * vgeo.x1[n, j, e]
-                vgeo.x2ξ1[i, j, e] += D1[i, n] * vgeo.x2[n, j, e]
+                x1ξ1[i, j, e] += D1[i, n] * x1[n, j, e]
+                x2ξ1[i, j, e] += D1[i, n] * x2[n, j, e]
             end
             for n in 1:Nq[2]
-                vgeo.x1ξ2[i, j, e] += D2[j, n] * vgeo.x1[i, n, e]
-                vgeo.x2ξ2[i, j, e] += D2[j, n] * vgeo.x2[i, n, e]
+                x1ξ2[i, j, e] += D2[j, n] * x1[i, n, e]
+                x2ξ2[i, j, e] += D2[j, n] * x2[i, n, e]
             end
         end
     end
@@ -189,7 +199,7 @@ function compute_reference_to_physical_coord_jacobian!(
 end
 
 """
-    compute_reference_to_physical_coord_jacobian!(vgeo, D)
+    compute_reference_to_physical_coord_jacobian!(vgeo, nelem, D)
 
 Input arguments:
 - vgeo::VolumeGeometry, a struct containing the volumetric geometric factors
@@ -204,35 +214,49 @@ each quadrature point in element e.
 """
 function compute_reference_to_physical_coord_jacobian!(
     vgeo::VolumeGeometry{Nq, <:AbstractArray, <:AbstractArray},
-    D::NTuple{3, Int},
-) where {Nq}
+    nelem,
+    D::NTuple{3, Matrix{FT}},
+) where {Nq, FT}
+
+    @assert Nq == map(d -> size(d, 1), D)
 
     T = eltype(vgeo.x1)
     (D1, D2, D3) = D
-    @assert Nq == map(size(D, 1))
 
-    vgeo.x1ξ1 .= vgeo.x1ξ2 .= vgeo.x1ξ3 .= zero(T)
-    vgeo.x2ξ1 .= vgeo.x2ξ2 .= vgeo.x2ξ3 .= zero(T)
-    vgeo.x3ξ1 .= vgeo.x3ξ2 .= vgeo.x3ξ3 .= zero(T)
+    x1 = reshape(vgeo.x1, (Nq..., nelem))
+    x2 = reshape(vgeo.x2, (Nq..., nelem))
+    x3 = reshape(vgeo.x3, (Nq..., nelem))
+    x1ξ1 = reshape(vgeo.x1ξ1, (Nq..., nelem))
+    x2ξ1 = reshape(vgeo.x2ξ1, (Nq..., nelem))
+    x3ξ1 = reshape(vgeo.x3ξ1, (Nq..., nelem))
+    x1ξ2 = reshape(vgeo.x1ξ2, (Nq..., nelem))
+    x2ξ2 = reshape(vgeo.x2ξ2, (Nq..., nelem))
+    x3ξ2 = reshape(vgeo.x3ξ2, (Nq..., nelem))
+    x1ξ3 = reshape(vgeo.x1ξ3, (Nq..., nelem))
+    x2ξ3 = reshape(vgeo.x2ξ3, (Nq..., nelem))
+    x3ξ3 = reshape(vgeo.x3ξ3, (Nq..., nelem))
+
+    x1ξ1 .= x1ξ2 .= x1ξ3 .= zero(T)
+    x2ξ1 .= x2ξ2 .= x2ξ3 .= zero(T)
+    x3ξ1 .= x3ξ2 .= x3ξ3 .= zero(T)
 
     @inbounds for e in 1:nelem
         for k in 1:Nq[3], j in 1:Nq[2], i in 1:Nq[1]
             for n in 1:Nq[1]
-                vgeo.x1ξ1[i, j, k, e] += D1[i, n] * vgeo.x1[n, j, k, e]
-                vgeo.x2ξ1[i, j, k, e] += D1[i, n] * vgeo.x2[n, j, k, e]
-                vgeo.x3ξ1[i, j, k, e] += D1[i, n] * vgeo.x3[n, j, k, e]
+                x1ξ1[i, j, k, e] += D1[i, n] * x1[n, j, k, e]
+                x2ξ1[i, j, k, e] += D1[i, n] * x2[n, j, k, e]
+                x3ξ1[i, j, k, e] += D1[i, n] * x3[n, j, k, e]
             end
             for n in 1:Nq[2]
-                vgeo.x1ξ2[i, j, k, e] += D2[j, n] * vgeo.x1[i, n, k, e]
-                vgeo.x2ξ2[i, j, k, e] += D2[j, n] * vgeo.x2[i, n, k, e]
-                vgeo.x3ξ2[i, j, k, e] += D2[j, n] * vgeo.x3[i, n, k, e]
+                x1ξ2[i, j, k, e] += D2[j, n] * x1[i, n, k, e]
+                x2ξ2[i, j, k, e] += D2[j, n] * x2[i, n, k, e]
+                x3ξ2[i, j, k, e] += D2[j, n] * x3[i, n, k, e]
             end
             for n in 1:Nq[3]
-                vgeo.x1ξ3[i, j, k, e] += D3[k, n] * vgeo.x1[i, j, n, e]
-                vgeo.x2ξ3[i, j, k, e] += D3[k, n] * vgeo.x2[i, j, n, e]
-                vgeo.x3ξ3[i, j, k, e] += D3[k, n] * vgeo.x3[i, j, n, e]
+                x1ξ3[i, j, k, e] += D3[k, n] * x1[i, j, n, e]
+                x2ξ3[i, j, k, e] += D3[k, n] * x2[i, j, n, e]
+                x3ξ3[i, j, k, e] += D3[k, n] * x3[i, j, n, e]
             end
-
         end
     end
 
@@ -256,33 +280,27 @@ If `Nq = size(D, 1)` and `nelem = div(length(x1), Nq)` then the volume arrays
 arrays `sJ` and `n1` should be of length `nface * nelem` with `nface = 2`.
 """
 function computemetric!(
-    vgeo::VolumeGeometry{NTuple{1, Int}, <:AbstractArray, <:AbstractArray},
-    sgeo::SurfaceGeometry{NTuple{1, Int}, <:AbstractArray},
-    D::NTuple{1, Int},
-)
+    vgeo::VolumeGeometry{Nq, <:AbstractArray, <:AbstractArray},
+    sgeo::SurfaceGeometry{Nfp, <:AbstractArray},
+    D::NTuple{1, Matrix{FT}},
+) where {Nq, Nfp, FT}
 
-    Nq = size(D, 1)
-    nelem = div(length(vgeo.ωJ), Nq)
-    x1 = reshape(vgeo.x1, (Nq, nelem))
-    ωJ = reshape(vgeo.ωJ, (Nq, nelem))
-    JcV = reshape(vgeo.JcV, (Nq, nelem))
-    ξ1x1 = reshape(vgeo.ξ1x1, (Nq, nelem))
+    @assert Nq == map(d -> size(d, 1), D)
+
+    nelem = div(length(vgeo.ωJ), Nq[1])
+    ωJ = reshape(vgeo.ωJ, (Nq[1], nelem))
     nface = 2
     n1 = reshape(sgeo.n1, (1, nface, nelem))
     sωJ = reshape(sgeo.sωJ, (1, nface, nelem))
 
-    @inbounds for e in 1:nelem
-        # Compute vertical Jacobian determinant, JcV, and Jacobian determinant, det(∂x/∂ξ), per quadrature point
-        for i in 1:Nq
-            vgeo.JcV[i, e] = JcV[i, e] = hypot(vgeo.x1ξ1)
-            vgeo.ωJ[i, e] = ωJ[i, e] = vgeo.x1ξ1
-        end
-    end
+    # Compute vertical Jacobian determinant, JcV, and Jacobian determinant, det(∂x/∂ξ), per quadrature point
+    vgeo.JcV .= vgeo.x1ξ1
+    vgeo.ωJ .= vgeo.x1ξ1
 
     vgeo.ξ1x1 .= 1 ./ vgeo.ωJ
 
-    sgeo.n1[1, 1, :] .= -sign.(vgeo.ωJ[1, :])
-    sgeo.n1[1, 2, :] .= sign.(vgeo.ωJ[Nq, :])
+    sgeo.n1[1, 1, :] .= -sign.(ωJ[1, :])
+    sgeo.n1[1, 2, :] .= sign.(ωJ[Nq[1], :])
     sgeo.sωJ .= 1
     nothing
 end
@@ -309,12 +327,14 @@ and `sgeo.n2` should be of size `(maximum(Nq), nface, nelem)` with `nface = 4`
 
 """
 function computemetric!(
-    vgeo::VolumeGeometry{NTuple{2, Int}, <:AbstractArray, <:AbstractArray},
-    sgeo::SurfaceGeometry{NTuple{2, Int}, <:AbstractArray},
-    D::NTuple{2, Int},
-)
-    T = eltype(vgeo.x1)
-    Nq = (size(D[1], 1), size(D[2], 1))
+    vgeo::VolumeGeometry{Nq, <:AbstractArray, <:AbstractArray},
+    sgeo::SurfaceGeometry{Nfp, <:AbstractArray},
+    D::NTuple{2, Matrix{FT}},
+) where {Nq, Nfp, FT}
+
+    @assert Nq == map(d -> size(d, 1), D)
+    @assert Nfp == div.(prod(Nq), Nq)
+
     nelem = div(length(vgeo.ωJ), prod(Nq))
     x1 = reshape(vgeo.x1, (Nq..., nelem))
     x2 = reshape(vgeo.x2, (Nq..., nelem))
@@ -324,8 +344,11 @@ function computemetric!(
     ξ2x1 = reshape(vgeo.ξ2x1, (Nq..., nelem))
     ξ1x2 = reshape(vgeo.ξ1x2, (Nq..., nelem))
     ξ2x2 = reshape(vgeo.ξ2x2, (Nq..., nelem))
+    x1ξ1 = reshape(vgeo.x1ξ1, (Nq..., nelem))
+    x1ξ2 = reshape(vgeo.x1ξ2, (Nq..., nelem))
+    x2ξ1 = reshape(vgeo.x2ξ1, (Nq..., nelem))
+    x2ξ2 = reshape(vgeo.x2ξ2, (Nq..., nelem))
     nface = 4
-    Nfp = div.(prod(Nq), Nq)
     n1 = reshape(sgeo.n1, (maximum(Nfp), nface, nelem))
     n2 = reshape(sgeo.n2, (maximum(Nfp), nface, nelem))
     sωJ = reshape(sgeo.sωJ, (maximum(Nfp), nface, nelem))
@@ -334,14 +357,15 @@ function computemetric!(
         for j in 1:Nq[2], i in 1:Nq[1]
 
             # Compute vertical Jacobian determinant, JcV, per quadrature point
-            JcV[i, j, e] = hypot(x1ξ2, x2ξ2)
+            JcV[i, j, e] = hypot(x1ξ2[i, j, e], x2ξ2[i, j, e])
             # Compute Jacobian determinant, det(∂x/∂ξ), per quadrature point
-            ωJ[i, j, e] = x1ξ1 * x2ξ2 - x2ξ1 * x1ξ2
+            ωJ[i, j, e] =
+                x1ξ1[i, j, e] * x2ξ2[i, j, e] - x2ξ1[i, j, e] * x1ξ2[i, j, e]
 
-            ξ1x1[i, j, e] = x2ξ2 / ωJ[i, j, e]
-            ξ2x1[i, j, e] = -x2ξ1 / ωJ[i, j, e]
-            ξ1x2[i, j, e] = -x1ξ2 / ωJ[i, j, e]
-            ξ2x2[i, j, e] = x1ξ1 / ωJ[i, j, e]
+            ξ1x1[i, j, e] = x2ξ2[i, j, e] / ωJ[i, j, e]
+            ξ2x1[i, j, e] = -x2ξ1[i, j, e] / ωJ[i, j, e]
+            ξ1x2[i, j, e] = -x1ξ2[i, j, e] / ωJ[i, j, e]
+            ξ2x2[i, j, e] = x1ξ1[i, j, e] / ωJ[i, j, e]
         end
 
         # Compute surface struct field entries
@@ -406,17 +430,16 @@ Reference:
  - [Kopriva2006](@cite)
 """
 function computemetric!(
-    vgeo::VolumeGeometry{NTuple{3, Int}, <:AbstractArray, <:AbstractArray},
-    sgeo::SurfaceGeometry{NTuple{3, Int}, <:AbstractArray},
-    D::NTuple{3, Int},
-)
+    vgeo::VolumeGeometry{Nq, <:AbstractArray, <:AbstractArray},
+    sgeo::SurfaceGeometry{Nfp, <:AbstractArray},
+    D::NTuple{3, Matrix{FT}},
+) where {Nq, Nfp, FT}
+
+    @assert Nq == map(d -> size(d, 1), D)
+    @assert Nfp == div.(prod(Nq), Nq)
+
     T = eltype(vgeo.x1)
-
-    Nq = (size(D[1], 1), size(D[2], 1), size(D[3], 1))
-    Np = prod(Nq)
-    Nfp = div.(Np, Nq)
-    nelem = div(length(vgeo.ωJ), Np)
-
+    nelem = div(length(vgeo.ωJ), prod(Nq))
     x1 = reshape(vgeo.x1, (Nq..., nelem))
     x2 = reshape(vgeo.x2, (Nq..., nelem))
     x3 = reshape(vgeo.x3, (Nq..., nelem))
@@ -431,6 +454,15 @@ function computemetric!(
     ξ1x3 = reshape(vgeo.ξ1x3, (Nq..., nelem))
     ξ2x3 = reshape(vgeo.ξ2x3, (Nq..., nelem))
     ξ3x3 = reshape(vgeo.ξ3x3, (Nq..., nelem))
+    x1ξ1 = reshape(vgeo.x1ξ1, (Nq..., nelem))
+    x1ξ2 = reshape(vgeo.x1ξ2, (Nq..., nelem))
+    x1ξ3 = reshape(vgeo.x1ξ3, (Nq..., nelem))
+    x2ξ1 = reshape(vgeo.x2ξ1, (Nq..., nelem))
+    x2ξ2 = reshape(vgeo.x2ξ2, (Nq..., nelem))
+    x2ξ3 = reshape(vgeo.x2ξ3, (Nq..., nelem))
+    x3ξ1 = reshape(vgeo.x3ξ1, (Nq..., nelem))
+    x3ξ2 = reshape(vgeo.x3ξ2, (Nq..., nelem))
+    x3ξ3 = reshape(vgeo.x3ξ3, (Nq..., nelem))
 
     nface = 6
     n1 = reshape(sgeo.n1, maximum(Nfp), nface, nelem)
@@ -456,51 +488,79 @@ function computemetric!(
         for k in 1:Nq[3], j in 1:Nq[2], i in 1:Nq[1]
 
             # Compute vertical Jacobian determinant, JcV, per quadrature point
-            JcV[i, j, k, e] = hypot(x1ξ3, x2ξ3, x3ξ3)
+            JcV[i, j, k, e] =
+                hypot(x1ξ3[i, j, k, e], x2ξ3[i, j, k, e], x3ξ3[i, j, k, e])
             # Compute Jacobian determinant, det(∂x/∂ξ), per quadrature point
-            J[i, j, k, e] = (
-                x1ξ1 * (x2ξ2 * x3ξ3 - x3ξ2 * x2ξ3) +
-                x2ξ1 * (x3ξ2 * x1ξ3 - x1ξ2 * x3ξ3) +
-                x3ξ1 * (x1ξ2 * x2ξ3 - x2ξ2 * x1ξ3)
+            ωJ[i, j, k, e] = (
+                x1ξ1[i, j, k, e] * (
+                    x2ξ2[i, j, k, e] * x3ξ3[i, j, k, e] -
+                    x3ξ2[i, j, k, e] * x2ξ3[i, j, k, e]
+                ) +
+                x2ξ1[i, j, k, e] * (
+                    x3ξ2[i, j, k, e] * x1ξ3[i, j, k, e] -
+                    x1ξ2[i, j, k, e] * x3ξ3[i, j, k, e]
+                ) +
+                x3ξ1[i, j, k, e] * (
+                    x1ξ2[i, j, k, e] * x2ξ3[i, j, k, e] -
+                    x2ξ2[i, j, k, e] * x1ξ3[i, j, k, e]
+                )
             )
 
             JI2[i, j, k] = 1 / (2 * ωJ[i, j, k, e])
 
-            yzr[i, j, k] = x2[i, j, k, e] * x3ξ1 - x3[i, j, k, e] * x2ξ1
-            yzs[i, j, k] = x2[i, j, k, e] * x3ξ2 - x3[i, j, k, e] * x2ξ2
-            yzt[i, j, k] = x2[i, j, k, e] * x3ξ3 - x3[i, j, k, e] * x2ξ3
-            zxr[i, j, k] = x3[i, j, k, e] * x1ξ1 - x1[i, j, k, e] * x3ξ1
-            zxs[i, j, k] = x3[i, j, k, e] * x1ξ2 - x1[i, j, k, e] * x3ξ2
-            zxt[i, j, k] = x3[i, j, k, e] * x1ξ3 - x1[i, j, k, e] * x3ξ3
-            xyr[i, j, k] = x1[i, j, k, e] * x2ξ1 - x2[i, j, k, e] * x1ξ1
-            xys[i, j, k] = x1[i, j, k, e] * x2ξ2 - x2[i, j, k, e] * x1ξ2
-            xyt[i, j, k] = x1[i, j, k, e] * x2ξ3 - x2[i, j, k, e] * x1ξ3
+            yzr[i, j, k] =
+                x2[i, j, k, e] * x3ξ1[i, j, k, e] -
+                x3[i, j, k, e] * x2ξ1[i, j, k, e]
+            yzs[i, j, k] =
+                x2[i, j, k, e] * x3ξ2[i, j, k, e] -
+                x3[i, j, k, e] * x2ξ2[i, j, k, e]
+            yzt[i, j, k] =
+                x2[i, j, k, e] * x3ξ3[i, j, k, e] -
+                x3[i, j, k, e] * x2ξ3[i, j, k, e]
+            zxr[i, j, k] =
+                x3[i, j, k, e] * x1ξ1[i, j, k, e] -
+                x1[i, j, k, e] * x3ξ1[i, j, k, e]
+            zxs[i, j, k] =
+                x3[i, j, k, e] * x1ξ2[i, j, k, e] -
+                x1[i, j, k, e] * x3ξ2[i, j, k, e]
+            zxt[i, j, k] =
+                x3[i, j, k, e] * x1ξ3[i, j, k, e] -
+                x1[i, j, k, e] * x3ξ3[i, j, k, e]
+            xyr[i, j, k] =
+                x1[i, j, k, e] * x2ξ1[i, j, k, e] -
+                x2[i, j, k, e] * x1ξ1[i, j, k, e]
+            xys[i, j, k] =
+                x1[i, j, k, e] * x2ξ2[i, j, k, e] -
+                x2[i, j, k, e] * x1ξ2[i, j, k, e]
+            xyt[i, j, k] =
+                x1[i, j, k, e] * x2ξ3[i, j, k, e] -
+                x2[i, j, k, e] * x1ξ3[i, j, k, e]
         end
 
         for k in 1:Nq[3], j in 1:Nq[2], i in 1:Nq[1]
             for n in 1:Nq[1]
-                ξ2x1[i, j, k, e] -= D1[i, n] * yzt[n, j, k]
-                ξ3x1[i, j, k, e] += D1[i, n] * yzs[n, j, k]
-                ξ2x2[i, j, k, e] -= D1[i, n] * zxt[n, j, k]
-                ξ3x2[i, j, k, e] += D1[i, n] * zxs[n, j, k]
-                ξ2x3[i, j, k, e] -= D1[i, n] * xyt[n, j, k]
-                ξ3x3[i, j, k, e] += D1[i, n] * xys[n, j, k]
+                ξ2x1[i, j, k, e] -= D[1][i, n] * yzt[n, j, k]
+                ξ3x1[i, j, k, e] += D[1][i, n] * yzs[n, j, k]
+                ξ2x2[i, j, k, e] -= D[1][i, n] * zxt[n, j, k]
+                ξ3x2[i, j, k, e] += D[1][i, n] * zxs[n, j, k]
+                ξ2x3[i, j, k, e] -= D[1][i, n] * xyt[n, j, k]
+                ξ3x3[i, j, k, e] += D[1][i, n] * xys[n, j, k]
             end
             for n in 1:Nq[2]
-                ξ1x1[i, j, k, e] += D2[j, n] * yzt[i, n, k]
-                ξ3x1[i, j, k, e] -= D2[j, n] * yzr[i, n, k]
-                ξ1x2[i, j, k, e] += D2[j, n] * zxt[i, n, k]
-                ξ3x2[i, j, k, e] -= D2[j, n] * zxr[i, n, k]
-                ξ1x3[i, j, k, e] += D2[j, n] * xyt[i, n, k]
-                ξ3x3[i, j, k, e] -= D2[j, n] * xyr[i, n, k]
+                ξ1x1[i, j, k, e] += D[2][j, n] * yzt[i, n, k]
+                ξ3x1[i, j, k, e] -= D[2][j, n] * yzr[i, n, k]
+                ξ1x2[i, j, k, e] += D[2][j, n] * zxt[i, n, k]
+                ξ3x2[i, j, k, e] -= D[2][j, n] * zxr[i, n, k]
+                ξ1x3[i, j, k, e] += D[2][j, n] * xyt[i, n, k]
+                ξ3x3[i, j, k, e] -= D[2][j, n] * xyr[i, n, k]
             end
             for n in 1:Nq[3]
-                ξ1x1[i, j, k, e] -= D3[k, n] * yzs[i, j, n]
-                ξ2x1[i, j, k, e] += D3[k, n] * yzr[i, j, n]
-                ξ1x2[i, j, k, e] -= D3[k, n] * zxs[i, j, n]
-                ξ2x2[i, j, k, e] += D3[k, n] * zxr[i, j, n]
-                ξ1x3[i, j, k, e] -= D3[k, n] * xys[i, j, n]
-                ξ2x3[i, j, k, e] += D3[k, n] * xyr[i, j, n]
+                ξ1x1[i, j, k, e] -= D[3][k, n] * yzs[i, j, n]
+                ξ2x1[i, j, k, e] += D[3][k, n] * yzr[i, j, n]
+                ξ1x2[i, j, k, e] -= D[3][k, n] * zxs[i, j, n]
+                ξ2x2[i, j, k, e] += D[3][k, n] * zxr[i, j, n]
+                ξ1x3[i, j, k, e] -= D[3][k, n] * xys[i, j, n]
+                ξ2x3[i, j, k, e] += D[3][k, n] * xyr[i, j, n]
             end
             ξ1x1[i, j, k, e] *= JI2[i, j, k]
             ξ2x1[i, j, k, e] *= JI2[i, j, k]
