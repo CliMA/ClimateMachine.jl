@@ -80,7 +80,7 @@ sets ghost point to have specified flux on the boundary for κ∇θ
     t,
 )
     state⁺.ρθ = state⁻.ρθ
-    gradflux⁺.κ∇θ = n⁻ * bc.flux(state⁻, aux⁻, t)
+    gradflux⁺.κ∇θ = n⁻ * bc(state⁻, aux⁻, t)
 
     return nothing
 end
