@@ -125,6 +125,7 @@ function main(::Type{FT}, cl_args) where {FT}
     if finite_volume
         N = (1, 0)
         nelem_vert = 80
+        Ncutoff = N[2]
         ref_state = HydrostaticState(
             DryAdiabaticProfile{FT}(param_set),
             ;
@@ -135,6 +136,7 @@ function main(::Type{FT}, cl_args) where {FT}
     else
         N = 4
         nelem_vert = 20
+        Ncutoff = N - 1
         ref_state = HydrostaticState(DryAdiabaticProfile{FT}(param_set),)
         output_prefix = string("EL_", str_comp, "_DG")
         fv_reconstruction = nothing
@@ -162,6 +164,7 @@ function main(::Type{FT}, cl_args) where {FT}
         hmax = FT(40),
         solver_type = ode_solver_type,
         fv_reconstruction = fv_reconstruction,
+        Ncutoff = Ncutoff,
     )
     solver_config = ClimateMachine.SolverConfiguration(
         t0,
