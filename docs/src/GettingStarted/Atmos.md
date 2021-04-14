@@ -7,25 +7,35 @@ below. In this implementation of the `AtmosModel` we concern ourselves
 with the conservative form of the compressible equations of moist fluid
 motion given a set of initial, boundary and forcing(source) conditions.
 
+First, we construct the atmospheric physics via `AtmosPhysics`:
+
+```
+physics = AtmosPhysics{FT}(;
+    param_set::AbstractParameterSet;
+    ref_state = HydrostaticState(DecayingTemperatureProfile{FT}(param_set),)
+    turbulence = SmagorinskyLilly{FT}(0.21),
+    hyperdiffusion = NoHyperDiffusion(),
+    moisture = EquilMoist(),
+    precipitation = NoPrecipitation(),
+    radiation = NoRadiation(),
+    tracers = NoTracers(),
+)
+```
+
 ### LES Configuration (with defaults)
 Default field values for the LES `AtmosModel` definition are included
 below. Users are directed to the model subcomponent pages to view the
 possible options for each subcomponent.
 ```
+atmos = AtmosModel{FT}(
     ::Type{AtmosLESConfigType},
-    param_set::AbstractParameterSet;
-    orientation::O = FlatOrientation(),
-    ref_state::RS = HydrostaticState(DecayingTemperatureProfile{FT}(param_set),)
-    turbulence::T = SmagorinskyLilly{FT}(0.21),
-    hyperdiffusion::HD = NoHyperDiffusion(),
-    moisture::M = EquilMoist(),
-    precipitation::P = NoPrecipitation(),
-    radiation::R = NoRadiation(),
-    source::S = (Gravity(), Coriolis(), GeostrophicForcing{FT}(7.62e-5, 0, 0)),
-    tracers::TR = NoTracers(),
-    boundarycondition::BC = AtmosBC(),
-    init_state_prognostic::IS = nothing,
-    data_config::DC = nothing,
+    physics::AtmosPhysics;
+    orientation = FlatOrientation(),
+    source = (Gravity(), Coriolis(), GeostrophicForcing{FT}(7.62e-5, 0, 0)),
+    problem = AtmosBC(physics),
+    init_state_prognostic = nothing,
+    data_config = nothing,
+)
 ```
 
 !!! note
@@ -43,16 +53,9 @@ possible options for each subcomponent.
 
 ```
     ::Type{AtmosGCMConfigType},
-    param_set::AbstractParameterSet;
-    ref_state::RS = HydrostaticState(DecayingTemperatureProfile{FT}(param_set),)
-    turbulence::T = SmagorinskyLilly{FT}(C_smag(param_set)),
-    hyperdiffusion::HD = NoHyperDiffusion(),
-    moisture::M = EquilMoist(),
-    precipitation::P = NoPrecipitation(),
-    radiation::R = NoRadiation(),
+    physics::AtmosPhysics;
     source::S = (Gravity(), Coriolis()),
-    tracers::TR = NoTracers(),
-    boundarycondition::BC = AtmosBC(),
+    boundarycondition::BC = AtmosBC(physics),
     init_state_prognostic::IS = nothing,
     data_config::DC = nothing,
 ```

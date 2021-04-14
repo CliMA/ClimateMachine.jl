@@ -3,6 +3,7 @@
 
 # Helper for parsing `--surface-flux` command line argument
 function parse_surface_flux_arg(
+    physics::AtmosPhysics,
     arg,
     ::Type{FT},
     param_set,
@@ -10,7 +11,7 @@ function parse_surface_flux_arg(
     moisture,
 ) where {FT}
     if arg === nothing || arg == "default"
-        boundaryconditions = (AtmosBC(), AtmosBC())
+        boundaryconditions = (AtmosBC(physics;), AtmosBC(physics;))
     elseif arg == "bulk"
         if !isa(moisture, EquilMoist)
             error("need a moisture model for surface-flux: bulk")
@@ -20,6 +21,7 @@ function parse_surface_flux_arg(
         #bulk_flux = (T_sfc, q_sfc) # prescribed constant T_sfc, q_sfc
         boundaryconditions = (
             AtmosBC(
+                physics;
                 energy = BulkFormulaEnergy(
                     (bl, state, aux, t, normPu_int) -> _C_drag,
                     (bl, state, aux, t) -> bulk_flux(state, aux, t),
@@ -32,7 +34,7 @@ function parse_surface_flux_arg(
                     end,
                 ),
             ),
-            AtmosBC(),
+            AtmosBC(physics;),
         )
     else
         error("unknown surface flux: " * arg)

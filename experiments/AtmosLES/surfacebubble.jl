@@ -98,17 +98,18 @@ function config_surfacebubble(FT, N, resolution, xmax, ymax, zmax)
         solver_method = LSRK144NiegemannDiehlBusch,
     )
 
-    problem = AtmosProblem(
-        boundaryconditions = (
-            AtmosBC(energy = PrescribedEnergyFlux(energyflux)),
-            AtmosBC(),
-        ),
-        init_state_prognostic = init_surfacebubble!,
-    )
     physics = AtmosPhysics{FT}(
         param_set;
         turbulence = SmagorinskyLilly{FT}(C_smag),
         moisture = EquilMoist(),
+    )
+
+    problem = AtmosProblem(
+        boundaryconditions = (
+            AtmosBC(physics; energy = PrescribedEnergyFlux(energyflux)),
+            AtmosBC(physics;),
+        ),
+        init_state_prognostic = init_surfacebubble!,
     )
     model = AtmosModel{FT}(
         AtmosLESConfigType,

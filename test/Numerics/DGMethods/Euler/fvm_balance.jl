@@ -97,11 +97,21 @@ function test_run(
         meshwarp = meshwarp,
     )
 
-    problem = AtmosProblem(init_state_prognostic = initialcondition!)
-
     T0 = FT(300)
     temp_profile = IsothermalProfile(param_set, T0)
     ref_state = HydrostaticState(temp_profile; subtract_off = false)
+
+    physics = AtmosPhysics{FT}(
+        param_set;
+        ref_state = ref_state,
+        turbulence = ConstantDynamicViscosity(FT(0)),
+        moisture = DryModel(),
+    )
+
+    problem = AtmosProblem(;
+        physics = physics,
+        init_state_prognostic = initialcondition!,
+    )
 
     if domain_type === :box
         configtype = AtmosLESConfigType
@@ -111,12 +121,6 @@ function test_run(
         source = (Gravity(), Coriolis())
     end
 
-    physics = AtmosPhysics{FT}(
-        param_set;
-        ref_state = ref_state,
-        turbulence = ConstantDynamicViscosity(FT(0)),
-        moisture = DryModel(),
-    )
     model =
         AtmosModel{FT}(configtype, physics; problem = problem, source = source)
 

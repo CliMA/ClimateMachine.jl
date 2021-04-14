@@ -448,9 +448,18 @@ function bomex_model(
         )
     end
 
+    # Assemble model components
+    physics = AtmosPhysics{FT}(
+        param_set;
+        turbulence = SmagorinskyLilly{FT}(C_smag),
+        moisture = moisture,
+        turbconv = turbconv,
+    )
+
     problem = AtmosProblem(
         boundaryconditions = (
             AtmosBC(
+                physics;
                 momentum = Impenetrable(DragLaw(
                     # normPu_int is the internal horizontal speed
                     # P represents the projection onto the horizontal
@@ -460,19 +469,12 @@ function bomex_model(
                 moisture = moisture_bc,
                 turbconv = turbconv_bcs(turbconv)[1],
             ),
-            AtmosBC(turbconv = turbconv_bcs(turbconv)[2]),
+            AtmosBC(physics; turbconv = turbconv_bcs(turbconv)[2]),
         ),
         init_state_prognostic = ics,
     )
 
     # Assemble model components
-    physics = AtmosPhysics{FT}(
-        param_set;
-        turbulence = SmagorinskyLilly{FT}(C_smag),
-        moisture = moisture,
-        turbconv = turbconv,
-    )
-
     model =
         AtmosModel{FT}(config_type, physics; problem = problem, source = source)
 

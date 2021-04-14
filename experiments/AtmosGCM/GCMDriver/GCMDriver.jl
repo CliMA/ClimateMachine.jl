@@ -173,8 +173,18 @@ function config_gcm_experiment(
         moisture = EquilMoist()
     end
 
+    # Define the Atmosphere physics
+    physics = AtmosPhysics{FT}(
+        param_set;
+        ref_state = ref_state,
+        turbulence = ConstantKinematicViscosity(FT(0)),
+        hyperdiffusion = hyperdiffusion,
+        moisture = moisture,
+    )
+
     # Set up the boundary conditions
     boundaryconditions = parse_surface_flux_arg(
+        physics,
         surface_flux_arg,
         FT,
         param_set,
@@ -184,6 +194,7 @@ function config_gcm_experiment(
 
     # Set up the problem
     problem = problem_type(
+        physics;
         boundaryconditions = boundaryconditions,
         perturbation = perturbation,
         base_state = base_state,
@@ -191,14 +202,6 @@ function config_gcm_experiment(
     )
 
     # Create the Atmosphere model
-    physics = AtmosPhysics{FT}(
-        param_set;
-        ref_state = ref_state,
-        turbulence = ConstantKinematicViscosity(FT(0)),
-        hyperdiffusion = hyperdiffusion,
-        moisture = moisture,
-    )
-
     model = AtmosModel{FT}(
         AtmosGCMConfigType,
         physics;

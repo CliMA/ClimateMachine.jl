@@ -31,14 +31,28 @@ export average_density_sfc_int
 
 The standard boundary condition for [`AtmosModel`](@ref). The default options imply a "no flux" boundary condition.
 """
-Base.@kwdef struct AtmosBC{M, E, Q, P, TR, TC}
-    momentum::M = Impenetrable(FreeSlip())
-    energy::E = Insulating()
-    moisture::Q = Impermeable()
-    precipitation::P = OutflowPrecipitation()
-    tracer::TR = ImpermeableTracer()
-    turbconv::TC = NoTurbConvBC()
+struct AtmosBC{M, E, Q, P, TR, TC}
+    momentum::M
+    energy::E
+    moisture::Q
+    precipitation::P
+    tracer::TR
+    turbconv::TC
 end
+
+function AtmosBC(
+    physics::AtmosPhysics;
+    momentum = Impenetrable(FreeSlip()),
+    energy = Insulating(),
+    moisture = Impermeable(),
+    precipitation = OutflowPrecipitation(),
+    tracer = ImpermeableTracer(),
+    turbconv = NoTurbConvBC(),
+)
+    args = (momentum, energy, moisture, precipitation, tracer, turbconv)
+    return AtmosBC{typeof.(args)...}(args...)
+end
+
 
 boundary_conditions(atmos::AtmosModel) = atmos.problem.boundaryconditions
 

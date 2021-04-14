@@ -224,21 +224,7 @@ function config_risingbubble(
     T_min_ref = FT(0)
     T_profile = DryAdiabaticProfile{FT}(param_set, T_surface, T_min_ref)
 
-    problem = AtmosProblem(
-        boundaryconditions = (
-            AtmosBC(
-                momentum = Impenetrable(FreeSlip()),
-                energy = Adiabaticθ((state, aux, t) -> FT(0)),
-            ),
-            AtmosBC(
-                momentum = Impenetrable(FreeSlip()),
-                energy = Adiabaticθ((state, aux, t) -> FT(0)),
-            ),
-        ),
-        init_state_prognostic = init_risingbubble!,
-    )
-
-    ## Here we assemble the `AtmosModel`.
+    ## Here we define the physics:
     _C_smag = FT(0)
     physics = AtmosPhysics{FT}(
         param_set;                                     ## Parameter set corresponding to earth parameters
@@ -249,6 +235,23 @@ function config_risingbubble(
         tracers = NTracers{ntracers, FT}(δ_χ),         ## Tracer model with diffusivity coefficients
     )
 
+    problem = AtmosProblem(
+        boundaryconditions = (
+            AtmosBC(
+                physics;
+                momentum = Impenetrable(FreeSlip()),
+                energy = Adiabaticθ((state, aux, t) -> FT(0)),
+            ),
+            AtmosBC(
+                physics;
+                momentum = Impenetrable(FreeSlip()),
+                energy = Adiabaticθ((state, aux, t) -> FT(0)),
+            ),
+        ),
+        init_state_prognostic = init_risingbubble!,
+    )
+
+    ## Here we assemble the `AtmosModel`.
     model = AtmosModel{FT}(
         AtmosLESConfigType,                            ## Flow in a box, requires the AtmosLESConfigType
         physics;                                       ## Atmos physics

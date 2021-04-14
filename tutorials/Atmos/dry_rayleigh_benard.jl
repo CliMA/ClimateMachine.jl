@@ -136,14 +136,24 @@ function config_problem(::Type{FT}, N, resolution, xmax, ymax, zmax) where {FT}
         FT(T_bot - T_lapse * zmax),
     )
 
+    ## Define the physics
+    physics = AtmosPhysics{FT}(
+        param_set;
+        turbulence = Vreman(C_smag),
+        tracers = NTracers{ntracers, FT}(δ_χ),
+    )
+
     ## Set up the problem
-    problem = AtmosProblem(
+    problem = AtmosProblem(;
+        physics = physics,
         boundaryconditions = (
             AtmosBC(
+                physics;
                 momentum = Impenetrable(NoSlip()),
                 energy = PrescribedTemperature((state, aux, t) -> T_bot),
             ),
             AtmosBC(
+                physics;
                 momentum = Impenetrable(NoSlip()),
                 energy = PrescribedTemperature((state, aux, t) -> T_top),
             ),
@@ -152,12 +162,6 @@ function config_problem(::Type{FT}, N, resolution, xmax, ymax, zmax) where {FT}
     )
 
     ## Set up the model
-    physics = AtmosPhysics{FT}(
-        param_set;
-        turbulence = Vreman(C_smag),
-        tracers = NTracers{ntracers, FT}(δ_χ),
-    )
-
     model = AtmosModel{FT}(
         AtmosLESConfigType,
         physics;

@@ -12,8 +12,9 @@ struct BaroclinicWaveProblem{BCS, ISP, ISA, WP, BS, MP} <: AbstractAtmosProblem
     base_state::BS
     moisture_profile::MP
 end
-function BaroclinicWaveProblem(;
-    boundaryconditions = (AtmosBC(), AtmosBC()),
+function BaroclinicWaveProblem(
+    physics::AtmosPhysics;
+    boundaryconditions = (AtmosBC(physics;), AtmosBC(physics;)),
     perturbation = nothing,
     base_state = nothing,
     moisture_profile = nothing,

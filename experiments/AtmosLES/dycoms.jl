@@ -347,9 +347,19 @@ function config_dycoms(
         precipitation = NoPrecipitation()
     end
 
+    physics = AtmosPhysics{FT}(
+        param_set;
+        ref_state = ref_state,
+        turbulence = Vreman{FT}(C_smag),
+        moisture = moisture,
+        precipitation = precipitation,
+        radiation = radiation,
+    )
+
     problem = AtmosProblem(
         boundaryconditions = (
             AtmosBC(
+                physics;
                 momentum = Impenetrable(DragLaw(
                     (state, aux, t, normPu) -> C_drag,
                 )),
@@ -358,18 +368,9 @@ function config_dycoms(
                     (state, aux, t) -> moisture_flux,
                 ),
             ),
-            AtmosBC(),
+            AtmosBC(physics;),
         ),
         init_state_prognostic = init_dycoms!,
-    )
-
-    physics = AtmosPhysics{FT}(
-        param_set;
-        ref_state = ref_state,
-        turbulence = Vreman{FT}(C_smag),
-        moisture = moisture,
-        precipitation = precipitation,
-        radiation = radiation,
     )
 
     model = AtmosModel{FT}(

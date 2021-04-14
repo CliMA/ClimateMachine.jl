@@ -314,7 +314,10 @@ function AtmosModel{FT}(
     orientation::Orientation,
     physics::AtmosPhysics;
     init_state_prognostic = nothing,
-    problem = AtmosProblem(init_state_prognostic = init_state_prognostic),
+    problem = AtmosProblem(;
+        physics = physics,
+        init_state_prognostic = init_state_prognostic,
+    ),
     source = (
         Gravity(),
         Coriolis(),

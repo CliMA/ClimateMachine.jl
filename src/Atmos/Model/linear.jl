@@ -167,7 +167,8 @@ function wavespeed(
     return soundspeed_air(parameter_set(lm.atmos), ref.T)
 end
 
-boundary_conditions(atmoslm::AtmosLinearModel) = (AtmosBC(), AtmosBC())
+boundary_conditions(atmoslm::AtmosLinearModel) =
+    (AtmosBC(atmoslm.atmos.physics), AtmosBC(atmoslm.atmos.physics))
 
 function boundary_state!(
     nf::NumericalFluxFirstOrder,
