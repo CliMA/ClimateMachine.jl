@@ -15,6 +15,7 @@ import ClimateMachine.BalanceLaws:
 import ClimateMachine.DGMethods: DGModel
 import ClimateMachine.NumericalFluxes: numerical_flux_first_order!
 import ClimateMachine.Orientations: vertical_unit_vector
+import ClimateMachine.NumericalFluxes: numerical_boundary_flux_first_order!
 
 """
     ThreeDimensionalCompressibleNavierStokesEquations <: BalanceLaw
@@ -655,6 +656,53 @@ end
 
 include("bc_momentum.jl")
 include("bc_temperature.jl")
+
+# overwrite boundary with a different numerical flux
+# should probably include this as a part of the default construction for the model
+# i.e. what numerical flux to use on the boundary
+function numerical_boundary_flux_first_order!(
+    numerical_flux::NumericalFluxFirstOrder,
+    bctype,
+    balance_law::CNSE3D,
+    fluxᵀn::Vars{S},
+    normal_vector::SVector,
+    state_prognostic⁻::Vars{S},
+    state_auxiliary⁻::Vars{A},
+    state_prognostic⁺::Vars{S},
+    state_auxiliary⁺::Vars{A},
+    t,
+    direction,
+    state1⁻::Vars{S},
+    aux1⁻::Vars{A},
+) where {S, A}
+
+    boundary_state!(
+        numerical_flux,
+        bctype,
+        balance_law,
+        state_prognostic⁺,
+        state_auxiliary⁺,
+        normal_vector,
+        state_prognostic⁻,
+        state_auxiliary⁻,
+        t,
+        state1⁻,
+        aux1⁻,
+    )
+
+    numerical_flux_first_order!(
+        RoesanovFlux(ω_roe = 1.0-1e-4, ω_rusanov = 1e-4), #CentralNumericalFluxFirstOrder(),
+        balance_law,
+        fluxᵀn,
+        normal_vector,
+        state_prognostic⁻,
+        state_auxiliary⁻,
+        state_prognostic⁺,
+        state_auxiliary⁺,
+        t,
+        direction,
+    )
+end
 
 """
 STUFF FOR ANDRE'S WRAPPERS

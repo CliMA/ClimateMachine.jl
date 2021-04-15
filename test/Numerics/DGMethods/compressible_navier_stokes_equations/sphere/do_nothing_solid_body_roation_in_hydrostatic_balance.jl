@@ -1,9 +1,10 @@
+using ClimateMachine
+ClimateMachine.init()
+
 include("../boilerplate.jl")
 include("../three_dimensional/ThreeDimensionalCompressibleNavierStokesEquations.jl")
 include("sphere_helper_functions.jl")
 include("../shared_source/gradient.jl")
-
-ClimateMachine.init()
 
 ########
 # Define physical parameters and parameterizations
