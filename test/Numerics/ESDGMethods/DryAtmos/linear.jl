@@ -16,7 +16,11 @@ import ClimateMachine.BalanceLaws:
 @inline function linearized_pressure(ρ, ρe, Φ)
     FT = eltype(ρ)
     γ = FT(gamma(param_set))
-    (γ - 1) * (ρe - ρ * Φ)
+    if total_energy
+      (γ - 1) * (ρe - ρ * Φ)
+    else
+      (γ - 1) * ρe
+    end
 end
 
 abstract type DryAtmosLinearModel <: BalanceLaw end
@@ -155,6 +159,9 @@ function source!(
     if Dir === VerticalDirection || Dir === EveryDirection
         ∇Φ = aux.∇Φ
         source.ρu -= state.ρ * ∇Φ
+        if !total_energy
+          source.ρe -= state.ρu' * ∇Φ
+        end
     end
     nothing
 end

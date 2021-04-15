@@ -3,6 +3,7 @@ using ClimateMachine
 using Logging
 using ClimateMachine.DGMethods: ESDGModel, init_ode_state
 using ClimateMachine.Mesh.Topologies: StackedBrickTopology
+using ClimateMachine.Mesh.Filters
 using ClimateMachine.Mesh.Grids: DiscontinuousSpectralElementGrid, min_node_distance
 using ClimateMachine.Thermodynamics
 using LinearAlgebra
@@ -71,7 +72,11 @@ function init_state_prognostic!(bl::DryAtmosModel,
     e_pot = aux.Φ                                       # potential energy
     _cv_d = cv_d(param_set)
     e_int = _cv_d * T
-    ρe = ρ * (e_kin + e_pot + e_int)
+    if total_energy
+      ρe = ρ * (e_kin + e_pot + e_int)
+    else
+      ρe = ρ * (e_kin + e_int)
+    end
 
     ## Assign State Variables
     state.ρ = ρ
@@ -145,12 +150,14 @@ function run(
     problem = RisingBubble()
     model = DryAtmosModel{dim}(FlatOrientation(),
                                problem;
-                               ref_state=ref_state)
+                               ref_state=ref_state,
+                               sources=(Gravity(),))
 
     esdg = ESDGModel(
         model,
         grid;
-        volume_numerical_flux_first_order = EntropyConservative(),
+        volume_numerical_flux_first_order = CentralVolumeFlux(),
+        #volume_numerical_flux_first_order = EntropyConservative(),
         #surface_numerical_flux_first_order = EntropyConservative(),
         surface_numerical_flux_first_order = MatrixFlux(),
     )
@@ -232,6 +239,20 @@ function run(
         end
         callbacks = (callbacks..., cbvtk)
     end
+
+
+    filterorder = 24
+    filter = ExponentialFilter(grid, 0, filterorder)
+    cbfilter = EveryXSimulationSteps(1) do
+        Filters.apply!(
+            Q,
+            :,
+            grid,
+            filter,
+        )
+        nothing
+    end
+    callbacks = (callbacks..., cbfilter)
 
     solve!(Q, odesolver; callbacks = callbacks, timeend = timeend)
 

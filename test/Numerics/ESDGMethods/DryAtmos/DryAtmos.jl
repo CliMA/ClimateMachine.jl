@@ -35,6 +35,8 @@ using CLIMAParameters.Planet: grav, R_d, cp_d, cv_d, planet_radius, MSLP, Omega
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 
+const total_energy = false
+
 @inline gamma(ps::EarthParameterSet) = cp_d(ps) / cv_d(ps)
 
 abstract type AbstractDryAtmosProblem end
@@ -187,7 +189,6 @@ function init_state_auxiliary!(
     Φ = state_auxiliary.Φ
     ρu = SVector{3, FT}(0, 0, 0)
 
-
     state_auxiliary.ref_state.T = T
     state_auxiliary.ref_state.p = p
     state_auxiliary.ref_state.ρ = ρ
@@ -242,7 +243,11 @@ gravitational potential `Φ`.
 function pressure(ρ, ρu, ρe, Φ)
     FT = eltype(ρ)
     γ = FT(gamma(param_set))
-    (γ - 1) * (ρe - dot(ρu, ρu) / 2ρ - ρ * Φ)
+    if total_energy
+      (γ - 1) * (ρe - dot(ρu, ρu) / 2ρ - ρ * Φ)
+    else
+      (γ - 1) * (ρe - dot(ρu, ρu) / 2ρ)
+    end
 end
 
 """
@@ -254,7 +259,11 @@ gravitational potential `Φ`.
 function totalenergy(ρ, ρu, p, Φ)
     FT = eltype(ρ)
     γ = FT(gamma(param_set))
-    return p / (γ - 1) + dot(ρu, ρu) / 2ρ + ρ * Φ
+    if total_energy
+      return p / (γ - 1) + dot(ρu, ρu) / 2ρ + ρ * Φ
+    else
+      return p / (γ - 1) + dot(ρu, ρu) / 2ρ
+    end
 end
 
 """
@@ -340,7 +349,11 @@ function state_to_entropy_variables!(
     b = ρ / 2p
     u = ρu / ρ
 
-    entropy.ρ = (γ - s) / (γ - 1) - (dot(u, u) - 2Φ) * b
+    if total_energy
+      entropy.ρ = (γ - s) / (γ - 1) - (dot(u, u) - 2Φ) * b
+    else
+      entropy.ρ = (γ - s) / (γ - 1) - (dot(u, u)) * b
+    end
     entropy.ρu = 2b * u
     entropy.ρe = -2b
     entropy.Φ = 2ρ * b
@@ -427,7 +440,11 @@ function numerical_volume_conservative_flux_first_order!(
 
     Fρ = u_avg * ρ_log
     Fρu = u_avg * Fρ' + ρ_avg / 2b_avg * I
-    Fρe = (1 / (2 * (γ - 1) * b_log) - usq_avg / 2 + Φ_avg) * Fρ + Fρu * u_avg
+    if total_energy
+      Fρe = (1 / (2 * (γ - 1) * b_log) - usq_avg / 2 + Φ_avg) * Fρ + Fρu * u_avg
+    else
+      Fρe = (1 / (2 * (γ - 1) * b_log) - usq_avg / 2) * Fρ + Fρu * u_avg
+    end
 
     F.ρ += Fρ
     F.ρu += Fρu
@@ -456,7 +473,80 @@ function numerical_volume_fluctuation_flux_first_order!(
     b_avg = ave(b_1, b_2)
     α = b_avg * ρ_log / 2b_1
 
-    D.ρu -= α * (Φ_1 - Φ_2) * I
+    if total_energy
+      D.ρu -= α * (Φ_1 - Φ_2) * I
+    end
+end
+
+struct CentralVolumeFlux <: NumericalFluxFirstOrder end
+function numerical_volume_conservative_flux_first_order!(
+    ::CentralVolumeFlux,
+    m::DryAtmosModel,
+    F::Grad,
+    state_1::Vars,
+    aux_1::Vars,
+    state_2::Vars,
+    aux_2::Vars,
+)
+    FT = eltype(F)
+    F_1 = similar(F)
+    flux_first_order!(
+        m,
+        F_1,
+        state_1,
+        aux_1,
+        FT(0),
+        EveryDirection(),
+    )
+
+    F_2 = similar(F)
+    flux_first_order!(
+        m,
+        F_2,
+        state_2,
+        aux_2,
+        FT(0),
+        EveryDirection(),
+    )
+
+     parent(F) .= (parent(F_1) .+ parent(F_2)) ./ 2
+    
+    #Φ_1 = aux_1.Φ
+    #ρ_1 = state_1.ρ
+    #ρu_1 = state_1.ρu
+    #ρe_1 = state_1.ρe
+    #u_1 = ρu_1 / ρ_1
+    #p_1 = pressure(ρ_1, ρu_1, ρe_1, Φ_1)
+
+    #F.ρ += ρ_1 * u_1
+    #F.ρu += p_1 * I + ρ_1 * u_1 .* u_1'
+    #F.ρe += u_1 * (ρe_1 + p_1)
+    #
+    #Φ_2 = aux_2.Φ
+    #ρ_2 = state_2.ρ
+    #ρu_2 = state_2.ρu
+    #ρe_2 = state_2.ρe
+    #u_2 = ρu_2 / ρ_2
+    #p_2 = pressure(ρ_2, ρu_2, ρe_2, Φ_2)
+
+    #F.ρ += ρ_2 * u_2
+    #F.ρu += p_2 * I + ρ_2 * u_2 .* u_2'
+    #F.ρe += u_2 * (ρe_2 + p_2)
+
+    #F.ρ /= 2
+    #F.ρu /= 2
+    #F.ρe /= 2
+end
+
+function numerical_volume_fluctuation_flux_first_order!(
+    ::CentralVolumeFlux,
+    ::DryAtmosModel,
+    D::Grad,
+    state_1::Vars,
+    aux_1::Vars,
+    state_2::Vars,
+    aux_2::Vars,
+)
 end
 
 struct Coriolis end
@@ -608,7 +698,11 @@ function numerical_flux_first_order!(
 
     ρ_log = logave(ρ⁻, ρ⁺)
     β_log = logave(β⁻, β⁺)
-    Φ_avg = ave(Φ⁻, Φ⁺)
+    if total_energy
+      Φ_avg = ave(Φ⁻, Φ⁺)
+    else
+      Φ_avg = 0
+    end
     u_avg = ave.(u⁻, u⁺)
     p_avg = ave(ρ⁻, ρ⁺) / 2ave(β⁻, β⁺)
     u²_bar = 2 * sum(u_avg .^ 2) - sum(ave(u⁻ .^ 2, u⁺ .^ 2))
@@ -732,6 +826,21 @@ function drag_source!(m::DryAtmosModel, args...)
 end
 struct NoDrag end
 drag_source!(m::DryAtmosModel, ::NoDrag, args...) = nothing
+
+struct Gravity end
+function source!(
+    m::DryAtmosModel,
+    ::Gravity,
+    source,
+    state,
+    aux,
+)
+    if !total_energy
+      ∇Φ = aux.∇Φ
+      source.ρu -= state.ρ * ∇Φ
+      source.ρe -= state.ρu' * ∇Φ
+    end
+end
 
 
 include("linear.jl")

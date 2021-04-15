@@ -164,7 +164,11 @@ function init_state_prognostic!(bl::DryAtmosModel,
     ## Assign state variables
     state.ρ = ρ
     state.ρu = ρ * u_cart
-    state.ρe = ρ * (e_int + e_kin + e_pot)
+    if total_energy
+      state.ρe = ρ * (e_int + e_kin + e_pot)
+    else
+      state.ρe = ρ * (e_int + e_kin)
+    end
     
     #state.ρ = aux.ref_state.ρ
     #state.ρu = SVector{3, FT}(0, 0, 0)
@@ -179,10 +183,18 @@ function main()
 
     mpicomm = MPI.COMM_WORLD
 
-    polynomialorder = 3
 
+    polynomialorder = 3
     numelem_horz = 8
     numelem_vert = 5
+    
+    #polynomialorder = 4
+    #numelem_horz = 10
+    #numelem_vert = 5
+    
+    #polynomialorder = 5
+    #numelem_horz = 12
+    #numelem_vert = 6
 
     #timeend = 5 * 43200
     #outputtime = 600
@@ -233,18 +245,25 @@ function run(
     T_profile = DecayingTemperatureProfile{FT}(param_set, FT(290), FT(220), FT(8e3))
 
 
+    if total_energy
+      sources = (Coriolis(),)
+    else
+      sources = (Coriolis(), Gravity())
+    end
     problem = BaroclinicWave()
     model = DryAtmosModel{FT}(SphericalOrientation(),
                               problem,
                               ref_state = DryReferenceState(T_profile),
-                              sources = (Coriolis(),)
+                              sources = sources
     )
 
     esdg = ESDGModel(
         model,
         grid,
         volume_numerical_flux_first_order = EntropyConservative(),
+        #volume_numerical_flux_first_order = CentralVolumeFlux(),
         surface_numerical_flux_first_order = MatrixFlux(),
+        #surface_numerical_flux_first_order = RusanovNumericalFlux(),
     )
 
     linearmodel = DryAtmosAcousticGravityLinearModel(model)
@@ -266,7 +285,7 @@ function run(
     #dt = dt_factor * element_size / acoustic_speed / polynomialorder^2
     #dx = min_node_distance(grid, HorizontalDirection())
     dx = min_node_distance(grid)
-    cfl = 4
+    cfl = 3
     dt = cfl * dx / acoustic_speed
 
     Q = init_ode_state(esdg, FT(0))
@@ -382,15 +401,16 @@ function run(
     callbacks = (cbinfo, cbcfl)
 
 
-    #filterorder = 14
+    #filterorder = 32
     #filter = ExponentialFilter(grid, 0, filterorder)
     #cbfilter = EveryXSimulationSteps(1) do
     #    Filters.apply!(
     #        Q,
-    #        AtmosFilterPerturbations(model),
+    #        #AtmosFilterPerturbations(model),
+    #        :,
     #        grid,
     #        filter,
-    #        state_auxiliary = esdg.state_auxiliary,
+    #       # state_auxiliary = esdg.state_auxiliary,
     #    )
     #    nothing
     #end
