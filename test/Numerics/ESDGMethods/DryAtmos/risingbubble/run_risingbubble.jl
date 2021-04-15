@@ -15,6 +15,7 @@ using ClimateMachine.VariableTemplates: flattenednames
 using ClimateMachine.ODESolvers
 using StaticArrays: @SVector
 using LazyArrays
+using JLD2
 
 using DoubleFloats
 using GaussQuadrature
@@ -22,62 +23,8 @@ GaussQuadrature.maxiterations[Double64] = 40
 
 using ClimateMachine.TemperatureProfiles: DryAdiabaticProfile
 
-include("DryAtmos.jl")
-include("../diagnostics.jl")
-
-struct RisingBubble <: AbstractDryAtmosProblem end
-
-function init_state_prognostic!(bl::DryAtmosModel, 
-                                ::RisingBubble,
-                                state, aux, localgeo, t)
-    (x, z, _) = localgeo.coord
-    ## Problem float-type
-    FT = eltype(state)
-
-    ## Unpack constant parameters
-    R_gas::FT = R_d(param_set)
-    c_p::FT = cp_d(param_set)
-    c_v::FT = cv_d(param_set)
-    p0::FT = MSLP(param_set)
-    _grav::FT = grav(param_set)
-    γ::FT = c_p / c_v
-
-    ## Define bubble center and background potential temperature
-    rc::FT = 250
-    xc::FT = 1000
-    zc::FT = rc + 10
-    r = sqrt((x - xc)^2 + (z - zc)^2)
-    θamplitude::FT = 0.5
-
-    ## Reference temperature
-    θ_ref::FT = 300
-
-    ## Add the thermal perturbation:
-    Δθ::FT = 0
-    if r <= rc
-        Δθ = θamplitude# * (1.0 - r / rc)
-    end
-
-    ## Compute perturbed thermodynamic state:
-    θ = θ_ref + Δθ                                      # potential temperature
-    π_exner = FT(1) - _grav / (c_p * θ) * z             # exner pressure
-    ρ = p0 / (R_gas * θ) * (π_exner)^(c_v / R_gas)      # density
-    T = θ * π_exner
-    e_int = internal_energy(param_set, T)
-    ts = PhaseDry(param_set, e_int, ρ)
-    ρu = SVector(FT(0), FT(0), FT(0))                   # momentum
-    ## State (prognostic) variable assignment
-    e_kin = FT(0)                                       # kinetic energy
-    e_pot = aux.Φ                                       # potential energy
-    _cv_d = cv_d(param_set)
-    e_int = _cv_d * T
-    ρe = ρ * (e_kin + e_pot + e_int)
-
-    ## Assign State Variables
-    state.ρ = ρ
-    state.ρu = ρu
-    state.ρe = ρe
-end
+include("risingbubble.jl")
+include("../../diagnostics.jl")
 
 function main()
     ClimateMachine.init()
@@ -85,42 +32,46 @@ function main()
     
     #FT = Double64
     FT = Float64
+    problem = RisingBubble{FT}()
 
     mpicomm = MPI.COMM_WORLD
-    polynomialorder = 4
-    Ne = (40, 40)
-
-    xmax = FT(2000)
-    zmax = FT(2000)
-
+    N = 4
+    Ne = (10, 10)
     timeend = 1000
-    result = run(
-        mpicomm,
-        polynomialorder,
-        Ne,
-        xmax,
-        zmax,
-        timeend,
-        ArrayType,
-        FT,
-    )
+
+    for surfaceflux in (EntropyConservative, MatrixFlux)
+      for relaxation in (true,)
+        result = run(
+            mpicomm,
+            N,
+            Ne,
+            timeend,
+            ArrayType,
+            FT,
+            problem,
+            surfaceflux,
+            relaxation
+        )
+      end
+    end
 end
 
 function run(
     mpicomm,
-    polynomialorder,
+    N,
     Ne,
-    xmax,
-    zmax,
     timeend,
     ArrayType,
     FT,
+    problem,
+    surfaceflux,
+    relaxation
 )
 
     dim = 2
     brickrange = (
-        range(FT(0), stop = xmax, length = Ne[1] + 1),
-        range(FT(0), stop = zmax, length = Ne[2] + 1),
+        range(FT(0), stop = problem.xmax, length = Ne[1] + 1),
+        range(FT(0), stop = problem.zmax, length = Ne[2] + 1),
     )
     boundary = ((0, 0), (1, 2))
     periodicity = (true, false)
@@ -134,15 +85,14 @@ function run(
         topology,
         FloatType = FT,
         DeviceArray = ArrayType,
-        polynomialorder = polynomialorder,
+        polynomialorder = N,
     )
 
-    T_surface = FT(300)
+    T_surface = FT(problem.θref)
     T_min_ref = FT(0)
     T_profile = DryAdiabaticProfile{FT}(param_set, T_surface, T_min_ref)
     ref_state = DryReferenceState(T_profile)
 
-    problem = RisingBubble()
     model = DryAtmosModel{dim}(FlatOrientation(),
                                problem;
                                ref_state=ref_state)
@@ -151,8 +101,7 @@ function run(
         model,
         grid;
         volume_numerical_flux_first_order = EntropyConservative(),
-        #surface_numerical_flux_first_order = EntropyConservative(),
-        surface_numerical_flux_first_order = MatrixFlux(),
+        surface_numerical_flux_first_order = surfaceflux(),
     )
 
     # determine the time step
@@ -173,8 +122,11 @@ function run(
       entropy_product(dg, η, Q1, Q2)
     end
 
-    odesolver = LSRK144NiegemannDiehlBusch(esdg, Q; dt = dt, t0 = 0)
-    #odesolver = RLSRK144NiegemannDiehlBusch(esdg, η_int, η_prod, Q; dt = dt, t0 = 0)
+    if relaxation
+      odesolver = RLSRK144NiegemannDiehlBusch(esdg, η_int, η_prod, Q; dt = dt, t0 = 0)
+    else
+      odesolver = LSRK144NiegemannDiehlBusch(esdg, Q; dt = dt, t0 = 0)
+    end
 
     eng0 = norm(Q)
     @info @sprintf """Starting
@@ -185,8 +137,10 @@ function run(
                       dt              = %.16e
                       norm(Q₀)        = %.16e
                       ∫η              = %.16e
-                      """ "$ArrayType" "$FT" polynomialorder Ne[1] dt eng0 ∫η0
+                      """ "$ArrayType" "$FT" N Ne[1] dt eng0 ∫η0
 
+
+    dη_timeseries = NTuple{2, FT}[]
     # Set up the information callback
     starttime = Ref(now())
     cbinfo = EveryXSimulationSteps(100) do (s = false)
@@ -195,6 +149,8 @@ function run(
         else
             ∫η = entropy_integral(esdg, η, Q)
             dη = (∫η - ∫η0) / abs(∫η0)
+            time = gettime(odesolver)
+            push!(dη_timeseries, (time, dη))
             energy = norm(Q)
             runtime = Dates.format(
                 convert(DateTime, now() - starttime[]),
@@ -211,29 +167,57 @@ function run(
     end
     callbacks = (cbinfo,)
 
-    output_vtk = true
+    relax = relaxation ? "lsrk" : "rlsrk"
+    outdir = "esdg_output/risingbubble/$N/$(Ne[1])x$(Ne[2])/$surfaceflux/$relax" 
+    outputtime = timeend / 10
+
+    output_vtk = false
     if output_vtk
         # create vtk dir
         Nelem = Ne[1]
-        vtkdir =
-            "test_RTB" *
-            "_poly$(polynomialorder)_dims$(dim)_$(ArrayType)_$(FT)_nelem$(Nelem)"
+        vtkdir = "$outdir/vtk/"
         mkpath(vtkdir)
 
         vtkstep = 0
         # output initial step
-        do_output(mpicomm, vtkdir, vtkstep, esdg, Q, model, polynomialorder)
+        do_output(mpicomm, vtkdir, vtkstep, esdg, Q, model, N)
 
         # setup the output callback
-        outputtime = timeend / 100
         cbvtk = EveryXSimulationSteps(floor(outputtime / dt)) do
             vtkstep += 1
-            do_output(mpicomm, vtkdir, vtkstep, esdg, Q, model, polynomialorder)
+            do_output(mpicomm, vtkdir, vtkstep, esdg, Q, model, N)
         end
         callbacks = (callbacks..., cbvtk)
     end
 
+    stepsdir = joinpath(outdir, "steps")
+    mkpath(stepsdir)
+    cbstep = EveryXSimulationSteps(floor(outputtime / dt)) do
+      step = getsteps(odesolver)
+      time = gettime(odesolver)
+      let
+        state_prognostic = Array(Q)
+        state_auxiliary = Array(esdg.state_auxiliary)
+        vgeo = Array(grid.vgeo)
+
+        @save(joinpath(stepsdir, "rtb_$step.jld2"),
+              model,
+              problem,
+              step,
+              time,
+              N,
+              Ne,
+              surfaceflux,
+              state_prognostic,
+              state_auxiliary,
+              vgeo)
+      end
+    end
+    callbacks = (callbacks..., cbstep)
+
     solve!(Q, odesolver; callbacks = callbacks, timeend = timeend)
+
+    @save(joinpath(outdir, "entropy_residual.jld2"), dη_timeseries)
 
     # final statistics
     engf = norm(Q)
