@@ -1,0 +1,188 @@
+using MPI
+using JLD2
+using Test
+using Dates
+using Printf
+using Logging
+using StaticArrays
+using LinearAlgebra
+
+using ClimateMachine
+using ClimateMachine.VTK
+using ClimateMachine.MPIStateArrays
+using ClimateMachine.VariableTemplates
+using ClimateMachine.Mesh.Geometry
+using ClimateMachine.Mesh.Topologies
+using ClimateMachine.Mesh.Grids
+using ClimateMachine.DGMethods
+using ClimateMachine.DGMethods.NumericalFluxes
+using ClimateMachine.BalanceLaws
+using ClimateMachine.ODESolvers
+using ClimateMachine.VTK
+
+# imports
+import ClimateMachine.VTK: writevtk
+import ClimateMachine.Mesh.Grids: polynomialorders
+
+# ×(a::SVector, b::SVector) = StaticArrays.cross(a, b)
+⋅(a::SVector, b::SVector) = StaticArrays.dot(a, b)
+⊗(a::SVector, b::SVector) = a * b'
+
+abstract type AbstractFluid <: BalanceLaw end
+struct Fluid <: AbstractFluid end
+
+include("abstractions.jl")
+include("domains.jl")
+include("grids.jl")
+include("mass_preserving_filter.jl")
+include("callbacks.jl")
+
+"""
+function coordinates(grid::DiscontinuousSpectralElementGrid)
+# Description
+Gets the (x,y,z) coordinates corresponding to the grid
+# Arguments
+- `grid`: DiscontinuousSpectralElementGrid
+# Return
+- `x, y, z`: views of x, y, z coordinates
+"""
+
+function evolve!(simulation, spatial_model; refDat = ())
+    Q = simulation.state
+
+    dg = simulation.model
+    Ns = polynomialorders(spatial_model)
+
+    if haskey(spatial_model.grid.resolution, :overintegration_order)
+        Nover = convention(spatial_model.grid.resolution.overintegration_order, Val(ndims(spatial_model.grid.domain)))
+    else
+        Nover = (0, 0, 0)
+    end
+
+    if haskey(spatial_model.numerics, :staggering)
+        stagger_bool = spatial_model.numerics.staggering
+    else
+        stagger_bool = false
+    end
+
+    # only works if Nover > 0
+    overintegration_filter!(Q, dg, Ns, Nover)
+
+    tendency = tendency_closure(dg, Ns, Nover, staggering = stagger_bool)
+
+    t0 = simulation.time.start
+    Δt = simulation.timestepper.timestep
+    timestepper = simulation.timestepper.method
+
+    odesolver = timestepper(tendency, Q, dt = Δt, t0 = t0)
+
+    cbvector = create_callbacks(simulation, odesolver)
+
+    if isempty(cbvector)
+        solve!(Q, odesolver; timeend = simulation.time.finish)
+    else
+        solve!(
+            Q,
+            odesolver;
+            timeend = simulation.time.finish,
+            callbacks = cbvector,
+        )
+    end
+
+    # Check results against reference if StateCheck callback is used
+    # TODO: TB: I don't think this should live within this function
+    if any(typeof.(simulation.callbacks) .<: StateCheck)
+      check_inds = findall(typeof.(simulation.callbacks) .<: StateCheck)
+      @assert length(check_inds) == 1 "Only use one StateCheck in callbacks!"
+
+      ClimateMachine.StateCheck.scprintref(cbvector[check_inds[1]])
+      if length(refDat) > 0
+        @test ClimateMachine.StateCheck.scdocheck(cbvector[check_inds[1]], refDat)
+      end
+    end
+
+    return Q
+end
+
+function tendency_closure(dg, Ns, Nover; staggering = false)
+    if staggering
+        function staggered_tendency(tendency, x...; kw...)
+            dg(tendency, x...; kw...)
+            overintegration_filter!(tendency, dg, Ns, Nover)
+            staggering_filter!(tendency, dg, Ns, Nover)
+            return nothing
+        end
+    else
+        function custom_tendency(tendency, x...; kw...)
+            dg(tendency, x...; kw...)
+            overintegration_filter!(tendency, dg, Ns, Nover)
+            return nothing
+        end
+    end
+end
+
+function overintegration_filter!(state_array, dgmodel, Ns, Nover)
+    if sum(Nover) > 0
+        cutoff_order = Ns .+ 1 # yes this is confusing
+        cutoff = MassPreservingCutoffFilter(dgmodel.grid, cutoff_order)
+        num_state_prognostic = number_states(dgmodel.balance_law, Prognostic())
+        filterstates = 1:num_state_prognostic
+        ClimateMachine.Mesh.Filters.apply!(
+            state_array,
+            filterstates,
+            dgmodel.grid,
+            cutoff,
+        )
+       
+    end
+
+    return nothing
+end
+
+function staggering_filter!(state_array, dgmodel, Ns, Nover)
+    if sum(Nover) > 0
+        cutoff_order = Ns .+ 0 # one polynomial order less than scalars
+        cutoff = MassPreservingCutoffFilter(dgmodel.grid, cutoff_order)
+        num_state_prognostic = number_states(dgmodel.balance_law, Prognostic())
+        filterstates = 2:4
+        ClimateMachine.Mesh.Filters.apply!(
+            state_array,
+            filterstates,
+            dgmodel.grid,
+            cutoff,
+        )
+       
+    end
+
+    return nothing
+end
+
+function uniform_grid(Ω::AbstractDomain; resolution = (32, 32, 32))
+    dims = ndims(Ω)
+    resolution = resolution[1:dims]
+    uniform = []
+    for i in 1:dims
+        push!(uniform, range(Ω[i].min, Ω[i].max, length = resolution[i]))
+    end
+    return Tuple(uniform)
+end
+
+# most useful function in Julia
+function printcolors()
+    for i in 1:255
+        printstyled("color = "*string(i)*", ", color = i)
+        if i%10==0
+            println()
+        end
+    end
+end
+
+function writevtk(filename, simulation)
+    dg = simulation.model        
+    model = dg.balance_law
+    Q = simulation.state
+    statenames = flattenednames(vars_state(model, Prognostic(), eltype(Q)))
+    auxnames = flattenednames(vars_state(model, Auxiliary(), eltype(Q)))
+    writevtk(filename, Q, dg, statenames, dg.state_auxiliary, auxnames)
+    return nothing
+end
