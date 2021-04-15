@@ -691,7 +691,7 @@ function numerical_boundary_flux_first_order!(
     )
 
     numerical_flux_first_order!(
-        RoesanovFlux(ω_roe = 1.0-1e-4, ω_rusanov = 1e-4), #CentralNumericalFluxFirstOrder(),
+        RoesanovFlux(ω_roe = 0.0, ω_rusanov = 1.0), #CentralNumericalFluxFirstOrder(),
         balance_law,
         fluxᵀn,
         normal_vector,
