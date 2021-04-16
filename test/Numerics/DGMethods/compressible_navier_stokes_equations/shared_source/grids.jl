@@ -236,7 +236,7 @@ function DiscretizedDomain(
 )
     new_polynomial_order  = convention(polynomial_order, Val(2)) 
     new_polynomial_order = new_polynomial_order  .+ convention(overintegration_order, Val(2))
-    vertical, horizontal = new_polynomial_order
+    horizontal, vertical = new_polynomial_order
     grid = DiscontinuousSpectralElementGrid(
         domain,
         elements = elements,
