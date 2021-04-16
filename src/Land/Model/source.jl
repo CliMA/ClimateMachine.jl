@@ -69,18 +69,32 @@ function land_source!(
     precip = bc.precip_model(t)
     # Assume that diffusive- is parallel or antiparallel to n^, since diff+ is
     # Then
-    n̂ = diffusive.soil.water.K∇h/norm(diffusive.soil.water.K∇h)
-
-    flux_vector = -diffusive.soil.water.K∇h
-    precip_vector = dot(n̂,(0,0,precip)) * n̂
-    Δ = precip_vector .- flux_vector
-    S  = dot(Δ,n̂)
-    if S< eltype(state)(0.0) # More precip than infiltration, or e.g. precip = 0 but exfiltration
-        leftover = -S
-    else
-        leftover = eltype(state)(0.0) # no reinfiltration
-    end
-    source.river.area += leftover
+    #n̂ = diffusive.soil.water.K∇h/norm(diffusive.soil.water.K∇h)
+    
+    # Negative if into soil
+    # Precip is negative if into soil
+    #this returns |K∇h|, so add minus sign
+    infiltration = -compute_surface_grad_bc(
+        land.soil,
+        bc.runoff_model,
+        bc.precip_model,
+        state,
+        diffusive,
+        aux,
+        t,
+    )
+    source.river.area  += -(precip - infiltration)
+#    flux_vector = - infiltration * n̂
+#    flux_vector = -diffusive.soil.water.K∇h
+#    precip_vector = dot(n̂,(0,0,precip)) * n̂
+#    Δ = precip_vector .- flux_vector
+#    S  = dot(Δ,n̂)
+#    if S< eltype(state)(0.0) # More precip than infiltration, or e.g. precip = 0 but exfiltration
+#        leftover = -S
+#    else
+#        leftover = eltype(state)(0.0) # no reinfiltration
+#    end
+#    source.river.area += leftover
                                       
 end
 

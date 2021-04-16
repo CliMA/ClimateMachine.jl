@@ -27,7 +27,7 @@ using ClimateMachine.BalanceLaws:
     BalanceLaw, Prognostic, Auxiliary, Gradient, GradientFlux, vars_state
 
 
-FT = Float32;
+FT = Float64;
 
 function warp_constant_slope(xin, yin, zin; topo_max = 0.2, zmin = -5, xmax = 400)
     FT = eltype(xin)
@@ -74,7 +74,7 @@ dt = FT(dts[2])
 zres = FT(p[2])
 name = names[2]
 N_poly = 1
-xres = FT(40.0)
+xres = FT(80.0)
 yres = FT(1.0)
 # Specify the domain boundaries.
 zmax = FT(0.0)
@@ -84,7 +84,7 @@ ymax = FT(1.0)
 Δz = zres/2
 # # Parameters
 νp = 0.4
-Ksat =6.94e-5/60
+Ksat =6.94e-6/60
 S_s = 5e-4
 vg_α = FT(1.0)
 vg_n = FT(2.0)
@@ -345,8 +345,8 @@ end
 
 
 #    solution = analytic.(time_data, alpha, t_c, t_r, i, L, m)
-filename = string(string("./tutorials/Land/Soil/Runoff/K2_",name),"_H40_P1.jld2")
-save(filename,"dons",dons)
+#filename = string(string("./tutorials/Land/Soil/Runoff/K2_",name),"_H40_P1.jld2")
+#save(filename,"dons",dons)
 
 
     #plot(time_data ./ 60,solution, label = "analytic; no interaction")

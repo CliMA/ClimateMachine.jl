@@ -27,7 +27,7 @@ using ClimateMachine.BalanceLaws:
     BalanceLaw, Prognostic, Auxiliary, Gradient, GradientFlux, vars_state
 using JLD2, FileIO
 
-FT = Float32;
+FT = Float64;
 
 function warp_constant_slope(xin, yin, zin; topo_max = 0.2, zmin = -5, xmax = 400)
     FT = eltype(xin)
@@ -84,7 +84,7 @@ for index in [1,2,3]
     Δz = zres/2
     # # Parameters
     νp = 0.4
-    Ksat =6.94e-5/60
+    Ksat =6.94e-6/60
     S_s = 5e-4
     vg_α = FT(1.0)
     vg_n = FT(2.0)
@@ -345,9 +345,9 @@ for index in [1,2,3]
     
     
     #    solution = analytic.(time_data, alpha, t_c, t_r, i, L, m)
-    filename = string(string("./tutorials/Land/Soil/Runoff/K2_",names[index]),"_H80_P1.jld2")
+    filename = string(string("./tutorials/Land/Soil/Runoff/K3_",names[index]),"_H80_P1.jld2")
     save(filename,"dons", dons)
-    filename = string(string("./tutorials/Land/Soil/Runoff/K2_aux_",names[index]),"_H80_P1.jld2")
+    filename = string(string("./tutorials/Land/Soil/Runoff/K3_aux_",names[index]),"_H80_P1.jld2")
     save(filename,"aux", aux)
 end
 

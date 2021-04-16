@@ -90,7 +90,7 @@ function compute_surface_grad_bc(
 )
     FT = eltype(state⁻)
     incident_water_flux = precip_model(t)
-    Δz = runoff_model.Δz
+    Δz = FT(0.1)#10 cm#runoff_model.Δz
     water = soil.water
     param_functions = soil.param_functions
     hydraulics = water.hydraulics
@@ -100,8 +100,7 @@ function compute_surface_grad_bc(
     T = get_temperature(soil.heat, aux⁻, t)
     θ_i = state⁻.soil.water.θ_i
     # Ponding Dirichlet BC
-    ## ONLY for overland flow
-    ϑ_bc = ν#+specific_storage*state⁻.river.area#FT(ν - θ_i)
+    ϑ_bc = ν
     # Value below surface
     ϑ_below = state⁻.soil.water.ϑ_l
 
@@ -126,14 +125,12 @@ function compute_surface_grad_bc(
         )
 
     i_c = (K * ∂h∂z)
-    if incident_water_flux < -i_c#-norm(diff⁻.soil.water.K∇h) #-i_c#More negative if both are negative,
+    if incident_water_flux < -i_c
         #ponding BC
-        K∇h⁺ = i_c#min(i_c,-incident_water_flux) #i_c
+        K∇h⁺ = i_c
     else
-        #K∇h⁺ = n̂ * (-FT(2) * incident_water_flux) - diff⁻.soil.water.K∇h
         K∇h⁺ = - incident_water_flux
     end
-    #@printf("%lf %lf %lf %lf %le %le %le \n", t, aux⁻.x, aux⁻.y, aux⁻.z, -i_c, incident_water_flux, -norm(diff⁻.soil.water.K∇h))
     return K∇h⁺ # now a scalar
 end
 
