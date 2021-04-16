@@ -200,7 +200,7 @@ function main()
     #outputtime = 600
 
     timeend = 30 * 24 * 3600
-    outputtime = 24 * 3600
+    outputtime = 10 * 24 * 3600
 
     FT = Float64
     result = run(
@@ -260,10 +260,11 @@ function run(
     esdg = ESDGModel(
         model,
         grid,
-        volume_numerical_flux_first_order = EntropyConservative(),
         #volume_numerical_flux_first_order = CentralVolumeFlux(),
-        surface_numerical_flux_first_order = MatrixFlux(),
-        #surface_numerical_flux_first_order = RusanovNumericalFlux(),
+        #volume_numerical_flux_first_order = EntropyConservative(),
+        volume_numerical_flux_first_order = KGVolumeFlux(),
+        #surface_numerical_flux_first_order = MatrixFlux(),
+        surface_numerical_flux_first_order = RusanovNumericalFlux(),
     )
 
     linearmodel = DryAtmosAcousticGravityLinearModel(model)
@@ -419,7 +420,7 @@ function run(
     if output_vtk
         # create vtk dir
         vtkdir =
-            "vtk_esdg_baroclinic" *
+            "vtk_esdg_total_KG_ncg_hires_baroclinic" *
             "_poly$(polynomialorder)_horz$(numelem_horz)_vert$(numelem_vert)" *
             "_$(ArrayType)_$(FT)"
         mkpath(vtkdir)
