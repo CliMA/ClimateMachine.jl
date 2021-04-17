@@ -216,8 +216,7 @@ function DiscontinuousSpectralElementGrid(
         topl,
         FloatType = FT,
         DeviceArray = array,
-        polynomialorder = (polynomialorder.vertical, polynomialorder.horizontal),
-        #meshwarp = ClimateMachine.Mesh.Topologies.cubedshellwarp,
+        polynomialorder = (polynomialorder.horizontal, polynomialorder.vertical),
         meshwarp = cubedshellwarp,
     )
     return grid
