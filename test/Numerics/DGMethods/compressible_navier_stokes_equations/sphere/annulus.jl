@@ -20,7 +20,7 @@ yc(r, θ) = r * cos(θ)
 
 # Now construct the discretization
 # Construct Gauss-Lobatto points
-N1 = 4
+N1 = 1
 ξ1vec, ω1 = GaussQuadrature.legendre(N1 + 1, GaussQuadrature.both)
 ω1 = reshape(ω1, (N1+1,1))
 N2 = 2
@@ -61,7 +61,7 @@ for i in 1:size(∂x∂ξ²)[1]
 end
 jacobian = zeros(size(x_positions)..., (2,2)...)
 
-# Construct convenient object for entries
+# Construct convenient object for entries, The columns are the covariant vectors
 jacobian[:,:,1,1] .= ∂x∂ξ¹
 jacobian[:,:,1,2] .= ∂x∂ξ²
 jacobian[:,:,2,1] .= ∂y∂ξ¹
@@ -75,8 +75,25 @@ approx_area = sum(M)
 wrongness = (exact_area - approx_area) / exact_area
 println("The error in computing the area is ", wrongness)
 
+# Construct contravariant basis numerically, these are the face normals
+ijacobian = copy(jacobian) # the rows are the contravariant vectors
+for i in 1:length(ξ1vec), j in 1:length(ξ2vec)
+    tmp = inv(jacobian[i,j,:,:])
+    ijacobian[i,j,:,:] .= tmp
+end
+ijacobian[1,1,:,:]
+x_positions[1,1], y_positions[1,1]
+
+# face 2 is the linear side
+approx_vec = ijacobian[1,1,2,:] ./ norm(ijacobian[1,1,2,:])
+exact_vec = [y_positions[1,1], -x_positions[1,1]] ./ norm([y_positions[1,1], -x_positions[1,1]])
+println("angle face error ", norm(approx_vec - exact_vec) / norm(exact_vec))
+# face 1 is the curvy side
+approx_vec = ijacobian[1,1,1,:] ./ norm(ijacobian[1,1,1,:])
+exact_vec = [x_positions[1,1], y_positions[1,1]] ./ norm([x_positions[1,1], y_positions[1,1]])
+println("radial face error ", norm(approx_vec - exact_vec) / norm(exact_vec))
 ##
-fig = scatter(x_positions[:], y_positions[:])
+fig = scatter(x_positions[:], y_positions[:], color = :red)
 xlims!(fig.axis, (-1.1,1.1))
 ylims!(fig.axis, (-1.1,1.1))
 display(fig)
