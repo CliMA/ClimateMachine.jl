@@ -11,12 +11,12 @@ r2 = 1.0 # outer radius
 
 # mappings
 # annulus mappings
-R(ξ¹; r_inner = r1, r_outer = r2) = (r_outer - r_inner) * (ξ¹ + 1)/2 + r_inner
+R(ξ¹; r1 = r1, r2 = r2) = (r2 - r1) * (ξ¹ + 1)/2 + r1
 Θ(ξ²; θ1 = π/2-φ, θ2 = π/2+φ) = (θ2 - θ1) * (ξ² + 1)/2 + θ1
 
 # annulus to cartesian mappings
-xc(r, θ) = r * sin(θ)
-yc(r, θ) = r * cos(θ)
+xc(r, θ) = r * cos(θ)
+yc(r, θ) = r * sin(θ)
 
 # Now construct the discretization
 # Construct Gauss-Lobatto points
@@ -67,7 +67,7 @@ jacobian[:,:,1,2] .= ∂x∂ξ²
 jacobian[:,:,2,1] .= ∂y∂ξ¹
 jacobian[:,:,2,2] .= ∂y∂ξ²
 
-detJ = [abs(det(jacobian[i,j,:,:])) for i in 1:length(ξ1vec), j in 1:length(ξ2vec)]
+detJ = [det(jacobian[i,j,:,:]) for i in 1:length(ξ1vec), j in 1:length(ξ2vec)]
 M = detJ .* ω1 .* ω2
 exact_area = (r2^2 - r1^2) * φ
 approx_area = sum(M)
@@ -86,7 +86,7 @@ x_positions[1,1], y_positions[1,1]
 
 # face 2 is the linear side
 approx_vec = ijacobian[1,1,2,:] ./ norm(ijacobian[1,1,2,:])
-exact_vec = [y_positions[1,1], -x_positions[1,1]] ./ norm([y_positions[1,1], -x_positions[1,1]])
+exact_vec = [-y_positions[1,1], x_positions[1,1]] ./ norm([y_positions[1,1], -x_positions[1,1]])
 println("angle face error ", norm(approx_vec - exact_vec) / norm(exact_vec))
 # face 1 is the curvy side
 approx_vec = ijacobian[1,1,1,:] ./ norm(ijacobian[1,1,1,:])
