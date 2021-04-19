@@ -89,9 +89,6 @@ function config_greenvortex(
     (xmin, xmax, ymin, ymax, zmin, zmax),
     resolution,
 ) where {FT}
-    ode_solver = ClimateMachine.ExplicitSolverType(
-        solver_method = LSRK144NiegemannDiehlBusch,
-    )
 
     _C_smag = FT(C_smag(param_set))
     physics = AtmosPhysics{FT}(
@@ -123,7 +120,6 @@ function config_greenvortex(
         xmin = xmin,
         ymin = ymin,
         zmin = zmin,
-        solver_type = ode_solver,       # Time-integrator type
         model = model,                  # Model type
     )
     return config
@@ -204,10 +200,16 @@ function main()
         (xmin, xmax, ymin, ymax, zmin, zmax),
         resolution,
     )
+
+    ode_solver_type = ClimateMachine.ExplicitSolverType(
+        solver_method = LSRK144NiegemannDiehlBusch,
+    )
+
     solver_config = ClimateMachine.SolverConfiguration(
         t0,
         timeend,
         driver_config,
+        ode_solver_type = ode_solver_type,
         init_on_cpu = true,
         Courant_number = CFL,
     )

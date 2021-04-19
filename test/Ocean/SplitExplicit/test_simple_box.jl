@@ -39,7 +39,7 @@ const FT = Float64
         ClimateMachine.Ocean.SplitExplicit01.OceanSurfaceStressForcing(),
     )
 
-    config = config_simple_box(
+    config, solver_type = config_simple_box(
         "test_simple_box",
         resolution,
         dimensions,
@@ -48,6 +48,6 @@ const FT = Float64
         dt_fast = FT(240),
     )
 
-    run_simple_box(config, timespan; refDat = refDat)
+    run_simple_box(config, timespan, solver_type.dt_slow; refDat = refDat)
 
 end

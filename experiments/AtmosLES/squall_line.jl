@@ -294,8 +294,6 @@ function config_squall_line(
         source = source,
     )
 
-    ode_solver = ClimateMachine.IMEXSolverType()
-
     config = ClimateMachine.AtmosLESConfiguration(
         "Squall_line",
         N,
@@ -307,7 +305,6 @@ function config_squall_line(
         init_squall_line!,
         xmin = xmin,
         ymin = ymin,
-        solver_type = ode_solver,
         model = model,
         periodicity = (true, true, false),
         boundary = ((2, 2), (2, 2), (1, 2)),
@@ -418,11 +415,13 @@ function main()
         moisture_model,
         precipitation_model,
     )
+    ode_solver_type = ClimateMachine.IMEXSolverType()
     solver_config = ClimateMachine.SolverConfiguration(
         t0,
         timeend,
         driver_config,
         (spl_tinit, spl_qinit, spl_uinit, spl_vinit, spl_pinit);
+        ode_solver_type = ode_solver_type,
         init_on_cpu = true,
         Courant_number = Cmax,
     )

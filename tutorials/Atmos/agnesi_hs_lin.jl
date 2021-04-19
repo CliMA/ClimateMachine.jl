@@ -217,12 +217,6 @@ function config_agnesi_hs_lin(
     rayleigh_sponge =
         RayleighSponge{FT}(zmax, z_s, sponge_ampz, u_relaxation, 2)
 
-    ## Define the time integrator:
-    ## We chose an explicit single-rate LSRK144 for this problem
-    ode_solver = ClimateMachine.ExplicitSolverType(
-        solver_method = LSRK144NiegemannDiehlBusch,
-    )
-
     ## Setup the source terms for this problem:
     source = (Gravity(), rayleigh_sponge)
 
@@ -256,7 +250,6 @@ function config_agnesi_hs_lin(
         zmax,                    # Domain maximum size [m]
         param_set,               # Parameter set.
         init_agnesi_hs_lin!,     # Function specifying initial condition
-        solver_type = ode_solver,# Time-integrator type
         model = model,           # Model type
         meshwarp = setmax(warp_agnesi, xmax, ymax, zmax),
     )
@@ -293,10 +286,18 @@ function main()
 
     ## Assign configurations so they can be passed to the `invoke!` function
     driver_config = config_agnesi_hs_lin(FT, N, resolution, xmax, ymax, zmax)
+
+    ## Define the time integrator:
+    ## We chose an explicit single-rate LSRK144 for this problem
+    ode_solver_type = ClimateMachine.ExplicitSolverType(
+        solver_method = LSRK144NiegemannDiehlBusch,
+    )
+
     solver_config = ClimateMachine.SolverConfiguration(
         t0,
         timeend,
         driver_config,
+        ode_solver_type = ode_solver_type,
         init_on_cpu = true,
         Courant_number = CFL,
     )

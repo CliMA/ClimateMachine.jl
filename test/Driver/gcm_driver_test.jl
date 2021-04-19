@@ -85,7 +85,7 @@ function main()
         source = (Gravity(),),
     )
 
-    ode_solver = ClimateMachine.MultirateSolverType(
+    ode_solver_type = ClimateMachine.MultirateSolverType(
         splitting_type = ClimateMachine.HEVISplitting(),
         fast_model = AtmosAcousticGravityLinearModel,
         implicit_solver_adjustable = true,
@@ -100,13 +100,13 @@ function main()
         setup.domain_height,
         param_set,
         setup;
-        solver_type = ode_solver,
         model = model,
     )
     solver_config = ClimateMachine.SolverConfiguration(
         t0,
         timeend,
         driver_config,
+        ode_solver_type = ode_solver_type,
         ode_dt = dt,
     )
 

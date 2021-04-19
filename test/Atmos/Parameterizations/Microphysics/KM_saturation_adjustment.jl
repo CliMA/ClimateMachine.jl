@@ -200,7 +200,7 @@ function main()
     idx_bc_bottom = 1
     idx_bc_top = 2
 
-    driver_config = config_kinematic_eddy(
+    driver_config, ode_solver_type = config_kinematic_eddy(
         FT,
         N,
         resolution,
@@ -223,10 +223,12 @@ function main()
         idx_bc_bottom,
         idx_bc_top,
     )
+
     solver_config = ClimateMachine.SolverConfiguration(
         t_ini,
         t_end,
         driver_config;
+        ode_solver_type = ode_solver_type,
         ode_dt = dt,
         init_on_cpu = true,
         #Courant_number = CFL,

@@ -39,9 +39,6 @@ function main(cl_args)
     timeend = FT(3600 * 0.1)
     CFLmax = FT(0.4)
 
-    # Choose default IMEX solver
-    ode_solver_type = ClimateMachine.ExplicitSolverType()
-
     C_smag_ = C_smag(param_set) #FT(0.23)
 
     model = stable_bl_model(
@@ -64,14 +61,17 @@ function main(cl_args)
         zmax,
         param_set,
         init_problem!,
-        solver_type = ode_solver_type,
         model = model,
     )
+
+    # Choose default IMEX solver
+    ode_solver_type = ClimateMachine.ExplicitSolverType()
 
     solver_config = ClimateMachine.SolverConfiguration(
         t0,
         timeend,
         driver_config,
+        ode_solver_type = ode_solver_type,
         init_on_cpu = true,
         Courant_number = CFLmax,
     )

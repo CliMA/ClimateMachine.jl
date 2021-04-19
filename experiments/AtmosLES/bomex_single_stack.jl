@@ -61,14 +61,14 @@ function main()
         nelem_vert,
         zmax,
         param_set,
-        model;
-        solver_type = ode_solver_type,
+        model,
     )
 
     solver_config = ClimateMachine.SolverConfiguration(
         t0,
         timeend,
         driver_config,
+        ode_solver_type = ode_solver_type,
         init_on_cpu = true,
         Courant_number = CFLmax,
     )

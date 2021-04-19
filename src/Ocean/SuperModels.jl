@@ -167,7 +167,6 @@ function HydrostaticBoussinesqSuperModel(;
         (domain.Np, domain.Np),
         eltype(domain),
         array_type,
-        timestepper,
         parameter_set(equations),
         equations,
         MPI.COMM_WORLD,

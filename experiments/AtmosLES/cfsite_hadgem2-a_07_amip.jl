@@ -460,10 +460,9 @@ function config_cfsites(
         param_set,
         init_cfsites!,
         #ZS: multi-rate?
-        solver_type = imex_solver,
         model = model,
     )
-    return config
+    return config, imex_solver
 end
 
 # Define the diagnostics configuration (Atmos-Default)
@@ -545,7 +544,7 @@ function main()
     )
 
     # Set up driver configuration
-    driver_config = config_cfsites(
+    driver_config, ode_solver_type = config_cfsites(
         FT,
         N,
         resolution,
@@ -564,6 +563,7 @@ function main()
         driver_config,
         splines;
         init_on_cpu = true,
+        ode_solver_type = ode_solver_type,
         Courant_number = CFL,
         CFL_direction = HorizontalDirection(),
     )

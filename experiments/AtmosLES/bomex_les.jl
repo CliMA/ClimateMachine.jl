@@ -80,7 +80,6 @@ function main()
         zmax,
         param_set,
         ics;
-        solver_type = ode_solver_type,
         model = model,
     )
 

@@ -170,17 +170,6 @@ function config_problem(::Type{FT}, N, resolution, xmax, ymax, zmax) where {FT}
         data_config = data_config,
     )
 
-    ## Set up the time-integrator, using a multirate infinitesimal step
-    ## method. The option `splitting_type = ClimateMachine.SlowFastSplitting()`
-    ## separates fast-slow modes by splitting away the acoustic waves and
-    ## treating them via a sub-stepped explicit method.
-    ode_solver = ClimateMachine.MISSolverType(;
-        splitting_type = ClimateMachine.SlowFastSplitting(),
-        mis_method = MIS2,
-        fast_method = LSRK144NiegemannDiehlBusch,
-        nsubsteps = (40,),
-    )
-
     config = ClimateMachine.AtmosLESConfiguration(
         "DryRayleighBenardConvection",
         N,
@@ -190,7 +179,6 @@ function config_problem(::Type{FT}, N, resolution, xmax, ymax, zmax) where {FT}
         zmax,
         param_set,
         init_problem!,
-        solver_type = ode_solver,
         model = model,
     )
     return config
@@ -226,10 +214,23 @@ function main()
             Δv = Δh
             resolution = (Δh, Δh, Δv)
             driver_config = config_problem(FT, N, resolution, xmax, ymax, zmax)
+
+            ## Set up the time-integrator, using a multirate infinitesimal step
+            ## method. The option `splitting_type = ClimateMachine.SlowFastSplitting()`
+            ## separates fast-slow modes by splitting away the acoustic waves and
+            ## treating them via a sub-stepped explicit method.
+            ode_solver_type = ClimateMachine.MISSolverType(;
+                splitting_type = ClimateMachine.SlowFastSplitting(),
+                mis_method = MIS2,
+                fast_method = LSRK144NiegemannDiehlBusch,
+                nsubsteps = (40,),
+            )
+
             solver_config = ClimateMachine.SolverConfiguration(
                 t0,
                 timeend,
                 driver_config,
+                ode_solver_type = ode_solver_type,
                 init_on_cpu = true,
                 Courant_number = CFLmax,
             )

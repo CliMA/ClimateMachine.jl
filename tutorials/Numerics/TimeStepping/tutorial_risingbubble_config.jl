@@ -187,26 +187,6 @@ function config_risingbubble(
     ymax,
     zmax,
 ) where {FT}
-
-    ## Choose an Explicit Single-rate Solver from the existing [`ODESolvers`](@ref ClimateMachine.ODESolvers) options.
-    ## Apply the outer constructor to define the `ode_solver`.
-    ## The 1D-IMEX method is less appropriate for the problem given the current
-    ## mesh aspect ratio (1:1).
-    ode_solver = ClimateMachine.ExplicitSolverType(
-        solver_method = LSRK144NiegemannDiehlBusch,
-    )
-    ## If the user prefers a multi-rate explicit time integrator,
-    ## the ode_solver above can be replaced with
-    ##
-    ## `ode_solver = ClimateMachine.MultirateSolverType(
-    ##    fast_model = AtmosAcousticGravityLinearModel,
-    ##    slow_method = LSRK144NiegemannDiehlBusch,
-    ##    fast_method = LSRK144NiegemannDiehlBusch,
-    ##    timestep_ratio = 10,
-    ## )`
-    ## See [ODESolvers](@ref ODESolvers-docs) for all of the available solvers.
-
-
     ## Since we want four tracers, we specify this and include the appropriate
     ## diffusivity scaling coefficients (normally these would be physically
     ## informed but for this demonstration we use integers corresponding to the
@@ -252,7 +232,6 @@ function config_risingbubble(
         zmax,                    ## Domain maximum size [m]
         param_set,               ## Parameter set.
         init_risingbubble!,      ## Function specifying initial condition
-        ## solver_type = ode_solver,## Time-integrator type
         model = model,           ## Model type
     )
     return config
@@ -274,7 +253,7 @@ function config_diagnostics(driver_config)
     return ClimateMachine.DiagnosticsConfiguration([dgngrp])
 end
 
-function run_simulation(ode_solver, CFL::FT, timeend::FT) where {FT}
+function run_simulation(ode_solver_type, CFL::FT, timeend::FT) where {FT}
 
     ## We need to specify the polynomial order for the DG discretization,
     ## effective resolution, simulation end-time, the domain bounds, and the
@@ -302,7 +281,7 @@ function run_simulation(ode_solver, CFL::FT, timeend::FT) where {FT}
         driver_config,
         init_on_cpu = true,
         Courant_number = CFL,
-        ode_solver_type = ode_solver,
+        ode_solver_type = ode_solver_type,
     )
     dgn_config = config_diagnostics(driver_config)
     @show solver_config.ode_solver_type

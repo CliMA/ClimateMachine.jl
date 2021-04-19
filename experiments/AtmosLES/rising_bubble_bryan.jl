@@ -177,10 +177,9 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax, fast_method)
         zmax,
         param_set,
         init_risingbubble!,
-        solver_type = ode_solver,
         model = model,
     )
-    return config
+    return config, ode_solver
 end
 
 function config_diagnostics(driver_config)
@@ -228,12 +227,13 @@ function main()
     # Time-step size (s)
     Δt = FT(0.4)
 
-    driver_config =
+    driver_config, ode_solver_type =
         config_risingbubble(FT, N, resolution, xmax, ymax, zmax, fast_method)
     solver_config = ClimateMachine.SolverConfiguration(
         t0,
         timeend,
         driver_config,
+        ode_solver_type = ode_solver_type,
         init_on_cpu = true,
         ode_dt = Δt,
     )

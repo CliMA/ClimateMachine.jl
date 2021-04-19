@@ -178,7 +178,6 @@ function OceanSplitExplicitConfiguration(
         (polyorder_horz, polyorder_vert),
         FT,
         array_type,
-        solver_type,
         param_set,
         model_3D,
         mpicomm,
@@ -231,14 +230,14 @@ function config_simple_box(
         N,
         resolution,
         param_set,
-        model_3D;
-        solver_type = SplitExplicitSolverType{FT}(dt_slow, dt_fast),
+        model_3D,
     )
+    solver_type = SplitExplicitSolverType{FT}(dt_slow, dt_fast)
 
-    return config
+    return config, solver_type
 end
 
-function run_simple_box(driver_config, timespan; refDat = ())
+function run_simple_box(driver_config, timespan, dt_slow; refDat = ())
 
     timestart, timeend = timespan
     solver_config = ClimateMachine.SolverConfiguration(
@@ -246,7 +245,7 @@ function run_simple_box(driver_config, timespan; refDat = ())
         timeend,
         driver_config,
         init_on_cpu = true,
-        ode_dt = driver_config.solver_type.dt_slow,
+        ode_dt = dt_slow,
     )
 
     ## Create a callback to report state statistics for main MPIStateArrays

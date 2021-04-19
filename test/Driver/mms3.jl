@@ -92,7 +92,7 @@ function main()
     nsteps = ceil(Int64, timeend / ode_dt)
     ode_dt = timeend / nsteps
 
-    ode_solver = ClimateMachine.ExplicitSolverType(
+    ode_solver_type = ClimateMachine.ExplicitSolverType(
         solver_method = LSRK54CarpenterKennedy,
     )
 
@@ -149,7 +149,6 @@ function main()
         (N, N),
         FT,
         ClimateMachine.array_type(),
-        ode_solver,
         param_set,
         model,
         MPI.COMM_WORLD,
@@ -166,7 +165,7 @@ function main()
         t0,
         timeend,
         driver_config,
-        ode_solver_type = ode_solver,
+        ode_solver_type = ode_solver_type,
         ode_dt = ode_dt,
     )
     Q₀ = solver_config.Q
@@ -187,7 +186,7 @@ function main()
         t0,
         timeend,
         driver_config,
-        ode_solver_type = ode_solver,
+        ode_solver_type = ode_solver_type,
         ode_dt = ode_dt,
     )
 

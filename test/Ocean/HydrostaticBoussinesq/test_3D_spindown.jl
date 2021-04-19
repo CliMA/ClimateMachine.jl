@@ -42,7 +42,7 @@ function config_simple_box(
         fₒ = FT(0),
         β = FT(0),
     )
-
+    solver_type = ExplicitSolverType(solver_method = LSRK144NiegemannDiehlBusch)
     config = ClimateMachine.OceanBoxGCMConfiguration(
         "hydrostatic_spindown",
         N,
@@ -53,7 +53,7 @@ function config_simple_box(
         boundary = ((0, 0), (0, 0), (1, 2)),
     )
 
-    return config
+    return config, solver_type
 end
 
 function run_hydrostatic_test(; imex::Bool = false, BC = nothing, refDat = ())
@@ -87,7 +87,8 @@ function run_hydrostatic_test(; imex::Bool = false, BC = nothing, refDat = ())
         )
     end
 
-    driver = config_simple_box(FT, N, resolution, dimensions; BC = BC)
+    driver, solver_type_driver_config =
+        config_simple_box(FT, N, resolution, dimensions; BC = BC)
 
     grid = driver.grid
     N = polynomialorders(grid)
