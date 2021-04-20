@@ -1,6 +1,8 @@
 module Ocean
 
 using ..BalanceLaws
+using ..CartesianDomains
+using ..CartesianFields
 using ..Problems
 
 export AbstractOceanModel,
@@ -29,9 +31,6 @@ function ocean_boundary_state! end
 function coriolis_parameter end
 function kinematic_stress end
 function surface_flux end
-
-include(joinpath("Domains", "Domains.jl"))
-include(joinpath("Fields", "Fields.jl"))
 
 include("OceanBC.jl")
 

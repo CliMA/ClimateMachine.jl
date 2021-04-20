@@ -1,4 +1,4 @@
-using ..Domains: RectangularDomain
+using ..CartesianDomains: RectangularDomain
 
 """ Like a linear index... """
 function linear_coordinate(elem, domain, cpu_x, cpu_y, cpu_z)

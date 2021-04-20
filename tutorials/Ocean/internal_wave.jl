@@ -14,7 +14,7 @@ ClimateMachine.init()
 #
 # We formulate a non-dimension problem in a Cartesian domain with oceanic anisotropy,
 
-using ClimateMachine.Ocean.Domains
+using ClimateMachine.CartesianDomains
 
 domain = RectangularDomain(
     Ne = (32, 1, 4),
@@ -118,7 +118,7 @@ nothing
 # cache the horizontal velocity ``u`` at periodic intervals:
 
 using ClimateMachine.Ocean: current_time
-using ClimateMachine.Ocean.Fields: assemble
+using ClimateMachine.CartesianFields: assemble
 using ClimateMachine.GenericCallbacks: EveryXSimulationTime
 
 fetched_states = []

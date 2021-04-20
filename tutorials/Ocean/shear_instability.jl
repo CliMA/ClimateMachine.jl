@@ -12,8 +12,8 @@ ClimateMachine.init()
 ClimateMachine.Settings.array_type = Array
 
 using ClimateMachine.Ocean
-using ClimateMachine.Ocean.Domains
-using ClimateMachine.Ocean.Fields
+using ClimateMachine.CartesianDomains
+using ClimateMachine.CartesianFields
 
 using ClimateMachine.GenericCallbacks: EveryXSimulationTime
 using ClimateMachine.Ocean: current_step, Δt, current_time
