@@ -102,6 +102,11 @@ if generate_tutorials
 
     # Prepend tutorials_dir
     tutorials_jl = flatten_to_array_of_strings(get_second(tutorials))
+    if run_single_tutorial
+        tutorials_jl =
+            filter(x -> occursin(tutorial_string_match, x), tutorials_jl)
+        tutorials = ["Single tutorial mode" => tutorials_jl[1]]
+    end
     println("Building literate tutorials...")
 
     @everywhere function generate_tutorial(tutorials_dir, tutorial)
