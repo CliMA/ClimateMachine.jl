@@ -15,14 +15,12 @@ using ..BalanceLaws
 import ..BalanceLaws:
     BalanceLaw,
     prognostic_vars,
+    get_prog_state,
     flux,
     source,
     eq_tends,
     precompute,
     vars_state,
-    flux_first_order!,
-    flux_second_order!,
-    source!,
     boundary_conditions,
     parameter_set,
     boundary_state!,
@@ -139,16 +137,6 @@ function nodal_init_state_auxiliary!(
     land_init_aux!(land, land.soil, aux, geom)
 end
 
-function flux_first_order!(
-    land::LandModel,
-    flux::Grad,
-    state::Vars,
-    aux::Vars,
-    t::Real,
-    directions,
-) end
-
-
 function compute_gradient_argument!(
     land::LandModel,
     transform::Vars,
@@ -181,28 +169,6 @@ function compute_gradient_flux!(
 
 end
 
-function flux_second_order!(
-    land::LandModel,
-    flux::Grad,
-    state::Vars,
-    diffusive::Vars,
-    hyperdiffusive::Vars,
-    aux::Vars,
-    t::Real,
-)
-    tend = Flux{SecondOrder}()
-    _args = (; state, aux, t, diffusive, hyperdiffusive)
-    args = merge(_args, (precomputed = precompute(land, _args, tend),))
-
-    map(prognostic_vars(land)) do prog
-        var, name = get_prog_state(flux, prog)
-        val = Σfluxes(prog, eq_tends(prog, land, tend), land, args)
-        setproperty!(var, name, val)
-    end
-    nothing
-
-end
-
 function nodal_update_auxiliary_state!(
     land::LandModel,
     state::Vars,
@@ -211,29 +177,6 @@ function nodal_update_auxiliary_state!(
 )
     land_nodal_update_auxiliary_state!(land, land.soil, state, aux, t)
 end
-
-
-function source!(
-    land::LandModel,
-    source::Vars,
-    state::Vars,
-    diffusive::Vars,
-    aux::Vars,
-    t::Real,
-    direction,
-)
-    tend = Source()
-    _args = (; state, aux, t, direction, diffusive)
-    args = merge(_args, (precomputed = precompute(land, _args, tend),))
-
-    map(prognostic_vars(land)) do prog
-        var, name = get_prog_state(source, prog)
-        val = Σsources(prog, eq_tends(prog, land, tend), land, args)
-        setproperty!(var, name, val)
-    end
-    nothing
-end
-
 
 function init_state_prognostic!(
     land::LandModel,
