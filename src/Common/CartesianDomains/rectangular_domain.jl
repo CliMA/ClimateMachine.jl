@@ -1,10 +1,8 @@
 using MPI
 
-using ClimateMachine: Settings
+using ..Mesh.Topologies: StackedBrickTopology
 
-using ClimateMachine.Mesh.Topologies: StackedBrickTopology
-
-import ClimateMachine.Mesh.Grids: DiscontinuousSpectralElementGrid
+import ..Mesh.Grids: DiscontinuousSpectralElementGrid
 
 #####
 ##### RectangularDomain
@@ -116,13 +114,12 @@ function RectangularDomain(
     )
 end
 
-array_type(domain::RectangularDomain) = Settings.array_type
 eltype(::RectangularDomain{FT}) where {FT} = FT
 
 function DiscontinuousSpectralElementGrid(
     domain::RectangularDomain{FT};
     boundary_tags = ((0, 0), (0, 0), (1, 2)),
-    array_type = Settings.array_type,
+    array_type,
     mpicomm = MPI.COMM_WORLD,
 ) where {FT}
 

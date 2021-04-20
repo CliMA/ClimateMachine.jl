@@ -25,6 +25,8 @@ apis = [
     ],
     "Common" => [
         "Orientations" => "APIs/Common/Orientations.md",
+        "Cartesian Domains" => "APIs/Common/CartesianDomains.md",
+        "Cartesian Fields" => "APIs/Common/CartesianFields.md",
         "Spectra" => "APIs/Common/Spectra.md",
         "Surface Fluxes" => "APIs/Common/SurfaceFluxes.md",
         "Thermodynamics" => "APIs/Common/Thermodynamics.md",

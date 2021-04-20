@@ -1,4 +1,4 @@
-using ..Domains: RectangularDomain
+using ..CartesianDomains: RectangularDomain
 
 #####
 ##### RectangularElement

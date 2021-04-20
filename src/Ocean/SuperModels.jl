@@ -13,9 +13,8 @@ using ..HydrostaticBoussinesq:
     HydrostaticBoussinesqModel, NonLinearAdvectionTerm, Forcing
 
 using ..OceanProblems: InitialValueProblem, InitialConditions
-using ..Domains: array_type
 using ..Ocean: FreeSlip, Impenetrable, Insulating, OceanBC, Penetrable
-using ..Ocean.Fields: SpectralElementField
+using ..CartesianFields: SpectralElementField
 
 using ...Mesh.Filters: CutoffFilter, ExponentialFilter
 using ...Mesh.Grids: polynomialorders, DiscontinuousSpectralElementGrid

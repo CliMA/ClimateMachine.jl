@@ -1,4 +1,4 @@
-module Domains
+module CartesianDomains
 
 export RectangularDomain
 

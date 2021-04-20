@@ -2,7 +2,7 @@ using ClimateMachine
 
 ClimateMachine.init()
 
-using ClimateMachine.Ocean.Domains
+using ClimateMachine.CartesianDomains
 
 using CLIMAParameters: AbstractEarthParameterSet
 struct DefaultParameters <: AbstractEarthParameterSet end
