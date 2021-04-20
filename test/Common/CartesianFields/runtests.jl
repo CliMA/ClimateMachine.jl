@@ -2,9 +2,9 @@ using ClimateMachine
 
 ClimateMachine.init()
 
-using ClimateMachine.Ocean.Fields: RectangularElement, assemble
+using ClimateMachine.CartesianFields: RectangularElement, assemble
 
-@testset "$(@__FILE__)" begin
+@testset "Cartesian fields" begin
 
     Nx = 3
     Ny = 4

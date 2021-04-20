@@ -27,6 +27,8 @@ include(joinpath(
 include(joinpath("Common", "SurfaceFluxes", "SurfaceFluxes.jl"))
 include(joinpath("Arrays", "MPIStateArrays.jl"))
 include(joinpath("Numerics", "Mesh", "Mesh.jl"))
+include(joinpath("Common", "CartesianDomains", "CartesianDomains.jl"))
+include(joinpath("Common", "CartesianFields", "CartesianFields.jl"))
 include(joinpath("Numerics", "DGMethods", "Courant.jl"))
 include(joinpath("BalanceLaws", "Problems.jl"))
 include(joinpath("BalanceLaws", "BalanceLaws.jl"))

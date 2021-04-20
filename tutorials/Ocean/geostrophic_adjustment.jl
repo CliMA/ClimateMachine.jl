@@ -16,7 +16,7 @@ ClimateMachine.init()
 # deep, and discretized on a grid with 100 fourth-order elements in ``x``, and 1
 # fourth-order element in ``y, z``,
 
-using ClimateMachine.Ocean.Domains
+using ClimateMachine.CartesianDomains
 
 domain = RectangularDomain(
     Ne = (25, 1, 1),
@@ -147,7 +147,7 @@ nothing
 using Printf
 using Plots
 using ClimateMachine.GenericCallbacks: EveryXSimulationSteps
-using ClimateMachine.Ocean.Fields: assemble
+using ClimateMachine.CartesianFields: assemble
 using ClimateMachine.Ocean: current_step, current_time
 
 u, v, η, θ = model.fields

@@ -1,13 +1,13 @@
-module Fields
+module CartesianFields
 
 export SpectralElementField, assemble, data
 
 using CUDA
 using Printf
 
-using ClimateMachine.Mesh.Grids: DiscontinuousSpectralElementGrid
-using ClimateMachine.MPIStateArrays: MPIStateArray
-using ..Domains: AbstractDomain
+using ..Mesh.Grids: DiscontinuousSpectralElementGrid
+using ..MPIStateArrays: MPIStateArray
+using ..CartesianDomains: AbstractDomain
 
 #####
 ##### SpectralElementField

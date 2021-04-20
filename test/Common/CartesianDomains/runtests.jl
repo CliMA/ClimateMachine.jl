@@ -2,9 +2,9 @@ using ClimateMachine
 
 ClimateMachine.init()
 
-using ClimateMachine.Ocean.Domains
+using ClimateMachine.CartesianDomains
 
-@testset "$(@__FILE__)" begin
+@testset "Cartesian domains" begin
 
     for FT in (Float64, Float32)
         domain = RectangularDomain(

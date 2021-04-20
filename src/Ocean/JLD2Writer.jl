@@ -2,9 +2,9 @@ module JLD2Writers
 
 using JLD2
 
-using ClimateMachine.Ocean.Domains: DiscontinuousSpectralElementGrid
-using ClimateMachine.Ocean: current_step, current_time
-using ..Fields: SpectralElementField
+using ..CartesianDomains: DiscontinuousSpectralElementGrid
+using ..Ocean: current_step, current_time
+using ..CartesianFields: SpectralElementField
 
 struct JLD2Writer{A, F, M, O}
     filepath::F
