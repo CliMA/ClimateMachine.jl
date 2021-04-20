@@ -7,7 +7,7 @@ export creategrid, compute_reference_to_physical_coord_jacobian, computemetric
 """
     creategrid!(vgeo, elemtocoord, ξ)
 
-Create a 1-D grid using `elemtocoord` (see [`brickmesh`](@ref)) using the 1-D
+Create a 1-D grid using `elemtocoord` (see `brickmesh`) using the 1-D
 `(-1, 1)` reference coordinates `ξ` (in 1D, `ξ = ξ1`). The element grids
 are filled using linear interpolation of the element coordinates.
 
@@ -37,7 +37,7 @@ end
 """
     creategrid!(vgeo, elemtocoord, ξ)
 
-Create a 2-D tensor product grid using `elemtocoord` (see [`brickmesh`](@ref))
+Create a 2-D tensor product grid using `elemtocoord` (see `brickmesh`)
 using the tuple `ξ = (ξ1, ξ2)`, composed by the 1D reference coordinates `ξ1` and `ξ2` in `(-1, 1)^2`.
 The element grids are filled using bilinear interpolation of the element coordinates.
 
@@ -74,7 +74,7 @@ end
 """
     creategrid!(vgeo, elemtocoord, ξ)
 
-Create a 3-D tensor product grid using `elemtocoord` (see [`brickmesh`](@ref))
+Create a 3-D tensor product grid using `elemtocoord` (see `brickmesh`)
 using the tuple `ξ = (ξ1, ξ2, ξ3)`, composed by the 1D reference coordinates `ξ1`, `ξ2`, `ξ3` in `(-1, 1)^3`.
 The element grids are filled using trilinear interpolation of the element coordinates.
 
@@ -324,7 +324,6 @@ If `Nq = (size(D1, 1), size(D2, 1))` and `nelem = div(length(vgeo.x1), prod(Nq))
 then the volume arrays `vgeo.x1`, `vgeo.x2`, `vgeo.ωJ`, `vgeo.ξ1x1`, `vgeo.ξ2x1`, `vgeo.ξ1x2`, and `vgeo.ξ2x2`
 should all be of size `(Nq..., nelem)`.  Similarly, the face arrays `sgeo.sωJ`, `sgeo.n1`,
 and `sgeo.n2` should be of size `(maximum(Nq), nface, nelem)` with `nface = 4`
-
 """
 function computemetric!(
     vgeo::VolumeGeometry{Nq, <:AbstractArray, <:AbstractArray},
@@ -474,6 +473,10 @@ function computemetric!(
     (yzr, yzs, yzt) = (similar(JI2), similar(JI2), similar(JI2))
     (zxr, zxs, zxt) = (similar(JI2), similar(JI2), similar(JI2))
     (xyr, xys, xyt) = (similar(JI2), similar(JI2), similar(JI2))
+    # Temporary variables to compute inverse of a 3x3 matrix
+    (a11, a12, a13) = (similar(JI2), similar(JI2), similar(JI2))
+    (a21, a22, a23) = (similar(JI2), similar(JI2), similar(JI2))
+    (a31, a32, a33) = (similar(JI2), similar(JI2), similar(JI2))
 
     ξ1x1 .= ξ2x1 .= ξ3x1 .= zero(T)
     ξ1x2 .= ξ2x2 .= ξ3x2 .= zero(T)
@@ -571,6 +574,97 @@ function computemetric!(
             ξ1x3[i, j, k, e] *= JI2[i, j, k]
             ξ2x3[i, j, k, e] *= JI2[i, j, k]
             ξ3x3[i, j, k, e] *= JI2[i, j, k]
+
+
+            # Invert ∂ξk/∂xi, since the discrete curl-invariant form that we have
+            # just computed, ∂ξk/∂xi, is not equal to its inverse
+            a11[i, j, k] =
+                ξ2x2[i, j, k, e] * ξ3x3[i, j, k, e] -
+                ξ2x3[i, j, k, e] * ξ3x2[i, j, k, e]
+            a12[i, j, k] =
+                ξ1x3[i, j, k, e] * ξ3x2[i, j, k, e] -
+                ξ1x2[i, j, k, e] * ξ3x3[i, j, k, e]
+            a13[i, j, k] =
+                ξ1x2[i, j, k, e] * ξ2x3[i, j, k, e] -
+                ξ1x3[i, j, k, e] * ξ2x2[i, j, k, e]
+            a21[i, j, k] =
+                ξ2x3[i, j, k, e] * ξ3x1[i, j, k, e] -
+                ξ2x1[i, j, k, e] * ξ3x3[i, j, k, e]
+            a22[i, j, k] =
+                ξ1x1[i, j, k, e] * ξ3x3[i, j, k, e] -
+                ξ1x3[i, j, k, e] * ξ3x1[i, j, k, e]
+            a23[i, j, k] =
+                ξ1x3[i, j, k, e] * ξ2x1[i, j, k, e] -
+                ξ1x1[i, j, k, e] * ξ2x3[i, j, k, e]
+            a31[i, j, k] =
+                ξ2x1[i, j, k, e] * ξ3x2[i, j, k, e] -
+                ξ2x2[i, j, k, e] * ξ3x1[i, j, k, e]
+            a32[i, j, k] =
+                ξ1x2[i, j, k, e] * ξ3x1[i, j, k, e] -
+                ξ1x1[i, j, k, e] * ξ3x2[i, j, k, e]
+            a33[i, j, k] =
+                ξ1x1[i, j, k, e] * ξ2x2[i, j, k, e] -
+                ξ1x2[i, j, k, e] * ξ2x1[i, j, k, e]
+
+            det =
+                ξ1x1[i, j, k, e] * a11[i, j, k] +
+                ξ2x1[i, j, k, e] * a12[i, j, k] +
+                ξ3x1[i, j, k, e] * a13[i, j, k]
+
+            x1ξ1[i, j, k, e] =
+                1.0 / det * (
+                    a11[i, j, k] * a11[i, j, k] +
+                    a12[i, j, k] * a12[i, j, k] +
+                    a13[i, j, k] * a13[i, j, k]
+                )
+            x1ξ2[i, j, k, e] =
+                1.0 / det * (
+                    a11[i, j, k] * a21[i, j, k] +
+                    a12[i, j, k] * a22[i, j, k] +
+                    a13[i, j, k] * a23[i, j, k]
+                )
+            x1ξ3[i, j, k, e] =
+                1.0 / det * (
+                    a11[i, j, k] * a31[i, j, k] +
+                    a12[i, j, k] * a32[i, j, k] +
+                    a13[i, j, k] * a33[i, j, k]
+                )
+            x2ξ1[i, j, k, e] =
+                1.0 / det * (
+                    a21[i, j, k] * a11[i, j, k] +
+                    a22[i, j, k] * a12[i, j, k] +
+                    a23[i, j, k] * a13[i, j, k]
+                )
+            x2ξ2[i, j, k, e] =
+                1.0 / det * (
+                    a21[i, j, k] * a21[i, j, k] +
+                    a22[i, j, k] * a22[i, j, k] +
+                    a23[i, j, k] * a23[i, j, k]
+                )
+            x2ξ3[i, j, k, e] =
+                1.0 / det * (
+                    a21[i, j, k] * a31[i, j, k] +
+                    a22[i, j, k] * a32[i, j, k] +
+                    a23[i, j, k] * a33[i, j, k]
+                )
+            x3ξ1[i, j, k, e] =
+                1.0 / det * (
+                    a31[i, j, k] * a11[i, j, k] +
+                    a32[i, j, k] * a12[i, j, k] +
+                    a33[i, j, k] * a13[i, j, k]
+                )
+            x3ξ2[i, j, k, e] =
+                1.0 / det * (
+                    a31[i, j, k] * a21[i, j, k] +
+                    a32[i, j, k] * a22[i, j, k] +
+                    a33[i, j, k] * a23[i, j, k]
+                )
+            x3ξ3[i, j, k, e] =
+                1.0 / det * (
+                    a31[i, j, k] * a31[i, j, k] +
+                    a32[i, j, k] * a32[i, j, k] +
+                    a33[i, j, k] * a33[i, j, k]
+                )
         end
 
         # Compute surface struct field entries

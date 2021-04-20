@@ -139,7 +139,7 @@ const sgeoid = (
     sMid = _sM,
     # Volume mass matrix at the surface nodes (needed in the lift operation,
     # i.e., the projection of a face field back to the volume). Since DGSEM is
-    # used only collocated volume mass matrices are required.
+    # used only collocated, volume mass matrices are required.
     vMIid = _vMI,
 )
 # }}}
@@ -301,6 +301,8 @@ struct DiscontinuousSpectralElementGrid{
         (vgeo, sgeo, x_vtk) =
             computegeometry(topology.elemtocoord, D, ξ, ω, meshwarp)
 
+        vgeo = vgeo.array
+        sgeo = sgeo.array
         @assert Np == size(vgeo, 1)
 
         activedofs = zeros(Bool, Np * length(topology.elems))
@@ -486,6 +488,24 @@ function get_z(
     return reshape(grid.vgeo[(1:Nph:Np), _x3, :], :) * z_scale
 end
 
+function Base.getproperty(G::DiscontinuousSpectralElementGrid, s::Symbol)
+    if s ∈ keys(vgeoid)
+        vgeoid[s]
+    elseif s ∈ keys(sgeoid)
+        sgeoid[s]
+    else
+        getfield(G, s)
+    end
+end
+
+function Base.propertynames(G::DiscontinuousSpectralElementGrid)
+    (
+        fieldnames(DiscontinuousSpectralElementGrid)...,
+        keys(vgeoid)...,
+        keys(sgeoid)...,
+    )
+end
+
 # {{{ mappings
 """
     mappings(N, elemtoelem, elemtoface, elemtoordr)
@@ -648,7 +668,7 @@ function commmapping(N, commelems, commfaces, nabrtocomm)
     (vmapC, nabrtovmapC)
 end
 
-# Compute geometry
+# Compute geometry FVM version
 function computegeometry_fvm(elemtocoord, D, ξ, ω, meshwarp)
     FT = eltype(D[1])
     dim = length(D)
@@ -837,17 +857,6 @@ function computegeometry_fvm(elemtocoord, D, ξ, ω, meshwarp)
                         sM[:]
 
                     num_sgeo_handled += 3
-                    # for fld in (_n1, _n2, _n3)
-                    # fld_N1 = reshape(
-                    #     sgeo_N1[fld, 1:Nfp_N1[d], f, :],
-                    #     Nq_f_N1...,
-                    #     nelem,
-                    # )
-                    # sgeo[fld, 1:Nfp[d], f, :][:] .=
-                    #     sum(sM_N1 .* fld_N1, dims = findall(Nq_f .== 1))[:] ./
-                    #     sM[:]
-                    # num_sgeo_handled += 1
-                    # end
 
                     # set the volume inverse mass matrix
                     sgeo.vωJI[1:Nfp[d], f, :] .= vgeo.ωJI[fmask[f], :]
@@ -867,15 +876,13 @@ end
     computegeometry(elemtocoord, D, ξ, ω, meshwarp)
 
 Compute the geometric factors data needed to define metric terms at
-each quadrature point. First, compute so called "topology coordinates" from
-reference coordinates ξ. Then map these topology coordinate
-to physical coordinates. Then setup the geometric factors data necessary at
-each quadrature point by calling [`setup_geom_factors_data!`](@ref). Then
-compute the Jacobian of the mapping from reference coordinates to physical
-coordinates, i.e., ∂x/∂ξ. Finally, compute the metric terms by calling the
-function [`computemetric!`](@ref).
+each quadrature point. First, compute the so called "topology coordinates"
+from reference coordinates ξ. Then map these topology coordinate
+to physical coordinates. Then compute the Jacobian of the mapping from
+reference coordinates to physical coordinates, i.e., ∂x/∂ξ, by calling
+`compute_reference_to_physical_coord_jacobian!`.
+Finally, compute the metric terms by calling the function `computemetric!`.
 """
-
 function computegeometry(elemtocoord, D, ξ, ω, meshwarp)
     FT = eltype(D[1])
     dim = length(D)

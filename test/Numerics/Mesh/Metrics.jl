@@ -46,7 +46,8 @@ const _nsgeo = Grids._nsgeo
             vgeo = reshape(
                 vgeo.array,
                 Nq...,
-                fieldcount(GeometricFactors.VolumeGeometry),
+                # - 1 after fieldcount is to remove the `array` field from the array allocation
+                fieldcount(GeometricFactors.VolumeGeometry) - 1,
                 nelem,
             )
             @test vgeo[:, _x1, 1] ≈ (ξ[1] .- 1) / 2
@@ -92,7 +93,8 @@ const _nsgeo = Grids._nsgeo
             vgeo = reshape(
                 vgeo.array,
                 Nq...,
-                fieldcount(GeometricFactors.VolumeGeometry),
+                # - 1 after fieldcount is to remove the `array` field from the array allocation
+                fieldcount(GeometricFactors.VolumeGeometry) - 1,
                 nelem,
             )
             @test vgeo[1, _x1, 1] ≈ sum(e2c[:, :, 1]) / 2
@@ -217,7 +219,8 @@ end
             vgeo = reshape(
                 vgeo.array,
                 Nq...,
-                fieldcount(GeometricFactors.VolumeGeometry),
+                # - 1 after fieldcount is to remove the `array` field from the array allocation
+                fieldcount(GeometricFactors.VolumeGeometry) - 1,
                 nelem,
             )
 
@@ -271,7 +274,8 @@ end
                 vgeo = reshape(
                     vgeo.array,
                     Nq...,
-                    fieldcount(GeometricFactors.VolumeGeometry),
+                    # - 1 after fieldcount is to remove the `array` field from the array allocation
+                    fieldcount(GeometricFactors.VolumeGeometry) - 1,
                     nelem,
                 )
                 ξ1, ξ2 = vgeo[:, :, _x1, :], vgeo[:, :, _x2, :]
@@ -285,7 +289,8 @@ end
             vgeo = reshape(
                 vgeo.array,
                 Nq...,
-                fieldcount(GeometricFactors.VolumeGeometry),
+                # - 1 after fieldcount is to remove the `array` field from the array allocation
+                fieldcount(GeometricFactors.VolumeGeometry) - 1,
                 nelem,
             )
             x1 = @view vgeo[:, :, _x1, :]
@@ -340,7 +345,8 @@ end
             vgeo = reshape(
                 vgeo.array,
                 Nq...,
-                fieldcount(GeometricFactors.VolumeGeometry),
+                # - 1 after fieldcount is to remove the `array` field from the array allocation
+                fieldcount(GeometricFactors.VolumeGeometry) - 1,
                 nelem,
             )
             x1 = @view vgeo[:, :, _x1, :]
@@ -424,7 +430,8 @@ end
             vgeo = reshape(
                 vgeo.array,
                 Nq...,
-                fieldcount(GeometricFactors.VolumeGeometry),
+                # - 1 after fieldcount is to remove the `array` field from the array allocation
+                fieldcount(GeometricFactors.VolumeGeometry) - 1,
                 nelem,
             )
             @test x1 ≈ vgeo[:, :, _x1, :]
@@ -513,7 +520,8 @@ end
             vgeo = reshape(
                 vgeo.array,
                 prod(Nq),
-                fieldcount(GeometricFactors.VolumeGeometry),
+                # - 1 after fieldcount is to remove the `array` field from the array allocation
+                fieldcount(GeometricFactors.VolumeGeometry) - 1,
                 nelem,
             )
             M = vgeo[:, _M, :]
@@ -631,7 +639,8 @@ end
         vgeo = reshape(
             vgeo.array,
             Nq...,
-            fieldcount(GeometricFactors.VolumeGeometry),
+            # - 1 after fieldcount is to remove the `array` field from the array allocation
+            fieldcount(GeometricFactors.VolumeGeometry) - 1,
             nelem,
         )
 
@@ -735,7 +744,8 @@ end
             vgeo = reshape(
                 vgeo.array,
                 Nq...,
-                fieldcount(GeometricFactors.VolumeGeometry),
+                # - 1 after fieldcount is to remove the `array` field from the array allocation
+                fieldcount(GeometricFactors.VolumeGeometry) - 1,
                 nelem,
             )
             ξ1 = vgeo[:, :, :, _x1, :]
@@ -773,7 +783,8 @@ end
         vgeo = reshape(
             vgeo.array,
             Nq...,
-            fieldcount(GeometricFactors.VolumeGeometry),
+            # - 1 after fieldcount is to remove the `array` field from the array allocation
+            fieldcount(GeometricFactors.VolumeGeometry) - 1,
             nelem,
         )
 
@@ -906,7 +917,8 @@ end
         vgeo = reshape(
             vgeo.array,
             Nq...,
-            fieldcount(GeometricFactors.VolumeGeometry),
+            # - 1 after fieldcount is to remove the `array` field from the array allocation
+            fieldcount(GeometricFactors.VolumeGeometry) - 1,
             nelem,
         )
 
@@ -1049,7 +1061,8 @@ end
             vgeo = reshape(
                 vgeo.array,
                 Nq...,
-                fieldcount(GeometricFactors.VolumeGeometry),
+                # - 1 after fieldcount is to remove the `array` field from the array allocation
+                fieldcount(GeometricFactors.VolumeGeometry) - 1,
                 nelem,
             )
 
@@ -1248,7 +1261,8 @@ end
             vgeo = reshape(
                 vgeo.array,
                 prod(Nq),
-                fieldcount(GeometricFactors.VolumeGeometry),
+                # - 1 after fieldcount is to remove the `array` field from the array allocation
+                fieldcount(GeometricFactors.VolumeGeometry) - 1,
                 nelem,
             )
 
@@ -1345,7 +1359,8 @@ end
             vgeo = reshape(
                 vgeo.array,
                 prod(Nq),
-                fieldcount(GeometricFactors.VolumeGeometry),
+                # - 1 after fieldcount is to remove the `array` field from the array allocation
+                fieldcount(GeometricFactors.VolumeGeometry) - 1,
                 nelem,
             )
 
