@@ -352,7 +352,6 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
                         dependencies = exchange_state_gradient_flux,
                         check_for_crashes = dg.check_for_crashes,
                     )
-
                 # Update_aux_diffusive may start asynchronous work on the
                 # compute device and we synchronize those here through a device
                 # event.

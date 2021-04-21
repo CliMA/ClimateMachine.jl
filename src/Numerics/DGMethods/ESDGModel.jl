@@ -198,7 +198,6 @@ function (esdg::ESDGModel)(
             dependencies = (comp_stream,),
         )
     end
-
     # interfaces: Horizontal => Nfp_v and Vertical => Nfp_h
     # mirror surface tendency: interior
     Nfp = info.Nfp_v
