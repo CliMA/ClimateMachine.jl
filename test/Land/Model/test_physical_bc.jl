@@ -168,12 +168,12 @@ end
         return FT(S * porosity)
     end
     N_poly = 2
-    nelem_vert = 50
+    nelem_vert = 25
 
     # Specify the domain boundaries
     zmax = FT(0)
     zmin = FT(-0.35)
-    Δz = abs(FT((zmin - zmax) / nelem_vert / 2))
+    Δz = FT(0.01)#abs(FT((zmin - zmax) / nelem_vert / 2))
 
     ϑ_l0 =
         (aux) -> eltype(aux)(hydrostatic_profile(
@@ -243,9 +243,35 @@ end
         ode_dt = dt,
     )
     state_types = (Prognostic(), Auxiliary(), GradientFlux())
+    n_outputs = 4
+    mygrid = solver_config.dg.grid
+    every_x_simulation_time = ceil(Int, timeend / n_outputs)
+    state_types = (Prognostic(), Auxiliary(), GradientFlux())
+    dons_arr =
+        Dict[dict_of_nodal_states(solver_config, state_types; interp = true)]
+    time_data = FT[0] # store time data
 
-    ClimateMachine.invoke!(solver_config;)# user_callbacks = (callback,))
-    srf_dons = dict_of_nodal_states(solver_config, state_types; interp = true)
+    # We specify a function which evaluates `every_x_simulation_time` and returns
+    # the state vector, appending the variables we are interested in into
+    # `dons_arr`.
+
+    callback = GenericCallbacks.EveryXSimulationTime(every_x_simulation_time) do
+        dons = dict_of_nodal_states(solver_config, state_types; interp = true)
+        push!(dons_arr, dons)
+        push!(time_data, gettime(solver_config.solver))
+        nothing
+    end
+
+    # # Run the integration
+    ClimateMachine.invoke!(solver_config; user_callbacks = (callback,))
+
+    dons = dict_of_nodal_states(solver_config, state_types; interp = true)
+    push!(dons_arr, dons)
+    push!(time_data, gettime(solver_config.solver))
+
+    # Get z-coordinate
+    z = get_z(solver_config.dg.grid; rm_dupes = true)
+    srf_dons = dons_arr#dict_of_nodal_states(solver_config, state_types; interp = true)
 
 
     ###### Repeat with explicit dirichlet BC
@@ -297,8 +323,36 @@ end
         ode_dt = dt,
     )
 
-    ClimateMachine.invoke!(solver_config2;)
-    dir_dons = dict_of_nodal_states(solver_config2, state_types; interp = true)
+        n_outputs = 4
+    mygrid = solver_config.dg.grid
+    every_x_simulation_time = ceil(Int, timeend / n_outputs)
+    state_types = (Prognostic(), Auxiliary(), GradientFlux())
+    dons_arr =
+        Dict[dict_of_nodal_states(solver_config2, state_types; interp = true)]
+    time_data = FT[0] # store time data
+
+    # We specify a function which evaluates `every_x_simulation_time` and returns
+    # the state vector, appending the variables we are interested in into
+    # `dons_arr`.
+
+    callback = GenericCallbacks.EveryXSimulationTime(every_x_simulation_time) do
+        dons = dict_of_nodal_states(solver_config2, state_types; interp = true)
+        push!(dons_arr, dons)
+        push!(time_data, gettime(solver_config2.solver))
+        nothing
+    end
+
+    # # Run the integration
+    ClimateMachine.invoke!(solver_config2; user_callbacks = (callback,))
+
+    dons = dict_of_nodal_states(solver_config2, state_types; interp = true)
+    push!(dons_arr, dons)
+    push!(time_data, gettime(solver_config2.solver))
+
+    # Get z-coordinate
+    z = get_z(solver_config2.dg.grid; rm_dupes = true)
+
+    dir_dons = dons_arr#dict_of_nodal_states(solver_config2, state_types; interp = true)
     # Here we take the solution near the surface, where changes between the two
     # would occur.
     @test mean(

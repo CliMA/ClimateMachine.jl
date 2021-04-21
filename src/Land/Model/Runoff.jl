@@ -105,13 +105,14 @@ function compute_surface_grad_bc(
     ϑ_bc = FT(ν - θ_i)
     # Value below surface
     ϑ_below = state⁻.soil.water.ϑ_l
-
+    pressure_below = pressure_head(hydraulics, param_functions, ϑ_below, θ_i)
+#    pressure_below = (aux⁻.soil.water.h - aux⁻.z) + (diff⁻.soil.water.K∇h[3]/aux⁻.soil.water.K-FT(1))*Δz
     # Approximate derivative of hydraulic head with respect to z
     ∂h∂z =
         FT(1) +
         (
             pressure_head(hydraulics, param_functions, ϑ_bc, θ_i) -
-            pressure_head(hydraulics, param_functions, ϑ_below, θ_i)
+            pressure_below
         ) / Δz
 
     K =
