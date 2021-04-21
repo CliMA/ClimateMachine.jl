@@ -141,17 +141,20 @@ boundary conditions.
 The user should supply an instance of `LandComponentBC` for each piece, as needed.
 If none is supplied, the default for is `NoBC` for each subcomponent. At a minimum, both top and bottom boundary conditions should be supplied. Whether or not to include the lateral faces depends on the configuration of the domain.
 """
-Base.@kwdef struct LandDomainBC{TBC, BBC, LBC}
+Base.@kwdef struct LandDomainBC{TBC, BBC, MinXBC, MaxXBC, MinYBC, MaxYBC}
     "surface boundary conditions"
     surface_bc::TBC = LandComponentBC()
     "bottom boundary conditions"
     bottom_bc::BBC = LandComponentBC()
     "lateral boundary conditions"
-    lateral_bc::LBC = LandComponentBC()
+    minx_bc::MinXBC = LandComponentBC()
+    maxx_bc::MaxXBC = LandComponentBC()
+    miny_bc::MinYBC = LandComponentBC()
+    maxy_bc::MaxYBC = LandComponentBC()
 end
 
 """
-    LandComponentBC{SW, SH}
+    LandComponentBC{SW, SH, SF}
 
 An object that holds the boundary conditions for each of the subcomponents
 of the land model. 
@@ -163,9 +166,11 @@ needs to define the BC for the components they wish to model.
 Base.@kwdef struct LandComponentBC{
     SW <: AbstractBoundaryConditions,
     SH <: AbstractBoundaryConditions,
+    SF <: AbstractBoundaryConditions,
 }
     soil_water::SW = NoBC()
     soil_heat::SH = NoBC()
+    surface::SF = NoBC()
 end
 
 """
@@ -177,8 +182,15 @@ faces, as defined in the Driver configuration.
 """
 function boundary_conditions(land::LandModel)
     bc = land.boundary_conditions
-    mytuple = (bc.bottom_bc, bc.surface_bc, bc.lateral_bc)
-    # faces labeled integer 1,2,3 are bottom, top, lateral sides.
+    mytuple = (
+        bc.bottom_bc,
+        bc.surface_bc,
+        bc.minx_bc,
+        bc.maxx_bc,
+        bc.miny_bc,
+        bc.maxy_bc,
+    )
+    # faces labeled integer 1,2 are bottom, top, lateral sides are 3, 4, 5, 6
     return mytuple
 end
 
@@ -211,6 +223,7 @@ end
 function land_boundary_state!(nf, bc::LandComponentBC, land, args...)
     soil_boundary_state!(nf, bc.soil_water, land.soil.water, land, args...)
     soil_boundary_state!(nf, bc.soil_heat, land.soil.heat, land, args...)
+    surface_boundary_state!(nf, bc.surface, land.surface, land, args...)
 end
 
 function boundary_state!(
@@ -248,4 +261,5 @@ end
 function land_boundary_flux!(nf, bc::LandComponentBC, land, args...)
     soil_boundary_flux!(nf, bc.soil_water, land.soil.water, land, args...)
     soil_boundary_flux!(nf, bc.soil_heat, land.soil.heat, land, args...)
+    surface_boundary_flux!(nf, bc.surface, land.surface, land, args...)
 end
