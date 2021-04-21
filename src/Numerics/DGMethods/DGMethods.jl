@@ -51,6 +51,7 @@ import ..BalanceLaws:
 
 export DGModel,
     DGFVModel,
+    ESDGModel,
     SpaceDiscretization,
     init_ode_state,
     restart_ode_state,
@@ -63,9 +64,10 @@ export DGModel,
 include("custom_filter.jl")
 include("FVReconstructions.jl")
 include("NumericalFluxes.jl")
+include("SpaceDiscretization.jl")
 include("DGModel.jl")
-include("DGModel_kernels.jl")
-include("DGFVModel_kernels.jl")
+include("DGFVModel.jl")
+include("ESDGModel.jl")
 include("create_states.jl")
 
 """

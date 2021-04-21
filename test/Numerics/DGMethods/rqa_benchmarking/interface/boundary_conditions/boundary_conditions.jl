@@ -1,4 +1,4 @@
-abstract type BoundaryCondition end
+abstract type AbstractBoundaryCondition end
 
 """
     FluidBC(momentum    = Impenetrable(NoSlip())
@@ -6,9 +6,9 @@ abstract type BoundaryCondition end
 
 The standard boundary condition for CNSEModel. The default options imply a "no flux" boundary condition.
 """
-Base.@kwdef struct FluidBC{M, T} <: BoundaryCondition
-    momentum::M = Impenetrable(NoSlip())
-    temperature::T = Insulating()
+Base.@kwdef struct FluidBC{M, T} <: AbstractBoundaryCondition
+    ρu::M = Impenetrable(NoSlip())
+    ρθ::T = Insulating()
 end
 
 abstract type StateBC end
@@ -79,83 +79,10 @@ struct Insulating <: TemperatureBC end
 Prescribe the net inward temperature flux across the boundary by `flux`,
 a function with signature `flux(problem, state, aux, t)`, returning the flux (in m⋅K/s).
 """
-Base.@kwdef struct TemperatureFlux{𝒯, 𝒫} <: TemperatureBC
-    flux::𝒯 = nothing
-    params::𝒫 = nothing
-end
+struct TemperatureFlux{T} <: TemperatureBC
+    flux::T
 
-function check_bc(bcs, label)
-    bctype = FluidBC
-
-    bc_ρu = check_bc(bcs, Val(:ρu), label)
-    bc_ρθ = check_bc(bcs, Val(:ρθ), label)
-
-    return bctype(bc_ρu, bc_ρθ)
-end
-
-function check_bc(bcs, ::Val{:ρθ}, label)
-    if haskey(bcs, :ρθ)
-        if haskey(bcs[:ρθ], label)
-            return bcs[:ρθ][label]
-        end
+    function TemperatureFlux(flux::T = nothing) where {T}
+        new{T}(flux)
     end
-
-    return Insulating()
-end
-
-function check_bc(bcs, ::Val{:ρu}, label)
-    if haskey(bcs, :ρu)
-        if haskey(bcs[:ρu], label)
-            return bcs[:ρu][label]
-        end
-    end
-
-    return Impenetrable(FreeSlip())
-end
-
-# these functions just trim off the extra arguments
-function _cnse_boundary_state!(
-    nf::Union{NumericalFluxFirstOrder, NumericalFluxGradient},
-    bc,
-    model,
-    state⁺,
-    aux⁺,
-    n,
-    state⁻,
-    aux⁻,
-    t,
-    _...,
-)
-    return cnse_boundary_state!(nf, bc, model, state⁺, aux⁺, n, state⁻, aux⁻, t)
-end
-
-function _cnse_boundary_state!(
-    nf::NumericalFluxSecondOrder,
-    bc,
-    model,
-    state⁺,
-    gradflux⁺,
-    hyperflux⁺,
-    aux⁺,
-    n,
-    state⁻,
-    gradflux⁻,
-    hyperflux⁻,
-    aux⁻,
-    t,
-    _...,
-)
-    return cnse_boundary_state!(
-        nf,
-        bc,
-        model,
-        state⁺,
-        gradflux⁺,
-        aux⁺,
-        n,
-        state⁻,
-        gradflux⁻,
-        aux⁻,
-        t,
-    )
 end

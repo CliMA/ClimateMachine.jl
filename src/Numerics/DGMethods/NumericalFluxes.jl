@@ -408,6 +408,210 @@ RoeNumericalFluxMoist(;
 ) = RoeNumericalFluxMoist(LM, HH, LV, LVPP)
 
 """
+dispatch type for entropy conservative numerical fluxes (these are balance law
+specific)
+"""
+struct EntropyConservative <: NumericalFluxFirstOrder end
+
+"""
+    numerical_volume_conservative_flux_first_order!(
+        numflux::NumericalFluxFirstOrder,
+        balancelaw::BalanceLaw,
+        flux::Grad,
+        state_1::Vars,
+        aux_1::Vars,
+        state_2::Vars,
+        aux_2::Vars,
+    )
+Two point flux for use in the volume of entropy stable discretizations. Should
+compute and store the conservative (symmetric) part of an entropy stable
+flux-fluctuation and store the three vector components back to `flux`.
+This should be symmetric in the sense that swapping the place of `state_1`,
+`aux_1` with `state_2`, `aux_2` should result in the same flux.
+This should be implemented with addition assignment.
+Each balance law must implement a concrete implementation of this function.
+"""
+function numerical_volume_conservative_flux_first_order!(
+    numflux::NumericalFluxFirstOrder,
+    balancelaw::BalanceLaw,
+    flux::AbstractArray{FT, 2},
+    state_1::AbstractArray{FT, 1},
+    aux_1::AbstractArray{FT, 1},
+    state_2::AbstractArray{FT, 1},
+    aux_2::AbstractArray{FT, 1},
+) where {FT}
+    numerical_volume_conservative_flux_first_order!(
+        numflux,
+        balancelaw,
+        Grad{vars_state(balancelaw, Prognostic(), FT)}(flux),
+        Vars{vars_state(balancelaw, Prognostic(), FT)}(state_1),
+        Vars{vars_state(balancelaw, Auxiliary(), FT)}(aux_1),
+        Vars{vars_state(balancelaw, Prognostic(), FT)}(state_2),
+        Vars{vars_state(balancelaw, Auxiliary(), FT)}(aux_2),
+    )
+end
+numerical_volume_conservative_flux_first_order!(::Nothing, _...) = nothing
+
+"""
+    numerical_volume_fluctuation_flux_first_order!(
+        numflux::NumericalFluxFirstOrder,
+        balancelaw::BalanceLaw,
+        flux::Grad,
+        state_1::Vars,
+        aux_1::Vars,
+        state_2::Vars,
+        aux_2::Vars,
+    )
+Two point fluctuation flux for use in the volume of entropy stable
+discretizations. Should compute and store the non-conservative (possibly
+non-symmetric) part of an entropy stable flux-fluctuation and store the three
+vector components back to `flux`.
+This can be non-symmetric in the sense that swapping the place of `state_1`,
+`aux_1` with `state_2`, `aux_2` can result in a different flux.
+This should be implemented with addition assignment.
+Each balance law must implement a concrete implementation of this function.
+"""
+function numerical_volume_fluctuation_flux_first_order!(
+    numflux::NumericalFluxFirstOrder,
+    balancelaw::BalanceLaw,
+    fluctuation::AbstractArray{FT, 2},
+    state_1::AbstractArray{FT, 1},
+    aux_1::AbstractArray{FT, 1},
+    state_2::AbstractArray{FT, 1},
+    aux_2::AbstractArray{FT, 1},
+) where {FT}
+    numerical_volume_fluctuation_flux_first_order!(
+        numflux,
+        balancelaw,
+        Grad{vars_state(balancelaw, Prognostic(), FT)}(fluctuation),
+        Vars{vars_state(balancelaw, Prognostic(), FT)}(state_1),
+        Vars{vars_state(balancelaw, Auxiliary(), FT)}(aux_1),
+        Vars{vars_state(balancelaw, Prognostic(), FT)}(state_2),
+        Vars{vars_state(balancelaw, Auxiliary(), FT)}(aux_2),
+    )
+end
+numerical_volume_fluctuation_flux_first_order!(::Nothing, _...) = nothing
+
+"""
+    numerical_volume_flux_first_order!(
+        numflux::NumericalFluxFirstOrder,
+        balancelaw::BalanceLaw,
+        flux::AbstractArray{FT, 2},
+        state_1::AbstractArray{FT, 1},
+        aux_1::AbstractArray{FT, 1},
+        state_2::AbstractArray{FT, 1},
+        aux_2::AbstractArray{FT, 1},
+    )
+Convenience function which calls
+  `numerical_volume_conservative_flux_first_order!`
+followed by
+  `numerical_volume_fluctuation_flux_first_order!`
+"""
+function numerical_volume_flux_first_order!(
+    numflux::NumericalFluxFirstOrder,
+    balancelaw::BalanceLaw,
+    flux::AbstractArray{FT, 2},
+    state_1::AbstractArray{FT, 1},
+    aux_1::AbstractArray{FT, 1},
+    state_2::AbstractArray{FT, 1},
+    aux_2::AbstractArray{FT, 1},
+) where {FT}
+    numerical_volume_conservative_flux_first_order!(
+        numflux,
+        balancelaw,
+        flux,
+        state_1,
+        aux_1,
+        state_2,
+        aux_2,
+    )
+    numerical_volume_fluctuation_flux_first_order!(
+        numflux,
+        balancelaw,
+        flux,
+        state_1,
+        aux_1,
+        state_2,
+        aux_2,
+    )
+end
+numerical_volume_flux_first_order!(::Nothing, _...) = nothing
+
+function numerical_flux_first_order!(
+    numerical_flux::EntropyConservative,
+    balance_law::BalanceLaw,
+    fluxᵀn::Vars{S},
+    normal_vector::SVector,
+    state_prognostic⁻::Vars{S},
+    state_auxiliary⁻::Vars{A},
+    state_prognostic⁺::Vars{S},
+    state_auxiliary⁺::Vars{A},
+    t,
+    direction,
+) where {S, A}
+    # Let's just work with straight arrays!
+    fluxᵀn = parent(fluxᵀn)
+    state_1 = parent(state_prognostic⁻)
+    aux_1 = parent(state_auxiliary⁻)
+    state_2 = parent(state_prognostic⁺)
+    aux_2 = parent(state_auxiliary⁺)
+
+    # create the storage for the volume flux
+    num_state = length(fluxᵀn)
+    FT = eltype(fluxᵀn)
+    H = MArray{Tuple{3, num_state}, FT}(undef)
+    fill!(H, -zero(FT))
+
+    # Compute the volume flux
+    numerical_volume_flux_first_order!(
+        numerical_flux,
+        balance_law,
+        H,
+        state_1,
+        aux_1,
+        state_2,
+        aux_2,
+    )
+
+    # Multiply in the normal
+    @inbounds fluxᵀn .+=
+        normal_vector[1] * H[1, :] +
+        normal_vector[2] * H[2, :] +
+        normal_vector[3] * H[3, :]
+end
+
+# Convenience function for entropy stable discretizations
+"""
+    ave(a, b)
+This computes the mean
+    ave(a, b) = (a + b) / 2
+"""
+ave(a, b) = (a + b) / 2
+
+# Convenience function for entropy stable discretizations
+"""
+    logave(a, b)
+This computes the logarithmic mean
+    logave(a, b) = (a - b) / (log(a) - log(b))
+in a numerically stable way using the method in Appendix B. of Ishail and Roe
+<doi:10.1016/j.jcp.2009.04.021>.
+"""
+function logave(a, b)
+    ζ = a / b
+    f = (ζ - 1) / (ζ + 1)
+    u = f^2
+    ϵ = eps(eltype(u))
+
+    if u < ϵ
+        F = @evalpoly(u, one(u), one(u) / 3, one(u) / 5, one(u) / 7, one(u) / 9)
+    else
+        F = log(ζ) / 2f
+    end
+
+    (a + b) / 2F
+end
+
+"""
     NumericalFluxSecondOrder
 
 Any `N <: NumericalFluxSecondOrder` should define the a method for
@@ -974,4 +1178,4 @@ function numerical_boundary_flux_gradient!(
     end d -> throw(BoundsError(bcs, bctag))
 end
 
-end
+end # end of module
