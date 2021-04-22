@@ -52,6 +52,7 @@ GradientLaplacian
 Hyperdiffusive
 UpwardIntegrals
 DownwardIntegrals
+WrapVars
 ```
 
 ## Interface

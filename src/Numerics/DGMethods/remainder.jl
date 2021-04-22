@@ -1,15 +1,14 @@
 using StaticNumbers
 export remainder_DGModel
 
+using ..BalanceLaws: WrapVars
 import ..BalanceLaws:
     vars_state,
     init_state_prognostic!,
     init_state_auxiliary!,
     flux_first_order!,
-    flux_first_order_arr!,
     flux_second_order!,
     source!,
-    source_arr!,
     compute_gradient_flux!,
     compute_gradient_argument!,
     transform_post_gradient_laplacian!,
@@ -226,7 +225,8 @@ function flux_first_order!(
     t::Real,
     d::Dirs,
 ) where {NumDirs, Dirs <: NTuple{NumDirs, Direction}}
-    flux_first_order_arr!(
+    flux_first_order!(
+        WrapVars(),
         rem_balance_law,
         parent(flux),
         parent(state),
@@ -237,7 +237,8 @@ function flux_first_order!(
 end
 
 """
-    flux_first_order_arr!(
+    flux_first_order!(
+        ::WrapVars,
         rem_balance_law::RemBL,
         flux::AbstractArray,
         state::AbstractArray,
@@ -253,7 +254,8 @@ Only models which have directions that are included in the `directions` tuple
 are evaluated. When these models are evaluated the models underlying `direction`
 is passed (not the original `directions` argument).
 """
-function flux_first_order_arr!(
+function flux_first_order!(
+    ::WrapVars,
     rem_balance_law::RemBL,
     flux::AbstractArray,
     state::AbstractArray,
@@ -262,7 +264,8 @@ function flux_first_order_arr!(
     ::Dirs,
 ) where {NumDirs, Dirs <: NTuple{NumDirs, Direction}}
     if rem_balance_law.maindir isa Union{Dirs.types...}
-        flux_first_order_arr!(
+        flux_first_order!(
+            WrapVars(),
             rem_balance_law.main,
             flux,
             state,
@@ -280,7 +283,8 @@ function flux_first_order_arr!(
         if rem_balance_law.subsdir[k] isa Union{Dirs.types...}
             sub = rem_balance_law.subs[k]
             fill!(flux_s, -zero(eltype(flux_s)))
-            flux_first_order_arr!(
+            flux_first_order!(
+                WrapVars(),
                 sub,
                 flux_s,
                 state,
@@ -304,7 +308,8 @@ function source!(
     t::Real,
     d::Dirs,
 ) where {NumDirs, Dirs <: NTuple{NumDirs, Direction}}
-    source_arr!(
+    source!(
+        WrapVars(),
         rem_balance_law,
         parent(source),
         parent(state),
@@ -316,7 +321,8 @@ function source!(
 end
 
 """
-    source_arr!(
+    source!(
+        ::WrapVars,
         rem_balance_law::RemBL,
         source::AbstractArray,
         state::AbstractArray,
@@ -333,7 +339,8 @@ Only models which have directions that are included in the `directions` tuple
 are evaluated. When these models are evaluated the models underlying `direction`
 is passed (not the original `directions` argument).
 """
-function source_arr!(
+function source!(
+    ::WrapVars,
     rem_balance_law::RemBL,
     source::AbstractArray,
     state::AbstractArray,
@@ -345,7 +352,8 @@ function source_arr!(
     if EveryDirection() isa Union{Dirs.types...} ||
        rem_balance_law.maindir isa EveryDirection ||
        rem_balance_law.maindir isa Union{Dirs.types...}
-        source_arr!(
+        source!(
+            WrapVars(),
             rem_balance_law.main,
             source,
             state,
@@ -366,7 +374,8 @@ function source_arr!(
                      rem_balance_law.subsdir[k] isa Union{Dirs.types...}
             sub = rem_balance_law.subs[k]
             fill!(source_s, -zero(eltype(source_s)))
-            source_arr!(
+            source!(
+                WrapVars(),
                 sub,
                 source_s,
                 state,
@@ -527,18 +536,15 @@ function numerical_flux_first_order!(
             # compute this submodels flux
             fill!(a_sub_fluxᵀn, -zero(eltype(a_sub_fluxᵀn)))
             numerical_flux_first_order!(
+                WrapVars(),
                 nf,
                 sub,
-                Vars{vars_state(sub, Prognostic(), FT)}(a_sub_fluxᵀn),
+                a_sub_fluxᵀn,
                 normal_vector,
-                Vars{vars_state(sub, Prognostic(), FT)}(
-                    a_sub_state_prognostic⁻,
-                ),
-                state_auxiliary⁻,
-                Vars{vars_state(sub, Prognostic(), FT)}(
-                    a_sub_state_prognostic⁺,
-                ),
-                state_auxiliary⁺,
+                a_sub_state_prognostic⁻,
+                parent(state_auxiliary⁻),
+                a_sub_state_prognostic⁺,
+                parent(state_auxiliary⁺),
                 t,
                 (rem_balance_law.subsdir[k],),
             )
@@ -654,25 +660,20 @@ function numerical_boundary_flux_first_order!(
             # compute this submodels flux
             fill!(a_sub_fluxᵀn, -zero(eltype(a_sub_fluxᵀn)))
             numerical_boundary_flux_first_order!(
+                WrapVars(),
                 nf,
                 bc,
                 sub,
-                Vars{vars_state(sub, Prognostic(), FT)}(a_sub_fluxᵀn),
+                a_sub_fluxᵀn,
                 normal_vector,
-                Vars{vars_state(sub, Prognostic(), FT)}(
-                    a_sub_state_prognostic⁻,
-                ),
-                state_auxiliary⁻,
-                Vars{vars_state(sub, Prognostic(), FT)}(
-                    a_sub_state_prognostic⁺,
-                ),
-                state_auxiliary⁺,
+                a_sub_state_prognostic⁻,
+                parent(state_auxiliary⁻),
+                a_sub_state_prognostic⁺,
+                parent(state_auxiliary⁺),
                 t,
                 (rem_balance_law.subsdir[k],),
-                Vars{vars_state(sub, Prognostic(), FT)}(
-                    a_sub_state_prognostic1⁻,
-                ),
-                state_auxiliary1⁻,
+                a_sub_state_prognostic1⁻,
+                parent(state_auxiliary1⁻),
             )
 
             # Subtract off this sub models flux

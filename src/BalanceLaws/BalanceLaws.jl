@@ -27,7 +27,8 @@ export BalanceLaw,
     reverse_indefinite_stack_integral!,
     reverse_integral_load_auxiliary_state!,
     reverse_integral_set_auxiliary_state!,
-    parameter_set
+    parameter_set,
+    WrapVars
 
 include("state_types.jl")
 include("interface.jl")

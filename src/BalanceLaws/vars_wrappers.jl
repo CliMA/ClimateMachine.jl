@@ -1,5 +1,15 @@
 
-function init_state_prognostic_arr!(
+"""
+    WrapVars
+
+A singleton used to indicate that the called
+method will wrap arguments in `Vars`/`Grad`
+types.
+"""
+struct WrapVars end
+
+function init_state_prognostic!(
+    ::WrapVars,
     balance_law,
     state::AbstractArray,
     aux::AbstractArray,
@@ -17,7 +27,8 @@ function init_state_prognostic_arr!(
 
 end
 
-function source_arr!(
+function source!(
+    ::WrapVars,
     balance_law,
     source::AbstractArray,
     state::AbstractArray,
@@ -38,7 +49,8 @@ function source_arr!(
     )
 end
 
-function flux_first_order_arr!(
+function flux_first_order!(
+    ::WrapVars,
     balance_law,
     flux::AbstractArray,
     state::AbstractArray,
@@ -57,7 +69,8 @@ function flux_first_order_arr!(
     )
 end
 
-function flux_second_order_arr!(
+function flux_second_order!(
+    ::WrapVars,
     balance_law,
     flux::AbstractArray,
     state::AbstractArray,
@@ -78,7 +91,8 @@ function flux_second_order_arr!(
     )
 end
 
-function compute_gradient_argument_arr!(
+function compute_gradient_argument!(
+    ::WrapVars,
     balance_law,
     transform::AbstractArray,
     state::AbstractArray,
@@ -95,7 +109,8 @@ function compute_gradient_argument_arr!(
     )
 end
 
-function compute_gradient_flux_arr!(
+function compute_gradient_flux!(
+    ::WrapVars,
     balance_law,
     diffusive::AbstractArray,
     ∇transform::AbstractArray,
@@ -115,7 +130,8 @@ function compute_gradient_flux_arr!(
     )
 end
 
-function integral_load_auxiliary_state_arr!(
+function integral_load_auxiliary_state!(
+    ::WrapVars,
     balance_law,
     local_kernel::AbstractArray,
     state_prognostic::AbstractArray,
@@ -130,7 +146,8 @@ function integral_load_auxiliary_state_arr!(
     )
 end
 
-function integral_set_auxiliary_state_arr!(
+function integral_set_auxiliary_state!(
+    ::WrapVars,
     balance_law,
     state_auxiliary::AbstractArray,
     local_kernel::AbstractArray,
@@ -144,7 +161,8 @@ function integral_set_auxiliary_state_arr!(
     )
 end
 
-function reverse_integral_load_auxiliary_state_arr!(
+function reverse_integral_load_auxiliary_state!(
+    ::WrapVars,
     balance_law,
     l_T::AbstractArray,
     state::AbstractArray,
@@ -161,7 +179,8 @@ function reverse_integral_load_auxiliary_state_arr!(
 
 end
 
-function reverse_integral_set_auxiliary_state_arr!(
+function reverse_integral_set_auxiliary_state!(
+    ::WrapVars,
     balance_law,
     state_auxiliary::AbstractArray,
     l_V::AbstractArray,
@@ -175,7 +194,8 @@ function reverse_integral_set_auxiliary_state_arr!(
     )
 end
 
-function transform_post_gradient_laplacian_arr!(
+function transform_post_gradient_laplacian!(
+    ::WrapVars,
     balance_law,
     hyperdiffusion::AbstractArray,
     l_grad_lap::AbstractArray,
