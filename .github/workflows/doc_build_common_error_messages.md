@@ -40,3 +40,6 @@
 ```
  - `ClimateMachine.Atmos.AtmosModel.NoOrientation` should be `ClimateMachine.Atmos.NoOrientation`
 
+## Other useful tips
+- The syntax is white space sensitive: Do not leave any extra new line between the end of the doc string (denoted by triple double-quotes `"""`) and the code of the defined method / type / module name that you are describing.
+- In the doc string, indent the method / type / module signature and do not indent the descriptive text.
