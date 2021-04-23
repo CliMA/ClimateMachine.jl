@@ -9,6 +9,8 @@ module TurbulenceConvection
 using ..BalanceLaws: BalanceLaw, AbstractStateType
 using ..VariableTemplates: @vars, Vars, Grad
 
+import ..Mesh.Filters: vars_state_filtered
+
 export TurbulenceConvectionModel, NoTurbConv
 
 export init_state_prognostic!,
@@ -49,6 +51,7 @@ eq_tends(pv, ::NoTurbConv, tt) = ()
 precompute(::NoTurbConv, bl, args, ts, tend_type) = NamedTuple()
 
 vars_state(m::TurbulenceConvectionModel, ::AbstractStateType, FT) = @vars()
+vars_state_filtered(m::TurbulenceConvectionModel, FT) = @vars()
 
 function init_aux_turbconv!(
     m::TurbulenceConvectionModel,

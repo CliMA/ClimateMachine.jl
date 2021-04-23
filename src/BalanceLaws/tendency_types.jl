@@ -153,6 +153,7 @@ var, name = get_prog_state(state, TotalMoisture())
 ```
 """
 function get_prog_state end
+function get_specific_state end
 
 """
     precompute(bl, args, ::AbstractTendencyType)
