@@ -5,7 +5,8 @@ CLIMAParameters.Planet.MSLP(::EarthParameterSet) = 1e5
 
 Base.@kwdef struct GravityWave{FT} <: AbstractDryAtmosProblem
   T_ref::FT = 250
-  ΔT::FT = 0.0001
+  #ΔT::FT = 0.0001
+  ΔT::FT = 0.01
   H::FT = 10e3
   u_0::FT = 20
   f::FT = 0
