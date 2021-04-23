@@ -1,6 +1,8 @@
 using KernelAbstractions
 using ClimateMachine.MPIStateArrays: array_device, weightedsum
 using KernelAbstractions.Extras: @unroll
+using ClimateMachine.Mesh.Elements: interpolationmatrix, lglpoints
+using ClimateMachine.Mesh.Grids: _x1
 
 function entropy_integral(dg, entropy, state_prognostic)
   balance_law = dg.balance_law
@@ -184,4 +186,96 @@ end
         end
         entropy[n, 1, e] = local_product
     end
+end
+
+function nodal_diagnostics(diagnostic_fun!, diagnostic_vars,
+                           model, state_prognostic, state_auxiliary)
+  FT = eltype(state_prognostic)
+  diagnostic_vars = diagnostic_vars(FT)
+  num_state_diagnostic = varsize(diagnostic_vars)
+  Np = size(state_prognostic, 1)
+  Ne = size(state_prognostic, 3)
+  state_diagnostic = similar(state_prognostic,
+                             (Np, num_state_diagnostic, Ne))
+
+  num_state_prognostic = number_states(model, Prognostic())
+  num_state_auxiliary = number_states(model, Auxiliary())
+
+  local_state_diagnostic = MArray{Tuple{num_state_diagnostic}, FT}(undef)
+  local_state_prognostic = MArray{Tuple{num_state_prognostic}, FT}(undef)
+  local_state_auxiliary = MArray{Tuple{num_state_auxiliary}, FT}(undef)
+
+  @inbounds @views for e in 1:Ne
+    for ijk in 1:Np
+       local_state_prognostic .= state_prognostic[ijk, :, e]
+       local_state_auxiliary .= state_auxiliary[ijk, :, e]
+       diagnostic_fun!(
+           model,
+           Vars{diagnostic_vars}(
+               local_state_diagnostic,
+           ),
+           Vars{vars_state(model, Prognostic(), FT)}(
+               local_state_prognostic,
+           ),
+           Vars{vars_state(model, Auxiliary(), FT)}(
+               local_state_auxiliary,
+           ),
+       )
+       state_diagnostic[ijk, :, e] .= local_state_diagnostic
+    end
+  end
+  
+  state_diagnostic
+end
+
+function rcParams!(rcParams)
+  rcParams["font.size"] = 20
+  rcParams["xtick.labelsize"] = 20
+  rcParams["ytick.labelsize"] = 20
+  rcParams["legend.fontsize"] = 20
+  rcParams["figure.titlesize"] = 32
+  rcParams["axes.titlepad"] = 10
+  rcParams["axes.labelpad"] = 10
+end
+
+function interpolate_equidistant(state_diagnostic, vgeo, dim, N, K)
+    FT = eltype(state_diagnostic)
+    Np = size(state_diagnostic, 1)
+    Ns = size(state_diagnostic, 2)
+    Ne = size(state_diagnostic, 3)
+
+    ξsrc, _ = lglpoints(FT, N)
+    
+    Nqi = 4 * (N + 1)
+    Npi = Nqi ^ dim
+    dξi = 2 / Nqi
+    ξdst = [-1 + (j - 1 / 2) * dξi for j in 1:Nqi]
+
+    I1d = interpolationmatrix(ξsrc, ξdst)
+    I = kron(ntuple(_->I1d, dim)...)
+   
+    state_diagnostic_i = ntuple(_->Array{FT}(undef, Nqi .* K), Ns)
+    x_i = ntuple(_->Array{FT}(undef, Nqi .* K), dim)
+
+    @views for e in 1:Ne
+      xe_i = ntuple(d -> I * vgeo[:, _x1 + d - 1, e], dim)
+      dx_i = ntuple(dim) do d
+        xd_i = reshape(xe_i[d], (Nqi for dd in 1:dim)...)
+        C0 = CartesianIndex((1 for dd in 1:dim)...)
+        Cd = CartesianIndex((d == dd for dd in 1:dim)...)
+        xd_i[C0 + Cd] - xd_i[C0]
+      end
+      de_i = ntuple(s -> I * state_diagnostic[:, s, e], Ns)
+      ie_i = ntuple(d -> round.(Int, (xe_i[d] .+ dx_i[d] / 2) ./ dx_i[d]), dim)
+      C = CartesianIndex.(ie_i...)
+      for ijk in 1:Npi
+        for s in 1:Ns
+          state_diagnostic_i[s][C[ijk]] = de_i[s][ijk]
+        end
+        for d in 1:dim
+          x_i[d][C[ijk]] = xe_i[d][ijk]
+        end
+      end
+    end
+    (x_i..., state_diagnostic_i...)
 end

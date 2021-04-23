@@ -39,7 +39,6 @@ function main()
     outdir = joinpath("esdg_output", "gravitywave")
 
     for surfaceflux in (MatrixFlux,)
-      #for N in (1, 2, 3, 4, 5)
       outdir = joinpath(outdir, "$surfaceflux")
       mkpath(outdir)
 
@@ -48,11 +47,11 @@ function main()
         ndof_x = 60
         ndof_y = 15
 
-        Ne_x_base = round(Int, ndof_x / N)
-        Ne_y_base = round(Int, ndof_y / N)
+        Kx_base = round(Int, ndof_x / N)
+        Ky_base = round(Int, ndof_y / N)
 
-        Ne_x = Ne_x_base * 2 .^ ((1:numlevels) .- 1)
-        Ne_y = Ne_y_base * 2 .^ ((1:numlevels) .- 1)
+        Kx = Kx_base * 2 .^ ((1:numlevels) .- 1)
+        Ky = Ky_base * 2 .^ ((1:numlevels) .- 1)
 
         l2_errors = zeros(FT, numlevels)
         linf_errors = zeros(FT, numlevels)
@@ -62,7 +61,7 @@ function main()
           l2_err, linf_err = run(
               mpicomm,
               N,
-              (Ne_x[l], Ne_y[l]),
+              (Kx[l], Ky[l]),
               xmax,
               zmax,
               timeend,
@@ -79,8 +78,8 @@ function main()
         l2_rates = log2.(l2_errors[1:numlevels-1] ./ l2_errors[2:numlevels])
         linf_rates = log2.(linf_errors[1:numlevels-1] ./ linf_errors[2:numlevels])
     
-        avg_dx = problem.L ./ Ne_x ./ N
-        avg_dy = problem.H ./ Ne_y ./ N
+        avg_dx = problem.L ./ Kx ./ N
+        avg_dy = problem.H ./ Ky ./ N
 
         convergence_data[N] = (;
               avg_dx,
@@ -93,7 +92,7 @@ function main()
 
         @show N, l2_errors
       end
-      @save(joinpath(outdir, "convergence_$surfaceflux.jld2"),
+      @save(joinpath(outdir, "gw_convergence_$surfaceflux.jld2"),
             convergence_data,
            )
     end
@@ -102,7 +101,7 @@ end
 function run(
     mpicomm,
     N,
-    Ne,
+    K,
     xmax,
     zmax,
     timeend,
@@ -114,8 +113,8 @@ function run(
 )
     dim = 2
     brickrange = (
-        range(FT(0), stop = xmax, length = Ne[1] + 1),
-        range(FT(0), stop = zmax, length = Ne[2] + 1),
+        range(FT(0), stop = xmax, length = K[1] + 1),
+        range(FT(0), stop = zmax, length = K[2] + 1),
     )
     boundary = ((0, 0), (1, 2))
     periodicity = (true, false)
@@ -161,7 +160,7 @@ function run(
                       numelem         = (%d, %d)
                       dt              = %.16e
                       norm(Q₀)        = %.16e
-                      """ "$ArrayType" "$FT" N Ne[1] Ne[2] dt eng0
+                      """ "$ArrayType" "$FT" N K[1] K[2] dt eng0
 
     # Set up the information callback
     starttime = Ref(now())
@@ -187,7 +186,7 @@ function run(
     if output_vtk
 
         # create vtk dir
-        Nelem = Ne[1]
+        Nelem = K[1]
         vtkdir =
             "esdg_small_gravitywave" *
             "_poly$(N)_dims$(dim)_$(ArrayType)_$(FT)_nelem$(Nelem)"
@@ -213,24 +212,26 @@ function run(
     l2_err = norm(Q - Qexact)
     linf_err = maximum(abs.(Q - Qexact))
 
-    stepsdir = joinpath(outdir, "$N", "$(Ne[1])x$(Ne[2])", "steps")
+    stepsdir = joinpath(outdir, "$N", "$(K[1])x$(K[2])", "steps")
     mkpath(stepsdir)
 
     step = getsteps(odesolver)
     time = gettime(odesolver)
     let
       state_prognostic = Array(Q)
+      state_exact = Array(Qexact)
       state_auxiliary = Array(esdg.state_auxiliary)
       vgeo = Array(grid.vgeo)
-      @save(joinpath(stepsdir, "gw_$step.jld2"),
+      @save(joinpath(stepsdir, "gw_step$(lpad(step, 8, '0')).jld2"),
             model,
             problem,
             step,
             time,
             N,
-            Ne,
+            K,
             surfaceflux,
             state_prognostic,
+            state_exact,
             state_auxiliary,
             vgeo)
     end

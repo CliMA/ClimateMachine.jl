@@ -36,15 +36,15 @@ function main()
 
     mpicomm = MPI.COMM_WORLD
     N = 4
-    Ne = (10, 10)
+    K = (10, 10)
     timeend = 1000
 
-    for surfaceflux in (EntropyConservative, MatrixFlux)
-      for relaxation in (true,)
+    for relaxation in (true,)
+      for surfaceflux in (EntropyConservative, MatrixFlux)
         result = run(
             mpicomm,
             N,
-            Ne,
+            K,
             timeend,
             ArrayType,
             FT,
@@ -59,7 +59,7 @@ end
 function run(
     mpicomm,
     N,
-    Ne,
+    K,
     timeend,
     ArrayType,
     FT,
@@ -70,8 +70,8 @@ function run(
 
     dim = 2
     brickrange = (
-        range(FT(0), stop = problem.xmax, length = Ne[1] + 1),
-        range(FT(0), stop = problem.zmax, length = Ne[2] + 1),
+        range(FT(0), stop = problem.xmax, length = K[1] + 1),
+        range(FT(0), stop = problem.zmax, length = K[2] + 1),
     )
     boundary = ((0, 0), (1, 2))
     periodicity = (true, false)
@@ -133,11 +133,11 @@ function run(
                       ArrayType       = %s
                       FT              = %s
                       polynomialorder = %d
-                      numelem         = %d
+                      numelem         = (%d, %d)
                       dt              = %.16e
                       norm(Q₀)        = %.16e
                       ∫η              = %.16e
-                      """ "$ArrayType" "$FT" N Ne[1] dt eng0 ∫η0
+                      """ "$ArrayType" "$FT" N K... dt eng0 ∫η0
 
 
     dη_timeseries = NTuple{2, FT}[]
@@ -168,14 +168,19 @@ function run(
     callbacks = (cbinfo,)
 
     relax = relaxation ? "lsrk" : "rlsrk"
-    outdir = "esdg_output/risingbubble/$N/$(Ne[1])x$(Ne[2])/$surfaceflux/$relax" 
+    outdir = joinpath("esdg_output",
+                      "risingbubble",
+                      "$relax",
+                      "$surfaceflux",
+                      "$N",
+                      "$(K[1])x$(K[2])")
     outputtime = timeend / 10
 
     output_vtk = false
     if output_vtk
         # create vtk dir
         Nelem = Ne[1]
-        vtkdir = "$outdir/vtk/"
+        vtkdir = joinpath(outdir, vtk)
         mkpath(vtkdir)
 
         vtkstep = 0
@@ -200,13 +205,13 @@ function run(
         state_auxiliary = Array(esdg.state_auxiliary)
         vgeo = Array(grid.vgeo)
 
-        @save(joinpath(stepsdir, "rtb_$step.jld2"),
+        @save(joinpath(stepsdir, "rtb_step_$(lpad(step, 8, '0')).jld2"),
               model,
               problem,
               step,
               time,
               N,
-              Ne,
+              K,
               surfaceflux,
               state_prognostic,
               state_auxiliary,
@@ -217,7 +222,7 @@ function run(
 
     solve!(Q, odesolver; callbacks = callbacks, timeend = timeend)
 
-    @save(joinpath(outdir, "entropy_residual.jld2"), dη_timeseries)
+    @save(joinpath(outdir, "rtb_entropy_residual.jld2"), dη_timeseries)
 
     # final statistics
     engf = norm(Q)
