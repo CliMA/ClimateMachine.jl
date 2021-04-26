@@ -39,9 +39,6 @@ physics = Physics(
     eos         = BarotropicFluid{Float64}(ρₒ = parameters.ρₒ, cₛ = parameters.cₛ),
 )
 
-radiation_physics = Physics()
-microphysics = Physics()
-
 ########
 # Set up inital condition
 ########

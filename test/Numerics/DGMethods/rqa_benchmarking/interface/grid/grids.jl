@@ -172,7 +172,7 @@ function DiscontinuousSpectralElementGrid(
     elements,
     polynomialorder,
     mpicomm = MPI.COMM_WORLD,
-    boundary = (5, 6),
+    boundary = (5,6),
     FT = Float64,
     array = Array,
 )
@@ -186,17 +186,16 @@ function DiscontinuousSpectralElementGrid(
         mpicomm,
         elements.horizontal,
         Rrange,
-        boundary = boundary, 
     )
 
     grid = DiscontinuousSpectralElementGrid(
         topl,
         FloatType = FT,
         DeviceArray = array,
-        polynomialorder = (
-          polynomialorder.horizontal, 
-          polynomialorder.vertical
-        ),
+        polynomialorder = 3,#(
+      #    polynomialorder.horizontal, 
+       #   polynomialorder.vertical
+     #  ),
         meshwarp = equiangular_cubed_sphere_warp,
     )
     return grid
