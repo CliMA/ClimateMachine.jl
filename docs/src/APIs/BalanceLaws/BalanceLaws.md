@@ -45,6 +45,7 @@ source
 AbstractStateType
 Prognostic
 Primitive
+Entropy
 Auxiliary
 Gradient
 GradientFlux
