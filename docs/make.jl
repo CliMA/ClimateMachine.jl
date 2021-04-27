@@ -7,6 +7,14 @@ ENV["CLIMATEMACHINE_SETTINGS_DISABLE_CUSTOM_LOGGER"] = true
 
 using Distributed
 using DocumenterCitations
+
+run_single_tutorial = false && isempty(get(ENV, "CI", "")) # never use remotely
+@everywhere source_dir = joinpath(@__DIR__, "src")
+if run_single_tutorial
+    tutorial_string_match = "<tutorial_name>"
+    single_tutorial_dir = joinpath(@__DIR__, "transient_dir")
+    source_dir = single_tutorial_dir
+end
 bib = CitationBibliography(joinpath(@__DIR__, "bibliography.bib"))
 
 @everywhere push!(LOAD_PATH, joinpath(@__DIR__, ".."))
@@ -15,7 +23,7 @@ bib = CitationBibliography(joinpath(@__DIR__, "bibliography.bib"))
 
 @everywhere const clima_dir = dirname(dirname(pathof(ClimateMachine)));
 
-@everywhere GENERATED_DIR = joinpath(@__DIR__, "src", "generated") # generated files directory
+@everywhere GENERATED_DIR = joinpath(source_dir, "generated") # generated files directory
 rm(GENERATED_DIR, force = true, recursive = true)
 mkpath(GENERATED_DIR)
 
@@ -40,6 +48,8 @@ pages = Any[
     "References" => "References.md",
 ]
 
+run_single_tutorial && (pages = Any["Tutorials" => tutorials])
+
 mathengine = MathJax(Dict(
     :TeX => Dict(
         :equationNumbers => Dict(:autoNumber => "AMS"),
@@ -56,9 +66,10 @@ format = Documenter.HTML(
 
 makedocs(
     bib,
+    source = source_dir,
     sitename = "ClimateMachine",
     doctest = false,
-    strict = true,
+    strict = !run_single_tutorial,
     format = format,
     checkdocs = :exports,
     clean = true,
