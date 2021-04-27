@@ -159,6 +159,20 @@ Compute non-conservative source terms for a [`BalanceLaw`](@ref) subtype `BL`.
 function source! end
 
 """
+    physics!(
+        ::BL,
+        physics::Vars,
+        state_prognostic::Vars,
+        diffusive::Vars,
+        state_auxiliary::Vars,
+        t::Real
+    )
+
+Compute non-conservative physics terms for a [`BalanceLaw`](@ref) subtype `BL`.
+"""
+function physics! end
+
+"""
     compute_gradient_argument!(
         ::BL,
         transformstate::Vars,

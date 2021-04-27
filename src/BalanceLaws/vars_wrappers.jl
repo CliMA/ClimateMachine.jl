@@ -38,6 +38,27 @@ function source_arr!(
     )
 end
 
+function physics_arr!(
+    balance_law,
+    physics::AbstractArray,
+    state::AbstractArray,
+    diffusive::AbstractArray,
+    aux::AbstractArray,
+    t::Real,
+    direction,
+)
+    FT = eltype(state)
+    physics!(
+        balance_law,
+        Vars{vars_state(balance_law, Prognostic(), FT)}(physics),
+        Vars{vars_state(balance_law, Prognostic(), FT)}(state),
+        Vars{vars_state(balance_law, GradientFlux(), FT)}(diffusive),
+        Vars{vars_state(balance_law, Auxiliary(), FT)}(aux),
+        t,
+        direction,
+    )
+end
+
 function flux_first_order_arr!(
     balance_law,
     flux::AbstractArray,

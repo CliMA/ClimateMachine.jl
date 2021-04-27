@@ -269,6 +269,16 @@ fluxes, respectively.
                     (model_direction,),
                 )
 
+                physics_arr!(
+                    balance_law,
+                    local_source,
+                    local_state_prognostic,
+                    local_state_gradient_flux,
+                    local_state_auxiliary,
+                    t,
+                    (model_direction,),
+                )
+
                 @unroll for s in 1:num_state_prognostic
                     local_tendency[k, s] += local_source[s]
                 end
@@ -505,6 +515,16 @@ end
             if add_source
                 fill!(local_source, -zero(eltype(local_source)))
                 source_arr!(
+                    balance_law,
+                    local_source,
+                    local_state_prognostic,
+                    local_state_gradient_flux,
+                    local_state_auxiliary,
+                    t,
+                    (model_direction,),
+                )
+
+                physics_arr!(
                     balance_law,
                     local_source,
                     local_state_prognostic,
