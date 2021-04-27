@@ -1,15 +1,16 @@
 using ClimateMachine
 using MPI
 using ClimateMachine.Mesh.Topologies
+using ClimateMachine.Mesh.Grids
 
 using Test
 
 MPI.Init()
 
 include("../interface/grid/domains.jl")
-include("../interface/grid/meshes.jl")
+include("../interface/grid/grids.jl")
 
-@testset "mesh tests" begin
+@testset "grid tests" begin
     """
         DiscretizedDomain(::ProductDomain, _...)
     """
@@ -46,7 +47,6 @@ include("../interface/grid/meshes.jl")
     @test grid.domain == sphere
     @test grid.resolution == (elements = (vertical = 5, horizontal = 4), polynomial_order = (4, 3), overintegration_order = (2, 2))
     @test polynomialorders(grid.numerical) == (6, 6, 5)
-    @test coordinates(grid.numerical)[1] |> size == (294, 480)
 
     """
     DiscontinuousSpectralElementGrid(domain::ProductDomain; _...)
@@ -57,7 +57,6 @@ include("../interface/grid/meshes.jl")
         polynomialorder = (3,2),
     )
     @test polynomialorders(grid) == (3,2)
-    @test coordinates(grid)[1] |> size == (12,25)
 
     """
     DiscontinuousSpectralElementGrid(domain::SphericalShell; _...)
@@ -67,6 +66,5 @@ include("../interface/grid/meshes.jl")
         elements = (horizontal = 5, vertical = 3),
         polynomialorder = (horizontal = 4, vertical = 2),
     )
-    @test_broken polynomialorders(grid) == (4, 4, 2)
-    @test_broken coordinates(grid)[1] |> size == (75, 450)
+    @test polynomialorders(grid) == (4, 4, 2)
 end

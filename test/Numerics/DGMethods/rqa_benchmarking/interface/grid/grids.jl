@@ -51,7 +51,7 @@ function DiscretizedDomain(
 )
     new_polynomial_order = convention(polynomial_order, Val(2))
     new_polynomial_order = new_polynomial_order .+ convention(overintegration_order, Val(2))
-    vertical, horizontal = new_polynomial_order
+    horizontal, vertical = new_polynomial_order
 
     grid = DiscontinuousSpectralElementGrid(
         domain,
@@ -192,10 +192,10 @@ function DiscontinuousSpectralElementGrid(
         topl,
         FloatType = FT,
         DeviceArray = array,
-        polynomialorder = 3,#(
-      #    polynomialorder.horizontal, 
-       #   polynomialorder.vertical
-     #  ),
+        polynomialorder = (
+          polynomialorder.horizontal, 
+          polynomialorder.vertical
+       ),
         meshwarp = equiangular_cubed_sphere_warp,
     )
     return grid
