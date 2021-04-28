@@ -56,7 +56,7 @@ struct Neumann{Ff} <: AbstractBoundaryConditions
 end
 
 """
-    SurfaceDrivenWaterBoundaryConditions{FT, PD, RD} <: AbstractBoundaryConditions
+    SurfaceDrivenWaterBoundaryConditions{FT, PM, RM, EM} <: AbstractBoundaryConditions
 
 Boundary condition type to be used when the user wishes to 
 apply physical fluxes of water at the top of the domain (according to precipitation, runoff, and 
@@ -65,12 +65,14 @@ evaporation rates).
 # Fields
 $(DocStringExtensions.FIELDS)
 """
-struct SurfaceDrivenWaterBoundaryConditions{FT, PD, RD} <:
-       AbstractBoundaryConditions where {FT, PD, RD}
+struct SurfaceDrivenWaterBoundaryConditions{FT, PM, RM, EM} <:
+       AbstractBoundaryConditions where {FT, PM, RM, EM}
     "Precipitation model"
-    precip_model::PD
+    precip_model::PM
     "Runoff model"
-    runoff_model::RD
+    runoff_model::RM
+    "Evaporation model"
+    evap_model::EM
 end
 
 """
@@ -78,6 +80,8 @@ end
         ::Type{FT};
         precip_model::AbstractPrecipModel{FT} = DrivenConstantPrecip{FT}(),
         runoff_model::AbstractSurfaceRunoffModel{FT} = NoRunoff(),
+        evap_model::AbstractEvapModel{FT} = NoEvaporation{FT}(),
+
     ) where {FT}
 
 Constructor for the SurfaceDrivenWaterBoundaryConditions object. The default
@@ -89,6 +93,7 @@ function SurfaceDrivenWaterBoundaryConditions(
         (t) -> (0.0),
     ),
     runoff_model::AbstractSurfaceRunoffModel = NoRunoff(),
+    evap_model::AbstractEvapModel{FT} = NoEvaporation{FT}(),
 ) where {FT}
     args = (precip_model, runoff_model)
     return SurfaceDrivenWaterBoundaryConditions{FT, typeof.(args)...}(args...)

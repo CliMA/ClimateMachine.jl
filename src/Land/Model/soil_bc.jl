@@ -249,7 +249,7 @@ function soil_boundary_flux!(
     t,
     _...,
 )
-
+    evap = compute_evaporation(bc.evap_model, land.soil, state⁻, aux⁻, t)
     diff⁺.soil.water.K∇h = compute_surface_grad_bc(
         land.soil,
         bc.runoff_model,
@@ -297,7 +297,7 @@ function soil_boundary_flux!(
     t,
     _...,
 )
-
+#    LHF = compute_lhf(bc.evap_model,land.soil,state⁻)
     net_surface_flux = compute_net_radiative_energy_flux(bc.nswf_model, t)
     diff⁺.soil.heat.κ∇T = n̂ * (-net_surface_flux)
 end

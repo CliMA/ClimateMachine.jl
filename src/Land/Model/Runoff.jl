@@ -2,13 +2,20 @@ module Runoff
 
 using LinearAlgebra
 using DocStringExtensions
+using CLIMAParameters
+using CLIMAParameters.Planet:
+    ρ_cloud_liq, ρ_cloud_ice, grav, R_v, D_vapor
 
+using ClimateMachine.Thermodynamics: Liquid, q_vap_saturation_generic
 
 using ...VariableTemplates
 using ...Land: SoilModel, pressure_head, hydraulic_conductivity, get_temperature
 
 export AbstractPrecipModel,
     DrivenConstantPrecip,
+    AbstractEvapModel,
+    NoEvaporation,
+    compute_evaporation,
     AbstractSurfaceRunoffModel,
     NoRunoff,
     compute_surface_grad_bc,
@@ -18,6 +25,68 @@ export AbstractPrecipModel,
     AbstractPrecipModel{FT <: AbstractFloat}
 """
 abstract type AbstractPrecipModel{FT <: AbstractFloat} end
+
+"""
+    AbstractEvapModel{FT <: AbstractFloat}
+"""
+abstract type AbstractEvapModel{FT <: AbstractFloat} end
+"""
+    NoEvaporation{FT} <: AbstractEvapModel{FT}
+
+Chosen when no evaporation is to be modeled.
+"""
+struct NoEvaporation{FT} <: AbstractEvaporationModel{FT} end
+Base.@kwdef struct Evaporation{FT} <: AbstractEvaporationModel{FT}
+    " Transition coefficient"
+    k::FT = 0.8
+    "Maximum dry soil layer thickness"
+    d::FT = 1.5e-2
+    "Density of Moist Air"
+    ρa::FT  = 1.0
+    "Specific humidity of air"
+    q_va::FT = 1.0
+end
+
+
+
+function compute_evaporation(em::NoEvaporation{FT}, lm::LandModel, state::Vars, aux::Vars, t::Real) where {FT}
+    return FT(0.0)
+end
+
+
+function compute_evaporation(em::Evaporation{FT}, lm::LandModel, state::Vars, aux::Vars, t::Real) where {FT}
+    ν = lm.soil.param_functions.porosity
+    k = em.k
+    d = em.d
+    ρa = em.ρa### should be functiosn
+    q_va = em.q_va
+    
+    #think about ice
+    eff_porosity = ν - state.soil.water.θ_i
+    θ_l = volumetric_liquid_fraction(state.soil.water.ϑ_l,eff_porosity)
+    DSL = θ_l < k*ν ? d*(FT(1)-θ_l/(k*ν)): FT(0)
+    params = lm.param_set
+    T = get_temperature(lm.soil.heat, aux, t)
+    
+    _g = grav(params)
+    _Rv = R_v(params)
+    _ρl = ρ_cloud_liq(params)
+    _Dν = D_vapor(params)
+
+    S_l = effective_saturation(ν, state.soil.water.ϑ_l, lm.soil.water.param_functions.θ_r(aux))
+    ψ = matric_potential(lm.soil.water.hydraulics(aux), S_l)
+    factor = exp(_g*ψ/_Rv/T)
+    q_vstar = q_vap_saturation_generic(params, T, ρa, Liquid())
+    q_v = factor*q_vstar
+    τ = FT(2/3)*ν^FT(2)
+    gae = FT(1)### need to update
+    g_soil = _Dν*τ/DSL
+    g_eff = FT(1)/(FT(1)/gae+FT(1)/gsoil)
+    e_volume_flux = - ρa/_ρl* g_eff*(q_va-q_v)
+    return e_volume_flux
+    
+end
+
 
 """
     DrivenConstantPrecip{FT, F} <: AbstractPrecipModel{FT}
