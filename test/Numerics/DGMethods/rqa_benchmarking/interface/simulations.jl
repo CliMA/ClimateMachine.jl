@@ -46,6 +46,7 @@ function evolve!(simulation::Simulation; refDat = ())
     grid  = simulation.model.numerics.grid
 
     npoly = values(simulation.model.numerics.grid.resolution.polynomial_order)
+    # npoly = polynomialorders(simulation.rhs.grid)
 
     t0 = simulation.time.start
     tend = simulation.time.finish

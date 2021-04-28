@@ -91,7 +91,7 @@ function init_state_auxiliary!(
     # store orientation
     init_state_auxiliary!(
         model,
-        (modelm, aux, tmp, geom) -> orientation_nodal_init_aux!(orientation, domain, aux, geom),
+        (model, aux, tmp, geom) -> orientation_nodal_init_aux!(orientation, domain, aux, geom),
         state_auxiliary,
         grid,
         direction,

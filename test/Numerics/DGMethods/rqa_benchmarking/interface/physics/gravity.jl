@@ -51,3 +51,17 @@ end
 
     return nothing
 end
+
+"""
+    Maciek's world
+"""
+struct Gravity end
+function source!(m::DryAtmosModel, ::Gravity, source, state, aux)
+    ∇Φ = aux.∇Φ
+    if !fluctuation_gravity
+        source.ρu -= state.ρ * ∇Φ
+    end
+    if !total_energy
+        source.ρe -= state.ρu' * ∇Φ
+    end
+end

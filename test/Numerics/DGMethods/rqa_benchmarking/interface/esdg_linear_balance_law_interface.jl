@@ -1,5 +1,3 @@
-using ClimateMachine.DGMethods: DGModel
-using ClimateMachine.MPIStateArrays: MPIStateArray
 using ClimateMachine.DGMethods.NumericalFluxes: NumericalFluxSecondOrder
 using ClimateMachine.Mesh.Geometry: LocalGeometry
 using ClimateMachine.Mesh.Grids: Direction
@@ -13,18 +11,23 @@ import ClimateMachine.BalanceLaws:
     reverse_integral_load_auxiliary_state!,
     reverse_integral_set_auxiliary_state!
 
-@inline function linearized_pressure(ρ, ρe, Φ)
-    FT = eltype(ρ)
-    γ = FT(gamma(param_set))
-    if total_energy
-        (γ - 1) * (ρe - ρ * Φ)
-    else
-        (γ - 1) * ρe
+abstract type DryAtmosLinearModel <: BalanceLaw end
+
+struct DryAtmosAcousticGravityLinearModel{M} <: DryAtmosLinearModel
+    atmos::M
+    function DryAtmosAcousticGravityLinearModel(atmos::M) where {M}
+        if atmos.physics.ref_state === NoReferenceState()
+            error("DryAtmosAcousticGravityLinearModel needs a model with a reference state")
+        end
+        new{M}(atmos)
     end
 end
 
-abstract type DryAtmosLinearModel <: BalanceLaw end
+"""
+    Declaration of state variables
 
+    vars_state returns a NamedTuple of data types.
+"""
 function vars_state(lm::DryAtmosLinearModel, ::Prognostic, FT)
     @vars begin
         ρ::FT
@@ -35,6 +38,24 @@ end
 vars_state(lm::DryAtmosLinearModel, st::Auxiliary, FT) =
     vars_state(lm.atmos, st, FT)
 
+"""
+    Initialization of state variables
+
+    init_state_xyz! sets up the initial fields within our state variables
+    (e.g., prognostic, auxiliary, etc.), however it seems to not initialized
+    the gradient flux variables by default.
+"""
+init_state_auxiliary!(lm::DryAtmosLinearModel, aux::Vars, geom::LocalGeometry) =
+    nothing
+
+init_state_prognostic!(
+    lm::DryAtmosLinearModel,
+    state::Vars,
+    aux::Vars,
+    coords,
+    t,
+) = nothing
+
 function update_auxiliary_state!(
     dg::DGModel,
     lm::DryAtmosLinearModel,
@@ -44,6 +65,38 @@ function update_auxiliary_state!(
 )
     return false
 end
+
+"""
+    LHS computations
+"""
+function flux_first_order!(
+    lm::DryAtmosAcousticGravityLinearModel,
+    flux::Grad,
+    state::Vars,
+    aux::Vars,
+    t::Real,
+    direction,
+)
+    FT = eltype(state)
+    ref = aux.ref_state
+
+    flux.ρ = state.ρu
+    pL = linearized_pressure(state.ρ, state.ρe, aux.Φ)
+    flux.ρu += pL * I
+    flux.ρe = ((ref.ρe + ref.p) / ref.ρ) * state.ρu
+
+    return nothing
+end
+
+flux_second_order!(
+    lm::DryAtmosLinearModel,
+    flux::Grad,
+    state::Vars,
+    diffusive::Vars,
+    aux::Vars,
+    t::Real,
+) = nothing
+
 function flux_second_order!(
     lm::DryAtmosLinearModel,
     flux::Grad,
@@ -55,6 +108,7 @@ function flux_second_order!(
 )
     nothing
 end
+
 integral_load_auxiliary_state!(
     lm::DryAtmosLinearModel,
     integ::Vars,
@@ -74,79 +128,10 @@ reverse_integral_set_auxiliary_state!(
     aux::Vars,
     integ::Vars,
 ) = nothing
-flux_second_order!(
-    lm::DryAtmosLinearModel,
-    flux::Grad,
-    state::Vars,
-    diffusive::Vars,
-    aux::Vars,
-    t::Real,
-) = nothing
-function wavespeed(
-    lm::DryAtmosLinearModel,
-    nM,
-    state::Vars,
-    aux::Vars,
-    t::Real,
-    direction,
-)
-    ref = aux.ref_state
-    return soundspeed(ref.ρ, ref.p)
-end
 
-boundary_conditions(lm::DryAtmosLinearModel) = (1, 2)
-function boundary_state!(
-    nf::NumericalFluxFirstOrder,
-    bc,
-    lm::DryAtmosLinearModel,
-    args...,
-)
-    boundary_state!(nf, bc, lm.atmos, args...)
-end
-function boundary_state!(
-    nf::NumericalFluxSecondOrder,
-    bc,
-    lm::DryAtmosLinearModel,
-    args...,
-)
-    nothing
-end
-init_state_auxiliary!(lm::DryAtmosLinearModel, aux::Vars, geom::LocalGeometry) =
-    nothing
-init_state_prognostic!(
-    lm::DryAtmosLinearModel,
-    state::Vars,
-    aux::Vars,
-    coords,
-    t,
-) = nothing
-
-struct DryAtmosAcousticGravityLinearModel{M} <: DryAtmosLinearModel
-    atmos::M
-    function DryAtmosAcousticGravityLinearModel(atmos::M) where {M}
-        if atmos.ref_state === NoReferenceState()
-            error("DryAtmosAcousticGravityLinearModel needs a model with a reference state")
-        end
-        new{M}(atmos)
-    end
-end
-function flux_first_order!(
-    lm::DryAtmosAcousticGravityLinearModel,
-    flux::Grad,
-    state::Vars,
-    aux::Vars,
-    t::Real,
-    direction,
-)
-    FT = eltype(state)
-    ref = aux.ref_state
-
-    flux.ρ = state.ρu
-    pL = linearized_pressure(state.ρ, state.ρe, aux.Φ)
-    flux.ρu += pL * I
-    flux.ρe = ((ref.ρe + ref.p) / ref.ρ) * state.ρu
-    nothing
-end
+"""
+    RHS computations
+"""
 function source!(
     lm::DryAtmosAcousticGravityLinearModel,
     source::Vars,
@@ -163,5 +148,26 @@ function source!(
             source.ρe -= state.ρu' * ∇Φ
         end
     end
+    nothing
+end
+
+"""
+    Boundary conditions
+"""
+boundary_conditions(lm::DryAtmosLinearModel) = (5, 6)
+function boundary_state!(
+    nf::NumericalFluxFirstOrder,
+    bc,
+    lm::DryAtmosLinearModel,
+    args...,
+)
+    boundary_state!(nf, bc, lm.atmos, args...)
+end
+function boundary_state!(
+    nf::NumericalFluxSecondOrder,
+    bc,
+    lm::DryAtmosLinearModel,
+    args...,
+)
     nothing
 end

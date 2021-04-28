@@ -48,8 +48,48 @@ end
     return sqrt(γ * calc_pressure(eos, state) / ρ)
 end
 
+
 """
-  Extensions
+  Maciek's world
+"""
+function pressure(ρ, ρu, ρe, Φ)
+    FT = eltype(ρ)
+    γ = FT(gamma(param_set))
+    if total_energy
+        (γ - 1) * (ρe - dot(ρu, ρu) / 2ρ - ρ * Φ)
+    else
+        (γ - 1) * (ρe - dot(ρu, ρu) / 2ρ)
+    end
+end
+
+function totalenergy(ρ, ρu, p, Φ)
+    FT = eltype(ρ)
+    γ = FT(gamma(param_set))
+    if total_energy
+        return p / (γ - 1) + dot(ρu, ρu) / 2ρ + ρ * Φ
+    else
+        return p / (γ - 1) + dot(ρu, ρu) / 2ρ
+    end
+end
+
+function soundspeed(ρ, p)
+    FT = eltype(ρ)
+    γ = FT(gamma(param_set))
+    sqrt(γ * p / ρ)
+end
+
+@inline function linearized_pressure(ρ, ρe, Φ)
+    FT = eltype(ρ)
+    γ = FT(gamma(param_set))
+    if total_energy
+        (γ - 1) * (ρe - ρ * Φ)
+    else
+        (γ - 1) * ρe
+    end
+end
+
+"""
+  Base extensions
 """
 function info(::AbstractEquationOfState)
     error("Not implemented!")

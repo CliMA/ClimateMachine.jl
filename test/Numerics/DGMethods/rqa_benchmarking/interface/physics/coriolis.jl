@@ -48,3 +48,20 @@ end
 
     return nothing
 end
+
+"""
+    Maciek's world
+"""
+struct Coriolis end
+function source!(
+    m::DryAtmosModel,
+    ::Coriolis,
+    source,
+    state_prognostic,
+    state_auxiliary,
+)
+    FT = eltype(state_prognostic)
+    _Omega::FT = Omega(param_set)
+    # note: this assumes a SphericalOrientation
+    source.ρu -= SVector(0, 0, 2 * _Omega) × state_prognostic.ρu
+end
