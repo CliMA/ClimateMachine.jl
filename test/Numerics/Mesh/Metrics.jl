@@ -1,5 +1,6 @@
 using ClimateMachine.Mesh.Elements
 using ClimateMachine.Mesh.Grids
+using ClimateMachine.Mesh.GeometricFactors
 using ClimateMachine.Mesh.Metrics
 using LinearAlgebra: I
 using Test
@@ -31,7 +32,6 @@ const _nsgeo = Grids._nsgeo
             # Create element operators for each polynomial order
             ξω = ntuple(j -> Elements.lglpoints(FT, N[j]), dim)
             ξ, ω = ntuple(j -> map(x -> x[j], ξω), 2)
-
             D = ntuple(j -> Elements.spectralderivative(ξ[j]), dim)
 
             dim = 1
@@ -42,7 +42,14 @@ const _nsgeo = Grids._nsgeo
 
             (vgeo, sgeo, _) =
                 Grids.computegeometry(e2c, D, ξ, ω, (x...) -> identity(x))
-            vgeo = reshape(vgeo, Nq..., _nvgeo, nelem)
+
+            vgeo = reshape(
+                vgeo.array,
+                Nq...,
+                # - 1 after fieldcount is to remove the `array` field from the array allocation
+                fieldcount(GeometricFactors.VolumeGeometry) - 1,
+                nelem,
+            )
             @test vgeo[:, _x1, 1] ≈ (ξ[1] .- 1) / 2
             @test vgeo[:, _x1, 2] ≈ 5 * (ξ[1] .+ 1)
 
@@ -50,10 +57,10 @@ const _nsgeo = Grids._nsgeo
             @test vgeo[:, _M, 2] ≈ 5 * ω[1] .* ones(FT, Nq)
             @test vgeo[:, _ξ1x1, 1] ≈ 2 * ones(FT, Nq)
             @test vgeo[:, _ξ1x1, 2] ≈ ones(FT, Nq) / 5
-            @test sgeo[_n1, 1, 1, :] ≈ -ones(FT, nelem)
-            @test sgeo[_n1, 1, 2, :] ≈ ones(FT, nelem)
-            @test sgeo[_sM, 1, 1, :] ≈ ones(FT, nelem)
-            @test sgeo[_sM, 1, 2, :] ≈ ones(FT, nelem)
+            @test sgeo.n1[1, 1, :] ≈ -ones(FT, nelem)
+            @test sgeo.n1[1, 2, :] ≈ ones(FT, nelem)
+            @test sgeo.sωJ[1, 1, :] ≈ ones(FT, nelem)
+            @test sgeo.sωJ[1, 2, :] ≈ ones(FT, nelem)
         end
         #}}}
     end
@@ -83,7 +90,13 @@ const _nsgeo = Grids._nsgeo
 
             (vgeo, sgeo, _) =
                 Grids.computegeometry(e2c, D, ξ, ω, (x...) -> identity(x))
-            vgeo = reshape(vgeo, Nq..., _nvgeo, nelem)
+            vgeo = reshape(
+                vgeo.array,
+                Nq...,
+                # - 1 after fieldcount is to remove the `array` field from the array allocation
+                fieldcount(GeometricFactors.VolumeGeometry) - 1,
+                nelem,
+            )
             @test vgeo[1, _x1, 1] ≈ sum(e2c[:, :, 1]) / 2
             @test vgeo[1, _x1, 2] ≈ sum(e2c[:, :, 2]) / 2
 
@@ -92,17 +105,16 @@ const _nsgeo = Grids._nsgeo
             @test vgeo[:, _ξ1x1, 1] ≈ 2 * ones(FT, Nq)
             @test vgeo[:, _ξ1x1, 2] ≈ ones(FT, Nq) / 5
 
-            @test sgeo[_n1, 1, 1, :] ≈ -ones(FT, nelem)
-            @test sgeo[_n1, 1, 2, :] ≈ ones(FT, nelem)
-            @test sgeo[_sM, 1, 1, :] ≈ ones(FT, nelem)
-            @test sgeo[_sM, 1, 2, :] ≈ ones(FT, nelem)
+            @test sgeo.n1[1, 1, :] ≈ -ones(FT, nelem)
+            @test sgeo.n1[1, 2, :] ≈ ones(FT, nelem)
+            @test sgeo.sωJ[1, 1, :] ≈ ones(FT, nelem)
+            @test sgeo.sωJ[1, 2, :] ≈ ones(FT, nelem)
         end
         #}}}
     end
 end
 
 @testset "2-D Metric terms" begin
-    # for FT in (Float32, Float64)
     for FT in (Float32, Float64), N in ((4, 4), (4, 6), (6, 4))
         Nq = N .+ 1
         Np = prod(Nq)
@@ -138,34 +150,34 @@ end
             ]
             nelem = size(e2c, 3)
 
-            x_exact = Array{FT, 3}(undef, Nq..., 4)
+            x_exact = Array{FT, 3}(undef, Nq..., nelem)
             x_exact[:, :, 1] .= 1 .+ ξ[1]
             x_exact[:, :, 2] .= 1 .- ξ[2]'
             x_exact[:, :, 3] .= 1 .- ξ[1]
             x_exact[:, :, 4] .= 1 .+ ξ[2]'
 
-            y_exact = Array{FT, 3}(undef, Nq..., 4)
+            y_exact = Array{FT, 3}(undef, Nq..., nelem)
             y_exact[:, :, 1] .= 1 .+ ξ[2]'
             y_exact[:, :, 2] .= 1 .+ ξ[1]
             y_exact[:, :, 3] .= 1 .- ξ[2]'
             y_exact[:, :, 4] .= 1 .- ξ[1]
 
             M_exact =
-                ones(FT, Nq..., 4) .* reshape(kron(reverse(ω)...), Nq..., 1)
+                ones(FT, Nq..., nelem) .* reshape(kron(reverse(ω)...), Nq..., 1)
 
-            ξ1x1_exact = zeros(FT, Nq..., 4)
+            ξ1x1_exact = zeros(FT, Nq..., nelem)
             ξ1x1_exact[:, :, 1] .= 1
             ξ1x1_exact[:, :, 3] .= -1
 
-            ξ1x2_exact = zeros(FT, Nq..., 4)
+            ξ1x2_exact = zeros(FT, Nq..., nelem)
             ξ1x2_exact[:, :, 2] .= 1
             ξ1x2_exact[:, :, 4] .= -1
 
-            ξ2x1_exact = zeros(FT, Nq..., 4)
+            ξ2x1_exact = zeros(FT, Nq..., nelem)
             ξ2x1_exact[:, :, 2] .= -1
             ξ2x1_exact[:, :, 4] .= 1
 
-            ξ2x2_exact = zeros(FT, Nq..., 4)
+            ξ2x2_exact = zeros(FT, Nq..., nelem)
             ξ2x2_exact[:, :, 1] .= 1
             ξ2x2_exact[:, :, 3] .= -1
 
@@ -203,7 +215,14 @@ end
 
             (vgeo, sgeo, _) =
                 Grids.computegeometry(e2c, D, ξ, ω, (x...) -> identity(x))
-            vgeo = reshape(vgeo, Nq..., _nvgeo, nelem)
+
+            vgeo = reshape(
+                vgeo.array,
+                Nq...,
+                # - 1 after fieldcount is to remove the `array` field from the array allocation
+                fieldcount(GeometricFactors.VolumeGeometry) - 1,
+                nelem,
+            )
 
             @test (@view vgeo[:, :, _x1, :]) ≈ x_exact
             @test (@view vgeo[:, :, _x2, :]) ≈ y_exact
@@ -213,9 +232,9 @@ end
             @test (@view vgeo[:, :, _ξ2x1, :]) ≈ ξ2x1_exact
             @test (@view vgeo[:, :, _ξ2x2, :]) ≈ ξ2x2_exact
             msk = isfinite.(sM_exact)
-            @test sgeo[_sM, :, :, :][msk] ≈ sM_exact[msk]
-            @test sgeo[_n1, :, :, :][msk] ≈ nx_exact[msk]
-            @test sgeo[_n2, :, :, :][msk] ≈ ny_exact[msk]
+            @test sgeo.sωJ[:, :, :][msk] ≈ sM_exact[msk]
+            @test sgeo.n1[:, :, :][msk] ≈ nx_exact[msk]
+            @test sgeo.n2[:, :, :][msk] ≈ ny_exact[msk]
 
             nothing
         end
@@ -252,7 +271,13 @@ end
                     ω,
                     (x...) -> identity(x),
                 )
-                vgeo = reshape(vgeo, Nq..., _nvgeo, nelem)
+                vgeo = reshape(
+                    vgeo.array,
+                    Nq...,
+                    # - 1 after fieldcount is to remove the `array` field from the array allocation
+                    fieldcount(GeometricFactors.VolumeGeometry) - 1,
+                    nelem,
+                )
                 ξ1, ξ2 = vgeo[:, :, _x1, :], vgeo[:, :, _x2, :]
                 (fx1ξ1(ξ1, ξ2), fx1ξ2(ξ1, ξ2), fx2ξ1(ξ1, ξ2), fx2ξ2(ξ1, ξ2))
             end
@@ -261,7 +286,13 @@ end
 
             meshwarp(ξ1, ξ2, _) = (f(ξ1, ξ2)..., 0)
             (vgeo, sgeo, _) = Grids.computegeometry(e2c, D, ξ, ω, meshwarp)
-            vgeo = reshape(vgeo, Nq..., _nvgeo, nelem)
+            vgeo = reshape(
+                vgeo.array,
+                Nq...,
+                # - 1 after fieldcount is to remove the `array` field from the array allocation
+                fieldcount(GeometricFactors.VolumeGeometry) - 1,
+                nelem,
+            )
             x1 = @view vgeo[:, :, _x1, :]
             x2 = @view vgeo[:, :, _x2, :]
 
@@ -272,9 +303,9 @@ end
             @test (@view vgeo[:, :, _ξ2x2, :]) ≈ x1ξ1 ./ J
 
             # check the normals?
-            sM = @view sgeo[_sM, :, :, :]
-            n1 = @view sgeo[_n1, :, :, :]
-            n2 = @view sgeo[_n2, :, :, :]
+            sM = @view sgeo.sωJ[:, :, :]
+            n1 = @view sgeo.n1[:, :, :]
+            n2 = @view sgeo.n2[:, :, :]
             @test all(hypot.(n1[1:Nfp[1], 1:2, :], n2[1:Nfp[1], 1:2, :]) .≈ 1)
             @test all(hypot.(n1[1:Nfp[2], 3:4, :], n2[1:Nfp[2], 3:4, :]) .≈ 1)
             @test sM[1:Nfp[1], 1, :] .* n1[1:Nfp[1], 1, :] ≈
@@ -311,7 +342,13 @@ end
 
             meshwarp(ξ1, ξ2, _) = (f(ξ1, ξ2)..., 0)
             (vgeo, sgeo, _) = Grids.computegeometry(e2c, D, ξ, ω, meshwarp)
-            vgeo = reshape(vgeo, Nq..., _nvgeo, nelem)
+            vgeo = reshape(
+                vgeo.array,
+                Nq...,
+                # - 1 after fieldcount is to remove the `array` field from the array allocation
+                fieldcount(GeometricFactors.VolumeGeometry) - 1,
+                nelem,
+            )
             x1 = @view vgeo[:, :, _x1, :]
             x2 = @view vgeo[:, :, _x2, :]
 
@@ -373,16 +410,15 @@ end
 
             # Create the metrics
             (x1, x2, x1ξ1, x1ξ2, x2ξ1, x2ξ2) = let
-                ξ1 = zeros(FT, Np, nelem)
-                ξ2 = zeros(FT, Np, nelem)
-                Metrics.creategrid!(ξ1, ξ2, e2c, ξ...)
+                vgeo = VolumeGeometry(FT, Nq, nelem)
+                Metrics.creategrid!(vgeo, e2c, ξ)
                 (
-                    fx1.(ξ1, ξ2),
-                    fx2.(ξ1, ξ2),
-                    fx1ξ1.(ξ1, ξ2),
-                    fx1ξ2.(ξ1, ξ2),
-                    fx2ξ1.(ξ1, ξ2),
-                    fx2ξ2.(ξ1, ξ2),
+                    fx1.(vgeo.x1, vgeo.x2),
+                    fx2.(vgeo.x1, vgeo.x2),
+                    fx1ξ1.(vgeo.x1, vgeo.x2),
+                    fx1ξ2.(vgeo.x1, vgeo.x2),
+                    fx2ξ1.(vgeo.x1, vgeo.x2),
+                    fx2ξ2.(vgeo.x1, vgeo.x2),
                 )
             end
             J = (x1ξ1 .* x2ξ2 - x1ξ2 .* x2ξ1)
@@ -391,7 +427,13 @@ end
 
             meshwarp(ξ1, ξ2, _) = (fx1(ξ1, ξ2), fx2(ξ1, ξ2), 0)
             (vgeo, sgeo, _) = Grids.computegeometry(e2c, D, ξ, ω, meshwarp)
-            vgeo = reshape(vgeo, Nq..., _nvgeo, nelem)
+            vgeo = reshape(
+                vgeo.array,
+                Nq...,
+                # - 1 after fieldcount is to remove the `array` field from the array allocation
+                fieldcount(GeometricFactors.VolumeGeometry) - 1,
+                nelem,
+            )
             @test x1 ≈ vgeo[:, :, _x1, :]
             @test x2 ≈ vgeo[:, :, _x2, :]
 
@@ -402,9 +444,9 @@ end
             @test (@view vgeo[:, :, _ξ1x2, :]) .* J ≈ -x1ξ2
 
             # check the normals?
-            sM = @view sgeo[_sM, :, :, :]
-            n1 = @view sgeo[_n1, :, :, :]
-            n2 = @view sgeo[_n2, :, :, :]
+            sM = @view sgeo.sωJ[:, :, :]
+            n1 = @view sgeo.n1[:, :, :]
+            n2 = @view sgeo.n2[:, :, :]
             @test all(hypot.(n1[1:Nfp[1], 1:2, :], n2[1:Nfp[1], 1:2, :]) .≈ 1)
             @test all(hypot.(n1[1:Nfp[2], 3:4, :], n2[1:Nfp[2], 3:4, :]) .≈ 1)
             @test sM[1:Nfp[1], 1, :] .* n1[1:Nfp[1], 1, :] ≈
@@ -420,17 +462,17 @@ end
             (x1ξ1, x2ξ1) = let
                 @assert Nq[2] == 1 && Nq[1] != 1
                 Nq_N1 = max.(2, Nq)
-                ξ1 = zeros(FT, Nq_N1..., nelem)
-                ξ2 = zeros(FT, Nq_N1..., nelem)
+                vgeo_N1 = VolumeGeometry(FT, Nq_N1, nelem)
                 Metrics.creategrid!(
-                    ξ1,
-                    ξ2,
+                    vgeo_N1,
                     e2c,
-                    ξ[1],
-                    Elements.lglpoints(FT, 1)[1],
+                    (ξ[1], Elements.lglpoints(FT, 1)[1]),
                 )
-                (fx1ξ1.(ξ1, ξ2), fx2ξ1.(ξ1, ξ2))
+                x1 = reshape(vgeo_N1.x1, (Nq_N1..., nelem))
+                x2 = reshape(vgeo_N1.x2, (Nq_N1..., nelem))
+                (fx1ξ1.(x1, x2), fx2ξ1.(x1, x2))
             end
+
             @test sM[1:Nfp[2], 3, :] .* n1[1:Nfp[2], 3, :] ≈
                   x2ξ1[:, 1, :] .* ω[1]
             @test sM[1:Nfp[2], 3, :] .* n2[1:Nfp[2], 3, :] ≈
@@ -475,6 +517,13 @@ end
             meshwarp(ξ1, ξ2, _) = (fx1(ξ1, ξ2), fx2(ξ1, ξ2), 0)
             (vgeo, sgeo, _) = Grids.computegeometry(e2c, D, ξ, ω, meshwarp)
 
+            vgeo = reshape(
+                vgeo.array,
+                prod(Nq),
+                # - 1 after fieldcount is to remove the `array` field from the array allocation
+                fieldcount(GeometricFactors.VolumeGeometry) - 1,
+                nelem,
+            )
             M = vgeo[:, _M, :]
             ξ1x1 = vgeo[:, _ξ1x1, :]
             ξ2x1 = vgeo[:, _ξ2x1, :]
@@ -493,9 +542,9 @@ end
                 kron(I2[1, :]', I1),
                 kron(I2[Nq[2], :]', I1),
             )
-            sM = ntuple(f -> sgeo[_sM, 1:Nfp[cld(f, 2)], f, :], nface)
-            n1 = ntuple(f -> sgeo[_n1, 1:Nfp[cld(f, 2)], f, :], nface)
-            n2 = ntuple(f -> sgeo[_n2, 1:Nfp[cld(f, 2)], f, :], nface)
+            sM = ntuple(f -> sgeo.sωJ[1:Nfp[cld(f, 2)], f, :], nface)
+            n1 = ntuple(f -> sgeo.n1[1:Nfp[cld(f, 2)], f, :], nface)
+            n2 = ntuple(f -> sgeo.n2[1:Nfp[cld(f, 2)], f, :], nface)
 
             # If constant preserving then:
             #   \sum_{j} = D' * M * ξjxk = \sum_{f} L_f' * sM_f * n1_f
@@ -586,7 +635,14 @@ end
 
         (vgeo, sgeo, _) =
             Grids.computegeometry(e2c, D, ξ, ω, (x...) -> identity(x))
-        vgeo = reshape(vgeo, Nq..., _nvgeo, nelem)
+
+        vgeo = reshape(
+            vgeo.array,
+            Nq...,
+            # - 1 after fieldcount is to remove the `array` field from the array allocation
+            fieldcount(GeometricFactors.VolumeGeometry) - 1,
+            nelem,
+        )
 
         @test (@view vgeo[:, :, :, _x1, :]) ≈ x_exact
         @test (@view vgeo[:, :, :, _x2, :]) ≈ y_exact
@@ -609,25 +665,25 @@ end
                 end
                 Mf = kron(1, ωf...)
                 @test isapprox(
-                    (@view sgeo[_sM, 1:Nfp[d], f, :]),
+                    (@view sgeo.sωJ[1:Nfp[d], f, :]),
                     sJ_exact[1:Nfp[d], f, :] .* Mf,
                     atol = √eps(FT),
                     rtol = √eps(FT),
                 )
                 @test isapprox(
-                    (@view sgeo[_n1, 1:Nfp[d], f, :]),
+                    (@view sgeo.n1[1:Nfp[d], f, :]),
                     nx_exact[1:Nfp[d], f, :];
                     atol = √eps(FT),
                     rtol = √eps(FT),
                 )
                 @test isapprox(
-                    (@view sgeo[_n2, 1:Nfp[d], f, :]),
+                    (@view sgeo.n2[1:Nfp[d], f, :]),
                     ny_exact[1:Nfp[d], f, :];
                     atol = √eps(FT),
                     rtol = √eps(FT),
                 )
                 @test isapprox(
-                    (@view sgeo[_n3, 1:Nfp[d], f, :]),
+                    (@view sgeo.n3[1:Nfp[d], f, :]),
                     nz_exact[1:Nfp[d], f, :];
                     atol = √eps(FT),
                     rtol = √eps(FT),
@@ -685,7 +741,13 @@ end
         (x1ξ1, x1ξ2, x1ξ3, x2ξ1, x2ξ2, x2ξ3, x3ξ1, x3ξ2, x3ξ3) = let
             (vgeo, _) =
                 Grids.computegeometry(e2c, D, ξ, ω, (x...) -> identity(x))
-            vgeo = reshape(vgeo, Nq..., _nvgeo, nelem)
+            vgeo = reshape(
+                vgeo.array,
+                Nq...,
+                # - 1 after fieldcount is to remove the `array` field from the array allocation
+                fieldcount(GeometricFactors.VolumeGeometry) - 1,
+                nelem,
+            )
             ξ1 = vgeo[:, :, :, _x1, :]
             ξ2 = vgeo[:, :, :, _x2, :]
             ξ3 = vgeo[:, :, :, _x3, :]
@@ -718,7 +780,13 @@ end
         ξ3x3 = (x1ξ1 .* x2ξ2 - x1ξ2 .* x2ξ1) ./ J
 
         (vgeo, sgeo, _) = Grids.computegeometry(e2c, D, ξ, ω, f)
-        vgeo = reshape(vgeo, Nq..., _nvgeo, nelem)
+        vgeo = reshape(
+            vgeo.array,
+            Nq...,
+            # - 1 after fieldcount is to remove the `array` field from the array allocation
+            fieldcount(GeometricFactors.VolumeGeometry) - 1,
+            nelem,
+        )
 
         @test (@view vgeo[:, :, :, _M, :]) ≈
               J .* reshape(kron(reverse(ω)...), Nq..., 1)
@@ -731,10 +799,10 @@ end
         @test (@view vgeo[:, :, :, _ξ3x1, :]) ≈ ξ3x1
         @test (@view vgeo[:, :, :, _ξ3x2, :]) ≈ ξ3x2
         @test (@view vgeo[:, :, :, _ξ3x3, :]) ≈ ξ3x3
-        n1 = @view sgeo[_n1, :, :, :]
-        n2 = @view sgeo[_n2, :, :, :]
-        n3 = @view sgeo[_n3, :, :, :]
-        sM = @view sgeo[_sM, :, :, :]
+        n1 = @view sgeo.n1[:, :, :]
+        n2 = @view sgeo.n2[:, :, :]
+        n3 = @view sgeo.n3[:, :, :]
+        sM = @view sgeo.sωJ[:, :, :]
         for d in 1:dim
             for f in (2d - 1):(2d)
                 @test all(
@@ -846,7 +914,13 @@ end
         nelem = size(e2c, 3)
 
         (vgeo, sgeo, _) = Grids.computegeometry(e2c, D, ξ, ω, f)
-        vgeo = reshape(vgeo, Nq..., _nvgeo, nelem)
+        vgeo = reshape(
+            vgeo.array,
+            Nq...,
+            # - 1 after fieldcount is to remove the `array` field from the array allocation
+            fieldcount(GeometricFactors.VolumeGeometry) - 1,
+            nelem,
+        )
 
         (Cx1, Cx2, Cx3) = (zeros(FT, Nq...), zeros(FT, Nq...), zeros(FT, Nq...))
 
@@ -942,30 +1016,33 @@ end
             # Create the metrics
             (x1, x2, x3, x1ξ1, x1ξ2, x1ξ3, x2ξ1, x2ξ2, x2ξ3, x3ξ1, x3ξ2, x3ξ3) =
                 let
-                    ξ1 = zeros(FT, Nq..., nelem)
-                    ξ2 = zeros(FT, Nq..., nelem)
-                    ξ3 = zeros(FT, Nq..., nelem)
-                    Metrics.creategrid!(ξ1, ξ2, ξ3, e2c, ξ...)
+                    vgeo = VolumeGeometry(FT, Nq, nelem)
+                    Metrics.creategrid!(vgeo, e2c, ξ)
+                    x1 = reshape(vgeo.x1, (Nq..., nelem))
+                    x2 = reshape(vgeo.x2, (Nq..., nelem))
+                    x3 = reshape(vgeo.x3, (Nq..., nelem))
                     (
-                        fx1.(ξ1, ξ2, ξ3),
-                        fx2.(ξ1, ξ2, ξ3),
-                        fx3.(ξ1, ξ2, ξ3),
-                        fx1ξ1.(ξ1, ξ2, ξ3),
-                        fx1ξ2.(ξ1, ξ2, ξ3),
-                        fx1ξ3.(ξ1, ξ2, ξ3),
-                        fx2ξ1.(ξ1, ξ2, ξ3),
-                        fx2ξ2.(ξ1, ξ2, ξ3),
-                        fx2ξ3.(ξ1, ξ2, ξ3),
-                        fx3ξ1.(ξ1, ξ2, ξ3),
-                        fx3ξ2.(ξ1, ξ2, ξ3),
-                        fx3ξ3.(ξ1, ξ2, ξ3),
+                        fx1.(x1, x2, x3),
+                        fx2.(x1, x2, x3),
+                        fx3.(x1, x2, x3),
+                        fx1ξ1.(x1, x2, x3),
+                        fx1ξ2.(x1, x2, x3),
+                        fx1ξ3.(x1, x2, x3),
+                        fx2ξ1.(x1, x2, x3),
+                        fx2ξ2.(x1, x2, x3),
+                        fx2ξ3.(x1, x2, x3),
+                        fx3ξ1.(x1, x2, x3),
+                        fx3ξ2.(x1, x2, x3),
+                        fx3ξ3.(x1, x2, x3),
                     )
                 end
+
             J = @.(
                 x1ξ1 * (x2ξ2 * x3ξ3 - x3ξ2 * x2ξ3) +
                 x2ξ1 * (x3ξ2 * x1ξ3 - x1ξ2 * x3ξ3) +
                 x3ξ1 * (x1ξ2 * x2ξ3 - x2ξ2 * x1ξ3)
             )
+
             ξ1x1 = (x2ξ2 .* x3ξ3 - x2ξ3 .* x3ξ2) ./ J
             ξ1x2 = (x3ξ2 .* x1ξ3 - x3ξ3 .* x1ξ2) ./ J
             ξ1x3 = (x1ξ2 .* x2ξ3 - x1ξ3 .* x2ξ2) ./ J
@@ -981,7 +1058,13 @@ end
             meshwarp(ξ1, ξ2, ξ3) =
                 (fx1(ξ1, ξ2, ξ3), fx2(ξ1, ξ2, ξ3), fx3(ξ1, ξ2, ξ3))
             (vgeo, sgeo, _) = Grids.computegeometry(e2c, D, ξ, ω, meshwarp)
-            vgeo = reshape(vgeo, Nq..., _nvgeo, nelem)
+            vgeo = reshape(
+                vgeo.array,
+                Nq...,
+                # - 1 after fieldcount is to remove the `array` field from the array allocation
+                fieldcount(GeometricFactors.VolumeGeometry) - 1,
+                nelem,
+            )
 
             @test x1 ≈ vgeo[:, :, :, _x1, :]
             @test x2 ≈ vgeo[:, :, :, _x2, :]
@@ -1002,10 +1085,10 @@ end
             @test (@view vgeo[:, :, :, _ξ3x3, :]) ≈ ξ3x3
 
             # check the normals?
-            sM = @view sgeo[_sM, :, :, :]
-            n1 = @view sgeo[_n1, :, :, :]
-            n2 = @view sgeo[_n2, :, :, :]
-            n3 = @view sgeo[_n3, :, :, :]
+            sM = @view sgeo.sωJ[:, :, :]
+            n1 = @view sgeo.n1[:, :, :]
+            n2 = @view sgeo.n2[:, :, :]
+            n3 = @view sgeo.n3[:, :, :]
             @test all(
                 hypot.(
                     n1[1:Nfp[1], 1:2, :],
@@ -1077,28 +1160,25 @@ end
             (x1ξ1, x1ξ2, x1ξ3, x2ξ1, x2ξ2, x2ξ3, x3ξ1, x3ξ2, x3ξ3) = let
                 @assert Nq[1] != 1 && Nq[2] != 1 && Nq[3] == 1
                 Nq_N1 = max.(2, Nq)
-                ξ1 = zeros(FT, Nq_N1..., nelem)
-                ξ2 = zeros(FT, Nq_N1..., nelem)
-                ξ3 = zeros(FT, Nq_N1..., nelem)
+                vgeo_N1 = VolumeGeometry(FT, Nq_N1, nelem)
                 Metrics.creategrid!(
-                    ξ1,
-                    ξ2,
-                    ξ3,
+                    vgeo_N1,
                     e2c,
-                    ξ[1],
-                    ξ[2],
-                    Elements.lglpoints(FT, 1)[1],
+                    (ξ[1], ξ[2], Elements.lglpoints(FT, 1)[1]),
                 )
+                x1 = reshape(vgeo_N1.x1, (Nq_N1..., nelem))
+                x2 = reshape(vgeo_N1.x2, (Nq_N1..., nelem))
+                x3 = reshape(vgeo_N1.x3, (Nq_N1..., nelem))
                 (
-                    fx1ξ1.(ξ1, ξ2, ξ3),
-                    fx1ξ2.(ξ1, ξ2, ξ3),
-                    fx1ξ3.(ξ1, ξ2, ξ3),
-                    fx2ξ1.(ξ1, ξ2, ξ3),
-                    fx2ξ2.(ξ1, ξ2, ξ3),
-                    fx2ξ3.(ξ1, ξ2, ξ3),
-                    fx3ξ1.(ξ1, ξ2, ξ3),
-                    fx3ξ2.(ξ1, ξ2, ξ3),
-                    fx3ξ3.(ξ1, ξ2, ξ3),
+                    fx1ξ1.(x1, x2, x3),
+                    fx1ξ2.(x1, x2, x3),
+                    fx1ξ3.(x1, x2, x3),
+                    fx2ξ1.(x1, x2, x3),
+                    fx2ξ2.(x1, x2, x3),
+                    fx2ξ3.(x1, x2, x3),
+                    fx3ξ1.(x1, x2, x3),
+                    fx3ξ2.(x1, x2, x3),
+                    fx3ξ3.(x1, x2, x3),
                 )
             end
             J = @.(
@@ -1178,6 +1258,14 @@ end
                 (fx1(ξ1, ξ2, ξ3), fx2(ξ1, ξ2, ξ3), fx2(ξ1, ξ2, ξ3))
             (vgeo, sgeo, _) = Grids.computegeometry(e2c, D, ξ, ω, meshwarp)
 
+            vgeo = reshape(
+                vgeo.array,
+                prod(Nq),
+                # - 1 after fieldcount is to remove the `array` field from the array allocation
+                fieldcount(GeometricFactors.VolumeGeometry) - 1,
+                nelem,
+            )
+
             M = vgeo[:, _M, :]
             ξ1x1 = vgeo[:, _ξ1x1, :]
             ξ2x1 = vgeo[:, _ξ2x1, :]
@@ -1211,10 +1299,10 @@ end
                 kron(I3[1, :]', I2, I1),
                 kron(I3[Nq[3], :]', I2, I1),
             )
-            sM = ntuple(f -> sgeo[_sM, 1:Nfp[cld(f, 2)], f, :], nface)
-            n1 = ntuple(f -> sgeo[_n1, 1:Nfp[cld(f, 2)], f, :], nface)
-            n2 = ntuple(f -> sgeo[_n2, 1:Nfp[cld(f, 2)], f, :], nface)
-            n3 = ntuple(f -> sgeo[_n3, 1:Nfp[cld(f, 2)], f, :], nface)
+            sM = ntuple(f -> sgeo.sωJ[1:Nfp[cld(f, 2)], f, :], nface)
+            n1 = ntuple(f -> sgeo.n1[1:Nfp[cld(f, 2)], f, :], nface)
+            n2 = ntuple(f -> sgeo.n2[1:Nfp[cld(f, 2)], f, :], nface)
+            n3 = ntuple(f -> sgeo.n3[1:Nfp[cld(f, 2)], f, :], nface)
 
             # If constant preserving then:
             #   \sum_{j} = D' * M * ξjxk = \sum_{f} L_f' * sM_f * n1_f
@@ -1268,6 +1356,14 @@ end
                 (fx1(ξ1, ξ2, ξ3), fx2(ξ1, ξ2, ξ3), fx2(ξ1, ξ2, ξ3))
             (vgeo, sgeo, _) = Grids.computegeometry(e2c, D, ξ, ω, meshwarp)
 
+            vgeo = reshape(
+                vgeo.array,
+                prod(Nq),
+                # - 1 after fieldcount is to remove the `array` field from the array allocation
+                fieldcount(GeometricFactors.VolumeGeometry) - 1,
+                nelem,
+            )
+
             M = vgeo[:, _M, :]
             ξ1x1 = vgeo[:, _ξ1x1, :]
             ξ2x1 = vgeo[:, _ξ2x1, :]
@@ -1301,10 +1397,10 @@ end
                 kron(I3[1, :]', I2, I1),
                 kron(I3[Nq[3], :]', I2, I1),
             )
-            sM = ntuple(f -> sgeo[_sM, 1:Nfp[cld(f, 2)], f, :], nface)
-            n1 = ntuple(f -> sgeo[_n1, 1:Nfp[cld(f, 2)], f, :], nface)
-            n2 = ntuple(f -> sgeo[_n2, 1:Nfp[cld(f, 2)], f, :], nface)
-            n3 = ntuple(f -> sgeo[_n3, 1:Nfp[cld(f, 2)], f, :], nface)
+            sM = ntuple(f -> sgeo.sωJ[1:Nfp[cld(f, 2)], f, :], nface)
+            n1 = ntuple(f -> sgeo.n1[1:Nfp[cld(f, 2)], f, :], nface)
+            n2 = ntuple(f -> sgeo.n2[1:Nfp[cld(f, 2)], f, :], nface)
+            n3 = ntuple(f -> sgeo.n3[1:Nfp[cld(f, 2)], f, :], nface)
 
             # If constant preserving then \sum_{f} L_f' * sM_f * n1_f ≈ 0
             @test abs(mapreduce(
