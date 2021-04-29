@@ -93,7 +93,7 @@ model = ModelSetup(
 ########
 Δt          = min_node_distance(grid.numerical) / parameters.cₛ * 0.25
 start_time  = 0
-end_time    = 1000.0
+end_time    = 86400 * 0.5 * 6
 callbacks   = (
     Info(),
     StateCheck(10),
