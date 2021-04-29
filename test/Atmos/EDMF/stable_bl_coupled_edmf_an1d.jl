@@ -171,6 +171,7 @@ function main(::Type{FT}, cl_args) where {FT}
         solver_config.Q,
         varsindex(vsp, :energy, :ρe),
     )
+
     vsa = vars_state(model, Auxiliary(), FT)
     horizontally_average!(
         driver_config.grid,

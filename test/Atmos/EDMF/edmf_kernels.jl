@@ -101,6 +101,7 @@ end
 
 function vars_state(::Environment, ::Gradient, FT)
     @vars(
+        ρe::FT,
         θ_liq::FT,
         q_tot::FT,
         w::FT,
@@ -136,6 +137,7 @@ end
 
 function vars_state(::Environment, ::GradientFlux, FT)
     @vars(
+        ∇ρe::SVector{3, FT},
         ∇θ_liq::SVector{3, FT},
         ∇q_tot::SVector{3, FT},
         ∇w::SVector{3, FT},
@@ -452,6 +454,7 @@ function compute_gradient_argument!(
 
     # populate gradient arguments
     en_tf.θ_liq = θ_liq_en
+    en_tf.ρe = gm.energy.ρe
     en_tf.q_tot = q_tot_en
     en_tf.w = env.w
 
@@ -505,6 +508,7 @@ function compute_gradient_flux!(
     env = environment_vars(state, N_up)
     ρa₀ = gm.ρ * env.a
     # first moment grid mean coming from environment gradients only
+    en_dif.∇ρe = en_∇tf.ρe
     en_dif.∇θ_liq = en_∇tf.θ_liq
     en_dif.∇q_tot = en_∇tf.q_tot
     en_dif.∇w = en_∇tf.w
