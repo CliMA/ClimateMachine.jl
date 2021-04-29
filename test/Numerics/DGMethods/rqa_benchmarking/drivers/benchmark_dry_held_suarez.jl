@@ -237,15 +237,16 @@ held_suarez_parameters = (;
 
 HeldSuarezForcing(held_suarez_parameters)
 
+R_d = 8.3144598 / 28.97e-3
+κ_d = 2/7
 parameters = (;
-    R_d = ADD THIS PARAMETER,
+    R_d = 8.3144598 / 28.97e-3,
     day = 86400,
     grav = 9.8,
-    cp_d = 1004,
-    cv_d = ADD THIS PARAMETER,
+    cp_d = R_d / κ_d,
+    cv_d = R_d / κ_d - 1 / κ_d,
     p0 = 1e5,
     T_ref = 255,
-
 )
 
 
