@@ -141,12 +141,13 @@ function init_problem!(problem, bl, state, aux, localgeo, t)
     θ_liq::FT = 0
     q_tot::FT = 0
     # Piecewise functions for potential temperature and total moisture
-    z1 = FT(100)
-    if z <= z1
-        θ_liq = FT(265)
-    else
-        θ_liq = FT(265) + FT(0.01) * (z - z1)
-    end
+    θ_liq = FT(265)
+    # z1 = FT(100)
+    # if z <= z1
+    #     θ_liq = FT(265)
+    # else
+    #     θ_liq = FT(265) + FT(0.01) * (z - z1)
+    # end
     θ = θ_liq
     p = aux.ref_state.p
     # Establish thermodynamic state and moist phase partitioning

@@ -111,7 +111,8 @@ function main(::Type{FT}, cl_args) where {FT}
 
     config_type = SingleStackConfigType
     ode_solver_type = ClimateMachine.ExplicitSolverType(
-        solver_method = LSRK144NiegemannDiehlBusch,
+        # solver_method = LSRK144NiegemannDiehlBusch,
+        solver_method = LSRKEulerMethod,
     )
 
     # Choice of SGS model
@@ -155,6 +156,7 @@ function main(::Type{FT}, cl_args) where {FT}
         ode_solver_type = ode_solver_type,
         init_on_cpu = true,
         Courant_number = CFLmax,
+        fixed_number_of_steps = 2,
     )
 
     # --- Zero-out horizontal variations:
@@ -180,17 +182,29 @@ function main(::Type{FT}, cl_args) where {FT}
     dgn_config = config_diagnostics(driver_config)
 
     # boyd vandeven filter
-    num_state_prognostic = number_states(driver_config.bl, Prognostic())
+    # num_state_prognostic = number_states(driver_config.bl, Prognostic())
+    # cb_boyd = GenericCallbacks.EveryXSimulationSteps(1) do
+    #     Filters.apply!(
+    #         solver_config.Q,
+    #         1:num_state_prognostic,
+    #         solver_config.dg.grid,
+    #         BoydVandevenFilter(
+    #             solver_config.dg.grid,
+    #             1, #default=0
+    #             4, #default=32
+    #         ),
+    #     )
+    #     nothing
+    # end
+
+    # Specific boyd vandeven filter
     cb_boyd = GenericCallbacks.EveryXSimulationSteps(1) do
         Filters.apply!(
             solver_config.Q,
-            1:num_state_prognostic,
+            AtmosSpecificFilterPerturbations(driver_config.bl),
             solver_config.dg.grid,
-            BoydVandevenFilter(
-                solver_config.dg.grid,
-                1, #default=0
-                4, #default=32
-            ),
+            BoydVandevenFilter(solver_config.dg.grid, 1, 4);
+            state_auxiliary = solver_config.dg.state_auxiliary,
         )
         nothing
     end
