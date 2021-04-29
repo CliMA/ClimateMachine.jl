@@ -1,5 +1,8 @@
 abstract type AbstractGravity  <: AbstractPhysicsComponent end
 
+struct ThinShellGravityFromPotential <: AbstractGravity end
+struct TotalEnergyGravityFromPotential <: AbstractGravity end
+
 @Base.kwdef struct DeepShellGravity{FT} <: AbstractGravity
     g :: FT # ms⁻²
     a :: FT # m
@@ -31,7 +34,7 @@ end
     return nothing
 end
 
-@inline function calc_force!(source, gravity::ThinShellGravity, state, aux, orientation,_...)
+@inline function calc_force!(source, gravity::ThinShellGravity, state, aux, orientation, _...)
     g = gravity.g
     ρ = state.ρ
     k̂ = vertical_unit_vector(orientation, aux)
@@ -41,7 +44,7 @@ end
     return nothing
 end
 
-@inline function calc_force!(source, gravity::Buoyancy, state, aux, orientation,_...)
+@inline function calc_force!(source, gravity::Buoyancy, state, aux, orientation, _...)
     α = gravity.α 
     g = gravity.g
     ρθ = state.ρθ
@@ -52,16 +55,12 @@ end
     return nothing
 end
 
-"""
-    Maciek's world
-"""
-struct Gravity end
-function source!(m::DryAtmosModel, ::Gravity, source, state, aux)
+@inline function calc_force!(source, ::ThinShellGravityFromPotential, state, aux, _...)
     ∇Φ = aux.∇Φ
-    if !fluctuation_gravity
-        source.ρu -= state.ρ * ∇Φ
-    end
-    if !total_energy
-        source.ρe -= state.ρu' * ∇Φ
-    end
+    source.ρu -= state.ρ * ∇Φ
+end
+
+@inline function calc_force!(source, ::TotalEnergyGravityFromPotential, state, aux, _...)
+    ∇Φ = aux.∇Φ
+    source.ρe -= state.ρu' * ∇Φ
 end

@@ -11,6 +11,28 @@ Base.@kwdef struct DryIdealGas{FT} <: AbstractEquationOfState
     γ  :: FT
 end
 
+# Energy Prognostic Cases, perhaps abstract type 
+
+Base.@kwdef struct TotalEnergy{FT} <: AbstractEquationOfState
+    γ  :: FT
+end
+
+Base.@kwdef struct DryEuler{FT} <: AbstractEquationOfState
+    γ  :: FT
+end
+
+Base.@kwdef struct LinearizedTotalEnergy{FT} <: AbstractEquationOfState
+    γ  :: FT
+end
+
+Base.@kwdef struct LinearizedDryEuler{FT} <: AbstractEquationOfState
+    γ  :: FT
+end
+
+# Linearized Equation of States
+linearize(eos::TotalEnergy) = LinearizedTotalEnergy(eos.γ)
+linearize(eos::DryEuler) = LinearizedDryEuler(eos.γ)
+
 """
   Thermodynamic relationships
 """
@@ -48,6 +70,63 @@ end
     return sqrt(γ * calc_pressure(eos, state) / ρ)
 end
 
+"""
+Modified Maciek's world
+"""
+@inline function calc_pressure(eos::TotalEnergy, state, aux)
+    γ  = eos.γ
+    ϕ  = aux.ϕ
+    ρ  = state.ρ
+    ρe = state.ρe
+    ρu = state.ρu
+    return (γ - 1) * (ρe - dot(ρu, ρu) / 2ρ - ρ * Φ)
+end
+
+@inline function calc_pressure(eos::LinearizedTotalEnergy, state, aux)
+    γ  = eos.γ
+    ϕ  = aux.ϕ
+    ρ  = state.ρ
+    ρe = state.ρe
+    return (γ - 1) * (ρe - ρ * Φ)
+end
+
+@inline function calc_pressure(eos::DryEuler, state, aux)
+    γ  = eos.γ
+    ρ  = state.ρ
+    ρe = state.ρe
+    ρu = state.ρu
+    return (γ - 1) * (ρe - dot(ρu, ρu) / 2ρ)
+end
+
+@inline function calc_pressure(eos::LinearizedDryEuler, state, aux)
+    γ  = eos.γ
+    ρe = state.ρe
+    return (γ - 1) * ρe
+end
+
+@inline function calc_sound_speed(eos::TotalEnergy, state, aux)
+    γ = eos.γ
+    ρ = state.ρ
+    return sqrt(γ * calc_pressure(eos, state, aux) / ρ)
+end
+
+@inline function calc_sound_speed(eos::DryEuler, state, aux)
+    γ = eos.γ
+    ρ = state.ρ
+    return sqrt(γ * calc_pressure(eos, state, aux) / ρ)
+end
+
+@inline function calc_sound_speed(eos::LinearizedDryEuler, state, aux)
+    γ = eos.γ
+    ρ = state.ρ
+    return sqrt(γ * calc_pressure(eos, state, aux) / ρ)
+end
+
+@inline function calc_sound_speed(eos::LinearizedTotalEnergy, state, aux)
+    γ = eos.γ
+    ρ = state.ρ
+    return sqrt(γ * calc_pressure(eos, state, aux) / ρ)
+end
 
 """
   Maciek's world

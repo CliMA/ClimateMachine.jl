@@ -9,7 +9,7 @@ struct Simulation{𝒯,𝒰,𝒱,𝒲,𝒳,𝒴} <: AbstractSimulation
     state::𝒴
 end
 
-function Simulation(; model, timestepper, time, callbacks)
+function Simulation(; model::ModelSetup, timestepper, time, callbacks)
     rhs = DGModel(
         model, 
         model.numerics.grid.numerical,
@@ -24,7 +24,20 @@ function Simulation(; model, timestepper, time, callbacks)
     return Simulation(model, timestepper, time, callbacks, rhs, state)
 end
 
-# TODO! Check if this works
+function Simulation(; model::DryAtmosModel, timestepper, time, callbacks)
+    rhs = ESDGModel(
+        model,
+        model.numerics.grid.numerical,
+        volume_numerical_flux_first_order = KGVolumeFlux(),
+        surface_numerical_flux_first_order = RusanovNumericalFlux(),
+    )
+
+    FT = eltype(rhs.grid.vgeo)
+    state = init_ode_state(rhs, FT(0); init_on_cpu = true)
+    
+    return Simulation(model, timestepper, time, callbacks, rhs, state)
+end
+
 function initialize!(simulation::Simulation; overwrite = false)
     if overwrite
         simulation = Simulation(
@@ -121,6 +134,92 @@ function rhs_closure(rhs, npoly, nover; staggering = false)
 
     return rhs_filtered 
 end # returns a closure
+
+function evolve!(simulation::Simulation{<:DryAtmosModel}; refDat = ())
+    # Unpack everything we need in this routine here
+    model         = simulation.model
+    state         = simulation.state
+    rhs           = simulation.rhs
+    grid          = simulation.model.numerics.grid.numerical
+    timestepper   = simulation.timestepper
+    t0            = simulation.time.start
+    tend          = simulation.time.finish
+    Δt            = timestepper.timestep
+    
+    # Linear model setup
+    linearized_eos = linearize(model.physics.eos)
+    lhs = (
+        LinearAdvection(),
+        PressureDivergence(eos = linearized_eos),
+    )
+    sources = (
+        ThinShellGravityFromPotential(),
+        total_energy ? nothing : TotalEnergyGravityFromPotential(),
+    )
+    physics = Physics(
+        orientation = SphericalOrientation(),
+        ref_state   = model.physics.ref_state,
+        eos         = linearized_eos,
+        lhs         = lhs,
+        sources     = sources,
+    )
+
+    linearmodel = DryAtmosAcousticGravityLinearModel(
+        physics = physics,
+        boundary_conditions = model.boundary_conditions,
+    )
+    
+    rhs_linear = DGModel(
+        linearmodel,
+        grid,
+        RusanovNumericalFlux(),
+        CentralNumericalFluxSecondOrder(),
+        CentralNumericalFluxGradient();
+        direction = VerticalDirection(),
+        state_auxiliary = rhs.state_auxiliary,
+    )
+
+    # Instantiate time stepping method    
+    odesolver = timestepper.method(
+        rhs,
+        rhs_linear,
+        LinearBackwardEulerSolver(ManyColumnLU(); isadjustable = false),
+        state;
+        dt = Δt,
+        t0 = t0,
+        split_explicit_implicit = false,
+    )
+
+    # Make callbacks from callbacks tuple
+    cbvector = create_callbacks(simulation, odesolver)
+
+    # Perform evolution of simulations
+    if isempty(cbvector)
+        solve!(state, odesolver; timeend = tend, adjustfinalstep = false)
+    else
+        solve!(
+            state,
+            odesolver;
+            timeend = tend,
+            callbacks = cbvector,
+            adjustfinalstep = false,
+        )
+    end
+
+    # Check results against reference if StateCheck callback is used
+    # TODO: TB: I don't think this should live within this function
+    if any(typeof.(simulation.callbacks) .<: StateCheck)
+      check_inds = findall(typeof.(simulation.callbacks) .<: StateCheck)
+      @assert length(check_inds) == 1 "Only use one StateCheck in callbacks!"
+
+      ClimateMachine.StateCheck.scprintref(cbvector[check_inds[1]])
+      if length(refDat) > 0
+        @test ClimateMachine.StateCheck.scdocheck(cbvector[check_inds[1]], refDat)
+      end
+    end
+
+    return nothing
+end
 
 function overintegration_filter!(state_array, rhs, npoly, nover)
     if sum(nover) > 0

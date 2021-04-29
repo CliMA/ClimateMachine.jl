@@ -24,7 +24,7 @@ end
 
     vars_state returns a NamedTuple of data types.
 """
-function vars_state(m::DryAtmosModel, st::Auxiliary, FT)
+function vars_state(m::Union{DryAtmosModel,DryAtmosLinearModel}, st::Auxiliary, FT)
     @vars begin
         x::FT
         y::FT
@@ -35,7 +35,11 @@ function vars_state(m::DryAtmosModel, st::Auxiliary, FT)
     end
 end
 
-function vars_state(::DryAtmosModel, ::Prognostic, FT)
+vars_state(::Union{DryAtmosModel,DryAtmosLinearModel}, ::DryReferenceState, ::Auxiliary, FT) =
+    @vars(T::FT, p::FT, ρ::FT, ρe::FT)
+vars_state(::Union{DryAtmosModel,DryAtmosLinearModel}, ::NoReferenceState, ::Auxiliary, FT) = @vars()
+
+function vars_state(::Union{DryAtmosModel,DryAtmosLinearModel}, ::Prognostic, FT)
     @vars begin
         ρ::FT
         ρu::SVector{3, FT}
@@ -51,10 +55,6 @@ function vars_state(::DryAtmosModel, ::Entropy, FT)
         Φ::FT
     end
 end
-
-vars_state(::DryAtmosModel, ::DryReferenceState, ::Auxiliary, FT) =
-    @vars(T::FT, p::FT, ρ::FT, ρe::FT)
-vars_state(::DryAtmosModel, ::NoReferenceState, ::Auxiliary, FT) = @vars()
 
 """
     Initialization of state variables
@@ -159,7 +159,7 @@ end
     LHS computations
 """
 @inline function flux_first_order!(
-    ::DryAtmosModel,
+    model::DryAtmosModel,
     flux::Grad,
     state::Vars,
     aux::Vars,
@@ -171,13 +171,24 @@ end
     ρu = state.ρu
     ρe = state.ρe
     u = ρinv * ρu
-    Φ = aux.Φ
+    #Φ = aux.Φ
 
-    p = pressure(ρ, ρu, ρe, Φ)
+    # p = pressure(ρ, ρu, ρe, Φ)
+    p = calc_pressure(model.physics.eos, state, aux)
 
     flux.ρ = ρ * u
     flux.ρu = p * I + ρ * u .* u'
     flux.ρe = u * (state.ρe + p)
+    
+    #calc_flux!(flux, lm.physics.pressure, state, aux, _...)
+    #calc_flux!(flux, lm.physics.advection, state, aux, _...)
+
+    # lm.physics.lhs = (DivergencePressure(eos), NonLinearAdvection())
+    # lhs = lm.physics.lhs
+    # ntuple(Val(length(lhs))) do s
+    #     Base.@_inline_meta
+    #     calc_flux!(flux, lhs[s], state, aux)
+    # end
 end
 
 """
@@ -188,19 +199,20 @@ function source!(m::DryAtmosModel, source, state_prognostic, state_auxiliary)
 
     ntuple(Val(length(sources))) do s
         Base.@_inline_meta
-        source!(m, sources[s], source, state_prognostic, state_auxiliary)
+        #source!(m, sources[s], source, state_prognostic, state_auxiliary)
+        calc_force!(source, sources[s], state_prognostic, state_auxiliary)
     end
 end
 
 """
     Boundary conditions
 """
-boundary_conditions(model::DryAtmosModel) = model.boundary_conditions
+boundary_conditions(model::Union{DryAtmosModel,DryAtmosLinearModel}) = model.boundary_conditions
 
 function boundary_state!(
     ::NumericalFluxFirstOrder,
     bctype,
-    ::DryAtmosModel,
+    ::Union{DryAtmosModel,DryAtmosLinearModel},
     state⁺,
     aux⁺,
     n,
@@ -212,6 +224,15 @@ function boundary_state!(
     state⁺.ρu -= 2 * dot(state⁻.ρu, n) .* SVector(n)
     state⁺.ρe = state⁻.ρe
     aux⁺.Φ = aux⁻.Φ
+end
+
+function boundary_state!(
+    nf::NumericalFluxSecondOrder,
+    bc,
+    lm::Union{DryAtmosModel,DryAtmosLinearModel},
+    args...,
+)
+    nothing
 end
 
 """

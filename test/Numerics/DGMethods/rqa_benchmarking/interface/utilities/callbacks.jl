@@ -2,6 +2,7 @@ abstract type AbstractCallback end
 
 struct Default <: AbstractCallback end
 struct Info <: AbstractCallback end
+struct CFL <: AbstractCallback end
 struct StateCheck{T} <: AbstractCallback
     number_of_checks::T
 end
@@ -77,6 +78,42 @@ function create_callback(::Info, simulation::Simulation, odesolver)
     return cbinfo
 end
 
+function create_callback(::CFL, simulation::Simulation, odesolver)
+    Q = simulation.state
+    # timeend = simulation.time.finish
+    # mpicomm = MPI.COMM_WORLD
+    # starttime = Ref(now())
+    cbcfl = EveryXSimulationSteps(100) do
+            simtime = gettime(odesolver)
+
+            @views begin
+                ρ = Array(Q.data[:, 1, :])
+                ρu = Array(Q.data[:, 2, :])
+                ρv = Array(Q.data[:, 3, :])
+                ρw = Array(Q.data[:, 4, :])
+            end
+
+            u = ρu ./ ρ
+            v = ρv ./ ρ
+            w = ρw ./ ρ
+
+            # TODO! transform onto sphere
+
+            ue = extrema(u)
+            ve = extrema(v)
+            we = extrema(w)
+
+            @info @sprintf """CFL
+                    simtime = %.16e
+                    u = (%.4e, %.4e)
+                    v = (%.4e, %.4e)
+                    w = (%.4e, %.4e)
+                    """ simtime ue... ve... we...
+        end
+
+    return cbcfl
+end
+
 function create_callback(callback::StateCheck, simulation::Simulation, _...)
     sim_length = simulation.time.finish - simulation.time.start
     timestep = simulation.timestepper.timestep
@@ -128,53 +165,6 @@ function create_callback(output::JLD2State, simulation::Simulation, odesolver)
 
     return jldcallback
 end
-
-# function create_callback(output::VTKState, simulation::Simulation, odesolver)
-#     # Initialize output
-#     output.overwrite &&
-#     isfile(output.filepath) &&
-#     rm(output.filepath; force = output.overwrite)
-
-#     state = simulation.state
-#     model = simulation.model        
-
-#     function do_output(counter, model, state)
-#         mpicomm = MPI.COMM_WORLD
-#         balance_law = model.balance_law
-#         aux_state = model.state_auxiliary
-
-#         outprefix = @sprintf(
-#             "%s/mpirank%04d_step%04d",
-#             output.filepath,
-#             MPI.Comm_rank(mpicomm),
-#             counter[1],
-#         )
-
-#         @info "doing VTK output" outprefix
-
-#         state_names =
-#             flattenednames(vars_state(balance_law, Prognostic(), eltype(state)))
-#         aux_names = 
-#             flattenednames(vars_state(balance_law, Auxiliary(), eltype(state)))
-
-#         writevtk(outprefix, state, model, state_names, aux_state, aux_names)
-
-#         counter[1] += 1
-
-#         return nothing
-#     end
-
-#     do_output(output.counter, model, state)
-#     cbvtk =
-#         ClimateMachine.GenericCallbacks.EveryXSimulationSteps(output.iteration) do (
-#             init = false
-#         )
-#             do_output(output.counter, model, state)
-#             return nothing
-#         end
-
-#     return cbvtk
-# end
 
 function create_callback(output::VTKState, simulation::Simulation, odesolver)
     # Initialize output

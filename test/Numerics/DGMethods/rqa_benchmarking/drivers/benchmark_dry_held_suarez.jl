@@ -215,23 +215,58 @@ T_profile =
     DecayingTemperatureProfile{FT}(param_set, FT(290), FT(220), FT(8e3))
 
 ######
-# Held-Suarez Forcing
+# 
+######
+abstract type AbstractSource end
+struct HeldSuarezForcing{S} <: AbstractSource
+    parameters::S
+end
+
+FT = Float64
+day = 86400
+held_suarez_parameters = (;
+    k_a = FT(1 / (40 * day)),
+    k_f = FT(1 / day),
+    k_s = FT(1 / (4 * day)),
+    ΔT_y = FT(60),
+    Δθ_z = FT(10),
+    T_equator = FT(315),
+    T_min = FT(200),
+    σ_b = FT(7 / 10),
+)
+
+HeldSuarezForcing(held_suarez_parameters)
+
+parameters = (;
+    R_d = ADD THIS PARAMETER,
+    day = 86400,
+    grav = 9.8,
+    cp_d = 1004,
+    cv_d = ADD THIS PARAMETER,
+    p0 = 1e5,
+    T_ref = 255,
+
+)
+
+
+######
+# Modified Held-Suarez Forcing
 ######
 function source!(
     m::DryAtmosModel,
-    ::HeldSuarezForcing,
+    hsf::HeldSuarezForcing,
     source,
     state,
     aux,
 )
     FT = eltype(state)
     
-    _R_d = FT(R_d(param_set))
-    _day = FT(day(param_set))
-    _grav = FT(grav(param_set))
-    _cp_d = FT(cp_d(param_set))
-    _cv_d = FT(cv_d(param_set))
-    _p0 = FT(MSLP(param_set))
+    _R_d  = m.parameters.R_d
+    _day  = m.parameters.day
+    _grav = m.parameters.grav
+    _cp_d = m.parameters.cp_d
+    _cv_d = m.parameters.cv_d
+    _p0   = m.parameters.MSLP  
 
     # Parameters
     T_ref = FT(255)
@@ -248,14 +283,14 @@ function source!(
     T = p / (ρ * _R_d)
 
     # Held-Suarez parameters
-    k_a = FT(1 / (40 * _day))
-    k_f = FT(1 / _day)
-    k_s = FT(1 / (4 * _day))
-    ΔT_y = FT(60)
-    Δθ_z = FT(10)
-    T_equator = FT(315)
-    T_min = FT(200)
-    σ_b = FT(7 / 10)
+    k_a = hsf.parameters.k_a
+    k_f = hsf.parameters.k_f
+    k_s = hsf.parameters.k_s
+    ΔT_y = hsf.parameters.ΔT_y
+    Δθ_z =hsf.parameters.Δθ_z
+    T_equator = hsf.parameters.T_equator
+    T_min = hsf.parameters.T_min
+    σ_b = hsf.parameters.σ_b
 
     # Held-Suarez forcing
     φ = @inbounds asin(coord[3] / norm(coord, 2))

@@ -1,100 +1,6 @@
 #!/usr/bin/env julia --project
 include("../interface/utilities/boilerplate.jl")
 
-function run(
-    grid,
-    simulation,
-    FT,
-)
-    domain_height = grid.domain.height
-    grid          = grid.numerical
-    model         = simulation.model
-    end_time      = simulation.time.finish
-
-    #5 set up dg models
-    esdg = ESDGModel(
-        model,
-        grid,
-        volume_numerical_flux_first_order = KGVolumeFlux(),
-        surface_numerical_flux_first_order = RusanovNumericalFlux(),
-    )
-
-    #6 set up linear model
-    linearmodel = DryAtmosAcousticGravityLinearModel(model)
-    lineardg = DGModel(
-        linearmodel,
-        grid,
-        RusanovNumericalFlux(),
-        CentralNumericalFluxSecondOrder(),
-        CentralNumericalFluxGradient();
-        direction = VerticalDirection(),
-        state_auxiliary = esdg.state_auxiliary,
-    )
-    # end of dg models
-
-    # determine the time step construction
-    # element_size = (domain_height / numelem_vert)
-    # acoustic_speed = soundspeed_air(param_set, FT(330))
-
-    # dx = min_node_distance(grid)
-    # cfl = 3
-    # dt = cfl * dx / acoustic_speed
-    dt = 10.0
-
-    Q = init_ode_state(esdg, FT(0))
-
-    linearsolver = ManyColumnLU()
-    odesolver = ARK2GiraldoKellyConstantinescu(
-        esdg,
-        lineardg,
-        LinearBackwardEulerSolver(linearsolver; isadjustable = false),
-        Q;
-        dt = dt,
-        t0 = 0,
-        split_explicit_implicit = false,
-    )
-    #end of time step construction
-
-    # callbacks
-    cbcfl = EveryXSimulationSteps(100) do
-            simtime = gettime(odesolver)
-
-            @views begin
-                ρ = Array(Q.data[:, 1, :])
-                ρu = Array(Q.data[:, 2, :])
-                ρv = Array(Q.data[:, 3, :])
-                ρw = Array(Q.data[:, 4, :])
-            end
-
-            u = ρu ./ ρ
-            v = ρv ./ ρ
-            w = ρw ./ ρ
-
-            ue = extrema(u)
-            ve = extrema(v)
-            we = extrema(w)
-
-            @info @sprintf """CFL
-                    simtime = %.16e
-                    u = (%.4e, %.4e)
-                    v = (%.4e, %.4e)
-                    w = (%.4e, %.4e)
-                    """ simtime ue... ve... we...
-        end
-    callbacks   = (cbcfl,)
-
-    # run it
-    solve!(
-        Q,
-        odesolver;
-        timeend = end_time,
-        callbacks = callbacks,
-        adjustfinalstep = false,
-    )
-end
-
-# Boilerplate
-
 ########
 # Set up parameters
 ########
@@ -116,7 +22,6 @@ parameters = (
     V_p  = 1.0,
     κ    = 2/7,
 )
-FT = Float64
 
 ########
 # Set up domain
@@ -206,12 +111,20 @@ end
 ########
 # Set up model physics
 ########
+FT = Float64
 T_profile =
     DecayingTemperatureProfile{FT}(param_set, FT(290), FT(220), FT(8e3))
+sources = (
+    DeepShellCoriolis{Float64}(Ω = parameters.Ω),
+    total_energy ? nothing : ThinShellGravityFromPotential(),
+    fluctuation_gravity ? nothing : TotalEnergyGravityFromPotential(),
+)
+eos = total_energy ? TotalEnergy(γ = 1 / (1 - parameters.κ)) : DryEuler(γ = 1 / (1 - parameters.κ))
 physics = Physics(
     orientation = SphericalOrientation(),
-    ref_state = DryReferenceState(T_profile),
-    sources = total_energy ? (Coriolis(),) : (Coriolis(), Gravity()),
+    ref_state   = DryReferenceState(T_profile),
+    eos         = eos,
+    sources     = sources,
 )
 
 ########
@@ -221,23 +134,31 @@ model = DryAtmosModel(
     physics = physics,
     boundary_conditions = (5, 6),
     initial_conditions = (ρ = ρ₀ᶜᵃʳᵗ, ρu = ρu⃗₀ᶜᵃʳᵗ, ρe = ρeᶜᵃʳᵗ),
-    numerics = (),
+    numerics = (grid = grid,),
     parameters = parameters,
 )
 
 ########
-# Set up time steppers
+# Set up time steppers (could be done automatically in simulation)
 ########
+# determine the time step construction
+# element_size = (domain_height / numelem_vert)
+# acoustic_speed = soundspeed_air(param_set, FT(330))
+# dx = min_node_distance(grid)
+# cfl = 3
+# dt = cfl * dx / acoustic_speed
 Δt = 10.0
 start_time = 0
 end_time = 10 * 24 * 3600
-callbacks = ()
+method = ARK2GiraldoKellyConstantinescu
+callbacks = (Info(), CFL(),)
 
 ########
 # Set up simulation
 ########
-simulation = (
+simulation = Simulation(
     model       = model,
+    timestepper = (method = method, timestep = Δt),
     time        = (start = start_time, finish = end_time),
     callbacks   = callbacks,
 )
@@ -245,10 +166,7 @@ simulation = (
 ########
 # Run the simulation
 ########
-result = run(
-    grid,
-    simulation,
-    FT,
-)
+initialize!(simulation)
+evolve!(simulation)
 
 nothing
