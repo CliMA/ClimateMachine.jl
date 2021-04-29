@@ -58,8 +58,7 @@ function evolve!(simulation::Simulation; refDat = ())
     rhs   = simulation.rhs
     grid  = simulation.model.numerics.grid
 
-    npoly = values(simulation.model.numerics.grid.resolution.polynomial_order)
-    # npoly = polynomialorders(simulation.rhs.grid)
+    npoly = convention(grid.resolution.polynomial_order, Val(ndims(grid.domain)))
 
     t0 = simulation.time.start
     tend = simulation.time.finish
