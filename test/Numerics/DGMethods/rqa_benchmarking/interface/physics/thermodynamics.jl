@@ -36,12 +36,21 @@ linearize(eos::DryEuler) = LinearizedDryEuler(eos.γ)
 """
   Thermodynamic relationships
 """
+
 @inline function calc_pressure(eos::BarotropicFluid, state) 
     cₛ = eos.cₛ 
     ρₒ = eos.ρₒ
     ρ = state.ρ
     
     return (cₛ * ρ)^2 / (2 * ρₒ)
+end
+
+@inline function calc_sound_speed(eos::BarotropicFluid, state)
+    cₛ = eos.cₛ 
+    ρₒ = eos.ρₒ
+    ρ = state.ρ
+    
+    return cₛ * sqrt(ρ / ρₒ) 
 end
 
 @inline function calc_pressure(eos::DryIdealGas, state)
@@ -51,14 +60,6 @@ end
     ρθ = state.ρθ
 
     return pₒ * (R / pₒ * ρθ)^γ
-end
-
-@inline function calc_sound_speed(eos::BarotropicFluid, state)
-    cₛ = eos.cₛ 
-    ρₒ = eos.ρₒ
-    ρ = state.ρ
-    
-    return cₛ * sqrt(ρ / ρₒ) 
 end
 
 @inline function calc_sound_speed(eos::DryIdealGas, state)
@@ -82,12 +83,24 @@ Modified Maciek's world
     return (γ - 1) * (ρe - dot(ρu, ρu) / 2ρ - ρ * Φ)
 end
 
+@inline function calc_sound_speed(eos::TotalEnergy, state, aux)
+    γ = eos.γ
+    ρ = state.ρ
+    return sqrt(γ * calc_pressure(eos, state, aux) / ρ)
+end
+
 @inline function calc_pressure(eos::LinearizedTotalEnergy, state, aux)
     γ  = eos.γ
     ϕ  = aux.ϕ
     ρ  = state.ρ
     ρe = state.ρe
     return (γ - 1) * (ρe - ρ * Φ)
+end
+
+@inline function calc_sound_speed(eos::LinearizedTotalEnergy, state, aux)
+    γ = eos.γ
+    ρ = state.ρ
+    return sqrt(γ * calc_pressure(eos, state, aux) / ρ)
 end
 
 @inline function calc_pressure(eos::DryEuler, state, aux)
@@ -98,22 +111,16 @@ end
     return (γ - 1) * (ρe - dot(ρu, ρu) / 2ρ)
 end
 
-@inline function calc_pressure(eos::LinearizedDryEuler, state, aux)
-    γ  = eos.γ
-    ρe = state.ρe
-    return (γ - 1) * ρe
-end
-
-@inline function calc_sound_speed(eos::TotalEnergy, state, aux)
-    γ = eos.γ
-    ρ = state.ρ
-    return sqrt(γ * calc_pressure(eos, state, aux) / ρ)
-end
-
 @inline function calc_sound_speed(eos::DryEuler, state, aux)
     γ = eos.γ
     ρ = state.ρ
     return sqrt(γ * calc_pressure(eos, state, aux) / ρ)
+end
+
+@inline function calc_pressure(eos::LinearizedDryEuler, state, aux)
+    γ  = eos.γ
+    ρe = state.ρe
+    return (γ - 1) * ρe
 end
 
 @inline function calc_sound_speed(eos::LinearizedDryEuler, state, aux)
@@ -122,11 +129,7 @@ end
     return sqrt(γ * calc_pressure(eos, state, aux) / ρ)
 end
 
-@inline function calc_sound_speed(eos::LinearizedTotalEnergy, state, aux)
-    γ = eos.γ
-    ρ = state.ρ
-    return sqrt(γ * calc_pressure(eos, state, aux) / ρ)
-end
+
 
 """
   Maciek's world
