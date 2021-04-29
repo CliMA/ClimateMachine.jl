@@ -24,16 +24,33 @@ function Simulation(; model::ModelSetup, timestepper, time, callbacks)
     return Simulation(model, timestepper, time, callbacks, rhs, state)
 end
 
-function Simulation(; model::DryAtmosModel, timestepper, time, callbacks)
-    rhs = ESDGModel(
-        model,
-        model.numerics.grid.numerical,
-        volume_numerical_flux_first_order = KGVolumeFlux(),
-        surface_numerical_flux_first_order = RusanovNumericalFlux(),
-    )
+function Simulation(; model::Tuple, timestepper, time, callbacks)
+    rhs = []
+    for item in model
+        if typeof(item) <: DryAtmosModel
+            tmp = ESDGModel(
+                item,
+                item.numerics.grid.numerical,
+                surface_numerical_flux_first_order = item.numerics.flux,
+                volume_numerical_flux_first_order = KGVolumeFlux(),
+            )
+            push!(rhs, tmp)
+        elseif typeof(item) <: DryAtmosLinearModel
+            tmp = DGModel(
+                item,
+                item.numerics.grid.numerical,
+                item.numerics.flux,
+                CentralNumericalFluxSecondOrder(),
+                CentralNumericalFluxGradient();
+                direction = item.numerics.direction,
+            )
+            push!(rhs, tmp)
+        end
+    end
+    rhs = Tuple(rhs)
 
-    FT = eltype(rhs.grid.vgeo)
-    state = init_ode_state(rhs, FT(0); init_on_cpu = true)
+    FT = eltype(rhs[1].grid.vgeo)
+    state = init_ode_state(rhs[1], FT(0); init_on_cpu = true)
     
     return Simulation(model, timestepper, time, callbacks, rhs, state)
 end
@@ -135,54 +152,21 @@ function rhs_closure(rhs, npoly, nover; staggering = false)
     return rhs_filtered 
 end # returns a closure
 
-function evolve!(simulation::Simulation{<:DryAtmosModel}; refDat = ())
+function evolve!(simulation::Simulation{<:Tuple}; refDat = ())
     # Unpack everything we need in this routine here
-    model         = simulation.model
+    model         = simulation.model[1]
     state         = simulation.state
     rhs           = simulation.rhs
-    grid          = simulation.model.numerics.grid.numerical
+    grid          = model.numerics.grid.numerical
     timestepper   = simulation.timestepper
     t0            = simulation.time.start
     tend          = simulation.time.finish
     Δt            = timestepper.timestep
     
-    # Linear model setup
-    linearized_eos = linearize(model.physics.eos)
-    lhs = (
-        LinearAdvection(),
-        PressureDivergence(eos = linearized_eos),
-    )
-    sources = (
-        ThinShellGravityFromPotential(),
-        total_energy ? nothing : TotalEnergyGravityFromPotential(),
-    )
-    physics = Physics(
-        orientation = SphericalOrientation(),
-        ref_state   = model.physics.ref_state,
-        eos         = linearized_eos,
-        lhs         = lhs,
-        sources     = sources,
-    )
-
-    linearmodel = DryAtmosAcousticGravityLinearModel(
-        physics = physics,
-        boundary_conditions = model.boundary_conditions,
-    )
-    
-    rhs_linear = DGModel(
-        linearmodel,
-        grid,
-        RusanovNumericalFlux(),
-        CentralNumericalFluxSecondOrder(),
-        CentralNumericalFluxGradient();
-        direction = VerticalDirection(),
-        state_auxiliary = rhs.state_auxiliary,
-    )
-
     # Instantiate time stepping method    
     odesolver = timestepper.method(
-        rhs,
-        rhs_linear,
+        rhs[1],
+        rhs[2],
         LinearBackwardEulerSolver(ManyColumnLU(); isadjustable = false),
         state;
         dt = Δt,

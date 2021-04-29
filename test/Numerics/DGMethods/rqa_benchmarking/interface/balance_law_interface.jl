@@ -127,9 +127,6 @@ end
     t::Real,
     direction,
 )
-    ρu = state.ρu
-
-    flux.ρ += ρu
     flux.ρu += calc_pressure(model.physics.eos, state) * I
 
     calc_advective_flux!(flux, model.physics.advection, state, aux, t)

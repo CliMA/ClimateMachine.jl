@@ -63,7 +63,13 @@ end
     (e.g., prognostic, auxiliary, etc.), however it seems to not initialized
     the gradient flux variables by default.
 """
-function init_state_prognostic!(model::DryAtmosModel, state::Vars, aux::Vars, localgeo, t)
+function init_state_prognostic!(
+        model::Union{DryAtmosModel,DryAtmosLinearModel},
+        state::Vars, 
+        aux::Vars, 
+        localgeo, 
+        t
+    )
     x = aux.x
     y = aux.y
     z = aux.z
@@ -71,15 +77,17 @@ function init_state_prognostic!(model::DryAtmosModel, state::Vars, aux::Vars, lo
     parameters = model.parameters
     ic = model.initial_conditions
 
-    state.ρ  = ic.ρ(parameters, x, y, z)
-    state.ρu = ic.ρu(parameters, x, y, z)
-    state.ρe = ic.ρe(parameters, x, y, z)
+    if !isnothing(ic)
+        state.ρ  = ic.ρ(parameters, x, y, z)
+        state.ρu = ic.ρu(parameters, x, y, z)
+        state.ρe = ic.ρe(parameters, x, y, z)
+    end
 
     return nothing
 end
 
 function nodal_init_state_auxiliary!(
-    m::DryAtmosModel,
+    m::Union{DryAtmosModel,DryAtmosLinearModel},
     state_auxiliary,
     tmp,
     geom,
@@ -88,31 +96,8 @@ function nodal_init_state_auxiliary!(
     init_state_auxiliary!(m, m.physics.ref_state, state_auxiliary, geom)
 end
 
-# function altitude(::DryAtmosModel{dim}, ::FlatOrientation, geom) where {dim}
-#     @inbounds geom.coord[dim]
-# end
-
-function altitude(::DryAtmosModel, ::SphericalOrientation, geom)
-    FT = eltype(geom)
-    _planet_radius::FT = planet_radius(param_set)
-    norm(geom.coord) - _planet_radius
-end
-
-# function init_state_auxiliary!(
-#     ::DryAtmosModel{dim},
-#     ::FlatOrientation,
-#     state_auxiliary,
-#     geom,
-# ) where {dim}
-#     FT = eltype(state_auxiliary)
-#     _grav = FT(grav(param_set))
-#     @inbounds r = geom.coord[dim]
-#     state_auxiliary.Φ = _grav * r
-#     state_auxiliary.∇Φ =
-#         dim == 2 ? SVector{3, FT}(0, _grav, 0) : SVector{3, FT}(0, 0, _grav)
-# end
 function init_state_auxiliary!(
-    ::DryAtmosModel,
+    ::Union{DryAtmosModel,DryAtmosLinearModel},
     ::SphericalOrientation,
     state_auxiliary,
     geom,
@@ -128,14 +113,14 @@ function init_state_auxiliary!(
 end
 
 function init_state_auxiliary!(
-    ::DryAtmosModel,
+    ::Union{DryAtmosModel,DryAtmosLinearModel},
     ::NoReferenceState,
     state_auxiliary,
     geom,
 ) end
 
 function init_state_auxiliary!(
-    m::DryAtmosModel,
+    m::Union{DryAtmosModel,DryAtmosLinearModel},
     ref_state::DryReferenceState,
     state_auxiliary,
     geom,
@@ -159,49 +144,48 @@ end
     LHS computations
 """
 @inline function flux_first_order!(
-    model::DryAtmosModel,
+    model::Union{DryAtmosModel,DryAtmosLinearModel},
     flux::Grad,
     state::Vars,
     aux::Vars,
     t::Real,
     direction,
 )
-    ρ = state.ρ
-    ρinv = 1 / ρ
-    ρu = state.ρu
-    ρe = state.ρe
-    u = ρinv * ρu
-    #Φ = aux.Φ
 
-    # p = pressure(ρ, ρu, ρe, Φ)
-    p = calc_pressure(model.physics.eos, state, aux)
-
-    flux.ρ = ρ * u
-    flux.ρu = p * I + ρ * u .* u'
-    flux.ρe = u * (state.ρe + p)
-    
-    #calc_flux!(flux, lm.physics.pressure, state, aux, _...)
-    #calc_flux!(flux, lm.physics.advection, state, aux, _...)
-
-    # lm.physics.lhs = (DivergencePressure(eos), NonLinearAdvection())
-    # lhs = lm.physics.lhs
-    # ntuple(Val(length(lhs))) do s
-    #     Base.@_inline_meta
-    #     calc_flux!(flux, lhs[s], state, aux)
-    # end
+    lhs = model.physics.lhs
+    ntuple(Val(length(lhs))) do s
+        Base.@_inline_meta
+        calc_flux!(flux, lhs[s], state, aux, t)
+    end
 end
 
 """
     RHS computations
 """
-function source!(m::DryAtmosModel, source, state_prognostic, state_auxiliary)
+function source!(m::DryAtmosModel, source, state_prognostic, state_auxiliary, _...)
     sources = m.physics.sources
 
     ntuple(Val(length(sources))) do s
         Base.@_inline_meta
-        #source!(m, sources[s], source, state_prognostic, state_auxiliary)
         calc_force!(source, sources[s], state_prognostic, state_auxiliary)
     end
+end
+
+function source!(
+    m::DryAtmosLinearModel,
+    source::Vars,
+    state::Vars,
+    diffusive::Vars,
+    aux::Vars,
+    t::Real,
+    ::NTuple{1, Dir},
+) where {Dir <: Direction}
+    sources = m.physics.sources
+    
+    ntuple(Val(length(sources))) do s
+        Base.@_inline_meta
+        calc_force!(source, sources[s], state, aux)
+    end    
 end
 
 """
@@ -236,9 +220,15 @@ function boundary_state!(
 end
 
 """
-    From orientations
+    Utils
 """
-function vertical_unit_vector(::DryAtmosModel, aux::Vars)
+function vertical_unit_vector(::Union{DryAtmosModel,DryAtmosLinearModel}, aux::Vars)
     FT = eltype(aux)
     aux.∇Φ / FT(grav(param_set))
+end
+
+function altitude(::Union{DryAtmosModel,DryAtmosLinearModel}, ::SphericalOrientation, geom)
+    FT = eltype(geom)
+    _planet_radius::FT = planet_radius(param_set)
+    norm(geom.coord) - _planet_radius
 end

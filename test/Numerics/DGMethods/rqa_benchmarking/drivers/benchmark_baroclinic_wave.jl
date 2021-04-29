@@ -112,19 +112,36 @@ end
 # Set up model physics
 ########
 FT = Float64
-T_profile =
-    DecayingTemperatureProfile{FT}(param_set, FT(290), FT(220), FT(8e3))
-sources = (
-    DeepShellCoriolis{Float64}(Ω = parameters.Ω),
-    total_energy ? nothing : ThinShellGravityFromPotential(),
-    fluctuation_gravity ? nothing : TotalEnergyGravityFromPotential(),
-)
-eos = total_energy ? TotalEnergy(γ = 1 / (1 - parameters.κ)) : DryEuler(γ = 1 / (1 - parameters.κ))
+
+eos     = total_energy ? TotalEnergy(γ = 1 / (1 - parameters.κ)) : DryEuler(γ = 1 / (1 - parameters.κ))
 physics = Physics(
     orientation = SphericalOrientation(),
-    ref_state   = DryReferenceState(T_profile),
+    ref_state   = DryReferenceState(DecayingTemperatureProfile{FT}(param_set, FT(290), FT(220), FT(8e3))),
     eos         = eos,
-    sources     = sources,
+    lhs         = (
+        ESDGNonLinearAdvection(eos = eos),
+        PressureDivergence(eos = eos),
+    ),
+    sources     = sources = (
+        DeepShellCoriolis{FT}(Ω = parameters.Ω),
+        total_energy ? nothing : ThinShellGravityFromPotential(),
+        fluctuation_gravity ? nothing : TotalEnergyGravityFromPotential(),
+    ),
+
+)
+linear_eos = linearize(physics.eos)
+linear_physics = Physics(
+    orientation = physics.orientation,
+    ref_state   = physics.ref_state,
+    eos         = linear_eos,
+    lhs         = (
+        ESDGLinearAdvection(),
+        PressureDivergence(eos = linear_eos),
+    ),
+    sources     = (
+        ThinShellGravityFromPotential(),
+        total_energy ? nothing : TotalEnergyGravityFromPotential(),
+    ),
 )
 
 ########
@@ -134,8 +151,23 @@ model = DryAtmosModel(
     physics = physics,
     boundary_conditions = (5, 6),
     initial_conditions = (ρ = ρ₀ᶜᵃʳᵗ, ρu = ρu⃗₀ᶜᵃʳᵗ, ρe = ρeᶜᵃʳᵗ),
-    numerics = (grid = grid,),
+    numerics = (
+        grid = grid, 
+        flux = RusanovNumericalFlux()
+    ),
     parameters = parameters,
+)
+
+linear_model = DryAtmosLinearModel(
+    physics = linear_physics,
+    boundary_conditions = model.boundary_conditions,
+    initial_conditions = nothing,
+    numerics = (
+        grid = model.numerics.grid, 
+        flux = model.numerics.flux,
+        direction = VerticalDirection()
+    ),
+    parameters = model.parameters,
 )
 
 ########
@@ -157,7 +189,7 @@ callbacks = (Info(), CFL(),)
 # Set up simulation
 ########
 simulation = Simulation(
-    model       = model,
+    model       = (model, linear_model,),
     timestepper = (method = method, timestep = Δt),
     time        = (start = start_time, finish = end_time),
     callbacks   = callbacks,
