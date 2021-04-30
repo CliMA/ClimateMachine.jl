@@ -32,8 +32,8 @@ domain = SphericalShell(
 )
 grid = DiscretizedDomain(
     domain;
-    elements = (vertical = 5, horizontal = 8),
-    polynomial_order = 3,
+    elements = (vertical = 10, horizontal = 15),
+    polynomial_order = (vertical = 3, horizontal = 6),
     overintegration_order = (vertical = 0, horizontal = 0),
 )
 
@@ -152,8 +152,8 @@ model = DryAtmosModel(
     boundary_conditions = (5, 6),
     initial_conditions = (ρ = ρ₀ᶜᵃʳᵗ, ρu = ρu⃗₀ᶜᵃʳᵗ, ρe = ρeᶜᵃʳᵗ),
     numerics = (
-        grid = grid, 
-        flux = RusanovNumericalFlux()
+#        grid = grid, 
+        flux = RusanovNumericalFlux(),
     ),
     parameters = parameters,
 )
@@ -163,7 +163,7 @@ linear_model = DryAtmosLinearModel(
     boundary_conditions = model.boundary_conditions,
     initial_conditions = nothing,
     numerics = (
-        grid = model.numerics.grid, 
+#        grid = model.numerics.grid, 
         flux = model.numerics.flux,
         direction = VerticalDirection()
     ),
@@ -183,13 +183,20 @@ linear_model = DryAtmosLinearModel(
 start_time = 0
 end_time = 50 * 24 * 3600
 method = ARK2GiraldoKellyConstantinescu
-callbacks = (Info(), CFL(), VTKState(iteration = Int(floor(4*3600/Δt)), filepath = "./out/"),)
+callbacks = (
+  Info(), 
+  CFL(), 
+  VTKState(
+    iteration = Int(floor(4*3600/Δt)), 
+    filepath = "/central/scratch/bischtob/benchmark_baroclinic_wave/"),
+  )
 
 ########
 # Set up simulation
 ########
 simulation = Simulation(
     (model, linear_model,);
+    grid = grid,
     timestepper = (method = method, timestep = Δt),
     time        = (start = start_time, finish = end_time),
     callbacks   = callbacks,
