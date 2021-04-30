@@ -115,7 +115,7 @@ FT = Float64
 
 ref_state = DryReferenceState(DecayingTemperatureProfile{FT}(param_set, FT(290), FT(220), FT(8e3)))
 
-# Non-total energy
+# # Non-total energy
 # eos     = DryEuler(γ = 1 / (1 - parameters.κ))
 # physics = Physics(
 #     orientation = SphericalOrientation(),
@@ -209,9 +209,9 @@ linear_model = DryAtmosLinearModel(
 # dx = min_node_distance(grid)
 # cfl = 3
 # dt = cfl * dx / acoustic_speed
-Δt = 10.0
+Δt = 1.0
 start_time = 0
-end_time = 50 * 24 * 3600
+end_time = 1000 #50 * 24 * 3600
 method = ARK2GiraldoKellyConstantinescu
 callbacks = (
   Info(), 

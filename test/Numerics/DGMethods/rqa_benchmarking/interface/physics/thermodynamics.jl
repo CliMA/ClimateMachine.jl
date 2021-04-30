@@ -129,8 +129,6 @@ end
     return sqrt(γ * calc_pressure(eos, state, aux) / ρ)
 end
 
-
-
 """
   Maciek's world
 """

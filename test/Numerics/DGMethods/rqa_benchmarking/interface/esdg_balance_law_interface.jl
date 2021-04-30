@@ -232,3 +232,68 @@ function altitude(::Union{DryAtmosModel,DryAtmosLinearModel}, ::SphericalOrienta
     _planet_radius::FT = planet_radius(param_set)
     norm(geom.coord) - _planet_radius
 end
+
+
+# guessing
+function update_auxiliary_state!(
+    dg::DGModel,
+    lm::DryAtmosLinearModel,
+    Q::MPIStateArray,
+    t::Real,
+    elems::UnitRange,
+)
+    return false
+end
+
+function flux_second_order!(
+    lm::DryAtmosLinearModel,
+    flux::Grad,
+    state::Vars,
+    diffusive::Vars,
+    hyperdiffusive::Vars,
+    aux::Vars,
+    t::Real,
+)
+    nothing
+end
+
+integral_load_auxiliary_state!(
+    lm::DryAtmosLinearModel,
+    integ::Vars,
+    state::Vars,
+    aux::Vars,
+) = nothing
+
+integral_set_auxiliary_state!(lm::DryAtmosLinearModel, aux::Vars, integ::Vars) =
+    nothing
+
+reverse_integral_load_auxiliary_state!(
+    lm::DryAtmosLinearModel,
+    integ::Vars,
+    state::Vars,
+    aux::Vars,
+) = nothing
+
+reverse_integral_set_auxiliary_state!(
+    lm::DryAtmosLinearModel,
+    aux::Vars,
+    integ::Vars,
+) = nothing
+
+flux_second_order!(
+    lm::DryAtmosLinearModel,
+    flux::Grad,
+    state::Vars,
+    diffusive::Vars,
+    aux::Vars,
+    t::Real,
+) = nothing
+
+function boundary_state!(
+    nf::NumericalFluxSecondOrder,
+    bc,
+    lm::DryAtmosLinearModel,
+    args...,
+)
+    nothing
+end

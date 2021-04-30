@@ -37,8 +37,8 @@ using CLIMAParameters.Planet: grav, R_d, cp_d, cv_d, planet_radius, MSLP, Omega
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 
-const total_energy = false
-const fluctuation_gravity = false
+const total_energy = true
+const fluctuation_gravity = true
 
 # utils
 include("../utilities/operations.jl")
@@ -51,7 +51,7 @@ include("../models.jl")
 include("../numerics/filters.jl")
 # physics
 include("../physics/physics.jl")
-include("../grid/orientations.jl")
+#include("../grid/orientations.jl")
 include("../physics/advection.jl")
 include("../physics/thermodynamics.jl")
 include("../physics/coriolis.jl")
