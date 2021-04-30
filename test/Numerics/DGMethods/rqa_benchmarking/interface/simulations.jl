@@ -9,7 +9,7 @@ struct Simulation{𝒯,𝒰,𝒱,𝒲,𝒳,𝒴} <: AbstractSimulation
     state::𝒴
 end
 
-function Simulation(; model::ModelSetup, timestepper, time, callbacks)
+function Simulation(model::ModelSetup; timestepper, time, callbacks)
     rhs = DGModel(
         model, 
         model.numerics.grid.numerical,
@@ -24,7 +24,7 @@ function Simulation(; model::ModelSetup, timestepper, time, callbacks)
     return Simulation(model, timestepper, time, callbacks, rhs, state)
 end
 
-function Simulation(; model::Tuple, timestepper, time, callbacks)
+function Simulation(model::Tuple; timestepper, time, callbacks)
     rhs = []
     for item in model
         if typeof(item) <: DryAtmosModel

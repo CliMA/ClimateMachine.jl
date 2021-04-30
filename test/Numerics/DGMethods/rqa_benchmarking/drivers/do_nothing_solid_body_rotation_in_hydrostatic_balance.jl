@@ -52,11 +52,11 @@ physics = Physics(
 ρuˡᵒⁿ(p, λ, ϕ, r) = 0.0
 ρθ₀(p, λ, ϕ, r) = -ρ₀(p, λ, ϕ, r) * p.∂θ * (r - 6e6)^(p.power-1)* 1e5^(1-p.power) * (p.cₛ)^2 / (p.α * p.g)
 
-ρ₀(p, λ, ϕ, r)    = exp(-p.ef*(r - 6e6)/1e5) * p.ρₒ
-ρuʳᵃᵈ(p, λ, ϕ, r) = 0.0
-ρuˡᵃᵗ(p, λ, ϕ, r) = 0.0
-ρuˡᵒⁿ(p, λ, ϕ, r) = 0.0
-ρθ₀(p, λ, ϕ, r) = ρ₀(p, λ, ϕ, r) * (-p.ef/ 1e5 * exp(-p.ef*(r - 6e6)/1e5)) * (p.cₛ)^2 / (p.α * p.g)
+# ρ₀(p, λ, ϕ, r)    = exp(-p.ef*(r - 6e6)/1e5) * p.ρₒ
+# ρuʳᵃᵈ(p, λ, ϕ, r) = 0.0
+# ρuˡᵃᵗ(p, λ, ϕ, r) = 0.0
+# ρuˡᵒⁿ(p, λ, ϕ, r) = 0.0
+# ρθ₀(p, λ, ϕ, r) = ρ₀(p, λ, ϕ, r) * (-p.ef/ 1e5 * exp(-p.ef*(r - 6e6)/1e5)) * (p.cₛ)^2 / (p.α * p.g)
 
 # Cartesian Representation (boiler plate really)
 ρ₀ᶜᵃʳᵗ(p, x...) = ρ₀(p, lon(x...), lat(x...), rad(x...))
@@ -103,14 +103,12 @@ callbacks   = (
 # Set up simulation
 ########
 simulation = Simulation(
-    model       = model,
+    model;
     timestepper = (method = SSPRK22Heuns, timestep = Δt),
     time        = (start = start_time, finish = end_time),
     callbacks   = callbacks,
 )
 initialize!(simulation)
-
-# crash due to negative ρ
 evolve!(simulation)
 
 nothing

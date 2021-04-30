@@ -181,15 +181,15 @@ linear_model = DryAtmosLinearModel(
 # dt = cfl * dx / acoustic_speed
 Δt = 10.0
 start_time = 0
-end_time = 10 * 24 * 3600
+end_time = 50 * 24 * 3600
 method = ARK2GiraldoKellyConstantinescu
-callbacks = (Info(), CFL(),)
+callbacks = (Info(), CFL(), VTKState(iteration = Int(floor(4*3600/Δt)), filepath = "./out/"),)
 
 ########
 # Set up simulation
 ########
 simulation = Simulation(
-    model       = (model, linear_model,),
+    (model, linear_model,);
     timestepper = (method = method, timestep = Δt),
     time        = (start = start_time, finish = end_time),
     callbacks   = callbacks,

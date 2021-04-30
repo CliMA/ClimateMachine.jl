@@ -87,17 +87,17 @@ model = ModelSetup(
 ########
 Δt          = min_node_distance(grid.numerical) / 300.0 * 0.25
 start_time  = 0
-end_time    = 86400
+end_time    = 2*Δt#  86400
 callbacks   = (
     Info(), 
-    StateCheck(10), 
+    StateCheck(100), 
 )
 
 ########
 # Set up simulation
 ########
 simulation = Simulation(
-    model       = model,
+    model;
     timestepper = (method = SSPRK22Heuns, timestep = Δt),
     time        = (start = start_time, finish = end_time),
     callbacks   = callbacks,
@@ -107,8 +107,6 @@ simulation = Simulation(
 # Run the simulation
 ########
 initialize!(simulation)
-
-# crashes at calc_sound_speed: sqrt of complex number
 evolve!(simulation)
 
 nothing

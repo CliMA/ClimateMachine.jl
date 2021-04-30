@@ -24,7 +24,7 @@ domain = SphericalShell(radius = 1.0, height = 0.2)
 grid = DiscretizedDomain(
     domain;
     elements = (vertical = 1, horizontal = 8),
-    polynomial_order = (vertical = 3, horizontal = 0),
+    polynomial_order = (vertical = 0, horizontal = 3),
     overintegration_order = (vertical = 1, horizontal = 1),
 )
 
@@ -90,7 +90,7 @@ model = ModelSetup(
 ########
 Δt          = min_node_distance(grid.numerical) / parameters.cₛ * 0.25
 start_time  = 0
-end_time    = 8*1600.0
+end_time    = 2*Δt #8*1600.0
 callbacks   = (
     Info(), 
     StateCheck(10), 
@@ -101,7 +101,7 @@ callbacks   = (
 # Set up simulation
 ########
 simulation = Simulation(
-    model       = model,
+    model;
     timestepper = (method = SSPRK22Heuns, timestep = Δt),
     time        = (start = start_time, finish = end_time),
     callbacks   = callbacks,
