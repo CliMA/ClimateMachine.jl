@@ -4,17 +4,19 @@ using LinearAlgebra
 using DocStringExtensions
 using CLIMAParameters
 using CLIMAParameters.Planet:
-    ρ_cloud_liq, ρ_cloud_ice, grav, R_v, D_vapor
+    ρ_cloud_liq, ρ_cloud_ice, grav, R_v
+using CLIMAParameters.Atmos.Microphysics: D_vapor
 
 using ClimateMachine.Thermodynamics: Liquid, q_vap_saturation_generic
 
 using ...VariableTemplates
-using ...Land: SoilModel, pressure_head, hydraulic_conductivity, get_temperature
+using ...Land: LandModel, SoilModel, pressure_head, hydraulic_conductivity, get_temperature
 
 export AbstractPrecipModel,
     DrivenConstantPrecip,
     AbstractEvapModel,
     NoEvaporation,
+    Evaporation,
     compute_evaporation,
     AbstractSurfaceRunoffModel,
     NoRunoff,
@@ -35,16 +37,18 @@ abstract type AbstractEvapModel{FT <: AbstractFloat} end
 
 Chosen when no evaporation is to be modeled.
 """
-struct NoEvaporation{FT} <: AbstractEvaporationModel{FT} end
-Base.@kwdef struct Evaporation{FT} <: AbstractEvaporationModel{FT}
-    " Transition coefficient"
+struct NoEvaporation{FT} <: AbstractEvapModel{FT} end
+Base.@kwdef struct Evaporation{FT} <: AbstractEvapModel{FT}
+    "Transition coefficient, unitless"
     k::FT = 0.8
     "Maximum dry soil layer thickness"
     d::FT = 1.5e-2
-    "Density of Moist Air"
+    "Density of Moist Air (kg/m^3)"
     ρa::FT  = 1.0
-    "Specific humidity of air"
+    "Specific humidity of air, unitless"
     q_va::FT = 1.0
+    "Surface conductance (m/s)"
+    g_ae::FT = 1.0
 end
 
 
@@ -55,33 +59,40 @@ end
 
 
 function compute_evaporation(em::Evaporation{FT}, lm::LandModel, state::Vars, aux::Vars, t::Real) where {FT}
-    ν = lm.soil.param_functions.porosity
     k = em.k
     d = em.d
-    ρa = em.ρa### should be functiosn
+    ρa = em.ρa
     q_va = em.q_va
+    g_ae = em.g_ae
     
-    #think about ice
-    eff_porosity = ν - state.soil.water.θ_i
-    θ_l = volumetric_liquid_fraction(state.soil.water.ϑ_l,eff_porosity)
-    DSL = θ_l < k*ν ? d*(FT(1)-θ_l/(k*ν)): FT(0)
     params = lm.param_set
-    T = get_temperature(lm.soil.heat, aux, t)
-    
     _g = grav(params)
     _Rv = R_v(params)
     _ρl = ρ_cloud_liq(params)
     _Dν = D_vapor(params)
 
-    S_l = effective_saturation(ν, state.soil.water.ϑ_l, lm.soil.water.param_functions.θ_r(aux))
-    ψ = matric_potential(lm.soil.water.hydraulics(aux), S_l)
+    ν = lm.soil.param_functions.porosity
+    T = get_temperature(lm.soil.heat, aux, t)
+    θ_r = lm.soil.water.param_functions.θ_r
+    
+    ϑ_l = state.soil.water.ϑ_l
+    θ_i = state.soil.water.θ_i
+
+    # compute specific humidity inside soil pores near surface
+    eff_porosity = ν - θ_i
+    θ_l = volumetric_liquid_fraction(ϑ_l,eff_porosity)
+    DSL = θ_l < k*ν ? d*(FT(1)-θ_l/(k*ν)) : FT(0)    
+    S_l = effective_saturation(ν, ϑ_l, θ_r)
+    ψ = matric_potential(lm.soil.water.hydraulics, S_l)
     factor = exp(_g*ψ/_Rv/T)
     q_vstar = q_vap_saturation_generic(params, T, ρa, Liquid())
     q_v = factor*q_vstar
+
+    # compute surface conductance
     τ = FT(2/3)*ν^FT(2)
-    gae = FT(1)### need to update
-    g_soil = _Dν*τ/DSL
-    g_eff = FT(1)/(FT(1)/gae+FT(1)/gsoil)
+    g_soil = _Dν*τ/(DSL+eps(FT))
+    g_eff = FT(1)/(FT(1)/g_ae+FT(1)/g_soil)
+    # compute mass flux of water vapor from evaporation
     e_volume_flux = - ρa/_ρl* g_eff*(q_va-q_v)
     return e_volume_flux
     

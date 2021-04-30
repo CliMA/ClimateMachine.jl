@@ -95,7 +95,7 @@ function SurfaceDrivenWaterBoundaryConditions(
     runoff_model::AbstractSurfaceRunoffModel = NoRunoff(),
     evap_model::AbstractEvapModel{FT} = NoEvaporation{FT}(),
 ) where {FT}
-    args = (precip_model, runoff_model)
+    args = (precip_model, runoff_model, evap_model)
     return SurfaceDrivenWaterBoundaryConditions{FT, typeof.(args)...}(args...)
 end
 

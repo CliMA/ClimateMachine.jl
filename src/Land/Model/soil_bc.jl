@@ -252,8 +252,10 @@ function soil_boundary_flux!(
     evap = compute_evaporation(bc.evap_model, land.soil, state⁻, aux⁻, t)
     diff⁺.soil.water.K∇h = compute_surface_grad_bc(
         land.soil,
+        # change to pass bc, and then do different methods in compute_surface_grad_bc
         bc.runoff_model,
         bc.precip_model,
+        bc.evap_model,
         n̂,
         state⁻,
         diff⁻,
