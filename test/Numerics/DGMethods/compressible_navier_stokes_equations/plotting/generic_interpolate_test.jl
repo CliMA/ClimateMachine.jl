@@ -58,17 +58,12 @@ function findelement(cellcenter, newpoint)
     minind = argmin((cellcenter[1] .- newpoint[1]) .^2 + (cellcenter[2] .- newpoint[2]) .^2 + (cellcenter[3] .- newpoint[3]) .^2)
     return minind
 end
-##
-fig = Figure()
-lscene = fig[1:4, 2:4] = LScene(fig.scene)
-e = 1
-scatter!(lscene, x[:, e], y[:, e], z[:, e], color = :black, markersize = 100.0, strokewidth = 0)
-scatter!(lscene, xC[e:e], yC[e:e], zC[e:e], color = :red, markersize = 100.0, strokewidth = 0)
 
 ## latitude is λ, longitude if ϕ
-r = [domain.radius + domain.height/2]# collect(range(domain.radius,domain.radius + domain.height,length = 10))
-λ = collect(range(0,2π, length = 180))
-ϕ = collect(range(0 + π/18 , π - π/18, length = 43))
+rC = sqrt.(xC .^2 .+ yC .^2  .+ zC .^2)
+r = [maximum(rC) + minimum(rC)] * 0.5 # collect(range(domain.radius,domain.radius + domain.height,length = 10))
+λ = collect(range(0,2π, length = 90))
+ϕ = collect(range(0 + π/9 , π - π/9, length = 43))
 
 newgrid = [ [r[i] * cos(λ[j]) * sin(ϕ[k]), r[i] * sin(λ[j]) * sin(ϕ[k]) , r[i] * cos(ϕ[k])] for i in eachindex(r), j in eachindex(λ), k in eachindex(ϕ)]
 
@@ -91,10 +86,11 @@ elementlist = [findelement([xC,yC,zC], newgrid[i]) for i in eachindex(newgrid)]
 
 ξlist = zeros(length(elementlist), 3)
 losslist = zeros(length(elementlist))
-# Threads.@threads 
+
+tic = Base.time()
 Threads.@threads for i in eachindex(elementlist)
     e = elementlist[i]
-    println("iteration ", i)
+    # println("iteration ", i)
     position = closure_position(x,y,z, e, grid, ihelper)
     xnew = newgrid[i][1]
     ynew = newgrid[i][2]
@@ -115,7 +111,8 @@ Threads.@threads for i in eachindex(elementlist)
     # println("after loss = ", loss(ξlist[i,:]))
     losslist[i] = loss(ξlist[i,:])
 end
-
+toc = Base.time()
+println("Time for finding oneself ", toc - tic, " seconds")
 ##
 rad(x,y,z) = sqrt(x^2 + y^2 + z^2)
 lat(x,y,z) = asin(z/rad(x,y,z)) # ϕ ∈ [-π/2, π/2] 
@@ -124,16 +121,18 @@ lon(x,y,z) = atan(y,x) # λ ∈ [-π, π)
 oldr = sin.(lon.(x,y,z)) # sqrt.(x .^2  + y .^ 2 + z .^2)
 newr = zeros(size(newgrid))
 
+tic = Base.time()
 Threads.@threads for i in eachindex(elementlist)
     e = elementlist[i]
     ξ⃗ = ξlist[i,:]
     newr[i] = lagrange_eval(reshape(oldr[:,e], polynomialorders(grid) .+ 1), ξ⃗, ihelper)
 end
+toc = Base.time()
+println("Time for finding oneself ", toc - tic, " seconds")
 
 ##
-heatmap(λ, ϕ, newr[1,:,:], colormap = :balance)
-##
-fig = Figure(resolution = (3156, 1074))
+
+fig = Figure(resolution = (1086, 828))
 
 clims = [-1,1] # extrema(newr)
 
@@ -141,12 +140,21 @@ xnew = reshape([newgrid[i][1] for i in eachindex(newgrid)], (length(r),length(λ
 ynew = reshape([newgrid[i][2] for i in eachindex(newgrid)], (length(r),length(λ),length(ϕ)))
 znew = reshape([newgrid[i][3] for i in eachindex(newgrid)], (length(r),length(λ),length(ϕ)))
 
-
 n = 1
-ax = fig[3:7, 3n-2:3n] = LScene(fig) # make plot area wider
-surface!(ax, xnew[1,:,:], ynew[1,:,:], znew[1,:,:], color=newr[1,:,:], colormap=:balance, colorrange=clims,  shading = false)
+ax = fig[1:3,1:3] = LScene(fig) # make plot area wider
+surface!(ax, xnew[1,:,:], ynew[1,:,:], znew[1,:,:], color=newr[1,:,:], colormap=:balance, colorrange=clims,  shading = false, show_axis=false)
 rotate_cam!(ax.scene, (π/2, π/6, 0))
 zoom!(ax.scene, (0, 0, 0), 5, false)
-fig[2, 2 + 3*(n-1)] = Label(fig, "Sphere Plot", textsize = 50) # put names in center
+fig[4,2] = Label(fig, "Sphere Plot", textsize = 50) # put names in center
+
+ax2 = fig[2, 5:7] = LScene(fig)
+heatmap!(ax2, λ, ϕ, newr[1,:,:], colormap = :balance, interpolate = true)
+fig[4, 6]  = Label(fig, "Lat-Lon Plot", textsize = 50)
 
 display(fig)
+#=
+iterations = 1:360
+record(fig, "makieprelim.mp4", iterations, framerate=30) do i
+    rotate_cam!(fig.scene.children[1], (2π/360, 0, 0))
+end
+=#
