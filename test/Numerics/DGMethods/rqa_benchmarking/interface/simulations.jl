@@ -1,7 +1,8 @@
 abstract type AbstractSimulation end
 
-struct Simulation{𝒯,𝒰,𝒱,𝒲,𝒳,𝒴} <: AbstractSimulation
+struct Simulation{𝒯,𝒰,𝒱,𝒲,𝒳,𝒴,L} <: AbstractSimulation
     model::𝒯
+    grid::L
     timestepper::𝒰
     time::𝒱
     callbacks::𝒲
@@ -12,7 +13,7 @@ end
 function Simulation(model::ModelSetup; timestepper, time, callbacks)
     rhs = DGModel(
         model, 
-        model.numerics.grid.numerical,
+        model.grid.numerical,
         model.numerics.flux,
         CentralNumericalFluxSecondOrder(),
         CentralNumericalFluxGradient(),
@@ -24,13 +25,13 @@ function Simulation(model::ModelSetup; timestepper, time, callbacks)
     return Simulation(model, timestepper, time, callbacks, rhs, state)
 end
 
-function Simulation(model::Tuple; timestepper, time, callbacks)
+function Simulation(model::Tuple; grid, timestepper, time, callbacks)
     rhs = []
     for item in model
         if typeof(item) <: DryAtmosModel
             tmp = ESDGModel(
                 item,
-                item.numerics.grid.numerical,
+                grid.numerical,
                 surface_numerical_flux_first_order = item.numerics.flux,
                 volume_numerical_flux_first_order = KGVolumeFlux(),
             )
@@ -38,7 +39,7 @@ function Simulation(model::Tuple; timestepper, time, callbacks)
         elseif typeof(item) <: DryAtmosLinearModel
             tmp = DGModel(
                 item,
-                item.numerics.grid.numerical,
+                grid.numerical,
                 item.numerics.flux,
                 CentralNumericalFluxSecondOrder(),
                 CentralNumericalFluxGradient();
@@ -52,7 +53,7 @@ function Simulation(model::Tuple; timestepper, time, callbacks)
     FT = eltype(rhs[1].grid.vgeo)
     state = init_ode_state(rhs[1], FT(0); init_on_cpu = true)
     
-    return Simulation(model, timestepper, time, callbacks, rhs, state)
+    return Simulation(model, grid, timestepper, time, callbacks, rhs, state)
 end
 
 function initialize!(simulation::Simulation; overwrite = false)
@@ -156,7 +157,7 @@ function evolve!(simulation::Simulation{<:Tuple}; refDat = ())
     model         = simulation.model[1]
     state         = simulation.state
     rhs           = simulation.rhs
-    grid          = model.numerics.grid.numerical
+    grid          = simulation.grid.numerical
     timestepper   = simulation.timestepper
     t0            = simulation.time.start
     tend          = simulation.time.finish

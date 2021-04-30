@@ -76,7 +76,7 @@ Modified Maciek's world
 """
 @inline function calc_pressure(eos::TotalEnergy, state, aux)
     γ  = eos.γ
-    ϕ  = aux.ϕ
+    Φ  = aux.Φ
     ρ  = state.ρ
     ρe = state.ρe
     ρu = state.ρu
@@ -91,7 +91,7 @@ end
 
 @inline function calc_pressure(eos::LinearizedTotalEnergy, state, aux)
     γ  = eos.γ
-    ϕ  = aux.ϕ
+    Φ  = aux.Φ
     ρ  = state.ρ
     ρe = state.ρe
     return (γ - 1) * (ρe - ρ * Φ)
