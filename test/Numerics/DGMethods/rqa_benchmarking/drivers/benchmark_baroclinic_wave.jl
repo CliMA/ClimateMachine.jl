@@ -32,8 +32,8 @@ domain = SphericalShell(
 )
 grid = DiscretizedDomain(
     domain;
-    elements = (vertical = 10, horizontal = 15),
-    polynomial_order = (vertical = 3, horizontal = 6),
+    elements = (vertical = 5, horizontal = 8),
+    polynomial_order = (vertical = 3, horizontal = 3),
     overintegration_order = (vertical = 0, horizontal = 0),
 )
 
@@ -113,10 +113,45 @@ end
 ########
 FT = Float64
 
-eos     = total_energy ? TotalEnergy(γ = 1 / (1 - parameters.κ)) : DryEuler(γ = 1 / (1 - parameters.κ))
+ref_state = DryReferenceState(DecayingTemperatureProfile{FT}(param_set, FT(290), FT(220), FT(8e3)))
+
+# Non-total energy
+# eos     = DryEuler(γ = 1 / (1 - parameters.κ))
+# physics = Physics(
+#     orientation = SphericalOrientation(),
+#     ref_state   = ref_state,
+#     eos         = eos,
+#     lhs         = (
+#         ESDGNonLinearAdvection(eos = eos),
+#         PressureDivergence(eos = eos),
+#     ),
+#     sources     = sources = (
+#         DeepShellCoriolis{FT}(Ω = parameters.Ω),
+#         ThinShellGravityFromPotential(),
+#         TotalEnergyGravityFromPotential(),
+#     ),
+
+# )
+# linear_eos = linearize(physics.eos)
+# linear_physics = Physics(
+#     orientation = physics.orientation,
+#     ref_state   = physics.ref_state,
+#     eos         = linear_eos,
+#     lhs         = (
+#         ESDGLinearAdvection(),
+#         PressureDivergence(eos = linear_eos),
+#     ),
+#     sources     = (
+#         ThinShellGravityFromPotential(),
+#         TotalEnergyGravityFromPotential(),
+#     ),
+# )
+
+# total energy
+eos     = TotalEnergy(γ = 1 / (1 - parameters.κ))
 physics = Physics(
     orientation = SphericalOrientation(),
-    ref_state   = DryReferenceState(DecayingTemperatureProfile{FT}(param_set, FT(290), FT(220), FT(8e3))),
+    ref_state   = ref_state,
     eos         = eos,
     lhs         = (
         ESDGNonLinearAdvection(eos = eos),
@@ -124,8 +159,6 @@ physics = Physics(
     ),
     sources     = sources = (
         DeepShellCoriolis{FT}(Ω = parameters.Ω),
-        total_energy ? nothing : ThinShellGravityFromPotential(),
-        fluctuation_gravity ? nothing : TotalEnergyGravityFromPotential(),
     ),
 
 )
@@ -140,7 +173,6 @@ linear_physics = Physics(
     ),
     sources     = (
         ThinShellGravityFromPotential(),
-        total_energy ? nothing : TotalEnergyGravityFromPotential(),
     ),
 )
 
@@ -152,7 +184,6 @@ model = DryAtmosModel(
     boundary_conditions = (5, 6),
     initial_conditions = (ρ = ρ₀ᶜᵃʳᵗ, ρu = ρu⃗₀ᶜᵃʳᵗ, ρe = ρeᶜᵃʳᵗ),
     numerics = (
-#        grid = grid, 
         flux = RusanovNumericalFlux(),
     ),
     parameters = parameters,
@@ -163,7 +194,6 @@ linear_model = DryAtmosLinearModel(
     boundary_conditions = model.boundary_conditions,
     initial_conditions = nothing,
     numerics = (
-#        grid = model.numerics.grid, 
         flux = model.numerics.flux,
         direction = VerticalDirection()
     ),
@@ -188,7 +218,7 @@ callbacks = (
   CFL(), 
   VTKState(
     iteration = Int(floor(4*3600/Δt)), 
-    filepath = "/central/scratch/bischtob/benchmark_baroclinic_wave/"),
+    filepath = "./out"),
   )
 
 ########
