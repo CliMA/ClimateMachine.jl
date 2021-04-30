@@ -277,7 +277,6 @@ function run(
     dx = min_node_distance(grid)
     cfl = 3
     dt = cfl * dx / acoustic_speed
-    dt = 10.0
 
     Q = init_ode_state(esdg, FT(0))
 
