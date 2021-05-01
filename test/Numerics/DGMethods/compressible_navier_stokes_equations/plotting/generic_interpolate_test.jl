@@ -5,22 +5,7 @@ ClimateMachine.init()
 include("../boilerplate.jl")
 include("../plotting/vizinanigans.jl")
 
-##
-domain = AtmosDomain(radius = 1, height = 0.1)
-
-ddomain = DiscretizedDomain(
-    domain;
-    elements = (vertical = 5, horizontal = 8),
-    polynomial_order = (vertical = 3, horizontal = 6),
-    overintegration_order = 0,
-)
-
-grid = ddomain.numerical
-xC, yC, zC = cellcenters(grid)
-x, y, z = coordinates(grid)
-ihelper = InterpolationHelper(grid)
-
-##
+## Functions 
 """
 lagrange_eval(f, ξ⃗, ihelper::InterpolationHelper)
 
@@ -63,7 +48,7 @@ end
 closure_cost(x1,y1,z1, position_function)
 
 # Description 
-returns the loss function |x⃗(ξ⃗) - y⃗ |^2
+returns the loss function |x⃗(ξ⃗) - y⃗ |
 
 """
 function closure_cost(x1,y1,z1, position_function)
@@ -103,7 +88,7 @@ findξlist(elementlist, x,y,z , newgrid, grid, ihelper)
 # Description
 Given the cell centers and a grid we want to interpolate to, find the closest elements for each point on the new grid
 """
-function findξlist(elementlist, newgrid, grid, ihelper)
+function findξlist(elementlist, newgrid, grid, ihelper; f_calls_limit = 50)
     x,y,z = coordinates(grid)
 
     ξlist = zeros(length(elementlist), 3)
@@ -123,7 +108,7 @@ function findξlist(elementlist, newgrid, grid, ihelper)
         minind = argmin((rx .- xnew) .^2 + (ry .- ynew) .^2 + (rz .- znew) .^2)
         ξᴳ = [ihelper.points[i][minind[i]] for i in 1:3]
         # invert the mapping x⃗(ξ⃗) = y⃗ 
-        result = optimize(loss, ξᴳ, BFGS(), Optim.Options(f_calls_limit = 50))
+        result = optimize(loss, ξᴳ, BFGS(), Optim.Options(f_calls_limit = f_calls_limit))
         ξlist[i,:] .= result.minimizer
         losslist[i] = loss(ξlist[i,:])
     end
@@ -150,8 +135,24 @@ function interpolatefield(elementlist, ξlist, newgrid, grid, ihelper, oldϕ)
     return newϕ
 end
 
+## Test
+domain = AtmosDomain(radius = 1, height = 0.1)
+
+ddomain = DiscretizedDomain(
+    domain;
+    elements = (vertical = 5, horizontal = 8),
+    polynomial_order = (vertical = 3, horizontal = 6),
+    overintegration_order = 0,
+)
+
+grid = ddomain.numerical
+xC, yC, zC = cellcenters(grid)
+x, y, z = coordinates(grid)
+ihelper = InterpolationHelper(grid)
+
 ## latitude is λ, longitude if ϕ
 rC = sqrt.(xC .^2 .+ yC .^2  .+ zC .^2)
+rlist = collect(range(minimum(rC), maximum(rC), length = 4))
 r = [maximum(rC) + minimum(rC)] * 0.5 # collect(range(domain.radius,domain.radius + domain.height,length = 10))
 λ = collect(range(0,2π, length = 90))
 ϕ = collect(range(0 + π/9 , π - π/9, length = 43))
@@ -170,22 +171,14 @@ oldfield = sin.(lon.(x,y,z))
 newr = zeros(size(newgrid))
 
 tic = Base.time()
-Threads.@threads for i in eachindex(elementlist)
-    e = elementlist[i]
-    ξ⃗ = ξlist[i,:]
-    newr[i] = lagrange_eval(reshape(oldr[:,e], polynomialorders(grid) .+ 1), ξ⃗, ihelper)
-end
-toc = Base.time()
-println("Time for finding oneself ", toc - tic, " seconds")
-
-##
-tic = Base.time()
 newfield = interpolatefield(elementlist, ξlist, newgrid, grid, ihelper, oldfield)
 toc = Base.time()
 println(toc-tic)
+println("Time for finding oneself ", toc - tic, " seconds")
+
+newr .= newfield
 
 ##
-
 fig = Figure(resolution = (1086, 828))
 
 clims = [-1,1] # extrema(newr)
