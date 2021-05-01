@@ -201,9 +201,12 @@ function source!(
     ρu = state.ρu
     ρe = state.ρe
     Φ = aux.Φ
-
-    coord = aux.coord
     
+    x = aux.x
+    y = aux.y
+    z = aux.z
+    coord = @SVector[x,y,z]
+
     p = pressure(ρ, ρu, ρe, Φ)
     T = p / (ρ * _R_d)
 
