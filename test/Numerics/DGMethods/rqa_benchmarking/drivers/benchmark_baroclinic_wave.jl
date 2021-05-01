@@ -32,7 +32,7 @@ domain = SphericalShell(
 )
 grid = DiscretizedDomain(
     domain;
-    elements = (vertical = 5, horizontal = 8),
+    elements = (vertical = 8, horizontal = 30),
     polynomial_order = (vertical = 3, horizontal = 3),
     overintegration_order = (vertical = 0, horizontal = 0),
 )
@@ -205,19 +205,18 @@ linear_model = DryAtmosLinearModel(
 # determine the time step construction
 # element_size = (domain_height / numelem_vert)
 # acoustic_speed = soundspeed_air(param_set, FT(330))
-# dx = min_node_distance(grid)
-# cfl = 3
-# dt = cfl * dx / acoustic_speed
-Δt = 10
+dx = min_node_distance(grid.numerical)
+cfl = 3
+dt = cfl * dx / 330.0
 start_time = 0
-end_time = 50 * 24 * 3600
+end_time = 30 * 24 * 3600
 method = ARK2GiraldoKellyConstantinescu
 callbacks = (
   Info(), 
   CFL(), 
   VTKState(
     iteration = Int(floor(4*3600/Δt)), 
-    filepath = "./out"),
+    filepath = "/central/scratch/bischtob/benchmark_baroclinic_wave"),
   )
 
 ########
