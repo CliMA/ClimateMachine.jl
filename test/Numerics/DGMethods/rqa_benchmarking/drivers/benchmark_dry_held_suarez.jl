@@ -172,26 +172,31 @@ held_suarez_parameters = (;
     T_equator = FT(315),
     T_min = FT(200),
     σ_b = FT(7 / 10),
+    R_d  = parameters.R_d,
+    day  = parameters.day,
+    grav = parameters.grav,
+    cp_d = parameters.cp_d,
+    cv_d = parameters.cv_d,
+    MSLP = parameters.MSLP,  
 )
 
 ######
 # Modified Held-Suarez Forcing
 ######
 function source!(
-    m::DryAtmosModel,
-    hsf::HeldSuarezForcing,
     source,
+    hsf::HeldSuarezForcing,
     state,
     aux,
 )
     FT = eltype(state)
     
-    _R_d  = m.parameters.R_d
-    _day  = m.parameters.day
-    _grav = m.parameters.grav
-    _cp_d = m.parameters.cp_d
-    _cv_d = m.parameters.cv_d
-    _p0   = m.parameters.MSLP  
+    _R_d  = hsf.parameters.R_d
+    _day  = hsf.parameters.day
+    _grav = hsf.parameters.grav
+    _cp_d = hsf.parameters.cp_d
+    _cv_d = hsf.parameters.cv_d
+    _p0   = hsf.parameters.MSLP  
 
     # Parameters
     T_ref = FT(255)
