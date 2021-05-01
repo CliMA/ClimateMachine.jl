@@ -177,13 +177,13 @@ held_suarez_parameters = (;
     grav = parameters.grav,
     cp_d = parameters.cp_d,
     cv_d = parameters.cv_d,
-    MSLP = parameters.MSLP,  
+    MSLP = parameters.p0,  
 )
 
 ######
 # Modified Held-Suarez Forcing
 ######
-function source!(
+function calc_force!(
     source,
     hsf::HeldSuarezForcing,
     state,
@@ -314,10 +314,11 @@ cfl = 3
 start_time = 0
 end_time = 30 * 24 * 3600
 method = ARK2GiraldoKellyConstantinescu
+
 callbacks = (
   Info(), 
   CFL(), 
-  VTKState(
+VTKState(
     iteration = Int(floor(4*3600/Δt)), 
     filepath = "/central/scratch/bischtob/benchmark_baroclinic_wave"),
   )
@@ -337,6 +338,6 @@ simulation = Simulation(
 # Run the simulation
 ########
 # initialize!(simulation)
-# evolve!(simulation)
+evolve!(simulation)
 
 nothing
