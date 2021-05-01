@@ -177,10 +177,9 @@ held_suarez_parameters = (;
 ######
 # Modified Held-Suarez Forcing
 ######
-function source!(
-    m::DryAtmosModel,
-    hsf::HeldSuarezForcing,
+function calc_force!(
     source,
+    hsf::HeldSuarezForcing,
     state,
     aux,
 )
@@ -314,7 +313,7 @@ callbacks = (
   CFL(), 
   VTKState(
     iteration = Int(floor(6*3600/Δt)), 
-    filepath = "/central/scratch/bischtob/benchmark_baroclinic_wave"),
+    filepath = "/central/scratch/bischtob/benchmark_dry_held_suarez"),
   )
 
 ########
