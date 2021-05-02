@@ -20,7 +20,7 @@ where s and e are fixed indices
 function lagrange_eval(f, ξ⃗, ihelper::InterpolationHelper)
     fnew = lagrange_eval(f, ξ⃗[1], ξ⃗[2], ξ⃗[3],  
                   ihelper.points[1], ihelper.points[2], ihelper.points[3], 
-                  ihelper.quadrature[1], ihelper.quadrature[2], ihelper.quadrature[3])
+                  ihelper.interpolation[1], ihelper.interpolation[2], ihelper.interpolation[3])
     return fnew
 end
 
@@ -88,7 +88,7 @@ findξlist(elementlist, x,y,z , newgrid, grid, ihelper)
 # Description
 Given the cell centers and a grid we want to interpolate to, find the closest elements for each point on the new grid
 """
-function findξlist(elementlist, newgrid, grid, ihelper; f_calls_limit = 50)
+function findξlist(elementlist, newgrid, grid, ihelper; f_calls_limit = 50, outer_iterations = 2, returnloss = false)
     x,y,z = coordinates(grid)
 
     ξlist = zeros(length(elementlist), 3)
@@ -108,11 +108,18 @@ function findξlist(elementlist, newgrid, grid, ihelper; f_calls_limit = 50)
         minind = argmin((rx .- xnew) .^2 + (ry .- ynew) .^2 + (rz .- znew) .^2)
         ξᴳ = [ihelper.points[i][minind[i]] for i in 1:3]
         # invert the mapping x⃗(ξ⃗) = y⃗ 
-        result = optimize(loss, ξᴳ, BFGS(), Optim.Options(f_calls_limit = f_calls_limit))
+        lower = [-1,-1,-1] * 1.3 # allow for extrapolation
+        upper = [1,1,1] * 1.3 # allow for extrapolation
+        result = optimize(loss, lower, upper, ξᴳ, Fminbox(ConjugateGradient()), Optim.Options(f_calls_limit = f_calls_limit, outer_iterations = outer_iterations))
+        # optimize(loss, ξᴳ, BFGS(), Optim.Options(f_calls_limit = f_calls_limit, ))
         ξlist[i,:] .= result.minimizer
         losslist[i] = loss(ξlist[i,:])
     end
-    return ξlist
+    if returnloss
+        return ξlist, losslist
+    else
+        return ξlist
+    end
 end
 
 """
@@ -136,6 +143,7 @@ function interpolatefield(elementlist, ξlist, newgrid, grid, ihelper, oldϕ)
 end
 
 ## Test
+#=
 domain = AtmosDomain(radius = 1, height = 0.1)
 
 ddomain = DiscretizedDomain(
@@ -203,6 +211,7 @@ zonal_mean_newr = mean(newr[1,:,:], dims = 1)
 scatter(zonal_mean_newr[:])
 
 display(fig)
+=#
 #=
 iterations = 1:360
 record(fig, "makieprelim.mp4", iterations, framerate=30) do i

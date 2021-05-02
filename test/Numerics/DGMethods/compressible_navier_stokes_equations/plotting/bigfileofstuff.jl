@@ -309,7 +309,7 @@ end
 # lagrange_interpolation.jl
 function checkgl(x, rx)
     for i in eachindex(rx)
-        if abs(x - rx[i]) ≤ eps(rx[i])
+        if abs(x - rx[i]) ≤ eps(1e8)
             return i
         end
     end
@@ -392,6 +392,26 @@ function lagrange_eval(f, newx, newy, rx, ry, ωx, ωy)
     return numerator[1] / denominator[1]
 end
 
+function lagrange_eval(f, newx, rx, ωx)
+    icheck = checkgl(newx, rx)
+    numerator = zeros(1)
+    denominator = zeros(1)
+    for i in eachindex(rx)
+        if icheck == 0
+            Δx = (newx .- rx[i])
+            polex = ωx[i] ./ Δx
+            ii = i
+        else
+            polex = 1.0
+            i = eachindex(rx)[end]
+            ii = icheck
+        end
+        numerator[1] += f[ii] * polex 
+        denominator[1] += polex 
+    end
+    return numerator[1] / denominator[1]
+end
+
 
 function lagrange_eval_nocheck(f, newx, newy, newz, rx, ry, rz, ωx, ωy, ωz)
     numerator = zeros(1)
@@ -435,8 +455,8 @@ function lagrange_eval_nocheck(f, newx, rx, ωx)
     for i in eachindex(rx)
         Δx = (newx .- rx[i])
         polex = ωx[i] ./ Δx
-        numerator[1] += f[i] * polex * poley
-        denominator[1] += polex * poley
+        numerator[1] += f[i] * polex 
+        denominator[1] += polex
     end
     return numerator[1] / denominator[1]
 end
