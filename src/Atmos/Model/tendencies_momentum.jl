@@ -46,6 +46,38 @@ function flux(::Momentum, ::PressureGradient, atmos, args)
     end
 end
 
+function two_point_flux(
+    ::KennedyGruberSplitForm,
+    ::Momentum,
+    ::GravityFluctuation,
+    atmos,
+    args,
+)
+
+    @unpack state1, aux1, state2, aux2 = args
+    FT = eltype(state1)
+
+    ρ1 = state1.ρ
+    ts1 = new_thermo_state(atmos, state1, aux1)
+    p1 = air_pressure(ts1) 
+    Φ1 = aux1.orientation.Φ
+    b1 = ρ1 / 2p1
+
+    ρ2 = state2.ρ
+    ts2 = new_thermo_state(atmos, state2, aux2)
+    p2 = air_pressure(ts2) 
+    Φ2 = aux2.orientation.Φ
+    b2 = ρ2 / 2p2
+
+    ρ_ave = (ρ1 + ρ2) / 2
+    DΦ = (Φ1 - Φ2) / 2
+
+    ρlog = (ρ1 + ρ2) / 2
+    bavg = (b1 + b2) / 2
+    α = bavg * ρlog / 2b1
+    return -α * (Φ1 - Φ2) * SMatrix{3, 3, FT}(I)
+end
+
 #####
 ##### Second order fluxes
 #####

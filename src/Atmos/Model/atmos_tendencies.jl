@@ -174,7 +174,7 @@ eq_tends(
     pv::Momentum,
     m::AtmosModel,
     ::FluxDifferencing{FirstOrder},
-) = (Advect(),)
+) = (Advect(), GravityFluctuation())
 
 # Energy
 eq_tends(
