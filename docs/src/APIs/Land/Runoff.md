@@ -8,8 +8,12 @@ CurrentModule = ClimateMachine.Land.Runoff
 ```@docs
 AbstractPrecipModel
 DrivenConstantPrecip
+AbstractEvapModel
+NoEvaporation
+Evaporation
+DrivenConstantEvap
 AbstractSurfaceRunoffModel
 NoRunoff
 CoarseGridRunoff
-compute_surface_grad_bc
+compute_infiltration
 ```

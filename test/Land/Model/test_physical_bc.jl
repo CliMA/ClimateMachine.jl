@@ -427,7 +427,7 @@ end
 end
 
 
-@testset "evap" begin
+@testset "evap 1" begin
     ClimateMachine.init()
     FT = Float64
     function init_soil_water!(land, state, aux, localgeo, time)
@@ -440,6 +440,7 @@ end
         SoilParamFunctions{FT}(porosity = 0.75, Ksat = 0, S_s = 1e-3)
     surface_precip_amplitude = FT(0)
     precip = (t) -> surface_precip_amplitude
+    evap = (t) -> eltype(t)(1e-5)
 
     ϑ_l0 = (aux) -> eltype(aux)(0.75)
     bc = LandDomainBC(
@@ -451,7 +452,7 @@ end
                 FT;
                 precip_model = DrivenConstantPrecip{FT}(precip),
                 runoff_model = NoRunoff(),
-                evap_model = Evaporation{FT}(),
+                evap_model = DrivenConstantEvap{FT}(evap),
             ),
         ),
     )
@@ -470,8 +471,8 @@ end
     )
 
 
-    N_poly = 5
-    nelem_vert = 50
+    N_poly = 1
+    nelem_vert = 20
 
 
     # Specify the domain boundaries
@@ -487,12 +488,13 @@ end
         m;
         zmin = zmin,
         numerical_flux_first_order = CentralNumericalFluxFirstOrder(),
+        fv_reconstruction = FVLinear(),
     )
 
 
     t0 = FT(0)
     timeend = FT(150)
-    dt = FT(0.05)
+    dt = FT(5)
 
     solver_config = ClimateMachine.SolverConfiguration(
         t0,
@@ -523,17 +525,10 @@ end
     ClimateMachine.invoke!(solver_config; user_callbacks = (callback,))
 
     dons = dict_of_nodal_states(solver_config, state_types; interp = true)
-    push!(dons_arr, dons)
-    push!(time_data, gettime(solver_config.solver))
 
     # Get z-coordinate
     z = get_z(solver_config.dg.grid; rm_dupes = true)
     N = length(dons_arr)
-    # Note - we take the indices 2:N here to avoid the t = 0 spot. Gradients
-    # are not calculated before the invoke! command, so we cannot compare at t=0.
-    computed_surface_flux = [dons_arr[k]["soil.water.K∇h[3]"][end] for k in 2:N]
-    t = time_data[2:N]
-    prescribed_surface_flux = t -> FT(-1) * FT(3e-8 * sin(pi * 2.0 * t / 300.0))
-    MSE = mean((prescribed_surface_flux.(t) .- computed_surface_flux) .^ 2.0)
-    @test MSE < 5e-7
+    t_theta = [dons_arr[k]["soil.water.ϑ_l"][end] for k in 1:N]
+    # factor of 2 off in slope?
 end

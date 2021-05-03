@@ -249,13 +249,14 @@ function soil_boundary_flux!(
     t,
     _...,
 )
-    evap = compute_evaporation(bc.evap_model, land.soil, state⁻, aux⁻, t)
-    diff⁺.soil.water.K∇h = compute_surface_grad_bc(
+    evap = compute_evaporation(bc.evap_model, land, state⁻, aux⁻, t)
+    precip = bc.precip_model(t)
+    incident_water_flux = precip+evap
+    runoff_model = bc.runoff_model
+    diff⁺.soil.water.K∇h = eltype(state⁻)(-1) * compute_infiltration(
         land.soil,
-        # change to pass bc, and then do different methods in compute_surface_grad_bc
-        bc.runoff_model,
-        bc.precip_model,
-        bc.evap_model,
+        runoff_model,
+        incident_water_flux,
         n̂,
         state⁻,
         diff⁻,

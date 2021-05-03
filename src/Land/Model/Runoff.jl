@@ -10,17 +10,22 @@ using CLIMAParameters.Atmos.Microphysics: D_vapor
 using ClimateMachine.Thermodynamics: Liquid, q_vap_saturation_generic
 
 using ...VariableTemplates
-using ...Land: LandModel, SoilModel, pressure_head, hydraulic_conductivity, get_temperature
+using ...Land: LandModel,
+    SoilModel,
+    pressure_head,
+    hydraulic_conductivity,
+    get_temperature
 
 export AbstractPrecipModel,
     DrivenConstantPrecip,
     AbstractEvapModel,
     NoEvaporation,
     Evaporation,
+    DrivenConstantEvap,
     compute_evaporation,
     AbstractSurfaceRunoffModel,
     NoRunoff,
-    compute_surface_grad_bc,
+    compute_infiltration,
     CoarseGridRunoff
 
 """
@@ -50,13 +55,34 @@ Base.@kwdef struct Evaporation{FT} <: AbstractEvapModel{FT}
     "Surface conductance (m/s)"
     g_ae::FT = 1.0
 end
+"""
+    DrivenConstantEvap{FT, F} <: AbstractEvapModel{FT}
 
+Instance of a evaporation model which is a prescribed function of time.
+
+# Fields
+$(DocStringExtensions.FIELDS)
+"""
+struct DrivenConstantEvap{FT, F} <: AbstractEvapModel{FT}
+    "Mean evaporation in grid"
+    me::F
+    function DrivenConstantEvap{FT}(me::F) where {FT, F}
+        new{FT, F}(me)
+    end
+end
+
+function (dce::DrivenConstantEvap{FT})(t::Real) where {FT}
+    return FT(dce.me(t))
+end
 
 
 function compute_evaporation(em::NoEvaporation{FT}, lm::LandModel, state::Vars, aux::Vars, t::Real) where {FT}
     return FT(0.0)
 end
 
+function compute_evaporation(em::DrivenConstantEvap{FT}, lm::LandModel, state::Vars, aux::Vars, t::Real) where {FT}
+    return em(t)
+end
 
 function compute_evaporation(em::Evaporation{FT}, lm::LandModel, state::Vars, aux::Vars, t::Real) where {FT}
     k = em.k
@@ -146,46 +172,31 @@ struct CoarseGridRunoff{FT} <: AbstractSurfaceRunoffModel
     Δz::FT
 end
 
-"""
-    function compute_surface_grad_bc(soil::SoilModel,
-                                     runoff_model::CoarseGridRunoff,
-                                     precip_model::AbstractPrecipModel,
-                                     n̂,
-                                     state⁻::Vars,
-                                     diff⁻::Vars,
-                                     aux⁻::Vars,
-                                     t::Real
-                                     )
 
-Given a runoff model and a precipitation distribution function, compute 
-the surface water Neumann BC. This can be a function of time, and state.
-"""
-function compute_surface_grad_bc(
-    soil::SoilModel,
-    runoff_model::CoarseGridRunoff,
-    precip_model::AbstractPrecipModel,
-    n̂,
-    state⁻::Vars,
-    diff⁻::Vars,
-    aux⁻::Vars,
-    t::Real,
-)
+function compute_infiltration(soil::SoilModel,
+                              runoff_model::CoarseGridRunoff,
+                              incident_water_flux::Real,
+                              n̂,
+                              state⁻::Vars,
+                              diff⁻::Vars,
+                              aux⁻::Vars,
+                              t::Real)
+    
     FT = eltype(state⁻)
-    incident_water_flux = precip_model(t)
     Δz = runoff_model.Δz
     water = soil.water
     param_functions = soil.param_functions
     hydraulics = water.hydraulics
     ν = param_functions.porosity
-
-
+    
+    
     T = get_temperature(soil.heat, aux⁻, t)
     θ_i = state⁻.soil.water.θ_i
     # Ponding Dirichlet BC
     ϑ_bc = FT(ν - θ_i)
     # Value below surface
     ϑ_below = state⁻.soil.water.ϑ_l
-
+    
     # Approximate derivative of hydraulic head with respect to z
     ∂h∂z =
         FT(1) +
@@ -193,7 +204,7 @@ function compute_surface_grad_bc(
             pressure_head(hydraulics, param_functions, ϑ_bc, θ_i) -
             pressure_head(hydraulics, param_functions, ϑ_below, θ_i)
         ) / Δz
-
+    
     K =
         soil.param_functions.Ksat * hydraulic_conductivity(
             water.impedance_factor,
@@ -205,48 +216,47 @@ function compute_surface_grad_bc(
             T,
             ϑ_bc / ν,# when ice is present, K still measured with ν, not νeff.
         )
-
+    
     i_c = n̂ * (K * ∂h∂z)
     if incident_water_flux < -norm(i_c) # More negative if both are negative,
         #ponding BC
-        K∇h⁺ = i_c
+        flux⁺ = -i_c
     else
-
-        K∇h⁺ = n̂ * (-FT(2) * incident_water_flux) - diff⁻.soil.water.K∇h
+        
+        flux⁺ = n̂ * (FT(2) * incident_water_flux) + diff⁻.soil.water.K∇h
     end
-    return K∇h⁺
+    return flux⁺
 end
+    
+
 
 
 
 """
-    function compute_surface_grad_bc(soil::SoilModel,
-                                     runoff_model::NoRunoff,
-                                     precip_model::AbstractPrecipModel,
-                                     n̂,
-                                     state⁻::Vars,
-                                     aux⁻::Vars,
-                                     diff⁻::Vars,
-                                     t::Real
-                                     )
+    function compute_infiltration(soil::SoilModel,
+                                  runoff_model::NoRunoff,
+                                  incident_water_flux::Real,
+                                  n̂,
+                                  state⁻::Vars,
+                                  aux⁻::Vars,
+                                  diff⁻::Vars,
+                                  t::Real
+                                  )
 
 Given a runoff model and a precipitation distribution function, compute 
-the surface water Neumann BC. This can be a function of time, and state.
+the surface water infiltration. This can be a function of time, and state.
 """
-function compute_surface_grad_bc(
-    soil::SoilModel,
-    runoff_model::NoRunoff,
-    precip_model::AbstractPrecipModel,
-    n̂,
-    state⁻::Vars,
-    diff⁻::Vars,
-    aux⁻::Vars,
-    t::Real,
-)
+function compute_infiltration(soil::SoilModel,
+                              runoff_model::NoRunoff,
+                              incident_water_flux::Real,
+                              n̂,
+                              state⁻::Vars,
+                              diff⁻::Vars,
+                              aux⁻::Vars,
+                              t::Real)
     FT = eltype(state⁻)
-    incident_water_flux = precip_model(t)
-    K∇h⁺ = n̂ * (-FT(2) * incident_water_flux) - diff⁻.soil.water.K∇h
-    return K∇h⁺
+    flux⁺ = n̂ * (FT(2) * incident_water_flux) + diff⁻.soil.water.K∇h
+    return flux⁺
 end
 
 end
