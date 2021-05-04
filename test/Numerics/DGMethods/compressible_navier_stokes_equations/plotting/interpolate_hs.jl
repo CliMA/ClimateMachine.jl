@@ -12,7 +12,7 @@ domain = AtmosDomain(
 
 ddomain = DiscretizedDomain(
     domain;
-    elements = (vertical = 5, horizontal = 10),
+    elements = (vertical = 5, horizontal = 7),
     polynomial_order = (vertical = 3, horizontal = 6),
     overintegration_order = (vertical = 0, horizontal = 0),
 )
@@ -36,8 +36,8 @@ rλϕ = [ϕ[k] for i in eachindex(r), j in eachindex(λ), k in eachindex(ϕ)]
 # elementlist = findelements(cellcenters(grid), newgrid)
 
 # findelements for sphere 
-po = (7,7,4)
-es = (5, 10^2 * 6)
+po = convention(ddomain.resolution.polynomial_order, Val(3))  .+1
+es = (ddomain.resolution.elements.vertical, ddomain.resolution.elements.horizontal^2 * 6)
 rr = sqrt.( x .^2 + y .^2 + z .^2)
 elementlist = zeros(Int, length(newgrid));
 evolverr = reshape(rr,(po..., es...));
@@ -61,14 +61,23 @@ norm(checkele - elementlist)
 
 ξlist = findξlist(elementlist, newgrid, grid, ihelper, f_calls_limit = 50, outer_iterations = 2)
 ##
-jlfile = jldopen("baroclinic_wave.jld2")
+jlfile = jldopen("downloadhs.jld2")
 jlkeys = keys(jlfile["state"])
-
-# sphereviz(Q, ddomain)
-
-##
 Q = jlfile["state"][jlkeys[end]]
-oldfield = Q[:,1,:]
+# sphereviz(Q, ddomain)
+fig = sphereviz(Q, ddomain)
+seconds = 30
+fps = 30
+frames = round(Int, fps * seconds )
+record(fig.scene, pwd() * "/held_suarez.mp4"; framerate = fps) do io
+    for i = 1:frames
+        sleep(1/fps)
+        recordframe!(io)
+    end
+end
+##
+
+oldfield = Q[:,4,:]
 
 # oldfield = sqrt.(x .^2 .+ y .^2 .+ z .^2) / 6.371e6 
 
@@ -100,19 +109,3 @@ heatmap!(ax2, λ, ϕ, fieldslice, colormap = :balance, interpolate = true, color
 fig[4, 6]  = Label(fig, "Lat-Lon Plot", textsize = 50)
 
 display(fig)
-
-##
-#heatmap(ϕ, rlist, mean(newfield,dims = 2)[:,1,:]', colormap = :balance, interpolate = true)
-
-
-##
-
-iterations = collect(eachindex(jlkeys))
-record(fig, "makiebaro.mp4", iterations, framerate=10) do i
-    Q = jlfile["state"][jlkeys[i]]
-    oldfield = Q[:,4,:]
-    newfield = interpolatefield(elementlist, ξlist, newgrid, grid, ihelper, oldfield)
-    # clims = extrema(newfield)
-    surface!(ax, xnew[1,:,:], ynew[1,:,:], znew[1,:,:], color=newfield[1,:,:], colormap= :balance, colorrange=clims,  shading = false, show_axis=false)
-    heatmap!(ax2, λ, ϕ, newfield[1,:,:], colormap = :balance, interpolate = true, colorrange = clims)
-end
