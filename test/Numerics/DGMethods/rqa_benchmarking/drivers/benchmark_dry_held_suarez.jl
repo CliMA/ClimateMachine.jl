@@ -321,7 +321,7 @@ callbacks = (
   VTKState(
     iteration = Int(floor(6*3600/Δt)), 
     filepath = "/central/scratch/bischtob/benchmark_dry_held_suarez"),
-  )
+)
 
 ########
 # Set up simulation
