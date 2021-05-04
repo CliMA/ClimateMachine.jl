@@ -27,7 +27,7 @@ parameters = (
 # Set up domain
 ########
 domain = SphericalShell(
-    radius = planet_radius(param_set), 
+    radius = planet_radius(param_set),
     height = 30e3,
 )
 grid = DiscretizedDomain(
@@ -41,7 +41,7 @@ grid = DiscretizedDomain(
 # Set up inital condition
 ########
 # additional initial condition parameters
-T_0(𝒫)  = 0.5 * (𝒫.T_E + 𝒫.T_P) 
+T_0(𝒫)  = 0.5 * (𝒫.T_E + 𝒫.T_P)
 A(𝒫)    = 1.0 / 𝒫.Γ
 B(𝒫)    = (T_0(𝒫) - 𝒫.T_P) / T_0(𝒫) / 𝒫.T_P
 C(𝒫)    = 0.5 * (𝒫.k + 2) * (𝒫.T_E - 𝒫.T_P) / 𝒫.T_E / 𝒫.T_P
@@ -92,7 +92,6 @@ e_kin(𝒫,λ,ϕ,r)  = 0.5 * ( uˡᵒⁿ(𝒫,λ,ϕ,r)^2 + uˡᵃᵗ(𝒫,λ,ϕ,
 e_pot(𝒫,λ,ϕ,r)  = 𝒫.g * r
 
 ρ₀(𝒫,λ,ϕ,r)    = p(𝒫,ϕ,r) / 𝒫.R_d / T(𝒫,ϕ,r)
-# ρ₀(𝒫,λ,ϕ,r)    = T(𝒫,ϕ,r) 
 ρuˡᵒⁿ(𝒫,λ,ϕ,r) = ρ₀(𝒫,λ,ϕ,r) * uˡᵒⁿ(𝒫,λ,ϕ,r)
 ρuˡᵃᵗ(𝒫,λ,ϕ,r) = ρ₀(𝒫,λ,ϕ,r) * uˡᵃᵗ(𝒫,λ,ϕ,r)
 ρuʳᵃᵈ(𝒫,λ,ϕ,r) = ρ₀(𝒫,λ,ϕ,r) * uʳᵃᵈ(𝒫,λ,ϕ,r)
@@ -104,9 +103,9 @@ end
 
 # Cartesian Representation (boiler plate really)
 ρ₀ᶜᵃʳᵗ(𝒫, x...)  = ρ₀(𝒫, lon(x...), lat(x...), rad(x...))
-ρu⃗₀ᶜᵃʳᵗ(𝒫, x...) = (   ρuʳᵃᵈ(𝒫, lon(x...), lat(x...), rad(x...)) * r̂(x...) 
+ρu⃗₀ᶜᵃʳᵗ(𝒫, x...) = (   ρuʳᵃᵈ(𝒫, lon(x...), lat(x...), rad(x...)) * r̂(x...)
                      + ρuˡᵃᵗ(𝒫, lon(x...), lat(x...), rad(x...)) * ϕ̂(x...)
-                     + ρuˡᵒⁿ(𝒫, lon(x...), lat(x...), rad(x...)) * λ̂(x...) ) 
+                     + ρuˡᵒⁿ(𝒫, lon(x...), lat(x...), rad(x...)) * λ̂(x...) )
 ρeᶜᵃʳᵗ(𝒫, x...) = ρe(𝒫, lon(x...), lat(x...), rad(x...))
 
 ########
@@ -210,14 +209,13 @@ dx = min_node_distance(grid.numerical)
 cfl = 3
 Δt = cfl * dx / 330.0
 start_time = 0
-# end_time = 30 * 24 * 3600
-end_time = 24 * 3600
+end_time = 100 * 24 * 3600
 method = ARK2GiraldoKellyConstantinescu
 callbacks = (
-  Info(), 
-  CFL(), 
+  Info(),
+  CFL(),
   VTKState(
-    iteration = Int(floor(4*3600/Δt)), 
+    iteration = Int(floor(24*3600/Δt)),
     filepath = "./out"),
   )
 
