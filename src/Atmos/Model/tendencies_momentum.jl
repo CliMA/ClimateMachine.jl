@@ -62,6 +62,12 @@ function two_point_flux(
     ρ2 = state2.ρ
     Φ2 = aux2.orientation.Φ
 
+    ref_state = reference_state(atmos)
+    if ref_state isa HydrostaticState && ref_state.subtract_off
+      ρ1 -= aux1.ref_state.ρ
+      ρ2 -= aux2.ref_state.ρ
+    end
+
     ρ_ave = (ρ1 + ρ2) / 2
     Φ_diff = (Φ1 - Φ2) / 2
     return -ρ_ave * Φ_diff * SMatrix{3, 3, FT}(I)
