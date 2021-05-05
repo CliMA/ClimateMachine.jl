@@ -9,7 +9,7 @@ function flux(::Energy, ::Advect, atmos, args)
     return (state.ρu / state.ρ) * state.energy.ρe
 end
 function two_point_flux(
-    ::KennedyGruberSplitForm,
+    ::AbstractKennedyGruberSplitForm,
     ::Energy,
     ::Advect,
     atmos,
@@ -41,7 +41,7 @@ function flux(::Energy, ::Pressure, atmos, args)
     return state.ρu / state.ρ * air_pressure(ts)
 end
 function two_point_flux(
-    ::KennedyGruberSplitForm,
+    ::AbstractKennedyGruberSplitForm,
     ::Energy,
     ::Pressure,
     atmos,

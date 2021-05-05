@@ -142,7 +142,7 @@ eq_tends(
 
 # default to no splitting
 eq_tends(
-    ::KennedyGruberSplitForm,
+    ::AbstractKennedyGruberSplitForm,
     pv::AbstractPrognosticVariable,
     atmos::AtmosModel,
     tt::Flux{FirstOrder},
@@ -150,13 +150,13 @@ eq_tends(
 
 # Mass
 eq_tends(
-    ::KennedyGruberSplitForm,
+    ::AbstractKennedyGruberSplitForm,
     pv::Mass,
     atmos::AtmosModel,
     tt::Flux{FirstOrder},
 ) = ()
 eq_tends(
-    ::KennedyGruberSplitForm,
+    ::AbstractKennedyGruberSplitForm,
     pv::Mass,
     atmos::AtmosModel,
     tt::FluxDifferencing{FirstOrder},
@@ -164,7 +164,7 @@ eq_tends(
 
 # Momentum
 eq_tends(
-    ::KennedyGruberSplitForm,
+    ::AbstractKennedyGruberSplitForm,
     pv::Momentum,
     m::AtmosModel,
     tt::Flux{FirstOrder},
@@ -174,17 +174,23 @@ eq_tends(
     pv::Momentum,
     m::AtmosModel,
     ::FluxDifferencing{FirstOrder},
+) = (Advect(),)
+eq_tends(
+    ::KennedyGruberGravitySplitForm,
+    pv::Momentum,
+    m::AtmosModel,
+    ::FluxDifferencing{FirstOrder},
 ) = (Advect(), GravityFluctuation())
 
 # Energy
 eq_tends(
-    ::KennedyGruberSplitForm,
+    ::AbstractKennedyGruberSplitForm,
     pv::AbstractEnergyVariable,
     m::AtmosModel,
     tt::Flux{FirstOrder},
 ) = eq_tends(pv, radiation_model(m), tt)
 eq_tends(
-    ::KennedyGruberSplitForm,
+    ::AbstractKennedyGruberSplitForm,
     pv::AbstractEnergyVariable,
     m::AtmosModel,
     tt::FluxDifferencing{FirstOrder},

@@ -2,7 +2,10 @@ export Unsplit, CentralSplitForm, KennedyGruberSplitForm
 
 abstract type AbstractEquationsForm end
 struct Unsplit <: AbstractEquationsForm end
-struct KennedyGruberSplitForm <: AbstractEquationsForm end
+
+abstract type AbstractKennedyGruberSplitForm <: AbstractEquationsForm end
+struct KennedyGruberSplitForm <: AbstractKennedyGruberSplitForm end
+struct KennedyGruberGravitySplitForm <: AbstractKennedyGruberSplitForm end
 
 two_point_flux(
     var::AbstractPrognosticVariable,
