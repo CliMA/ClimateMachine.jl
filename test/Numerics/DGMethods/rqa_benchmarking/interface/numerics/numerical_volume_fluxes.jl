@@ -76,15 +76,15 @@ function numerical_volume_fluctuation_flux_first_order!(
         ρ_1, ρu_1, ρe_1 = state_1.ρ, state_1.ρu, state_1.ρe
         ρ_2, ρu_2, ρe_2 = state_2.ρ, state_2.ρu, state_2.ρe
         Φ_1, Φ_2 = aux_1.Φ, aux_2.Φ
-        p_1 = pressure(ρ_1, ρu_1, ρe_1, Φ_1)
-        p_2 = pressure(ρ_2, ρu_2, ρe_2, Φ_2)
-        b_1 = ρ_1 / 2p_1
-        b_2 = ρ_2 / 2p_2
+        # p_1 = pressure(ρ_1, ρu_1, ρe_1, Φ_1)
+        # p_2 = pressure(ρ_2, ρu_2, ρe_2, Φ_2)
+        # b_1 = ρ_1 / 2p_1
+        # b_2 = ρ_2 / 2p_2
 
-        ρ_log = logave(ρ_1, ρ_2)
-        b_avg = ave(b_1, b_2)
-        α = b_avg * ρ_log / 2b_1
-
+        # ρ_log = logave(ρ_1, ρ_2)
+        # b_avg = ave(b_1, b_2)
+        # α = b_avg * ρ_log / 2b_1
+        α = ave(ρ_1, ρ_2) * 0.5
         D.ρu -= α * (Φ_1 - Φ_2) * I
     end
 end
@@ -144,6 +144,91 @@ function numerical_volume_conservative_flux_first_order!(
     F.ρ = ρ_avg * u_avg
     F.ρu = p_avg * I + ρ_avg * u_avg .* u_avg'
     F.ρe = ρ_avg * u_avg * e_avg + p_avg * u_avg
+end
+
+
+# linearize around, (ρʳᵉᶠ, 0⃗, ρeʳᵉᶠ)
+function numerical_volume_conservative_flux_first_order!(
+    ::KGVolumeFlux,
+    ::DryAtmosLinearESDGModel,
+    F::Grad,
+    state_1::Vars,
+    aux_1::Vars,
+    state_2::Vars,
+    aux_2::Vars,
+)
+
+    Φ_1 = aux_1.Φ
+    ρ_1 = state_1.ρ
+    ρu_1 = state_1.ρu
+    ρe_1 = state_1.ρe
+
+    p_1 = pressure(ρ_1, ρu_1 * 0, ρe_1, Φ_1) # 0 for ρu creates linearized pressure
+
+    # grab reference state
+    ρᵣ_1 = aux_1.ref_state.ρ
+    pᵣ_1 = aux_1.ref_state.p
+    ρeᵣ_1 = aux_1.ref_state.ρe
+
+    # only ρu fluctuates in the non-pressure terms
+    u_1 = ρu_1 / ρᵣ_1 
+    eᵣ_1 = ρeᵣ_1 / ρᵣ_1
+
+    Φ_2 = aux_2.Φ
+    ρ_2 = state_2.ρ
+    ρu_2 = state_2.ρu
+    ρe_2 = state_2.ρe
+
+    p_2 = pressure(ρ_2, ρu_2 * 0, ρe_2, Φ_2) # 0 for ρu creates linearized pressure
+
+    # grab reference state
+    ρᵣ_2 = aux_2.ref_state.ρ
+    pᵣ_2 = aux_2.ref_state.p
+    ρeᵣ_2 = aux_2.ref_state.ρe
+
+    # only ρu fluctuates in the non-pressure terms
+    u_2 = ρu_2 / ρᵣ_2 
+    eᵣ_2 = ρeᵣ_2 / ρᵣ_2
+
+    # construct averages
+    ρᵣ_avg = ave(ρᵣ_1, ρᵣ_2)
+    eᵣ_avg = ave(eᵣ_1, eᵣ_2)
+    pᵣ_avg = ave(pᵣ_1, pᵣ_2)
+
+    u_avg = ave(u_1, u_2)
+    p_avg = ave(p_1, p_2)
+
+    F.ρ = ρᵣ_avg * u_avg
+    F.ρu = p_avg * I
+    F.ρe = (ρᵣ_avg * eᵣ_avg + pᵣ_avg) * u_avg
+end
+
+function numerical_volume_fluctuation_flux_first_order!(
+    ::NumericalFluxFirstOrder,
+    ::DryAtmosLinearESDGModel,
+    D::Grad,
+    state_1::Vars,
+    aux_1::Vars,
+    state_2::Vars,
+    aux_2::Vars,
+)
+    if fluctuation_gravity
+        FT = eltype(D)
+        ρ_1, ρu_1, ρe_1 = state_1.ρ, state_1.ρu, state_1.ρe
+        ρ_2, ρu_2, ρe_2 = state_2.ρ, state_2.ρu, state_2.ρe
+        Φ_1, Φ_2 = aux_1.Φ, aux_2.Φ
+        # p_1 = pressure(ρ_1, ρu_1, ρe_1, Φ_1)
+        # p_2 = pressure(ρ_2, ρu_2, ρe_2, Φ_2)
+        # b_1 = ρ_1 / 2p_1
+        # b_2 = ρ_2 / 2p_2
+
+        # ρ_log = logave(ρ_1, ρ_2)
+        # b_avg = ave(b_1, b_2)
+        # α = b_avg * ρ_log / 2b_1
+        α = ave(ρ_1, ρ_2)/2 # simpler version, just product rule
+
+        D.ρu -= α * (Φ_1 - Φ_2) * I
+    end
 end
 
 struct EntropyConservativeWithPenalty <: NumericalFluxFirstOrder end
@@ -423,7 +508,19 @@ numerical_flux_second_order!(::Nothing, ::DryAtmosModel, _...) = nothing
 numerical_boundary_flux_second_order!(::Nothing, a, ::DryAtmosModel, _...) = nothing
 
 function wavespeed(
-    lm::DryAtmosLinearModel,
+    ::DryAtmosLinearModel,
+    nM,
+    state::Vars,
+    aux::Vars,
+    t::Real,
+    direction,
+)
+    ref = aux.ref_state
+    return soundspeed(ref.ρ, ref.p)
+end
+
+function wavespeed(
+    ::DryAtmosLinearESDGModel,
     nM,
     state::Vars,
     aux::Vars,

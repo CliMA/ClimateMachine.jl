@@ -46,6 +46,14 @@ function Simulation(model::Tuple; grid, timestepper, time, callbacks)
                 direction = item.numerics.direction,
             )
             push!(rhs, tmp)
+        elseif typeof(item) <: DryAtmosLinearESDGModel
+            tmp = VESDGModel(
+                item,
+                grid.numerical,
+                surface_numerical_flux_first_order = item.numerics.flux,
+                volume_numerical_flux_first_order = KGVolumeFlux(),
+            )
+            push!(rhs, tmp)
         end
     end
     rhs = Tuple(rhs)

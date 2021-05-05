@@ -24,7 +24,7 @@ end
 
     vars_state returns a NamedTuple of data types.
 """
-function vars_state(m::Union{DryAtmosModel,DryAtmosLinearModel}, st::Auxiliary, FT)
+function vars_state(m::AbstractAtmosModel, st::Auxiliary, FT)
     @vars begin
         x::FT
         y::FT
@@ -35,11 +35,11 @@ function vars_state(m::Union{DryAtmosModel,DryAtmosLinearModel}, st::Auxiliary, 
     end
 end
 
-vars_state(::Union{DryAtmosModel,DryAtmosLinearModel}, ::DryReferenceState, ::Auxiliary, FT) =
+vars_state(::AbstractAtmosModel, ::DryReferenceState, ::Auxiliary, FT) =
     @vars(T::FT, p::FT, ρ::FT, ρe::FT)
-vars_state(::Union{DryAtmosModel,DryAtmosLinearModel}, ::NoReferenceState, ::Auxiliary, FT) = @vars()
+vars_state(::AbstractAtmosModel, ::NoReferenceState, ::Auxiliary, FT) = @vars()
 
-function vars_state(::Union{DryAtmosModel,DryAtmosLinearModel}, ::Prognostic, FT)
+function vars_state(::AbstractAtmosModel, ::Prognostic, FT)
     @vars begin
         ρ::FT
         ρu::SVector{3, FT}
@@ -64,7 +64,7 @@ end
     the gradient flux variables by default.
 """
 function init_state_prognostic!(
-        model::Union{DryAtmosModel,DryAtmosLinearModel},
+        model::AbstractAtmosModel,
         state::Vars,
         aux::Vars,
         localgeo,
@@ -87,7 +87,7 @@ function init_state_prognostic!(
 end
 
 function nodal_init_state_auxiliary!(
-    m::Union{DryAtmosModel,DryAtmosLinearModel},
+    m::AbstractAtmosModel,
     state_auxiliary,
     tmp,
     geom,
@@ -97,7 +97,7 @@ function nodal_init_state_auxiliary!(
 end
 
 function init_state_auxiliary!(
-    ::Union{DryAtmosModel,DryAtmosLinearModel},
+    ::AbstractAtmosModel,
     ::SphericalOrientation,
     state_auxiliary,
     geom,
@@ -113,14 +113,14 @@ function init_state_auxiliary!(
 end
 
 function init_state_auxiliary!(
-    ::Union{DryAtmosModel,DryAtmosLinearModel},
+    ::AbstractAtmosModel,
     ::NoReferenceState,
     state_auxiliary,
     geom,
 ) end
 
 function init_state_auxiliary!(
-    m::Union{DryAtmosModel,DryAtmosLinearModel},
+    m::AbstractAtmosModel,
     ref_state::DryReferenceState,
     state_auxiliary,
     geom,
@@ -144,7 +144,7 @@ end
     LHS computations
 """
 @inline function flux_first_order!(
-    model::Union{DryAtmosModel,DryAtmosLinearModel},
+    model::AbstractAtmosModel,
     flux::Grad,
     state::Vars,
     aux::Vars,
@@ -191,12 +191,12 @@ end
 """
     Boundary conditions
 """
-boundary_conditions(model::Union{DryAtmosModel,DryAtmosLinearModel}) = model.boundary_conditions
+boundary_conditions(model::AbstractAtmosModel) = model.boundary_conditions
 
 function boundary_state!(
     ::NumericalFluxFirstOrder,
     bctype,
-    ::Union{DryAtmosModel,DryAtmosLinearModel},
+    ::AbstractAtmosModel,
     state⁺,
     aux⁺,
     n,
@@ -213,7 +213,7 @@ end
 function boundary_state!(
     nf::NumericalFluxSecondOrder,
     bc,
-    lm::Union{DryAtmosModel,DryAtmosLinearModel},
+    lm::AbstractAtmosModel,
     args...,
 )
     nothing
@@ -222,12 +222,12 @@ end
 """
     Utils
 """
-function vertical_unit_vector(::Union{DryAtmosModel,DryAtmosLinearModel}, aux::Vars)
+function vertical_unit_vector(::AbstractAtmosModel, aux::Vars)
     FT = eltype(aux)
     aux.∇Φ / FT(grav(param_set))
 end
 
-function altitude(::Union{DryAtmosModel,DryAtmosLinearModel}, ::SphericalOrientation, geom)
+function altitude(::AbstractAtmosModel, ::SphericalOrientation, geom)
     FT = eltype(geom)
     _planet_radius::FT = planet_radius(param_set)
     norm(geom.coord) - _planet_radius
