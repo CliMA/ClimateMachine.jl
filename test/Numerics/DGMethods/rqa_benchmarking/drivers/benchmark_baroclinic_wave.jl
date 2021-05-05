@@ -233,7 +233,7 @@ simulation = Simulation(
 ########
 # Run the simulation
 ########
-# initialize!(simulation)
-# evolve!(simulation)
+initialize!(simulation)
+evolve!(simulation)
 
 nothing
