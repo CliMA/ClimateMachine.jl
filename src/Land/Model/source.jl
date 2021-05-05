@@ -1,5 +1,6 @@
 #### Land sources
 export PhaseChange
+export Roots
 
 function heaviside(x::FT) where {FT}
     if x >= FT(0)
@@ -25,6 +26,14 @@ Base.@kwdef struct PhaseChange{FT} <: SoilSource{FT}
     τLTE::FT = FT(NaN)
 end
 
+"""
+    Roots <: SoilSource
+The function which computes the roots source term.
+"""
+Base.@kwdef struct Roots{FT} <: SoilSource{FT}
+    "Temp constant"
+    A::FT = FT(NaN)
+end
 
 function land_source!(
     f::Function,
@@ -87,81 +96,24 @@ function land_source!(
 end
 
 function land_source!(
-    source_type::Root,
+    source_type::Roots,
     land::LandModel,
     source::Vars,
     state::Vars,
     diffusive::Vars,
     aux::Vars,
     t::Real,
-    direction,
-    plant_hs:: # hs = hydraulic system define
+    direction, # plant_hs:: # hs = hydraulic system define
 )
-    FT = eltype(state)
-
-    _ρliq = FT(ρ_cloud_liq(land.param_set))
-    _ρice = FT(ρ_cloud_ice(land.param_set))
-    _Tfreeze = FT(T_freeze(land.param_set))
-    _LH_f0 = FT(LH_f0(land.param_set))
-    _g = FT(grav(land.param_set))
-
+    # test_roots = exp(source_type.A * t)
+    # source.soil.water.ϑ_l += test_roots #/ _ρliq
     ϑ_l, θ_i = get_water_content(land.soil.water, aux, state, t)
     eff_porosity = land.soil.param_functions.porosity - θ_i
     θ_l = volumetric_liquid_fraction(ϑ_l, eff_porosity)
-    T = get_temperature(land.soil.heat, aux, t)
-
-    ψ = -abs(_LH_f0 / _g / _Tfreeze * (T - _Tfreeze))
-    hydraulics = land.soil.water.hydraulics
-    θstar =
-        land.soil.param_functions.porosity *
-        inverse_matric_potential(hydraulics, ψ)
-
-
-   # pass liquid soil water content
-    function  root_extraction(
-        plant_hs::AbstractPlantOrganism{FT},
-        matric_potential::Array{FT,1},  # using a ; means we would have to set qsum, now we dont, can leave blank as we gave a defaul
-        qsum::FT=FT(0), #(sum of flow rates, no water going into canopy by default), can leave qsum blank
-    ) where {FT}
-
-        # we dont want to update his model at every point ; we store hydarulic head in aux, we could
-        # access the whole thing, and charlie might know... 
-        for i_root in eachindex(plant_hs.roots)
-            plant_hs.roots[i_root].p_ups = p_soil_array[i_root];
-        end
-
-        roots_flow!(plant_hs, qsum) # no water going into canopy (no daytime transpiration), this updates the flow rate in each root
-        root_extraction = plant_hs.cache_q # array of flow rates in each root layer (mol W/s/layer), maybe not necessary to rewrite name
-
-        return root_extraction
-
-    end
-
-
-
-#     function pressure_head(
-#     model::AbstractHydraulicsModel{FT},
-#     porosity::FT,
-#     S_s::FT,
-#     ϑ_l::FT,
-#     θ_i::FT,
-# ) where {FT}
-#     eff_porosity = porosity - θ_i
-#     S_l_eff = effective_saturation(eff_porosity, ϑ_l)
-#     if S_l_eff < 1
-#         S_l = effective_saturation(porosity, ϑ_l)
-#         ψ = matric_potential(model, S_l)
-#     else
-#         ψ = (ϑ_l - eff_porosity) / S_s
-#     end
-#     return ψ
-# end
-
-    source.soil.water.ϑ_l -= freeze_thaw / _ρliq
-    source.soil.water.θ_i += freeze_thaw / _ρice
+    source.soil.water.θ_l += aux.roots_source
 end
-# sources are applied additively
 
+# sources are applied additively
 @generated function land_source!(
     stuple::Tuple,
     land::LandModel,

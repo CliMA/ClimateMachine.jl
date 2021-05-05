@@ -41,7 +41,7 @@ haverkamp_dataset = ArtifactWrapper(
 )
 haverkamp_dataset_path = get_data_folder(haverkamp_dataset)
 
-@testset "Richard's equation - Haverkamp test" begin
+#@testset "Richard's equation - Haverkamp test" begin
     ClimateMachine.init()
     FT = Float64
 
@@ -126,6 +126,7 @@ haverkamp_dataset_path = get_data_folder(haverkamp_dataset)
     ϑ_l = Array(Q[:, ϑ_l_ind, :][:])
     z_ind = varsindex(vars_state(m, Auxiliary(), FT), :z)
     z = Array(aux[:, z_ind, :][:])
+    print
 
     # Compare with Bonan simulation data at 1 day.
     data = joinpath(haverkamp_dataset_path, "bonan_haverkamp_data.csv")
@@ -139,4 +140,5 @@ haverkamp_dataset_path = get_data_folder(haverkamp_dataset)
     bonan_at_clima_z = bonan_moisture_continuous.(z)
     MSE = mean((bonan_at_clima_z .- ϑ_l) .^ 2.0)
     @test MSE < 1e-5
-end
+
+#end

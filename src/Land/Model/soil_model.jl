@@ -212,7 +212,6 @@ function land_nodal_update_auxiliary_state!(
     land_nodal_update_auxiliary_state!(land, soil, soil.heat, state, aux, t)
 end
 
-
 function land_init_aux!(
     land::LandModel,
     soil::SoilModel,
@@ -284,7 +283,6 @@ function compute_gradient_flux!(
 
 end
 
-
 function flux_second_order!(
     land::LandModel,
     soil::SoilModel,
@@ -298,3 +296,13 @@ function flux_second_order!(
 )
 
 end
+
+# function update_auxiliary_state!(
+#     dg::DGModel,
+#     soil::SoilModel,
+#     Q::MPIStateArray,
+#     t::Real,
+#     elems::UnitRange,
+# )
+#     update_auxiliary_state!(nodal_update_auxiliary_state!, dg, soil, Q, t, elems)
+# end

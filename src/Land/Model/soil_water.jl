@@ -183,7 +183,7 @@ end
 
 vars_state(water::SoilWaterModel, st::Prognostic, FT) = @vars(ϑ_l::FT, θ_i::FT)
 
-vars_state(water::SoilWaterModel, st::Auxiliary, FT) = @vars(h::FT, K::FT)
+vars_state(water::SoilWaterModel, st::Auxiliary, FT) = @vars(h::FT, K::FT) # add in 
 
 
 vars_state(water::SoilWaterModel, st::Gradient, FT) = @vars(h::FT)
@@ -286,7 +286,6 @@ function compute_gradient_argument!(
 
 end
 
-
 function compute_gradient_flux!(
     land::LandModel,
     soil::SoilModel,
@@ -313,3 +312,14 @@ function flux_second_order!(
 )
     flux.soil.water.ϑ_l -= diffusive.soil.water.K∇h
 end
+
+# function update_auxiliary_state!(
+#     dg::DGModel,
+#     soil::SoilModel,
+#     Q::MPIStateArray,
+#     t::Real,
+#     elems::UnitRange,
+# )
+#     update_auxiliary_state!(nodal_update_auxiliary_state!, dg, soil, Q, t, elems)
+#     psi_vec = aux.h-aux.z
+# end
