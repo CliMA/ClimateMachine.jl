@@ -77,6 +77,7 @@ callbacks   = (
 ########
 simulation = Simulation(
     model;
+    grid        = grid,
     timestepper = (method = SSPRK22Heuns, timestep = Δt),
     time        = (start = start_time, finish = end_time),
     callbacks   = callbacks,

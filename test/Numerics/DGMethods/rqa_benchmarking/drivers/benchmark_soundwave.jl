@@ -62,7 +62,10 @@ model = ModelSetup(
     physics = physics,
     boundary_conditions = bcs,
     initial_conditions = (ρ = ρ₀, ρu = ρu⃗₀, ρθ = ρθ₀),
-    numerics = (grid = grid, flux = RoeNumericalFlux()),
+    numerics = (
+        grid = grid, # TODO: this is related to init_state_auxiliary in the balance_law_interface
+        flux = RoeNumericalFlux(),
+        ),
     parameters = parameters,
 )
 
@@ -83,6 +86,7 @@ callbacks   = (
 ########
 simulation = Simulation(
     model;
+    grid = grid,
     timestepper = (method = SSPRK22Heuns, timestep = Δt),
     time        = (start = start_time, finish = end_time),
     callbacks   = callbacks,

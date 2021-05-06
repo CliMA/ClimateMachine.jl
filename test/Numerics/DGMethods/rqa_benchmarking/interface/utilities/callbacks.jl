@@ -174,7 +174,7 @@ function create_callback(output::VTKState, simulation::Simulation, odesolver)
     mkpath(output.filepath)
 
     state = simulation.state
-    model = simulation.rhs[1] #TODO! fix this tuple business
+    model = (simulation.rhs isa Tuple) ? simulation.rhs[1] : simulation.rhs 
 
     function do_output(counter, model, state)
         mpicomm = MPI.COMM_WORLD

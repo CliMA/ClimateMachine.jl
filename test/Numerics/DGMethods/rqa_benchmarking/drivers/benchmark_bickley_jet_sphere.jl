@@ -90,7 +90,7 @@ model = ModelSetup(
 ########
 Δt          = min_node_distance(grid.numerical) / parameters.cₛ * 0.25
 start_time  = 0
-end_time    = 2*Δt #8*1600.0
+end_time    = 8*1600.0
 callbacks   = (
     Info(), 
     StateCheck(10), 
@@ -102,6 +102,7 @@ callbacks   = (
 ########
 simulation = Simulation(
     model;
+    grid = grid,
     timestepper = (method = SSPRK22Heuns, timestep = Δt),
     time        = (start = start_time, finish = end_time),
     callbacks   = callbacks,

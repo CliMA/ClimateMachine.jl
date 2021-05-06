@@ -10,10 +10,10 @@ struct Simulation{𝒯,𝒰,𝒱,𝒲,𝒳,𝒴,L} <: AbstractSimulation
     state::𝒴
 end
 
-function Simulation(model::ModelSetup; timestepper, time, callbacks)
+function Simulation(model::ModelSetup; grid, timestepper, time, callbacks)
     rhs = DGModel(
         model, 
-        model.grid.numerical,
+        grid.numerical,
         model.numerics.flux,
         CentralNumericalFluxSecondOrder(),
         CentralNumericalFluxGradient(),
@@ -22,7 +22,7 @@ function Simulation(model::ModelSetup; timestepper, time, callbacks)
     FT = eltype(rhs.grid.vgeo)
     state = init_ode_state(rhs, FT(0); init_on_cpu = true)
     
-    return Simulation(model, timestepper, time, callbacks, rhs, state)
+    return Simulation(model, grid, timestepper, time, callbacks, rhs, state)
 end
 
 function Simulation(model::Tuple; grid, timestepper, time, callbacks)
