@@ -196,7 +196,21 @@ eq_tends(
     tt::FluxDifferencing{FirstOrder},
 ) = eq_tends(pv, energy_model(m), tt)
 
-# TODO: split moisture and tracers
+# AbstractMoistureVariable
+eq_tends(
+    ::AbstractKennedyGruberSplitForm,
+    ::AbstractMoistureVariable,
+    ::AtmosModel,
+    ::Flux{FirstOrder},
+) = ()
+eq_tends(
+    ::AbstractKennedyGruberSplitForm,
+    ::AbstractMoistureVariable,
+    ::AtmosModel,
+    ::FluxDifferencing{FirstOrder},
+) = (Advect(),)
+
+# TODO: split tracers
 
 #####
 ##### Second order fluxes
