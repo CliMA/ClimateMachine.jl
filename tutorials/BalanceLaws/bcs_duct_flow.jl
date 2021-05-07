@@ -185,7 +185,7 @@ struct DuctModel{FT, APS} <: BalanceLaw
     p_outlet::FT
     function DuctModel(::Type{FT};
             param_set = nothing,
-            Re⁻¹::FT = FT(1 / 100),
+            Re⁻¹::FT = FT(1 / 200),
             α_p::FT = FT(1),
             u_inlet::FT = FT(0.1),
             H::FT = FT(1),
@@ -230,7 +230,7 @@ flux(::Velocity, ::Advection, dm::DuctModel, args) =
     args.state.u⃗ .* args.state.u⃗'
 
 flux(::Velocity, ::Diffusion, dm::DuctModel, args) =
-    -dm.Re⁻¹ * args.diffusive.∇u⃗
+    -dm.Re⁻¹ * (args.diffusive.∇u⃗ .+ args.diffusive.∇u⃗')
 
 flux(::Velocity, ::Pressure∇, dm::DuctModel, args) =
     args.state.p * I + SArray{Tuple{3, 3}}(ntuple(i -> 0, 9))
@@ -273,14 +273,19 @@ function init_state_prognostic!(
     aux.y = localgeo.coord[2]
     aux.z = localgeo.coord[3]
     FT = eltype(state)
-    if aux.y ≈ 0
-        u⃗_bc = SVector(FT(0), u_inlet_bc(model, aux), FT(0))
-        state.u⃗ = u⃗_bc
-    else
-        u⃗_bc = SVector(FT(0), u_inlet_bc(model, aux), FT(0))
-        state.u⃗ = u⃗_bc
-        # state.u⃗ = SVector(0, 0, 0)
-    end
+
+    # Smooth everywhere
+    u⃗_bc = SVector(FT(0), u_inlet_bc(model, aux)*exp(-aux.y), FT(0))
+    state.u⃗ = u⃗_bc
+
+    # if aux.y ≈ 0
+    #     u⃗_bc = SVector(FT(0), u_inlet_bc(model, aux), FT(0))
+    #     state.u⃗ = u⃗_bc
+    # else
+    #     # u⃗_bc = SVector(FT(0), u_inlet_bc(model, aux), FT(0))
+    #     # state.u⃗ = u⃗_bc
+    #     state.u⃗ = SVector(0, 0, 0)
+    # end
     state.p = 0
     # state.p = -2*model.u_inlet*model.Re⁻¹*aux.y
     # state.p = 2*model.u_inlet*model.Re⁻¹*1000*(1 - aux.y/model.L) + model.p_outlet
@@ -462,11 +467,11 @@ function boundary_state!(
     t,
     _...,
 )
-    p_bc = model.p_outlet
-    state⁺.p = -state⁻.p .+ 2 * p_bc # set p = 0 at outlet
+    # p_bc = model.p_outlet
+    # state⁺.p = -state⁻.p .+ 2 * p_bc # set p = 0 at outlet
 
-    u⃗_bc = SVector(0, 0, 0)
-    state⁺.u⃗ = SVector(0, -state⁻.u⃗[2] .+ 2 * u⃗_bc[2], 0)
+    # u⃗_bc = SVector(0, u_inlet_bc(model, aux⁻), 0)
+    # state⁺.u⃗ = -state⁻.u⃗ .+ 2 * u⃗_bc
 end;
 
 function boundary_state!(
@@ -481,10 +486,10 @@ function boundary_state!(
     t,
     _...,
 )
-    state⁺.p = model.p_outlet
+    # state⁺.p = model.p_outlet
 
-    u⃗_bc = SVector(0, 0, 0)
-    state⁺.u⃗ = SVector(0, u⃗_bc[2], 0)
+    # u⃗_bc = SVector(0, u_inlet_bc(model, aux⁻), 0)
+    # state⁺.u⃗ = u⃗_bc
 end;
 
 function normal_boundary_flux_second_order!(
@@ -507,6 +512,7 @@ function normal_boundary_flux_second_order!(
     aux_int⁻,
 ) where {S}
     # fluxᵀn.u⃗ = SVector(0, fluxᵀn.u⃗[2], 0)
+    fluxᵀn.p = 0
 end
 
 # # Spatial discretization
@@ -579,13 +585,13 @@ given_CFL = FT(1)
 Δt_Fourier = given_Fourier * Δh_min^2 / ν
 Δt_CFL = given_CFL * Δy / u_max
 
-ode_dt = min(Δt_CFL, Δt_Fourier) * 100
+ode_dt = min(Δt_CFL, Δt_Fourier) / 100
 
 ## fixed_number_of_steps = 100_000
 ## fixed_number_of_steps = 50_000
 # fixed_number_of_steps = 30_000
 # fixed_number_of_steps = 25_000
-fixed_number_of_steps = 1
+fixed_number_of_steps = 100
 timeend = fixed_number_of_steps * ode_dt
 @show Δt_CFL
 @show Δt_Fourier
@@ -690,7 +696,8 @@ end
 
 result = ClimateMachine.invoke!(
     solver_config;
-    user_callbacks = [tiny_progress_printer, data_fetcher],
+    user_callbacks = [tiny_progress_printer, data_fetcher, cb_freeze_momentum],
+    # user_callbacks = [tiny_progress_printer, data_fetcher],
 )
 
 umax = maximum([maximum(state.u.data) for state in fetched_states])
@@ -706,6 +713,11 @@ ulim = (umin, umax)
 vlim = (vmin, vmax)
 wlim = (wmin, wmax)
 plim = (pmin, pmax)
+
+@show ulim
+@show vlim
+@show wlim
+@show plim
 
 ulevels = range(ulim[1], ulim[2], length = 31)
 vlevels = range(vlim[1], vlim[2], length = 31)
@@ -794,6 +806,20 @@ animation = @animate for (i, state) in enumerate(fetched_states)
         link = :x,
         size = (600, 400),
     )
+
+    # plot(
+    #     v_plot,
+    #     w_plot,
+    #     layout = Plots.grid(2, 1, heights = (0.5, 0.5)),
+    #     link = :x,
+    #     size = (600, 400),
+    # )
+
+    # plot(v_plot,
+    #     layout = Plots.grid(1, 1, heights = (1.0,)),
+    #     link = :x,
+    #     size = (600, 400),
+    # )
 end
 
 gif(animation, "duct_flow.gif", fps = 5) # hide
