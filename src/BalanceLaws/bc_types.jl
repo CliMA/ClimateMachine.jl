@@ -56,15 +56,20 @@ struct DefaultBC end
 
 # If DefaultBCValue's are mixed with real values,
 # then let DefaultBCValue's be zero:
-Base.:+(::DefaultBCValue, x::FT) where {FT <: AbstractFloat} = x
-Base.:+(x::FT, ::DefaultBCValue) where {FT <: AbstractFloat} = x
-Base.:+(::DefaultBCValue, x::SArray{Tuple{N}, FT, 1, N}) where {N, FT} = x
-Base.:+(x::SArray{Tuple{N}, FT, 1, N}, ::DefaultBCValue) where {N, FT} = x
+# Base.:+(::DefaultBCValue, x::FT) where {FT <: AbstractFloat} = x
+# Base.:+(x::FT, ::DefaultBCValue) where {FT <: AbstractFloat} = x
+# Base.:+(::DefaultBCValue, x::SArray{Tuple{N}, FT, 1, N}) where {N, FT} = x
+# Base.:+(x::SArray{Tuple{N}, FT, 1, N}, ::DefaultBCValue) where {N, FT} = x
 
-Base.:+(::DefaultBCFlux, x::FT) where {FT <: AbstractFloat} = x
-Base.:+(x::FT, ::DefaultBCFlux) where {FT <: AbstractFloat} = x
-Base.:+(::DefaultBCFlux, x::SArray{Tuple{N}, FT, 1, N}) where {N, FT} = x
-Base.:+(x::SArray{Tuple{N}, FT, 1, N}, ::DefaultBCFlux) where {N, FT} = x
+# Base.:+(::DefaultBCFlux, x::FT) where {FT <: AbstractFloat} = x
+# Base.:+(x::FT, ::DefaultBCFlux) where {FT <: AbstractFloat} = x
+# Base.:+(::DefaultBCFlux, x::SArray{Tuple{N}, FT, 1, N}) where {N, FT} = x
+# Base.:+(x::SArray{Tuple{N}, FT, 1, N}, ::DefaultBCFlux) where {N, FT} = x
+
+Base.:+(::DefaultBCValue, x) = x
+Base.:+(x, ::DefaultBCValue) = x
+Base.:+(::DefaultBCFlux, x) = x
+Base.:+(x, ::DefaultBCFlux) = x
 
 
 """
