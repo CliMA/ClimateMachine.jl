@@ -340,8 +340,8 @@ function AtmosModel{FT}(
     # hack, with Kennedy Gruber split form gravity is treated
     # in fluctation form, not as a source
     if equations_form isa KennedyGruberSplitForm
-      source = filter(s -> !(s isa Gravity), source)
-      equations_form = KennedyGruberGravitySplitForm()
+        source = filter(s -> !(s isa Gravity), source)
+        equations_form = KennedyGruberGravitySplitForm()
     end
 
     atmos = (

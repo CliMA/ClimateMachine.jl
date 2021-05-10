@@ -64,8 +64,8 @@ function two_point_flux(
 
     ref_state = reference_state(atmos)
     if ref_state isa HydrostaticState && ref_state.subtract_off
-      ρ1 -= aux1.ref_state.ρ
-      ρ2 -= aux2.ref_state.ρ
+        ρ1 -= aux1.ref_state.ρ
+        ρ2 -= aux2.ref_state.ρ
     end
 
     ρ_ave = (ρ1 + ρ2) / 2

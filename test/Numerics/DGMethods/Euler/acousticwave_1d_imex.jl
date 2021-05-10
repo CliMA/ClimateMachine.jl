@@ -118,7 +118,7 @@ function test_run(
 
     physics = AtmosPhysics{FT}(
         param_set;
-        ref_state = HydrostaticState(T_profile; subtract_off=false),
+        ref_state = HydrostaticState(T_profile; subtract_off = false),
         turbulence = ConstantDynamicViscosity(FT(0)),
         moisture = DryModel(),
         #tracers = NTracers{length(δ_χ), FT}(δ_χ),
@@ -128,7 +128,7 @@ function test_run(
         physics;
         init_state_prognostic = setup,
         source = (),
-        equations_form = KennedyGruberSplitForm()
+        equations_form = KennedyGruberSplitForm(),
     )
     linearmodel = AtmosAcousticGravityLinearModel(model)
 

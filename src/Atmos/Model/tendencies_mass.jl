@@ -7,7 +7,13 @@
 function flux(::Mass, ::Advect, atmos, args)
     return args.state.ρu
 end
-function two_point_flux(::AbstractKennedyGruberSplitForm, ::Mass, ::Advect, atmos, args)
+function two_point_flux(
+    ::AbstractKennedyGruberSplitForm,
+    ::Mass,
+    ::Advect,
+    atmos,
+    args,
+)
     @unpack state1, state2 = args
     ρ1 = state1.ρ
     u1 = state1.ρu / ρ1
