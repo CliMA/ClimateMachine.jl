@@ -1,3 +1,20 @@
+@inline function total_flux_first_order!(
+    bl::BalanceLaw,
+    flux::Grad{S},
+    state,
+    aux,
+    t,
+    direction,
+) where {S}
+
+    flux_first_order!(bl, flux, state, aux, t, direction)
+
+    flux = parent(flux)
+    flux2 = similar(flux)
+    fill!(flux2, -zero(eltype(flux)))
+    two_point_flux_first_order!(bl, Grad{S}(flux2), state, aux, state, aux, t)
+    flux .+= flux2
+end
 
 """
     flux_first_order!(
@@ -28,24 +45,6 @@ optionally,
 and individual [`flux`](@ref) kernels that
 are defined for each type that `eq_tends` returns.
 """
-@inline function total_flux_first_order!(
-    bl::BalanceLaw,
-    flux::Grad{S},
-    state,
-    aux,
-    t,
-    direction,
-) where {S}
-
-    flux_first_order!(bl, flux, state, aux, t, direction)
-
-    flux = parent(flux)
-    flux2 = similar(flux)
-    fill!(flux2, -zero(eltype(flux)))
-    two_point_flux_first_order!(bl, Grad{S}(flux2), state, aux, state, aux, t)
-    flux .+= flux2
-end
-
 @inline function flux_first_order!(
     bl::BalanceLaw,
     flux,
