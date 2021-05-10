@@ -1,4 +1,5 @@
-abstract type AbstractPressureForce <: AbstractPhysicsComponent end
+# abstract type AbstractPressureForce <: AbstractPhysicsComponent end
+abstract type AbstractPressureForce <: AbstractPhysics end
 
 @Base.kwdef struct PressureDivergence{T} <: AbstractPressureForce
     eos::T

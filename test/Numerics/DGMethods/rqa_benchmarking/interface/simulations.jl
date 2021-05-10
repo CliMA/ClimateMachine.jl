@@ -25,6 +25,20 @@ function Simulation(model::ModelSetup; grid, timestepper, time, callbacks)
     return Simulation(model, grid, timestepper, time, callbacks, rhs, state)
 end
 
+function Simulation(model::DryAtmosModel; grid, timestepper, time, callbacks)
+    rhs = ESDGModel(
+        model,
+        grid.numerical,
+        surface_numerical_flux_first_order = model.numerics.flux,
+        volume_numerical_flux_first_order = KGVolumeFlux(),
+    )
+
+    FT = eltype(rhs.grid.vgeo)
+    state = init_ode_state(rhs, FT(0); init_on_cpu = true)
+    
+    return Simulation(model, grid, timestepper, time, callbacks, rhs, state)
+end
+
 function Simulation(model::Tuple; grid, timestepper, time, callbacks)
     rhs = []
     for item in model
@@ -74,7 +88,7 @@ function evolve!(simulation::Simulation; refDat = ())
     timestepper = simulation.timestepper
     state = simulation.state
     rhs   = simulation.rhs
-    grid  = simulation.model.numerics.grid
+    grid  = simulation.grid
 
     npoly = convention(grid.resolution.polynomial_order, Val(ndims(grid.domain)))
 

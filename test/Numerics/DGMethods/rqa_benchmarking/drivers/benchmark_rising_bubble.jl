@@ -32,9 +32,9 @@ parameters = (
 
 grid = DiscretizedDomain(
     Ωˣ × Ωʸ × Ωᶻ;
-    elements = 10,
-    polynomial_order = 4,
-    overintegration_order = 0,
+    elements = (10, 1, 10),
+    polynomial_order = (4, 4, 4),
+    overintegration_order = (2, 2, 2)
 )
 
 ########
@@ -50,14 +50,14 @@ physics = Physics(
 ########
 # Set up inital condition
 ########
-r(p, x, z)      = sqrt((x - p.xc)^2 + (z - p.zc)^2)
-Δθ(p, x, y, z)  = (r(p, x, z) < p.rc) * ( p.θₐ * (1.0 - r(p, x, z) / p.rc) )
-θ₀(p, x, y, z)  = 300.0 + Δθ(p, x, y, z)
-π_exner(p, x, y, z)   = 1.0 - p.g / (p.cp_d * θ₀(p, x, y, z) ) * z  
+r(p, x, z)          = sqrt((x - p.xc)^2 + (z - p.zc)^2)
+Δθ(p, x, y, z)      = (r(p, x, z) < p.rc) ? ( p.θₐ * (1.0 - r(p, x, z) / p.rc) ) : 0
+θ₀(p, x, y, z)      = 300.0 + Δθ(p, x, y, z)
+π_exner(p, x, y, z) = 1.0 - p.g / (p.cp_d * θ₀(p, x, y, z) ) * z  
 
-ρ₀(p, x, y, z)  = p.pₒ / (p.R_d * θ₀(p, x, y, z)) * (π_exner(p, x, y, z))^(p.cv_d/p.R_d)
-ρθ₀(p, x, y, z)     = ρ₀(p, x, y, z) * θ₀(p, x, y, z) 
-ρu⃗₀(p, x, y, z)     = @SVector [0,0,0]
+ρ₀(p, x, y, z)  = p.pₒ / (p.R_d * θ₀(p, x, y, z)) * (π_exner(p, x, y, z))^(p.cv_d / p.R_d)
+ρθ₀(p, x, y, z) = ρ₀(p, x, y, z) * θ₀(p, x, y, z) 
+ρu⃗₀(p, x, y, z) = @SVector [0, 0, 0]
 
 ########
 # Set up boundary conditions
@@ -83,7 +83,7 @@ model = ModelSetup(
 ########
 Δt          = min_node_distance(grid.numerical) / parameters.cₛ * 0.25
 start_time  = 0
-end_time    = 1000.0
+end_time    = 2000.0
 callbacks   = (
     Info(),
     StateCheck(10),
@@ -107,4 +107,4 @@ simulation = Simulation(
 initialize!(simulation)
 evolve!(simulation)
 
-# nothing
+nothing

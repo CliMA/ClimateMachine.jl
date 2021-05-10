@@ -96,6 +96,23 @@ function nodal_init_state_auxiliary!(
     init_state_auxiliary!(m, m.physics.ref_state, state_auxiliary, geom)
 end
 
+#TODO!
+function init_state_auxiliary!(
+    ::Union{DryAtmosModel,DryAtmosLinearModel},
+    ::FlatOrientation,
+    state_auxiliary,
+    geom,
+)
+    FT = eltype(state_auxiliary)
+    _grav = FT(grav(param_set))
+    @inbounds r = geom.coord[3]
+    state_auxiliary.x = geom.coord[1]
+    state_auxiliary.y = geom.coord[2]
+    state_auxiliary.z = geom.coord[3]
+    state_auxiliary.Φ = _grav * r
+    state_auxiliary.∇Φ = SVector{3, FT}(0, 0, _grav)
+end
+
 function init_state_auxiliary!(
     ::Union{DryAtmosModel,DryAtmosLinearModel},
     ::SphericalOrientation,
@@ -117,7 +134,8 @@ function init_state_auxiliary!(
     ::NoReferenceState,
     state_auxiliary,
     geom,
-) end
+) 
+end
 
 function init_state_auxiliary!(
     m::Union{DryAtmosModel,DryAtmosLinearModel},
@@ -227,9 +245,12 @@ function vertical_unit_vector(::Union{DryAtmosModel,DryAtmosLinearModel}, aux::V
     aux.∇Φ / FT(grav(param_set))
 end
 
+function altitude(::Union{DryAtmosModel,DryAtmosLinearModel}, ::FlatOrientation, geom)
+    @inbounds geom.coord[3]
+end
+
 function altitude(::Union{DryAtmosModel,DryAtmosLinearModel}, ::SphericalOrientation, geom)
     FT = eltype(geom)
     _planet_radius::FT = planet_radius(param_set)
     norm(geom.coord) - _planet_radius
 end
-
