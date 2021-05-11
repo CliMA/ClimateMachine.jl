@@ -17,7 +17,9 @@ eq_tends(pv::PV, land::LandModel, tt::Flux{FirstOrder}) where {PV} = (
 
 eq_tends(::PV, ::AbstractSoilComponentModel, ::Flux{FirstOrder}) where {PV} = ()
 eq_tends(::PV, ::NoSurfaceFlowModel, ::Flux{FirstOrder}) where {PV} = ()
-
+# eq_tends gets called for each PV for each subcomponent! so we need this
+eq_tends(pv::PV, ::OverlandFlowModel, ::Flux{FirstOrder}) where {PV} = ()
+# before refining to this
 eq_tends(::SurfaceWaterHeight, ::OverlandFlowModel, ::Flux{FirstOrder}) =
     (VolumeAdvection(),)
 
@@ -26,7 +28,7 @@ eq_tends(::SurfaceWaterHeight, ::OverlandFlowModel, ::Flux{FirstOrder}) =
 #####
 
 # Empty by default
-
+# maybe replace with PV, BalanceLaw?
 eq_tends(pv::PV, ::AbstractSoilComponentModel, ::Flux{SecondOrder}) where {PV} =
     ()
 eq_tends(pv::PV, ::OverlandFlowModel, ::Flux{SecondOrder}) where {PV} = ()

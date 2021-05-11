@@ -2,6 +2,8 @@ module SurfaceFlow
 
 using DocStringExtensions
 using UnPack
+using LinearAlgebra
+
 using ..Land
 using ..VariableTemplates
 using ..BalanceLaws
@@ -27,6 +29,7 @@ export OverlandFlowModel,
     surface_boundary_state!,
     calculate_velocity,
     Precip,
+    SoilRunoff,
     VolumeAdvection,
     SurfaceWaterHeight
 
@@ -232,16 +235,47 @@ function (p::Precip{FT})(x, y, t) where {FT}
     FT(p.precip(x, y, t))
 end
 
+"""
+    SoilRunoff{FT} <: TendencyDef{Source}
+
+A source term for overland flow when net runoff 
+(precipitation minus infiltration) drives overland flow.
+"""
+struct SoilRunoff{FT} <: TendencyDef{Source} end
+
+
 
 prognostic_vars(::Precip) = (SurfaceWaterHeight(),)
+prognostic_vars(::SoilRunoff) = (SurfaceWaterHeight(),)
 
 
 precompute(source_type::Precip, land::LandModel, args, tt::Source) =
+    NamedTuple()
+precompute(source_type::SoilRunoff, land::LandModel, args, tt::Source) =
     NamedTuple()
 
 function source(::SurfaceWaterHeight, s::Precip, land::LandModel, args)
     @unpack aux, t = args
     return s(aux.x, aux.y, t)
+end
+
+function source(::SurfaceWaterHeight, s::SoilRunoff, land::LandModel, args)
+    @unpack state, aux, diffusive, t = args
+    soil = land.soil
+    bc = land.boundary_conditions.surface_bc.soil_water
+    precip = bc.precip_model(t) # in ẑ
+
+    flux_vector = -diffusive.soil.water.K∇h
+    #Assume flux is into soil - need to revisit
+    infiltration = -norm(flux_vector) # negative, into soil
+    Δ = precip - infiltration
+    if Δ < eltype(state)(0.0)
+        S = -Δ
+    else
+        S = eltype(state)(0.0)
+
+    end
+    return S
 end
 
 end
