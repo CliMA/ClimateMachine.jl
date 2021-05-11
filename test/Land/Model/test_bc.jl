@@ -36,11 +36,10 @@ using ClimateMachine.BalanceLaws:
         state.soil.water.θ_i = myfloat(land.soil.water.initialθ_i(aux))
     end
 
-    soil_param_functions =
-        SoilParamFunctions{FT}(porosity = 0.75, Ksat = 1e-7, S_s = 1e-3)
+    wpf = WaterParamFunctions(FT; Ksat = 1e-7, S_s = 1e-3)
+    soil_param_functions = SoilParamFunctions(FT; porosity = 0.75, water = wpf)
     bottom_flux_amplitude = FT(-3.0)
     f = FT(pi * 2.0 / 300.0)
-    # nota bene: the flux is -K∇h
     bottom_flux =
         (aux, t) -> bottom_flux_amplitude * sin(f * t) * aux.soil.water.K
     surface_state = (aux, t) -> eltype(aux)(0.2)

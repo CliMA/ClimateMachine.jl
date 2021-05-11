@@ -89,10 +89,11 @@ using ClimateMachine.BalanceLaws:
     ρp = FT(2700) # kg/m^3
     ρc_ds = FT(2e06) # J/m^3/K
 
-
-    soil_param_functions = SoilParamFunctions{FT}(
-        Ksat = 0.0,
-        S_s = 1e-4,
+    Ksat = FT(0.0)
+    S_s = FT(1e-4)
+    wpf = WaterParamFunctions(FT; Ksat = Ksat, S_s = S_s)
+    soil_param_functions = SoilParamFunctions(
+        FT;
         porosity = 0.75,
         ν_ss_gravel = 0.0,
         ν_ss_om = 0.0,
@@ -102,6 +103,7 @@ using ClimateMachine.BalanceLaws:
         κ_solid = 1.0,
         κ_sat_unfrozen = 1.0,
         κ_sat_frozen = 1.0,
+        water = wpf,
     )
 
 

@@ -46,19 +46,20 @@ function init_soil!(land, state, aux, localgeo, time)
     ))
 end
 
-const FT = Float32
+const FT = Float64
 
 @testset "Heat analytic unit test" begin
     ClimateMachine.init()
 
-    soil_param_functions = SoilParamFunctions{FT}(
+    soil_param_functions = SoilParamFunctions(
+        FT;
         porosity = 0.495,
         ν_ss_gravel = 0.1,
         ν_ss_om = 0.1,
         ν_ss_quartz = 0.1,
         ρc_ds = 0.43314518988433487,
-        κ_solid = 8,
-        ρp = 2700,
+        κ_solid = 8.0,
+        ρp = 2700.0,
         κ_sat_unfrozen = 0.57,
         κ_sat_frozen = 2.29,
     )

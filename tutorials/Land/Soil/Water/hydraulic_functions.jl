@@ -7,12 +7,6 @@
 # the presence of ice as well as the temperature dependence of the
 # viscosity of liquid water.
 
-
-# ClimateMachine's Land model allows the user to pick between two hydraulics models,
-# that of van Genuchten [vanGenuchten1980](@cite) or that of Brooks and Corey, see [BrooksCorey1964](@cite) or [Corey1977](@cite). The
-# same model is consistently used for the matric potential
-# and hydraulic conductivity.
-
 # # Preliminary setup
 
 # External modules
@@ -23,31 +17,43 @@ using ClimateMachine
 using ClimateMachine.Land
 using ClimateMachine.Land.SoilWaterParameterizations
 
-const FT = Float32;
-# # Specifying a  `hydraulics` model
+FT = Float32;
+# # Specifying a hydraulics model
+# ClimateMachine's Land model allows the user to pick between two hydraulics models,
+# that of van Genuchten [vanGenuchten1980](@cite) or that of Brooks and Corey, see [BrooksCorey1964](@cite) or [Corey1977](@cite). The
+# same model is consistently used for the matric potential
+# and hydraulic conductivity.
+
 # The van Genuchten model requires two free parameters, `α` and `n`.
 # A third parameter, `m`, is computed from `n`. Of these, only `α` carries
 # units, of inverse meters. The Brooks and Corey model also uses
 # two free parameters, `ψ_b`, the magnitude of the matric potential at saturation,
-#  and a constant `M`. `ψ_b` carries units of meters. The hydraulic conductivity
+#  and a constant `M`. `ψ_b` carries units of meters. These parameter sets are stored in
+# either the [`vanGenuchten`](@ref ClimateMachine.Land.SoilWaterParameterizations.vanGenuchten) or the
+# [`BrooksCorey`](@ref ClimateMachine.Land.SoilWaterParameterizations.BrooksCorey)
+# hydraulics model structures (more details below). These parameters are enough to compute the matric potential.
+
+# The hydraulic conductivity
 # requires an additional parameter, `Ksat` (m/s), which is the hydraulic conductivity
-# in saturated soil. This parameter is the same between the two models for a given
-# soil type, and is not stored in the `hydraulics` model, but rather as part of the
-# [`SoilParamFunctions`](@ref ClimateMachine.Land.SoilParamFunctions).
+# in saturated soil. This parameter is
+# not stored in the hydraulics model, but rather as part of the
+# [`WaterParamFunctions`](@ref ClimateMachine.Land.WaterParamFunctions), which stores
+# other parameters needed for the soil water modeling.
 
 # Below we show how to create two concrete examples of these hydraulics models,
-# for sandy loam ([Bonan19a](@cite)). Note that the parameters chosen are a function of soil type.
-vg_α = FT(7.5) # m^-1
-vg_n = FT(1.89)
-hydraulics = vanGenuchten{FT}(α = vg_α, n = vg_n)
+# for sandy loam ([Bonan19a](@cite)). Note that the parameters chosen are a function of soil type,
+# and that the parameters are converted to type `FT` internally.
+vg_α = 7.5 # m^-1
+vg_n = 1.89
+hydraulics = vanGenuchten(FT; α = vg_α, n = vg_n);
 
-ψ_sat = 0.09 # m
-Mval = 0.228
-hydraulics_bc = BrooksCorey{FT}(ψb = ψ_sat, m = Mval);
+ψ_sat = 0.218 # m
+Mval = 0.2041
+hydraulics_bc = BrooksCorey(FT; ψb = ψ_sat, m = Mval);
 # # Matric Potential
-# The matric potential `ψ` represents how much water clings to soil. Drier soil
-# holds onto water more tightly, impeding the flow of water. As soil becomes
-# wetter, the matric potential decreases in magnitude, enabling water flow.
+# The matric potential `ψ` reflects the negative pressure of water
+# in unsaturated soil. The negative pressure (suction) of water arises
+# because of adhesive forces between water and soil.
 
 # The van Genuchten expression for matric potential is
 # ``
@@ -60,7 +66,10 @@ hydraulics_bc = BrooksCorey{FT}(ψb = ψ_sat, m = Mval);
 # ``
 
 # Here `S_l` is the effective saturation of liquid water, `θ_l/ν`, where `ν` is
-# porosity of the soil. We neglect the residual pore space in the CliMA model.
+# porosity of the soil. We generally neglect the residual pore space in the CliMA model,
+# but the user can set the parameter in the
+# [`WaterParamFunctions`](@ref ClimateMachine.Land.WaterParamFunctions) structure if it is
+# desired.
 
 # In the CliMA code, we use [multiple dispatch](https://en.wikipedia.org/wiki/Multiple_dispatch).
 # With multiple dispatch, a function can have many
@@ -102,12 +111,12 @@ hydraulics_bc = BrooksCorey{FT}(ψb = ψ_sat, m = Mval);
 # ```
 
 
-# Here is a more pertinent example:
-# `hydraulics` is of type `vanGenuchten{Float32}` based on our choice of `FT`:
+# Here are more pertinent examples:
+# Based on our choice of `FT = Float32`,
 
 # ```julia
 # julia> typeof(hydraulics)
-# vanGenuchten{Float32}
+# vanGenuchten{Float32,Float32,Float32,Float32}
 # ```
 
 
@@ -115,7 +124,7 @@ hydraulics_bc = BrooksCorey{FT}(ψb = ψ_sat, m = Mval);
 
 # ```julia
 # julia> typeof(hydraulics_bc)
-# BrooksCorey{Float32}
+# BrooksCorey{Float32,Float32,Float32}
 # ```
 
 
@@ -148,46 +157,84 @@ savefig("bc_vg_matric_potential.png")
 # # Hydraulic conductivity
 # The hydraulic conductivity is a more complex function than the matric potential,
 # as it depends on the temperature of the water, the volumetric ice fraction, and
-# the volumetric liquid water fraction. It also depends on the `hydraulics` model
+# the volumetric liquid water fraction. It also depends on the hydraulics model
 # chosen.
 
 # We represent the hydraulic conductivity `K` as the product of four factors:
-# `Ksat`, an `impedance_factor` (which accounts for the effect of ice on conductivity)
-# a `viscosity_factor` (which accounts for the effect of temperature on the
+# `Ksat`, an impedance factor (which accounts for the effect of ice on conductivity)
+# a viscosity factor (which accounts for the effect of temperature on the
 # viscosity of liquid water, and how that in turn affects conductivity)
-# and a `moisture_factor` (which accounts for the effect of liquid water, and is determined by the `hydraulics` model).
-
-#  Let's start with ice and temperature independence, but moisture dependence.
-# Below
-# we choose additional parameters, consistent with the `hydraulics` parameters
-# for sandy loam ([Bonan19a](@cite)).
-ν = FT(0.41)
-Ksat = FT(4.42 / (3600 * 100))
-moisture_choice = MoistureDependent{FT}()
-viscosity_choice = ConstantViscosity{FT}()
-impedance_choice = NoImpedance{FT}();
-
-# We are going to calculate `K = Ksat × viscosity_factor × impedance_factor × moisture_factor`.
-# In the code, each of these factors is a function with multiple methods, except for `Ksat`.
-#  Our function `hydraulic_conductivity` calls each of these functions in turn,
-# and these functions use multiple dispatch to provide the correct value for `K`.
-
+# and a moisture factor (which accounts for the effect of liquid water, and is determined by the hydraulics model).
+# We are going to calculate `K = Ksat × viscosity factor × impedance factor × moisture factor`.
+# In the code, each of these factors is
+# computed by a function with multiple methods, except for `Ksat`.
 # Like we defined new type
-# classes for `vanGenuchten{FT}` and `BrooksCorey{FT}`, we also created new type classes
+# classes for `vanGenuchten` and `BrooksCorey`, we also created new type classes
 # for the impedance choice, the viscosity choice, and the moisture choice.
-#  For example, the function
-# called `viscosity_factor`, when passed an object of type `ConstantViscosity{FT}`, executes a method that always
-# returns 1. The same is true for the function `impedance_factor`, using the type
-# `NoImpedance{FT}`, and for `moisture_factor`, using the type `MoistureIndependent{FT}`.
 
-# In the case where the `moisture_factor = MoistureDependent{FT}()`, either the van
-# Genuchten or Brooks and Corey expression is used based on the type of `hydraulics` model
-# passed.
-
-# The `moisture_factor` for the van Genuchten model is (denoting it as ``K_m``)
+# The function [`viscosity_factor`](@ref ClimateMachine.Land.SoilWaterParameterizations.viscosity_factor)
+# takes as arguments the temperature of the soil and the
+# viscosity model desired, and returns the factor `k_v` by which the hydraulic conductivity is scaled.
+# One option is to account for this effect:
 
 # ``
-#  K_m = \sqrt{S_l}[1-(1-S_l^{1/m})^m]^2,
+# k_v = e^{γ (T-T_{\rm ref})}
+# ``
+
+# where γ = 0.0264/K and ``T_{\rm ref}`` = 288K.
+
+# For example, at the freezing point of water, using the default values
+# for γ and T_ref, viscosity reduces the conductivity by a third:
+viscous_effect_model = TemperatureDependentViscosity{FT}();
+viscosity_factor(viscous_effect_model, FT(273.15))
+
+# The other option is to ignore this effect:
+
+# ``
+# k_v = 1
+# ``
+
+# This is the default approach.
+no_viscous_effect_model = ConstantViscosity{FT}();
+viscosity_factor(no_viscous_effect_model, FT(273.15))
+
+# Very similarly, the function
+# [`impedance_factor`](@ref ClimateMachine.Land.SoilWaterParameterizations.impedance_factor)
+# takes as arguments the liquid water and ice
+# volumetric fractions in the soil, as well as the impedance model being used, and returns
+# the factor `k_i` by which the hydraulic conductivity is scaled.
+# One option is to account for this effect:
+
+# ``
+# k_i = 10^{-Ω f_i},
+# ``
+
+# where `Ω = 7` is an empirical factor and
+# `f_i` is the ratio of the volumetric
+# ice fraction to total volumetric water fraction  ([Lundin1990](@cite)).
+
+# For example, with ``\theta_i = \theta_l``, or f_i = 0.5, ice reduces the conductivity by over 1000x.
+impedance_effect_model = IceImpedance{FT}();
+impedance_factor(impedance_effect_model, FT(0.5))
+
+# The other option is to ignore this effect:
+
+# ``
+# k_i = 1
+# ``
+
+# This is the default approach.
+no_impedance_effect_model = NoImpedance{FT}();
+impedance_factor(no_impedance_effect_model, FT(0.5))
+
+# As for the moisture dependence of hydraulic conductivity, it can also be either
+# independent of moisture, or dependent on moisture. If it is dependent on moisture,
+# the specific function evaluated is dictated by the hydraulics model.
+# The [`moisture_factor`](@ref ClimateMachine.Land.SoilWaterParameterizations.moisture_factor)
+# for the van Genuchten model is (denoting it as ``k_m``)
+
+# ``
+#  k_m = \sqrt{S_l}[1-(1-S_l^{1/m})^m]^2,
 # ``
 
 # for ``S_l < 1``,
@@ -195,87 +242,55 @@ impedance_choice = NoImpedance{FT}();
 # and for the Brooks and Corey model it is
 
 # ``
-# K_m = S_l^{2M+3},
+# k_m = S_l^{2M+3},
 # ``
 
-# also for ``S_l<1``. When ``S_l\geq 1``, ``K_m = 1`` for each model.
+# also for ``S_l<1``. When ``S_l\geq 1``, ``k_m = 1`` for each model.
 
-# One side effect of this flexibility is that `hydraulic_conductivity`
-# requires all the arguments it could possibly need passed to it, which is
-# why here we must supply a value `T` and `θ_i`, even though they are not used
-# in this particular example.
+
+
+# Let's put all these factors together now. Below
+# we choose additional parameters, consistent with the hydraulics parameters
+# for sandy loam ([Bonan19a](@cite)), and show how hydraulic conductivity varies with
+# liquid water content, in the case without ice impedance or temperature effects.
+Ksat = FT(4.42 / (3600 * 100))
 T = FT(0.0)
-θ_i = FT(0.0)
-
+f_i = FT(0.0)
 K =
-    Ksat .*
     hydraulic_conductivity.(
-        Ref(impedance_choice),
-        Ref(viscosity_choice),
-        Ref(moisture_choice),
-        Ref(hydraulics),
-        Ref(θ_i),
-        Ref(ν),
-        Ref(T),
-        S_l,
+        Ref(Ksat),
+        Ref(impedance_factor(NoImpedance{FT}(), f_i)),
+        Ref(viscosity_factor(ConstantViscosity{FT}(), T)),
+        moisture_factor.(Ref(MoistureDependent{FT}()), Ref(hydraulics), S_l),
     );
+
 # Let's also compute `K` when we include the effects of temperature
 # and ice on the hydraulic conductivity.
-# In the cases where a `TemperatureDependentViscosity{FT}` or
-# `IceImpedance{FT}` type is passed, the correct factors are calculated,
+# In the cases where a
+# [`TemperatureDependentViscosity`](@ref ClimateMachine.Land.SoilWaterParameterizations.TemperatureDependentViscosity)
+# or
+# [`IceImpedance`](@ref ClimateMachine.Land.SoilWaterParameterizations.IceImpedance)
+# type is passed, the correct factors are calculated,
 # based on the temperature `T` and volumetric ice fraction `θ_i`.
-# In these cases, the `viscosity_factor`, denoted here as ``K_v``,
-# evaluates as:
 
-# ``
-# K_v = e^{\gamma(T-T_{ref})},
-# ``
-
-# where ``\gamma = 0.0264 \mbox{K}^{-1}`` is an empirical factor,
-# and ``T_{ref} = 288`` K,
-# and the `impedance_factor`, denoted ``K_i``, evaluates as:
-
-# ``
-# K_i = 10^{-\Omega f_i}
-# ``
-
-# where ``\Omega = 7`` is an empirical factor and
-# ``f_i`` is the ratio of the volumetric
-# ice fraction to total volumetric water fraction  ([Lundin1990](@cite)).
-
-viscosity_choice_T = TemperatureDependentViscosity{FT}()
-T = FT(300.0)
-K_T =
-    Ksat .*
-    hydraulic_conductivity.(
-        Ref(impedance_choice),
-        Ref(viscosity_choice_T),
-        Ref(moisture_choice),
-        Ref(hydraulics),
-        Ref(θ_i),
-        Ref(ν),
-        Ref(T),
-        S_l,
-    )
-ice_impedance_I = IceImpedance{FT}()
-θ_i = FT(0.1)
-S_i = θ_i / ν;
+T = FT(273.15)
+S_i = FT(0.1); # = θ_i/ν
 # The total volumetric water fraction cannot
 # exceed unity, so the effective liquid water saturation
 # should have a max of 1-S_i.
 S_l_accounting_for_ice = FT.(0.01:0.01:(0.99 - S_i))
-K_i =
-    Ksat .*
+f_i = S_i ./ (S_l_accounting_for_ice .+ S_i)
+K_w_factors =
     hydraulic_conductivity.(
-        Ref(ice_impedance_I),
-        Ref(viscosity_choice),
-        Ref(moisture_choice),
-        Ref(hydraulics),
-        Ref(θ_i),
-        Ref(ν),
-        Ref(T),
-        S_l_accounting_for_ice,
-    )
+        Ref(Ksat),
+        impedance_factor.(Ref(NoImpedance{FT}()), f_i),
+        Ref(viscosity_factor(ConstantViscosity{FT}(), T)),
+        moisture_factor.(
+            Ref(MoistureDependent{FT}()),
+            Ref(hydraulics),
+            S_l_accounting_for_ice,
+        ),
+    );
 plot(
     S_l,
     log10.(K),
@@ -284,11 +299,10 @@ plot(
     label = "Base case",
     legend = :bottomright,
 )
-plot!(S_l, log10.(K_T), label = "Temperature Dependent Viscosity; no ice")
 plot!(
     S_l_accounting_for_ice .+ S_i,
-    log10.(K_i),
-    label = "Ice Impedance; S_i=0.24",
+    log10.(K_w_factors),
+    label = "θ_i = 0.1, T = 273.15",
 )
 savefig("T_ice_K.png")
 # ![](T_ice_K.png)
@@ -298,56 +312,21 @@ savefig("T_ice_K.png")
 # ice in the model, for all time and space. In this case the ice impedance
 # factor evaluates to 1 regardless of which type is passed.
 
-
-# We can also look and see how the Brooks and Corey moisture factor differs from the
-# van Genuchten moisture factor by changing the `hydraulics` model passed:
-T = FT(0.0)
-θ_i = FT(0.0)
-
-K_bc =
-    Ksat .*
-    hydraulic_conductivity.(
-        Ref(impedance_choice),
-        Ref(viscosity_choice),
-        Ref(moisture_choice),
-        Ref(hydraulics_bc),
-        Ref(θ_i),
-        Ref(ν),
-        Ref(T),
-        S_l,
-    )
-plot(
-    S_l,
-    log10.(K),
-    xlabel = "effective saturation",
-    ylabel = "Log10(K)",
-    label = "van Genuchten",
-)
-plot!(
-    S_l,
-    log10.(K_bc),
-    xlabel = "effective saturation",
-    ylabel = "Log10(K)",
-    label = "Brooks and Corey",
-)
-savefig("bc_vg_k.png")
-# ![](bc_vg_k.png)
 # # Other features
 # The user also has the choice of making the conductivity constant by choosing
-# `MoistureIndependent{FT}()` along with `ConstantViscosity{FT}()` and
-# `NoImpedance{FT}()` . This is useful for debugging!
+# [`MoistureIndependent`](@ref ClimateMachine.Land.SoilWaterParameterizations.MoistureIndependent)
+# along with
+# [`ConstantViscosity`](@ref ClimateMachine.Land.SoilWaterParameterizations.ConstantViscosity)
+# and
+# [`NoImpedance`](@ref ClimateMachine.Land.SoilWaterParameterizations.NoImpedance).
+# This is useful for debugging!
 no_moisture_dependence = MoistureIndependent{FT}()
 K_constant =
-    Ksat .*
     hydraulic_conductivity.(
-        Ref(impedance_choice),
-        Ref(viscosity_choice),
-        Ref(no_moisture_dependence),
-        Ref(hydraulics),
-        Ref(θ_i),
-        Ref(ν),
-        Ref(T),
-        S_l,
+        Ref(Ksat),
+        Ref(FT(1.0)),
+        Ref(FT(1.0)),
+        moisture_factor.(Ref(no_moisture_dependence), Ref(hydraulics), S_l),
     );
 # ```julia
 # julia> unique(K_constant)
@@ -359,9 +338,8 @@ K_constant =
 # is constant, as a hydraulics model is still required and employed.
 
 
-# And, lastly, you might be wondering why we left `Ksat` out of the function
-# for `hydraulic_conductivity`. It turns out it is also useful for debugging
-# to be able to turn off the flow of water, by setting `Ksat = 0`.
+# And, lastly, you might also find it helpful in debugging
+# to be able to turn off the flow of water by setting `Ksat = 0`.
 
 # # References
 # - [vanGenuchten1980](@cite)

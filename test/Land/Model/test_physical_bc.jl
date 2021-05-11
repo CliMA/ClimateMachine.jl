@@ -39,8 +39,9 @@ import ClimateMachine.DGMethods.FVReconstructions: FVLinear
         state.soil.water.θ_i = myfloat(land.soil.water.initialθ_i(aux))
     end
 
-    soil_param_functions =
-        SoilParamFunctions{FT}(porosity = 0.75, Ksat = 1e-7, S_s = 1e-3)
+    wpf = WaterParamFunctions(FT; Ksat = 1e-7, S_s = 1e-3)
+
+    soil_param_functions = SoilParamFunctions(FT; porosity = 0.75, water = wpf)
     surface_precip_amplitude = FT(3e-8)
     f = FT(pi * 2.0 / 300.0)
     precip = (t) -> surface_precip_amplitude * sin(f * t)
@@ -152,15 +153,15 @@ end
         state.soil.water.θ_i = myfloat(land.soil.water.initialθ_i(aux))
     end
 
-    soil_param_functions = SoilParamFunctions{FT}(
-        porosity = 0.495,
-        Ksat = 0.0443 / (3600 * 100),
-        S_s = 1e-4,
-    )
+    Ksat = FT(0.0443 / (3600 * 100))
+    S_s = FT(1e-4)
+    wpf = WaterParamFunctions(FT; Ksat = Ksat, S_s = S_s)
+
+    soil_param_functions = SoilParamFunctions(FT; porosity = 0.495, water = wpf)
     surface_precip_amplitude = FT(-5e-4)
 
     precip = (t) -> surface_precip_amplitude
-    hydraulics = vanGenuchten{FT}(n = 2.0)
+    hydraulics = vanGenuchten(FT; n = 2.0)
     function hydrostatic_profile(z, zm, porosity, n, α)
         myf = eltype(z)
         m = FT(1 - 1 / n)
@@ -319,15 +320,15 @@ end
         state.soil.water.θ_i = myfloat(land.soil.water.initialθ_i(aux))
     end
 
-    soil_param_functions = SoilParamFunctions{FT}(
-        porosity = 0.495,
-        Ksat = 0.0443 / (3600 * 100),
-        S_s = 1e-4,
-    )
+    Ksat = FT(0.0443 / (3600 * 100))
+    S_s = FT(1e-4)
+    wpf = WaterParamFunctions(FT; Ksat = Ksat, S_s = S_s)
+
+    soil_param_functions = SoilParamFunctions(FT; porosity = 0.495, water = wpf)
     surface_precip_amplitude = FT(0)
 
     precip = (t) -> surface_precip_amplitude
-    hydraulics = vanGenuchten{FT}(n = 2.0)
+    hydraulics = vanGenuchten(FT; n = 2.0)
     function hydrostatic_profile(z, zm, porosity, n, α)
         myf = eltype(z)
         m = FT(1 - 1 / n)

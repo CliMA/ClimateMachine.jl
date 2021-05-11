@@ -74,73 +74,172 @@ abstract type AbstractHydraulicsModel{FT <: AbstractFloat} end
 The necessary parameters for the van Genuchten hydraulic model; 
 defaults are for Yolo light clay.
 
+ The user can supply either
+floats or  functions of `aux` (`aux.x`, `aux.y`, `aux.z`), which return a scalar float.
+Internally,
+the parameters will be converted to type FT and the functions
+altered to return type FT, so the parameters must be abstract floats
+or functions that return abstract floats.
+
 # Fields
+
 $(DocStringExtensions.FIELDS)
 """
-struct vanGenuchten{FT} <: AbstractHydraulicsModel{FT}
+struct vanGenuchten{FT, T1, T2, T3} <: AbstractHydraulicsModel{FT}
     "Exponent parameter - used in matric potential"
-    n::FT
+    n::T1
     "used in matric potential. The inverse of this carries units in 
      the expression for matric potential (specify in inverse meters)."
-    α::FT
+    α::T2
     "Exponent parameter - determined by n, used in hydraulic conductivity"
-    m::FT
-    function vanGenuchten{FT}(; n::FT = FT(1.43), α::FT = FT(2.6)) where {FT}
-        new(n, α, FT(1) - FT(1) / FT(n))
-    end
+    m::T3
+end
+
+
+function vanGenuchten(
+    ::Type{FT};
+    n::Union{AbstractFloat, Function} = FT(1.43),
+    α::Union{AbstractFloat, Function} = FT(2.6),
+) where {FT}
+    nt = n isa AbstractFloat ? FT(n) : (aux) -> FT(n(aux))
+    mt =
+        n isa AbstractFloat ? FT(1) - FT(1) / nt :
+        (aux) -> FT(1) - FT(1) / nt(aux)
+    αt = α isa AbstractFloat ? FT(α) : (aux) -> FT(α(aux))
+    args = (nt, αt, mt)
+    return vanGenuchten{FT, typeof.(args)...}(args...)
+end
+
+
+"""
+    (model::vanGenuchten)(aux)
+
+Evaluate the hydraulic model parameters at aux, and return
+a struct of type `vanGenuchten` with those *constant* parameters,
+which will be of float type FT.
+"""
+function (model::vanGenuchten{FT, T1, T2, T3})(aux) where {FT, T1, T2, T3}
+    @unpack n, α = model
+    fn = typeof(n) == FT ? n : n(aux)
+    fα = typeof(α) == FT ? α : α(aux)
+    return vanGenuchten(FT; n = fn, α = fα)
 end
 
 """
-    BrooksCorey{FT} <: AbstractHydraulicsModel{FT}
+    BrooksCorey{FT,T1,T2} <: AbstractHydraulicsModel{FT}
 
 The necessary parameters for the Brooks and Corey hydraulic model.
 
 Defaults are chosen to somewhat mirror the Havercamp/vG Yolo light 
-clay hydraulic conductivity/matric potential.
+clay hydraulic conductivity/matric potential.  The user can supply either
+floats or functions of `aux` (`aux.x`, `aux.y`, `aux.z`), which return a scalar float. 
+Internally,
+the parameters will be converted to type FT and the functions
+altered to return type FT, so the parameters must be abstract floats
+or functions that return abstract floats.
 
 # Fields
 $(DocStringExtensions.FIELDS)
 """
-Base.@kwdef struct BrooksCorey{FT} <: AbstractHydraulicsModel{FT}
+struct BrooksCorey{FT, T1, T2} <: AbstractHydraulicsModel{FT}
     "ψ_b - used in matric potential. Units of meters."
-    ψb::FT = FT(0.1656)
+    ψb::T1
     "Exponent used in matric potential and hydraulic conductivity."
-    m::FT = FT(0.5)
+    m::T2
+end
+
+function BrooksCorey(
+    ::Type{FT};
+    ψb::Union{AbstractFloat, Function} = FT(0.1656),
+    m::Union{AbstractFloat, Function} = FT(0.5),
+) where {FT}
+    mt = m isa AbstractFloat ? FT(m) : (aux) -> FT(m(aux))
+    ψt = ψb isa AbstractFloat ? FT(ψb) : (aux) -> FT(ψb(aux))
+    args = (ψt, mt)
+    return BrooksCorey{FT, typeof.(args)...}(args...)
 end
 
 """
-    Haverkamp{FT} <: AbstractHydraulicsModel{FT}
+    (model::BrooksCorey)(aux)
+
+Evaluate the hydraulic model parameters at aux, and return
+a struct of type `BrooksCorey` with those parameters.
+"""
+function (model::BrooksCorey{FT, T1, T2})(aux) where {FT, T1, T2}
+    @unpack ψb, m = model
+    fψ = typeof(ψb) == FT ? ψb : ψb(aux)
+    fm = typeof(m) == FT ? m : m(aux)
+    return BrooksCorey(FT; ψb = fψ, m = fm)
+end
+
+
+"""
+    Haverkamp{FT,T1,T2,T3,T4,T5} <: AbstractHydraulicsModel{FT}
 
 The necessary parameters for the Haverkamp hydraulic model for Yolo light
  clay.
 
 Note that this only is used in creating a hydraulic conductivity function,
  and another formulation for matric potential must be used.
+The user can supply either
+floats or functions of `aux` (`aux.x`, `aux.y`, `aux.z`), which return a scalar float. Internally,
+the parameters will be converted to type FT and the functions
+altered to return type FT, so the parameters must be abstract floats
+or functions that return abstract floats.
 
 # Fields
 $(DocStringExtensions.FIELDS)
 """
-struct Haverkamp{FT} <: AbstractHydraulicsModel{FT}
+struct Haverkamp{FT, T1, T2, T3, T4, T5} <: AbstractHydraulicsModel{FT}
     "exponent in conductivity"
-    k::FT
+    k::T1
     "constant A (units of cm^k) using in conductivity. Our sim is in meters"
-    A::FT
+    A::T2
     "Exponent parameter - using in matric potential"
-    n::FT
+    n::T3
     "used in matric potential. The inverse of this carries units in the 
      expression for matric potential (specify in inverse meters)."
-    α::FT
+    α::T4
     "Exponent parameter - determined by n, used in hydraulic conductivity"
-    m::FT
-    function Haverkamp{FT}(;
-        k::FT = FT(1.77),
-        A::FT = FT(124.6 / 100.0^1.77),
-        n::FT = FT(1.43),
-        α::FT = FT(2.6),
-    ) where {FT}
-        new(k, A, n, α, FT(1) - FT(1) / FT(n))
-    end
+    m::T5
 end
+
+function Haverkamp(
+    ::Type{FT};
+    k::Union{AbstractFloat, Function} = FT(1.77),
+    A::Union{AbstractFloat, Function} = FT(124.6 / 100.0^1.77),
+    n::Union{AbstractFloat, Function} = FT(1.43),
+    α::Union{AbstractFloat, Function} = FT(2.6),
+) where {FT}
+    nt = n isa AbstractFloat ? FT(n) : (aux) -> FT(n(aux))
+    mt =
+        n isa AbstractFloat ? FT(1) - FT(1) / nt :
+        (aux) -> FT(1) - FT(1) / nt(aux)
+    αt = α isa AbstractFloat ? FT(α) : (aux) -> FT(α(aux))
+    kt = k isa AbstractFloat ? FT(k) : (aux) -> FT(k(aux))
+    At = A isa AbstractFloat ? FT(A) : (aux) -> FT(A(aux))
+
+    args = (kt, At, nt, αt, mt)
+    return Haverkamp{FT, typeof.(args)...}(args...)
+end
+
+"""
+    (model::Haverkcamp)(aux)
+
+Evaluate the hydraulic model parameters at aux, and return
+a struct of type `Haverkamp` with those parameters.
+"""
+function (model::Haverkamp{FT, T1, T2, T3, T4, T5})(
+    aux,
+) where {FT, T1, T2, T3, T4, T5}
+    @unpack k, A, n, α = model
+    fn = typeof(n) == FT ? n : n(aux)
+    fα = typeof(α) == FT ? α : α(aux)
+    fA = typeof(A) == FT ? A : A(aux)
+    fk = typeof(k) == FT ? k : k(aux)
+    return Haverkamp(FT; k = fk, A = fA, n = fn, α = fα)
+end
+
 
 """
     MoistureIndependent{FT} <: AbstractMoistureFactor{FT} end
@@ -160,20 +259,22 @@ struct MoistureDependent{FT} <: AbstractMoistureFactor{FT} end
 
 """
     moisture_factor(
-        mm::MoistureDependent{FT},
+        mm::MoistureDependent,
         hm::vanGenuchten{FT},
         S_l::FT,
     ) where {FT}
 
 Returns the moisture factor of the hydraulic conductivy assuming a 
 MoistureDependent and van Genuchten hydraulic model.
+
+This is intended to be used with an instance of `vanGenuchten`
+that has float parameters. 
 """
 function moisture_factor(
-    mm::MoistureDependent{FT},
+    mm::MoistureDependent,
     hm::vanGenuchten{FT},
     S_l::FT,
 ) where {FT}
-    n = hm.n
     m = hm.m
     if S_l < FT(1)
         K = sqrt(S_l) * (FT(1) - (FT(1) - S_l^(FT(1) / m))^m)^FT(2)
@@ -185,23 +286,24 @@ end
 
 """
     moisture_factor(
-        mm::MoistureDependent{FT},
+        mm::MoistureDependent,
         hm::BrooksCorey{FT},
         S_l::FT,
     ) where {FT}
 
 Returns the moisture factor of the hydraulic conductivy assuming a 
 MoistureDependent and Brooks/Corey hydraulic model.
+
+This is intended to be used with an instance of `BrooksCorey`
+that has float parameters.
 """
 function moisture_factor(
-    mm::MoistureDependent{FT},
+    mm::MoistureDependent,
     hm::BrooksCorey{FT},
     S_l::FT,
 ) where {FT}
-    ψb = hm.ψb
     m = hm.m
-
-    if S_l < 1
+    if S_l < FT(1)
         K = S_l^(FT(2) * m + FT(3))
     else
         K = FT(1)
@@ -211,23 +313,25 @@ end
 
 """
     moisture_factor(
-        mm::MoistureDependent{FT},
+        mm::MoistureDependent,
         hm::Haverkamp{FT},
         S_l::FT,
     ) where {FT}
 
 Returns the moisture factor of the hydraulic conductivy assuming a 
 MoistureDependent and Haverkamp hydraulic model.
+
+This is intended to be used with an instance of `Haverkamp`
+that has float parameters.
 """
 function moisture_factor(
-    mm::MoistureDependent{FT},
+    mm::MoistureDependent,
     hm::Haverkamp{FT},
     S_l::FT,
 ) where {FT}
-    k = hm.k
-    A = hm.A
-    if S_l < 1
-        ψ = matric_potential(hm, S_l)
+    @unpack k, A, n, m, α = hm
+    if S_l < FT(1)
+        ψ = -((S_l^(-FT(1) / m) - FT(1)) * α^(-n))^(FT(1) / n)
         K = A / (A + abs(ψ)^k)
     else
         K = FT(1)
@@ -237,10 +341,11 @@ end
 
 
 """
-    moisture_factor(mm::MoistureIndependent{FT},
+    moisture_factor(mm::MoistureIndependent,
                     hm::AbstractHydraulicsModel{FT},
                     S_l::FT,
     ) where {FT}
+
 Returns the moisture factor in hydraulic conductivity when a 
 MoistureIndependent model is chosen. Returns 1.
 
@@ -248,7 +353,7 @@ Note that the hydraulics model and S_l are not used, but are included
 as arguments to unify the function call.
 """
 function moisture_factor(
-    mm::MoistureIndependent{FT},
+    mm::MoistureIndependent,
     hm::AbstractHydraulicsModel{FT},
     S_l::FT,
 ) where {FT}
@@ -344,8 +449,7 @@ end
 """
     impedance_factor(
         imp::NoImpedance{FT},
-        θ_i::FT,
-        θ_l::FT,
+        f_i::FT,
     ) where {FT}
 
 Returns the impedance factor when no effect due to ice is desired. 
@@ -353,7 +457,7 @@ Returns 1.
 
 The other arguments are included to unify the function call.
 """
-function impedance_factor(imp::NoImpedance{FT}, θ_i::FT, θ_l::FT) where {FT}
+function impedance_factor(imp::NoImpedance{FT}, f_i::FT) where {FT}
     gamma = FT(1.0)
     return gamma
 end
@@ -361,49 +465,35 @@ end
 """
     impedance_factor(
         imp::IceImpedance{FT},
-        θ_i::FT,
-        θ_l::FT,
+        f_i::FT,
     ) where {FT}
 
 Returns the impedance factor when an effect due to the fraction of 
 ice is desired. 
 """
-function impedance_factor(imp::IceImpedance{FT}, θ_i::FT, θ_l::FT) where {FT}
+function impedance_factor(imp::IceImpedance{FT}, f_i::FT) where {FT}
     Ω = imp.Ω
-    f_ice = θ_i / (θ_i + θ_l)
-    gamma = FT(10.0^(-Ω * f_ice))
+    gamma = FT(10.0^(-Ω * f_i))
     return gamma
 end
 
 """
     hydraulic_conductivity(
-        impedance::AbstractImpedanceFactor{FT},
-        viscosity::AbstractViscosityFactor{FT},
-        moisture::AbstractMoistureFactor{FT},
-        hydraulics::AbstractHydraulicsModel{FT},
-        θ_i::FT,
-        porosity::FT,
-        T::FT,
-        S_l::FT,
+        Ksat::FT,
+        impedance::FT,
+        viscosity::FT,
+        moisture::FT,
     ) where {FT}
 
 Returns the hydraulic conductivity.
 """
 function hydraulic_conductivity(
-    impedance::AbstractImpedanceFactor{FT},
-    viscosity::AbstractViscosityFactor{FT},
-    moisture::AbstractMoistureFactor{FT},
-    hydraulics::AbstractHydraulicsModel{FT},
-    θ_i::FT,
-    porosity::FT,
-    T::FT,
-    S_l::FT,
+    Ksat::FT,
+    impedance::FT,
+    viscosity::FT,
+    moisture::FT,
 ) where {FT}
-    K = FT(
-        viscosity_factor(viscosity, T) *
-        impedance_factor(impedance, θ_i, porosity * S_l) *
-        moisture_factor(moisture, hydraulics, S_l),
-    )
+    K = Ksat * impedance * viscosity * moisture
     return K
 end
 
@@ -456,12 +546,12 @@ function effective_saturation(porosity::FT, ϑ_l::FT, θ_r::FT) where {FT}
     return S_l
 end
 
-
 """
     pressure_head(
         model::AbstractHydraulicsModel{FT},
-        param_functions::PS,
+        ν::FT,
         S_s::FT,
+        θ_r::FT,
         ϑ_l::FT,
         θ_i::FT,
     ) where {FT,PS}
@@ -477,16 +567,15 @@ is treated as unaffected by the presence of ice.
 """
 function pressure_head(
     model::AbstractHydraulicsModel{FT},
-    param_functions::PS,
+    ν::FT,
+    S_s::FT,
+    θ_r::FT,
     ϑ_l::FT,
     θ_i::FT,
-) where {FT, PS}
-    porosity = param_functions.porosity
-    S_s = param_functions.S_s
-    θ_r = param_functions.θ_r
-    eff_porosity = porosity - θ_i
+) where {FT}
+    eff_porosity = ν - θ_i
     if ϑ_l < eff_porosity
-        S_l = effective_saturation(porosity, ϑ_l, θ_r)
+        S_l = effective_saturation(ν, ϑ_l, θ_r)
         ψ = matric_potential(model, S_l)
     else
         ψ = (ϑ_l - eff_porosity) / S_s
@@ -494,13 +583,14 @@ function pressure_head(
     return ψ
 end
 
+
 """
     matric_potential(
             model::vanGenuchten{FT},
             S_l::FT
     ) where {FT}
 
-Compute the van Genuchten function for matric potential.
+Wrapper function which computes the van Genuchten function for matric potential.
 """
 function matric_potential(model::vanGenuchten{FT}, S_l::FT) where {FT}
     @unpack n, m, α = model
@@ -519,7 +609,6 @@ matric potential (for testing purposes).
 """
 function matric_potential(model::Haverkamp{FT}, S_l::FT) where {FT}
     @unpack n, m, α = model
-
     ψ_m = -((S_l^(-FT(1) / m) - FT(1)) * α^(-n))^(FT(1) / n)
     return ψ_m
 end
@@ -534,7 +623,7 @@ Compute the Brooks and Corey function for matric potential.
 """
 function matric_potential(model::BrooksCorey{FT}, S_l::FT) where {FT}
     @unpack ψb, m = model
-    ψ_m = -ψb * S_l^(-FT(1) / m)
+    ψ_m = ψ_m = -ψb * S_l^(-m)
     return ψ_m
 end
 
@@ -550,9 +639,7 @@ Compute the effective saturation given the matric potential, using
 the van Genuchten formulation.
 """
 function inverse_matric_potential(model::vanGenuchten{FT}, ψ::FT) where {FT}
-
     ψ > 0 && error("Matric potential is positive")
-
     @unpack n, m, α = model
     S = (FT(1) + (α * abs(ψ))^n)^(-m)
     return S
@@ -588,9 +675,8 @@ Brooks and Corey formulation.
 """
 function inverse_matric_potential(model::BrooksCorey{FT}, ψ::FT) where {FT}
     ψ > 0 && error("Matric potential is positive")
-
     @unpack ψb, m = model
-    S = (-ψ / ψb)^(-m)
+    S = (-ψ / ψb)^(-FT(1) / m)
     return S
 end
 
