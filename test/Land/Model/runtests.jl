@@ -6,4 +6,5 @@ using Test, Pkg
     include("freeze_thaw_alone.jl")
     include("test_overland_flow_analytic.jl")
     include("test_physical_bc.jl")
+    include("test_radiative_energy_flux_functions.jl")
 end

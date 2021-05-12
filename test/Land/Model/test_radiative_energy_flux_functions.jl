@@ -79,7 +79,8 @@ end
     end
 
 
-    soil_param_functions = SoilParamFunctions{FT}(
+    soil_param_functions = SoilParamFunctions(
+        FT;
         porosity = 0.4,
         ν_ss_gravel = 0.2,
         ν_ss_om = 0.2,

@@ -178,10 +178,13 @@ soil_param_functions = SoilParamFunctions(
 # Initial and Boundary conditions. The default initial condition for
 # `θ_i` is zero everywhere, so we don't modify that. Furthermore, since
 # the equation for `θ_i` does not involve spatial derivatives, we don't need
-# to supply boundary conditions for it.
+# to supply boundary conditions for it. Note that Neumann fluxes, when chosen,
+# are specified by giving the magnitude of the normal flux *into* the domain.
+# In this case, the normal vector at the surface n̂ = ẑ. Internally, we multiply
+# the flux magnitude by -n̂.
 zero_flux = (aux, t) -> eltype(aux)(0.0)
 surface_heat_flux =
-    (aux, t) -> eltype(aux)(28) * (aux.soil.heat.T - eltype(aux)(273.15 - 6))
+    (aux, t) -> eltype(aux)(-28) * (aux.soil.heat.T - eltype(aux)(273.15 - 6))
 T_init = aux -> eltype(aux)(279.85)
 ϑ_l0 = (aux) -> eltype(aux)(0.33);
 
