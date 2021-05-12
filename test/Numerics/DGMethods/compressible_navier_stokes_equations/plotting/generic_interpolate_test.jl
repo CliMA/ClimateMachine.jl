@@ -122,6 +122,52 @@ function findξlist(elementlist, newgrid, grid, ihelper; f_calls_limit = 50, out
     end
 end
 
+
+"""
+greedyfindξlist(elementlist, x,y,z , newgrid, grid, ihelper)
+
+# Description
+Given the cell centers and a grid we want to interpolate to, find the closest elements for each point on the new grid
+"""
+function greedyfindξlist(elementlist, newgrid, grid, ihelper; f_calls_limit = 50, outer_iterations = 2, returnloss = false)
+    x,y,z = coordinates(grid)
+
+    ξlist = zeros(length(elementlist), 3)
+    losslist = zeros(length(elementlist))
+
+    Threads.@threads for i in eachindex(elementlist)
+        e = elementlist[i]
+        position = closure_position(x,y,z, e, grid, ihelper)
+        xnew = newgrid[i][1]
+        ynew = newgrid[i][2]
+        znew = newgrid[i][3]
+        loss = closure_cost(xnew, ynew, znew, position)
+        # get initial guess via closest nodal point
+        rx = reshape(x[:,e], polynomialorders(grid) .+ 1)
+        ry = reshape(y[:,e], polynomialorders(grid) .+ 1)
+        rz = reshape(z[:,e], polynomialorders(grid) .+ 1)
+        minind = argmin((rx .- xnew) .^2 + (ry .- ynew) .^2 + (rz .- znew) .^2)
+        ξᴳ = [ihelper.points[i][minind[i]] for i in 1:3]
+        rC = sqrt(xnew^2 + ynew^2 + znew^2)
+        ra, rb = extrema(sqrt.(rx .^2 + ry .^2 + rz .^2))
+        ξ³_guess = 2 * (rC - ra)/ (rb - ra) - 1
+        lossξ¹ξ²(a) = loss([a..., ξ³_guess])
+        # invert the mapping x⃗(ξ⃗) = y⃗ 
+        lower = [-1,-1] * 1.3 # allow for extrapolation
+        upper = [1,1] * 1.3 # allow for extrapolation
+        ξᴳ = ξᴳ[1:2]
+        result = optimize(lossξ¹ξ², lower, upper, ξᴳ, Fminbox(ConjugateGradient()), Optim.Options(f_calls_limit = f_calls_limit, outer_iterations = outer_iterations))
+        # optimize(loss, ξᴳ, BFGS(), Optim.Options(f_calls_limit = f_calls_limit, ))
+        ξlist[i,:] .= [result.minimizer...,ξ³_guess]
+        losslist[i] = lossξ¹ξ²(result.minimizer)
+    end
+    if returnloss
+        return ξlist, losslist
+    else
+        return ξlist
+    end
+end
+
 """
 interpolatefield(elementlist, ξlist, newgrid, grid, ihelper, oldϕ)
 
