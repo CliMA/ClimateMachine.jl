@@ -1,5 +1,6 @@
 using Test
 using StaticArrays
+using Printf
 using ClimateMachine.VariableTemplates
 using ClimateMachine.VariableTemplates: wrap_val
 import ClimateMachine.VariableTemplates
@@ -346,5 +347,9 @@ VT = VariableTemplates
     @test fnt.nest_tt_1 == Foo()
     @test fnt.nest_tt_2 == Foo()
     @test fnt.nest_t == Foo()
+
+    # Test that show doesn't break
+    sprint(show, v)
+    sprint(show, vg)
 
 end
