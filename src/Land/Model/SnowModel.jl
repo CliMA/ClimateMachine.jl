@@ -1,6 +1,7 @@
 module SnowModel
 
 using DocStringExtensions
+using UnPack
 using CLIMAParameters
 using CLIMAParameters.Planet: cp_l, cp_i, T_0, LH_f0
 
