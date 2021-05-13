@@ -44,6 +44,7 @@ function atmos_energy_boundary_state!(
     state⁺.energy.ρe =
         E_int⁺ + state⁺.ρ * gravitational_potential(atmos.orientation, aux⁻)
 end
+
 function atmos_energy_normal_boundary_flux_second_order!(
     nf,
     bc_energy::PrescribedTemperature,
@@ -51,14 +52,21 @@ function atmos_energy_normal_boundary_flux_second_order!(
     fluxᵀn,
     args,
 )
-    @unpack state⁻, aux⁻, diffusive⁻, t, n⁻ = args
-
-    # TODO: figure out a better way...
-    ν, D_t, _ = turbulence_tensors(atmos, state⁻, diffusive⁻, aux⁻, t)
-    d_h_tot = -D_t .* diffusive⁻.energy.∇h_tot
-    nd_h_tot = dot(n⁻, d_h_tot)
+    @unpack state⁻, aux⁻, diffusive⁻, hyperdiff⁻, t, n⁻ = args
+    tend_type = Flux{SecondOrder}()
+    _args⁻ = (;
+        state = state⁻,
+        aux = aux⁻,
+        t,
+        diffusive = diffusive⁻,
+        hyperdiffusive = hyperdiff⁻,
+    )
+    pargs = merge(_args⁻, (precomputed = precompute(atmos, _args⁻, tend_type),))
+    total_flux =
+        Σfluxes(Energy(), eq_tends(Energy(), atmos, tend_type), atmos, pargs)
+    nd_ρh_tot = dot(n⁻, total_flux)
     # both sides involve projections of normals, so signs are consistent
-    fluxᵀn.energy.ρe += nd_h_tot * state⁻.ρ
+    fluxᵀn.energy.ρe += nd_ρh_tot
 end
 
 

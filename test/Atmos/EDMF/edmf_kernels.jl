@@ -863,10 +863,18 @@ end
 
 function precompute(::EDMF, bl, args, ts, ::Flux{SecondOrder})
     @unpack state, aux, diffusive, t = args
-    ts_gm = ts
+    en_dif = diffusive.turbconv.environment
     up = state.turbconv.updraft
+    gm = state
+    ts_gm = ts
+    FT = eltype(state)
+    z = altitude(bl, aux)
+    param_set = parameter_set(bl)
     turbconv = turbconv_model(bl)
     N_up = n_updrafts(turbconv)
+    _grav::FT = grav(param_set)
+    ρ_inv = 1 / gm.ρ
+
     env = environment_vars(state, N_up)
     ts_en = new_thermo_state_en(bl, moisture_model(bl), state, aux, ts_gm)
     ts_up = new_thermo_state_up(bl, moisture_model(bl), state, aux, ts_gm)
@@ -898,6 +906,48 @@ function precompute(::EDMF, bl, args, ts, ::Flux{SecondOrder})
     K_h = K_m / Pr_t
     ρaw_up = vuntuple(i -> up[i].ρaw, N_up)
 
+    ρu_gm_tup = Tuple(gm.ρu)
+    ρa_en = gm.ρ * env.a
+    # TODO: Consider turbulent contribution:
+
+    e_kin_up = vuntuple(N_up) do i
+        FT(1 // 2) * (
+            (gm.ρu[1] * ρ_inv)^2 +
+            (gm.ρu[2] * ρ_inv)^2 +
+            (fix_void_up(up[i].ρa, up[i].ρaw / up[i].ρa))^2
+        )
+    end
+    e_kin_en =
+        FT(1 // 2) * ((gm.ρu[1] * ρ_inv)^2 + (gm.ρu[2] * ρ_inv)^2 + env.w)^2
+
+    e_tot_up = ntuple(i -> total_energy(e_kin_up[i], _grav * z, ts_up[i]), N_up)
+    h_tot_up = ntuple(i -> total_specific_enthalpy(ts_up[i], e_tot_up[i]), N_up)
+
+    e_tot_en = total_energy(e_kin_en, _grav * z, ts_en)
+    h_tot_en = total_specific_enthalpy(ts_en, e_tot_en)
+    h_tot_gm = total_specific_enthalpy(ts, gm.energy.ρe * ρ_inv)
+
+
+    massflux_h_tot = sum(
+        ntuple(N_up) do i
+            fix_void_up(
+                ρa_up[i],
+                ρa_up[i] *
+                (h_tot_gm - h_tot_up[i]) *
+                (gm.ρu[3] * ρ_inv - ρaw_up[i] / ρa_up[i]),
+            )
+        end,
+    )
+    massflux_h_tot +=
+        (ρa_en * (h_tot_gm - h_tot_en) * (ρu_gm_tup[3] * ρ_inv - env.w))
+
+    ρh_sgs_flux = SVector{3, FT}(
+        0,
+        0,
+        -gm.ρ * env.a * K_h * en_dif.∇h_tot[3] + massflux_h_tot,
+    )
+
+
     return (;
         env,
         ρa_up,
@@ -912,6 +962,7 @@ function precompute(::EDMF, bl, args, ts, ::Flux{SecondOrder})
         K_h,
         K_m,
         Pr_t,
+        ρh_sgs_flux,
     )
 end
 
@@ -1034,52 +1085,8 @@ end
 function flux(::Energy, ::SGSFlux, atmos, args)
     @unpack state, aux, diffusive = args
     @unpack ts = args.precomputed
-    @unpack env, K_h, ρa_up, ρaw_up, ts_up, ts_en = args.precomputed.turbconv
-    FT = eltype(state)
-    param_set = parameter_set(atmos)
-    _grav::FT = grav(param_set)
-    z = altitude(atmos, aux)
-    en_dif = diffusive.turbconv.environment
-    up = state.turbconv.updraft
-    gm = state
-    ρ_inv = 1 / gm.ρ
-    N_up = n_updrafts(turbconv_model(atmos))
-    ρu_gm_tup = Tuple(gm.ρu)
-    ρa_en = gm.ρ * env.a
-    # TODO: Consider turbulent contribution:
-
-    e_kin_up = vuntuple(N_up) do i
-        FT(1 // 2) * (
-            (gm.ρu[1] * ρ_inv)^2 +
-            (gm.ρu[2] * ρ_inv)^2 +
-            (fix_void_up(up[i].ρa, up[i].ρaw / up[i].ρa))^2
-        )
-    end
-    e_kin_en =
-        FT(1 // 2) * ((gm.ρu[1] * ρ_inv)^2 + (gm.ρu[2] * ρ_inv)^2 + env.w)^2
-
-    e_tot_up = ntuple(i -> total_energy(e_kin_up[i], _grav * z, ts_up[i]), N_up)
-    h_tot_up = ntuple(i -> total_specific_enthalpy(ts_up[i], e_tot_up[i]), N_up)
-
-    e_tot_en = total_energy(e_kin_en, _grav * z, ts_en)
-    h_tot_en = total_specific_enthalpy(ts_en, e_tot_en)
-    h_tot_gm = total_specific_enthalpy(ts, gm.energy.ρe * ρ_inv)
-
-
-    massflux_h_tot = sum(
-        ntuple(N_up) do i
-            fix_void_up(
-                ρa_up[i],
-                ρa_up[i] *
-                (h_tot_gm - h_tot_up[i]) *
-                (gm.ρu[3] * ρ_inv - ρaw_up[i] / ρa_up[i]),
-            )
-        end,
-    )
-    massflux_h_tot +=
-        (ρa_en * (h_tot_gm - h_tot_en) * (ρu_gm_tup[3] * ρ_inv - env.w))
-    ρh_sgs_flux = -gm.ρ * env.a * K_h * en_dif.∇h_tot[3] + massflux_h_tot
-    return SVector{3, FT}(0, 0, ρh_sgs_flux)
+    @unpack ρh_sgs_flux = args.precomputed.turbconv
+    return ρh_sgs_flux
 end
 
 function flux(::TotalMoisture, ::SGSFlux, atmos, args)
