@@ -31,8 +31,8 @@ Driver files in experiments show more complex examples.
 
 ## Input and output
 
-The `ClimateMachine` provides the [`ArtifactWrappers`](@ref
-ArtifactWrappers-docs) module to assist a driver in sourcing input data
+The `ClimateMachine` uses [ArtifactWrappers.jl](https://github.com/CliMA/ArtifactWrappers.jl)
+to assist a driver in sourcing input data
 for a simulation, but any mechanism may be used.
 
 Output takes the form of various [groups of diagnostic variables](@ref

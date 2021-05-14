@@ -1,7 +1,7 @@
 include("get_atmos_ref_states.jl")
 using JLD2
 using Pkg.Artifacts
-using ClimateMachine.ArtifactWrappers
+using ArtifactWrappers
 using ClimateMachine.Thermodynamics
 const TD = Thermodynamics
 

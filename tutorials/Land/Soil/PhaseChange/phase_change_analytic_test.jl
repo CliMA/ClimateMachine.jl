@@ -106,7 +106,7 @@ using ClimateMachine.SingleStackUtils
 using ClimateMachine.BalanceLaws:
     BalanceLaw, Prognostic, Auxiliary, Gradient, GradientFlux, vars_state
 using SpecialFunctions
-using ClimateMachine.ArtifactWrappers
+using ArtifactWrappers
 
 # # Preliminary set-up
 

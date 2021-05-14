@@ -41,6 +41,12 @@ git-tree-sha1 = "9aa9647b58147a81f7359eacc7d6249ac3a3e3d4"
 uuid = "4c555306-a7a7-4459-81d9-ec55ddd5c99a"
 version = "0.6.4"
 
+[[ArtifactWrappers]]
+deps = ["DocStringExtensions", "Downloads", "Pkg"]
+git-tree-sha1 = "e9b52e63e3ea81a504412807c9426566e26c232d"
+uuid = "a14bc488-3040-4b00-9dc1-f6467924858a"
+version = "0.1.1"
+
 [[Artifacts]]
 deps = ["Pkg"]
 git-tree-sha1 = "c30985d8821e0cd73870b17b0ed0ce6dc44cb744"

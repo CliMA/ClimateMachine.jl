@@ -10,7 +10,7 @@ using NCDatasets
 using Dierckx
 using PrettyTables
 using Printf
-using ClimateMachine.ArtifactWrappers
+using ArtifactWrappers
 
 # Get PyCLES_output dataset folder:
 #! format: off
