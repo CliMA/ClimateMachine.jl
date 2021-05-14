@@ -83,14 +83,14 @@ for index in [1,2,3]
     ymax = FT(1.0)
     Δz = zres/2
     # # Parameters
-    νp = 0.4
+    νp = FT(0.4)
     Ksat =6.94e-6/60
-    S_s = 5e-4
+    S_s = FT(5e-4)
     vg_α = FT(1.0)
     vg_n = FT(2.0)
-    vg_m = 1.0-1.0/vg_n
-    θ_r = 0.08
-    wt_depth = -1.0
+    vg_m = FT(1.0)-FT(1.0)/vg_n
+    θ_r = FT(0.08)
+    wt_depth = FT(-1.0)
     precip_rate = (3.3e-4)/60
     precip_time = 200*60
     topo_max = 0.2
@@ -104,15 +104,14 @@ for index in [1,2,3]
     heaviside(x) = 0.5 * (sign(x) + 1)
     precip_of_t = (t) -> eltype(t)(-precip_rate*heaviside(precip_time-t))
     
-    function he(z, z_interface, ν, Ss, vga, vgn, θ_r)
-        m = 1.0-1.0/vgn
+    function he(z::f, z_interface::f, ν::f, Ss::f, vga::f, vgn::f, vgm::f,θ_r::f) where {f}
         if z < z_interface
             return -Ss * (z - z_interface) + ν
         else
-            return (ν-θ_r) * (1 + (vga * (z - z_interface))^vgn)^(-m)+θ_r
+            return (ν-θ_r) * (f(1) + (vga * (z - z_interface))^vgn)^(-vgm)+θ_r
         end
     end
-    ϑ_l0 = (aux) -> eltype(aux)(he(aux.z, wt_depth, νp, S_s, vg_α, vg_n, θ_r))
+    ϑ_l0 = (aux) -> he(aux.z, wt_depth, νp, S_s, vg_α, vg_n, vg_m,θ_r)
     
     m_river = OverlandFlowModel(
         (x,y) -> eltype(x)(-slope),
@@ -236,10 +235,6 @@ for index in [1,2,3]
     end
     #remove cbtmarfilter from list to stop TMAR
     ClimateMachine.invoke!(solver_config; user_callbacks = (callback, cbtmarfilter));
-    ## A coupleof things
-    ## compute dz based off of state- and flux-
-    ## Idea is to do this and then use this dz in computing subgrid contribution
-    ## this dz wont be constant in time (?) once we do this?
     x = aux[:,1,:]
     y = aux[:,2,:]
     z = aux[:,3,:]
@@ -250,11 +245,7 @@ for index in [1,2,3]
     height = [mean(Array(dons[k]["h"])[mask[:]]) for k in 1:N]
     water = [mean(Array(dons[k]["ϑ_l"])[mask[:]]) for k in 1:N]
     flux =  [mean(Array(dons[k]["flux"])[mask[:]]) for k in 1:N]
-    #i_c =  [mean(Array(dons[k]["i_c"])[mask[:]]) for k in 1:N]
-    #gradf =  [mean(Array(dons[k]["grad"])[mask[:]]) for k in 1:N]
     time_data = [dons[l]["t"][1] for l in 1:N]
-    #plot(time_data ./60, -precip_of_t.(time_data).+flux, label = "with infiltration")
-    #plot!(time_data ./60, -precip_of_t.(time_data), label = "without infiltration")
     
     alpha = sqrt(slope)/n_mannings
     i = precip_rate
@@ -297,14 +288,17 @@ for index in [1,2,3]
     end
     
     
-    #    solution = analytic.(time_data, alpha, t_c, t_r, i, L, m)
-    filename = string(string("./tutorials/Land/Soil/Runoff/K3_",names[index]),"_H80_P1.jld2")
-    save(filename,"dons", dons)
-    filename = string(string("./tutorials/Land/Soil/Runoff/K3_aux_",names[index]),"_H80_P1.jld2")
-    save(filename,"aux", aux)
+    solution = analytic.(time_data, alpha, t_c, t_r, i, L, m)
+    plot(time_data ./ 60,solution, label = "analytic; no interaction")
+    plot!(time_data ./ 60,q, label = "dz = 0.1")
+    
+    #filename = string(string("./tutorials/Land/Soil/Runoff/K3_",names[index]),"_H80_P1.jld2")
+    #save(filename,"dons", dons)
+    #filename = string(string("./tutorials/Land/Soil/Runoff/K3_aux_",names[index]),"_H80_P1.jld2")
+    #save(filename,"aux", aux)
 end
 
-    #plot(time_data ./ 60,solution, label = "analytic; no interaction")
+    #
 #plot!(time_data ./ 60, q , label = "K = 0.01m/d,Δ = 0.2m", color = "red", linestyle = :dash)
 #plot!(time_data ./ 60, q , label = "K = 0.01m/d,Δz = 0.2m, Δx = 80, Npoly = 2", color = "red")
 
