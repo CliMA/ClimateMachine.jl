@@ -31,7 +31,7 @@ resolution = ddomain.resolution
 rr = sqrt.( x .^2 .+ y .^2 .+ z .^2)
 rC = sqrt.(xC .^2 .+ yC .^2  .+ zC .^2) # extrema of rC are not contained in rr
 rlist = collect(range(minimum(rr), maximum(rr), length = 8))
-r = rlist[[1, 4, 6]] .+ 1e1 # [6.38465836e6] # collect(range(domain.radius,domain.radius + domain.height,length = 10))
+r = rlist[[1, 4, 7]] .+ 1e1 # [6.38465836e6] # collect(range(domain.radius,domain.radius + domain.height,length = 10))
 λ = collect(range(0,2π, length = 180 * 2))
 ϕ = collect(range(0 + π/9 , π - π/9, length = 43 * 2))
 newgrid = [ [r[i] * cos(λ[j]) * sin(ϕ[k]), r[i] * sin(λ[j]) * sin(ϕ[k]) , -r[i] * cos(ϕ[k])] for i in eachindex(r), j in eachindex(λ), k in eachindex(ϕ)]
@@ -63,11 +63,13 @@ end
 
 
 ##
-ξlist =  greedyfindξlist(elementlist, newgrid, grid, ihelper, f_calls_limit = 50, outer_iterations = 2)
-
+#ξlist =  greedyfindξlist(elementlist, newgrid, grid, ihelper, f_calls_limit = 50, outer_iterations = 2)
+# @save "xilist.jld2" ξlist
+@load "xilist.jld2" ξlist
 # ξlist = findξlist(elementlist, newgrid, grid, ihelper, f_calls_limit = 50, outer_iterations = 2)
 ##
 jlfile = jldopen("newheldsuarez.jld2")
+# jlfile = jldopen("held_suarez_restart.jld2")
 jlkeys = keys(jlfile["state"])
 Q = jlfile["state"][jlkeys[1]]
 
@@ -77,23 +79,28 @@ Q = jlfile["state"][jlkeys[1]]
 
 ##
 ρ   = Q[:,1,:]
-ρu¹ = Q[:,2,:]
-ρu² = Q[:,3,:]
-ρu³ = Q[:,4,:]
+ρuˣ = Q[:,2,:]
+ρuʸ = Q[:,3,:]
+ρuᶻ = Q[:,4,:]
 ρe = Q[:,5,:]
 geo = rr * 9.8
 γ = 1.4
+# p = (γ - 1) * (ρe - (ρuˣ .^2 + ρuʸ .^2 + ρuᶻ .^2 ) ./ (2 .* ρ) - ρ .* geo)
 
-p = (γ - 1) * (ρe - (ρu¹ .^2 + ρu² .^2 + ρu³ .^2 ) ./ (2 .* ρ) - ρ .* geo)
+cr = sqrt.(x .^2 + y .^2) .+ eps(1e6)
+uᶻᵒⁿᵃˡ = (-y .* ρuˣ .+ x .* ρuʸ ) ./ cr ./ ρ
+uʳ = (x .* ρuˣ .+ y .* ρuʸ .+ z .* ρuᶻ) ./ rr ./ ρ
+# [x*z, y*z, -(x^2 + y^2)] ./ ( norm([x, y, z]) * norm([x, y, 0]))
+uᵐᵉʳ = (x .* z .* ρuˣ .+ y .* z .* ρuʸ - (x .^2 .+ y .^2) .* ρuᶻ ) ./ ( rr .* (cr) )
+oldfield = uʳ
 
-oldfield = Q[:,2,:]
 tic = Base.time()
 newfield = interpolatefield(elementlist, ξlist, newgrid, grid, ihelper, oldfield)
 toc = Base.time()
 println(toc-tic)
 println("Time for finding oneself ", toc - tic, " seconds")
 ##
-
+deviation = false
 fig = Figure(resolution = (1086, 828))
 
 level = 3
@@ -105,7 +112,7 @@ xnew = reshape([newgrid[i][1] for i in eachindex(newgrid)], (length(r),length(λ
 ynew = reshape([newgrid[i][2] for i in eachindex(newgrid)], (length(r),length(λ),length(ϕ)))
 znew = reshape([newgrid[i][3] for i in eachindex(newgrid)], (length(r),length(λ),length(ϕ)))
 
-fieldslice = newfield[level,:,:] .- mean(newfield[level,:,:], dims = 2)
+fieldslice = newfield[level,:,:] .- mean(newfield[level,1:end-1,:], dims = 1) * deviation
 clims = quantile.(Ref(fieldslice[:]), [0.01,0.99])
 ax = fig[1:3,1:3] = LScene(fig) # make plot area wider
 surface!(ax, xnew[1,:,:], ynew[1,:,:], znew[1,:,:], color=fieldslice, colormap= :balance, colorrange=clims,  shading = false, show_axis=false)
@@ -121,22 +128,22 @@ display(fig)
 
 ##
 iterations = collect(eachindex(jlkeys))
-record(fig, "xvelocity.mp4", iterations, framerate=10) do i
+record(fig, "zonalvelocity.mp4", iterations, framerate=10) do i
     Q = jlfile["state"][jlkeys[i]]
-
+    println(i/length(iterations), "% complete")
     ρ   = Q[:,1,:]
-    ρu¹ = Q[:,2,:]
-    ρu² = Q[:,3,:]
-    ρu³ = Q[:,4,:]
-    ρe = Q[:,5,:]
+    ρuˣ = Q[:,2,:]
+    ρuʸ = Q[:,3,:]
+    ρuᶻ = Q[:,4,:]
+    ρe  = Q[:,5,:]
     geo = rr * 9.8
     γ = 1.4
-    p = (γ - 1) * (ρe - (ρu¹ .^2 + ρu² .^2 + ρu³ .^2 ) ./ (2 .* ρ) - ρ .* geo)
+    # p = (γ - 1) * (ρe - (ρuˣ .^2 + ρuʸ .^2 + ρuᶻ .^2 ) ./ (2 .* ρ) - ρ .* geo)
 
-    oldfield = Q[:,2,:]
+    oldfield = (-y .* ρuˣ .+ x .* ρuʸ ) ./ cr ./ ρ
     newfield = interpolatefield(elementlist, ξlist, newgrid, grid, ihelper, oldfield)
     # clims = extrema(newfield)
-    fieldslice = newfield[level,:,:] .- mean(newfield[level,:,:], dims = 2)
+    fieldslice = newfield[level,:,:] .- mean(newfield[level,1:end-1,:], dims = 1) * deviation
     surface!(ax, xnew[1,:,:], ynew[1,:,:], znew[1,:,:], color= fieldslice, colormap= :balance, colorrange=clims,  shading = false, show_axis=false)
     heatmap!(ax2, λ, ϕ, fieldslice, colormap = :balance, interpolate = true, colorrange = clims)
 end
