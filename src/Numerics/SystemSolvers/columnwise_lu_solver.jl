@@ -335,15 +335,13 @@ function empty_banded_matrix(
         Nq_v = Nq[dim]
     end
 
-
-    eband =
-        (typeof(dg) <: DGModel) ?
-        (number_states(bl, GradientFlux()) == 0 ? 1 : 2) :
-        (
-            number_states(bl, GradientFlux()) == 0 ?
-            width(dg.fv_reconstruction) + 2 :
-            max(width(dg.fv_reconstruction) + 2, 3)
-        ) # else: DGFVModel
+    if typeof(dg) <: DGModel
+        eband = number_states(bl, GradientFlux()) == 0 ? 1 : 2
+    elseif typeof(dg) <: DGFVModel
+        eband = number_states(bl, GradientFlux()) == 0 ? width(dg.fv_reconstruction) + 2 : max(width(dg.fv_reconstruction) + 2, 3)
+    else
+        eband = 1
+    end
 
     p = lower_bandwidth(N[dim], nstate, eband)
     q = upper_bandwidth(N[dim], nstate, eband)

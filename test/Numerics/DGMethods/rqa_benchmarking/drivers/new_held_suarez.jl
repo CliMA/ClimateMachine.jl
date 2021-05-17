@@ -21,6 +21,12 @@ parameters = (
     ϕ_c  = 2 * π / 9,
     V_p  = 1.0,
     κ    = 2/7,
+    cp_d = (8.3144598 / 28.97e-3) / (2/7),
+    cv_d = (8.3144598 / 28.97e-3) / (2/7) - 1 / (2/7),
+    day = 86400,
+    grav = 9.8,
+    p0 = 1e5,
+    T_ref = 255,
 )
 
 ########
@@ -32,7 +38,7 @@ domain = SphericalShell(
 )
 grid = DiscretizedDomain(
     domain;
-    elements = (vertical = 5, horizontal = 6),
+    elements = (vertical = 5, horizontal = 9),
     polynomial_order = (vertical = 3, horizontal = 6),
     overintegration_order = (vertical = 0, horizontal = 0),
 )
@@ -109,6 +115,106 @@ end
                      + ρuˡᵒⁿ(𝒫, lon(x...), lat(x...), rad(x...)) * λ̂(x...) )
 ρeᶜᵃʳᵗ(𝒫, x...) = ρe(𝒫, lon(x...), lat(x...), rad(x...))
 
+
+######
+# forcing
+######
+
+#####
+# Held-Suarez Forcing
+#####
+struct HeldSuarezForcing{S} <: AbstractPhysicsComponent
+    parameters::S
+end
+
+FT = Float64
+day = 86400
+held_suarez_parameters = (;
+    k_a = FT(1 / (40 * day)),
+    k_f = FT(1 / day),
+    k_s = FT(1 / (4 * day)),
+    ΔT_y = FT(60),
+    Δθ_z = FT(10),
+    T_equator = FT(315),
+    T_min = FT(200),
+    σ_b = FT(7 / 10),
+    R_d  = parameters.R_d,
+    day  = parameters.day,
+    grav = parameters.grav,
+    cp_d = parameters.cp_d,
+    cv_d = parameters.cv_d,
+    MSLP = parameters.p0,  
+)
+
+######
+# Modified Held-Suarez Forcing
+######
+function calc_force!(
+    source,
+    hsf::HeldSuarezForcing,
+    state,
+    aux,
+)
+    FT = eltype(state)
+    
+    _R_d  = hsf.parameters.R_d
+    _day  = hsf.parameters.day
+    _grav = hsf.parameters.grav
+    _cp_d = hsf.parameters.cp_d
+    _cv_d = hsf.parameters.cv_d
+    _p0   = hsf.parameters.MSLP  
+
+    # Parameters
+    T_ref = FT(255)
+
+    # Extract the state
+    ρ = state.ρ
+    ρu = state.ρu
+    ρe = state.ρe
+    Φ = aux.Φ
+    
+    x = aux.x
+    y = aux.y
+    z = aux.z
+    coord = @SVector[x,y,z]
+
+    p = pressure(ρ, ρu, ρe, Φ)
+    T = p / (ρ * _R_d)
+
+    # Held-Suarez parameters
+    k_a  = hsf.parameters.k_a
+    k_f  = hsf.parameters.k_f
+    k_s  = hsf.parameters.k_s
+    ΔT_y = hsf.parameters.ΔT_y
+    Δθ_z = hsf.parameters.Δθ_z
+    T_equator = hsf.parameters.T_equator
+    T_min = hsf.parameters.T_min
+    σ_b = hsf.parameters.σ_b
+
+    # Held-Suarez forcing
+    φ = @inbounds asin(coord[3] / norm(coord, 2))
+
+    #TODO: replace _p0 with dynamic surfce pressure in Δσ calculations to account
+    #for topography, but leave unchanged for calculations of σ involved in T_equil
+    σ = p / _p0
+    exner_p = σ^(_R_d / _cp_d)
+    Δσ = (σ - σ_b) / (1 - σ_b)
+    height_factor = max(0, Δσ)
+    T_equil = (T_equator - ΔT_y * sin(φ)^2 - Δθ_z * log(σ) * cos(φ)^2) * exner_p
+    T_equil = max(T_min, T_equil)
+    k_T = k_a + (k_s - k_a) * height_factor * cos(φ)^4
+    k_v = k_f * height_factor
+
+    # horizontal projection
+    k = coord / norm(coord)
+    P = I - k * k'
+
+    # Apply Held-Suarez forcing
+    source.ρu -= k_v * P * ρu
+    source.ρe -= k_T * ρ * _cv_d * (T - T_equil)
+    return nothing
+end
+
 ########
 # Set up model physics
 ########
@@ -128,6 +234,7 @@ physics = Physics(
     ),
     sources     = sources = (
         DeepShellCoriolis{FT}(Ω = parameters.Ω),
+        HeldSuarezForcing(held_suarez_parameters),
     ),
 )
 
@@ -201,14 +308,17 @@ linear_esdg_model = DryAtmosLinearESDGModel(
 # element_size = (domain_height / numelem_vert)
 # acoustic_speed = soundspeed_air(param_set, FT(330))
 dx = min_node_distance(grid.numerical)
-cfl = 9 # maybe 2
+cfl = 7.5 # maybe 2
 Δt = cfl * dx / 330.0
 start_time = 0
-end_time = 10 * 86400 # Δt
+end_time = 30 * 86400 # Δt
 method = ARK2GiraldoKellyConstantinescu #ARK2ImplicitExplicitMidpoint # ARK2GiraldoKellyConstantinescu, 
 callbacks = (
   Info(),
   CFL(),
+JLD2State(
+    iteration = Int(floor( 4 * 3600/Δt)), 
+    filepath = "newheldsuarez.jld2"),
   )
 
 ########
@@ -230,7 +340,7 @@ tic = Base.time()
 MA = Array(view(grid.numerical.vgeo, :, grid.numerical.Mid, :));
 QA = Array(copy(simulation.state));
 ρᴮ = sum(MA .* QA[:,1,:]) / sum(MA);
-evolve!(simulation)
+# evolve!(simulation)
 QA = Array(copy(simulation.state));
 ρᴬ = sum(MA .* QA[:,1,:]) / sum(MA);
 toc = Base.time()
@@ -242,111 +352,18 @@ println("the extrema of the state are")
 for i in 1:5
     println("For state $i = ", extrema(Array(simulation.state)[:,i,:]))
 end
+#=
+using CUDA 
+savestate = CUDA.CuArray(file["state"]["turbulent"])
+=#
 
 #=
-Q = copy(simulation.state);
-Q_array = Array(Q);
-Q_tend = copy(simulation.state);
-Q_tend .= 0.0;
-Q .= 1.0;
-simulation.rhs[1](Q_tend, Q, nothing, true);
-Q_tend_array_1 = Array(Q_tend)
-
-Q_tend .= 0.0;
-simulation.rhs[2](Q_tend, Q, nothing, true);
-Q_tend_array_2 = Array(Q_tend)
-
-norm(Q_tend_array_1 - Q_tend_array_2)
-
-# simulation.rhs[3](dQ1, Q, nothing, 0; increment = false)
-
-dg = simulation.rhs[1];
-vdg = simulation.rhs[3]; 
-
-α = FT(1 // 10);
-function closure_op(vdg, α)
-    function op!(LQ, Q)
-        vdg(LQ, Q, nothing, 0; increment = false)
-        @. LQ = Q + α * LQ
-        return nothing
-    end
-end
-lin_op! = closure_op(vdg, α);
-
-using ClimateMachine.SystemSolvers
-using ClimateMachine.SystemSolvers: band_lu!, band_forward!, band_back!
-using ClimateMachine.SystemSolvers: banded_matrix, banded_matrix_vector_product!
-
-A_banded = banded_matrix(
-    lin_op!,
-    vdg,
-    MPIStateArray(vdg),
-    MPIStateArray(vdg)
-)
-
-
-Q = init_ode_state(vdg, FT(0));
-Q = init_ode_state(dg, FT(0); init_on_cpu = true);
-dQ1 = MPIStateArray(vdg);
-dQ2 = MPIStateArray(vdg);
-
-lin_op!(dQ1, Q);
-banded_matrix_vector_product!(A_banded, dQ2, Q);
-ΔQ = abs.(Array(dQ1.realdata) - Array(dQ2.realdata));
-maximum(ΔQ)
-indmax = argmax(ΔQ)
-Array(dQ1.realdata)[indmax]
-Array(dQ2.realdata)[indmax]
-
-##
-# Matrix Version
-banded_matrix_vector_product!(A_banded, dQ1,  Q);
-twice_Q = 2 .* Q;
-banded_matrix_vector_product!(A_banded, dQ2, twice_Q);
-ΔQ = abs.(2 .* Array(dQ1.realdata) - Array(dQ2.realdata))
-maximum(ΔQ)
-
-# Operator Version, simulation.rhs[1](dQ1, zero_Q, nothing, 0; increment = false)
-zero_Q = 0 .* Q;
-lin_op!(dQ1, zero_Q); # check that 0 gives 0 
-lin_op!(dQ1, Q);
-twice_Q = 2 .* Q;
-lin_op!(dQ2, twice_Q);
-ΔQ = abs.(2 .* Array(dQ1.realdata) - Array(dQ2.realdata))
-maximum(ΔQ)
-
-
-##
-##
-
-    tendency::MPIStateArray,
-    state_prognostic::MPIStateArray,
-    ::Nothing,
-    t,
-    α = true,
-    β = false,
-
-i = 3
-Q = copy(simulation.state);
-Q_tend = copy(simulation.state);
-Q_tend .= 0.0;
-simulation.rhs[i](Q_tend, Q, nothing, 0, 1, 0);
-# simulation.rhs[i](Q_tend, Q, nothing, 0; increment = false)
-Q_tend_array_1 = Array(Q_tend)
-
-Q .= 2 .* Q;
-simulation.rhs[i](Q_tend, Q, nothing, 0, 1, 0);
-Q_tend_array_2 = Array(Q_tend)
-
-norm(2 .* Q_tend_array_1-Q_tend_array_2)
-
-
-function testingf(a,b, c = 1)
-    return a+b+c
-end
-
-
-
+savestate = copy(simulation.state)
+file = jldopen("held_suarez_restart.jld2", "a+")
+JLD2.Group(file, "state")
+file["state"]["turbulent"] = Array(simulation.state)
+JLD2.Group(file, "grid")
+file["grid"]["resolution"] = grid.resolution
 =#
-nothing
+
 

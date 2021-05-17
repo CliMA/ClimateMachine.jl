@@ -360,7 +360,7 @@ Then for the scheme to be entropy stable it is requires that the numerical flux
 when the equality is satisfied the scheme is called entropy conservative. For
 balance laws without a nonconservative term, `ψj` is the entropy potential.
 """
-struct VESDGModel{BL, SA, VNFFO, SNFFO} <: SpaceDiscretization
+struct VESDGModel{BL, SA, VNFFO, SNFFO, DIR} <: SpaceDiscretization
     "definition of the physics being considered, primary dispatch type"
     balance_law::BL
     "all the grid related information (connectivity, metric terms, etc.)"
@@ -372,6 +372,7 @@ struct VESDGModel{BL, SA, VNFFO, SNFFO} <: SpaceDiscretization
     volume_numerical_flux_first_order::VNFFO
     "first order, two-point flux to be used for surface integrals"
     surface_numerical_flux_first_order::SNFFO
+    direction::DIR
 end
 
 """
@@ -398,6 +399,7 @@ function VESDGModel(
     ),
     volume_numerical_flux_first_order = EntropyConservative(),
     surface_numerical_flux_first_order = EntropyConservative(),
+    direction = VerticalDirection(),
 )
 
     VESDGModel(
@@ -406,6 +408,7 @@ function VESDGModel(
         state_auxiliary,
         volume_numerical_flux_first_order,
         surface_numerical_flux_first_order,
+        VerticalDirection(),
     )
 end
 
@@ -432,6 +435,7 @@ function (esdg::VESDGModel)(
     β = false,
 )
 
+
     balance_law = esdg.balance_law
     @assert number_states(balance_law, GradientFlux(), Int) == 0
 
@@ -449,7 +453,7 @@ function (esdg::VESDGModel)(
     state_auxiliary = esdg.state_auxiliary
 
     # XXX: When we do stacked meshes and IMEX this will change
-    communicate = true
+    communicate = false
 
     exchange_state_prognostic = NoneEvent()
 
@@ -477,14 +481,14 @@ function (esdg::VESDGModel)(
         grid.vgeo,
         grid.D[3],
         α,
-        true,
+        β,
         ndrange = ndrange,
         dependencies = (comp_stream,),
     )
-
-    
+     
     # interfaces: Horizontal => Nfp_v and Vertical => Nfp_h
     # mirror surface tendency: interior
+    
     Nfp = info.Nfp_h
     ndrange = Nfp * info.ninteriorelem
     comp_stream = dgsem_interface_tendency!(device, (Nfp,))(
@@ -509,7 +513,7 @@ function (esdg::VESDGModel)(
         ndrange = ndrange,
         dependencies = (comp_stream,),
     )
-
+    
     if communicate
         exchange_state_prognostic = MPIStateArrays.end_ghost_exchange!(
             state_prognostic;
@@ -518,6 +522,7 @@ function (esdg::VESDGModel)(
     end
 
     # mirror surface tendency: exterior
+    
     Nfp = info.Nfp_h
     ndrange = Nfp * info.nexteriorelem
     comp_stream = dgsem_interface_tendency!(device, (Nfp,))(
@@ -542,9 +547,10 @@ function (esdg::VESDGModel)(
         ndrange = ndrange,
         dependencies = (comp_stream, exchange_state_prognostic),
     )
-
+    
     # The synchronization here through a device event prevents CuArray based and
     # other default stream kernels from launching before the work scheduled in
     # this function is finished.
     wait(device, comp_stream)
+
 end

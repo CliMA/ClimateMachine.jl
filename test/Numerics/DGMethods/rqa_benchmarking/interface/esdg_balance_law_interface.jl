@@ -56,6 +56,15 @@ function vars_state(::DryAtmosModel, ::Entropy, FT)
     end
 end
 
+function vars_state(::DryAtmosLinearESDGModel, ::Entropy, FT)
+    @vars begin
+        ρ::FT
+        ρu::SVector{3, FT}
+        ρe::FT
+        Φ::FT
+    end
+end
+
 """
     Initialization of state variables
 
@@ -165,6 +174,17 @@ end
 function source!(m::DryAtmosModel, source, state_prognostic, state_auxiliary, _...)
     sources = m.physics.sources
 
+    ntuple(Val(length(sources))) do s
+        Base.@_inline_meta
+        calc_force!(source, sources[s], state_prognostic, state_auxiliary)
+    end
+end
+
+"""
+    RHS computations
+"""
+function source!(m::DryAtmosLinearESDGModel, source, state_prognostic, state_auxiliary, _...)
+    sources = m.physics.sources
     ntuple(Val(length(sources))) do s
         Base.@_inline_meta
         calc_force!(source, sources[s], state_prognostic, state_auxiliary)
