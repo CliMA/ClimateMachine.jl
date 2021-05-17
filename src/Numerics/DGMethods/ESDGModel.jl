@@ -1,5 +1,7 @@
 using .NumericalFluxes: EntropyConservative
 
+const _x1, _x2, _x3 = Grids._x1, Grids._x2, Grids._x3
+
 include("ESDGModel_kernels.jl")
 
 """
@@ -286,6 +288,62 @@ function (esdg::ESDGModel)(
 
     comp_stream = launch_drag_source!(esdg, tendency, state_prognostic, t,
                                       dependencies=comp_stream)
+
+    #wait(comp_stream)
+    #function check_symmetry(field, Q)
+    #  println("Checking symmetry of $field")
+    #  for ev in 1:4
+    #    for eh in 1:2
+    #      e = ev + 4 * (eh - 1)
+    #      em = ev + (12 -  4 * (eh - 1))
+    #      for s in 1:size(Q, 2)
+    #        for j in 1:Nq
+    #          for i in 1:Nq
+    #            ijk1 = i + (j - 1) * Nq
+    #            ijk2 = Nq - i + 1 + (j - 1) * Nq
+    #            aQ1 = abs(Q[ijk1, s, e]) 
+    #            aQ2 = abs(Q[ijk2, s, em]) 
+    #            if (abs(aQ1 - aQ2) > 0)
+    #              @show e, em, ev, eh, s, i, j, aQ1, aQ2, aQ1 - aQ2
+    #            end
+    #          end
+    #        end
+    #      end
+    #    end
+    #  end
+    #end
+
+    ##D = grid.D[1]
+    ##@show D .+ D[end:-1:1, end:-1:1]
+
+
+    ##println("skew-symmetry of D")
+    ##for i in 1:Nq
+    ##  for j in 1:Nq
+    ##    @show i, j, D[i, j] + D[Nq - i + 1, Nq - j + 1]
+    ##  end
+    ##end
+
+    #aux = Array(esdg.state_auxiliary.data)
+    #tend = Array(tendency.data)
+    #vgeo = Array(grid.vgeo)
+    #
+    #Q = Array(state_prognostic.data)
+    ##for e in 1:size(Q, 3)
+    ##  x = extrema(vgeo[:, _x1, e])
+    ##  z = extrema(vgeo[:, _x2, e])
+    ##  @show e, x, z
+    ##end
+
+    #println("time = $t")
+    #check_symmetry("state", Q)
+    #check_symmetry("vgeo", vgeo)
+    #check_symmetry("aux", aux)
+    #check_symmetry("tend", tend)
+    ##@show extrema(tend[:, :, 1])
+    ##@show extrema(tend[:, :, 2])
+    #
+    ##error("hi")
 
     # The synchronization here through a device event prevents CuArray based and
     # other default stream kernels from launching before the work scheduled in

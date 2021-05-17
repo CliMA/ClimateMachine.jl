@@ -1094,6 +1094,8 @@ end
         aux_2 = MArray{Tuple{num_aux}, FT}(undef)
 
         local_source = MArray{Tuple{num_state}, FT}(undef)
+        local_tendency1 = MArray{Tuple{num_state}, FT}(undef)
+        local_tendency2 = MArray{Tuple{num_state}, FT}(undef)
 
         Nq = N + 1
         Nqk = dim == 2 ? 1 : Nq
@@ -1184,7 +1186,9 @@ end
         ijk = i + Nq * ((j - 1) + Nq * (k - 1))
 
         # Note: unrolling this loop makes things slower
-        @views for l in 1:Nq
+        #if e == 1
+        fill!(local_tendency1, -zero(FT))
+        @views for l in 1:1:Nq
             if dir == 1
               id = i
               ild = l + Nq * ((j - 1) + Nq * (k - 1))
@@ -1220,7 +1224,7 @@ end
                 # G_21 (Q_2 ∘ H_1) 1 +
                 # G_22 (Q_2 ∘ H_2) 1 +
                 # G_23 (Q_2 ∘ H_3) 1
-                local_tendency[s] -=
+                local_tendency1[s] -=
                     local_MI[1] *
                     shared_D[id, l] *
                     (
@@ -1231,11 +1235,11 @@ end
                             shared_G[ijk, 3] * local_H[3, s] :
                             -zero(FT)
                         )
-                    )
+                    ) / 2
                 #  (H_1 ∘ Q_2^T) G_21 1 +
                 #  (H_2 ∘ Q_2^T) G_22 1 +
                 #  (H_3 ∘ Q_2^T) G_23 1
-                local_tendency[s] +=
+                local_tendency1[s] +=
                     local_MI[1] *
                     (
                         local_H[1, s] * shared_G[ild, 1] +
@@ -1246,12 +1250,89 @@ end
                             -zero(FT)
                         )
                     ) *
-                    shared_D[l, id]
+                    shared_D[l, id] / 2
             end
         end
+      #end
+        
+        # Note: unrolling this loop makes things slower
+        #if e == 2
+        #if dir == 1
+        #  rng = Nq:-1:1 
+        #else
+        #  rng = 1:1:Nq
+        #end
+        fill!(local_tendency2, -zero(FT))
+        @views for l in Nq:-1:1
+            if dir == 1
+              id = i
+              ild = l + Nq * ((j - 1) + Nq * (k - 1))
+            elseif dir == 2
+              id = j
+              ild = i + Nq * ((l - 1) + Nq * (k - 1))
+            elseif dir == 3
+              id = k
+              ild = i + Nq * ((j - 1) + Nq * (l - 1))
+            end
+
+            # Compute derivatives wrt ξd
+            # ( G_31 (Q_3 ∘ H_1) - (H_1 ∘ Q_3^T) G_31) 1 +
+            # ( G_32 (Q_3 ∘ H_2) - (H_2 ∘ Q_3^T) G_32) 1 +
+            # ( G_33 (Q_3 ∘ H_3) - (H_3 ∘ Q_3^T) G_33) 1 +
+            @unroll for s in 1:num_state
+                state_2[s] = state_prognostic[ild, s, e]
+            end
+            @unroll for s in 1:num_aux
+                aux_2[s] = state_auxiliary[ild, s, e]
+            end
+            fill!(local_H, -zero(FT))
+            numerical_volume_flux_first_order!(
+                volume_numerical_flux_first_order,
+                balance_law,
+                local_H,
+                state_1[:],
+                aux_1[:],
+                state_2,
+                aux_2,
+            )
+            @unroll for s in 1:num_state
+                # G_21 (Q_2 ∘ H_1) 1 +
+                # G_22 (Q_2 ∘ H_2) 1 +
+                # G_23 (Q_2 ∘ H_3) 1
+                local_tendency2[s] -=
+                    local_MI[1] *
+                    shared_D[id, l] *
+                    (
+                        shared_G[ijk, 1] * local_H[1, s] +
+                        shared_G[ijk, 2] * local_H[2, s] +
+                        (
+                            dim == 3 ?
+                            shared_G[ijk, 3] * local_H[3, s] :
+                            -zero(FT)
+                        )
+                    ) / 2
+                #  (H_1 ∘ Q_2^T) G_21 1 +
+                #  (H_2 ∘ Q_2^T) G_22 1 +
+                #  (H_3 ∘ Q_2^T) G_23 1
+                local_tendency2[s] +=
+                    local_MI[1] *
+                    (
+                        local_H[1, s] * shared_G[ild, 1] +
+                        local_H[2, s] * shared_G[ild, 2] +
+                        (
+                            dim == 3 ?
+                            local_H[3, s] * shared_G[ild, 3] :
+                            -zero(FT)
+                        )
+                    ) *
+                    shared_D[l, id] / 2
+            end
+        end
+      #end
 
         @unroll for s in 1:num_state
-            tendency[ijk, s, e] = local_tendency[s]
+            tendency[ijk, s, e] = local_tendency[s] +
+                                  (local_tendency1[s] + local_tendency2[s])
         end
     end
 end

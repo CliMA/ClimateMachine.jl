@@ -11,7 +11,7 @@ using ClimateMachine.VariableTemplates
 rcParams!(PyPlot.PyDict(PyPlot.matplotlib."rcParams"))
 
 function rtb_plots(datadir=joinpath("esdg_output", "risingbubble"))
-  rtb_plot_entropy_residual(datadir)
+  #rtb_plot_entropy_residual(datadir)
   rtb_plot_tht_perturbation(datadir)
 end
 
@@ -89,7 +89,7 @@ function rtb_plot_tht_perturbation(datadir)
     any(occursin.("step", files)) || continue
 
     files = sort(files)
-    datafile = files[end]
+    datafile = files[9]
     data = load(joinpath(root, datafile))
 
     @show files
@@ -106,18 +106,19 @@ function rtb_plot_tht_perturbation(datadir)
     state_diagnostic = nodal_diagnostics(rtb_nodal_diagnostics!, rtb_diagnostic_vars,
                                          model, state_prognostic, state_auxiliary)
 
-    x, z, δθ = interpolate_equidistant(state_diagnostic, vgeo, dim, N, K)
+    x, z, δθ = interpolate_equidistant(state_diagnostic, vgeo, dim, N, K, Nqi = N + 1)
    
     ioff()
     levels = [-0.2, -0.1, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7]
     fig = figure(figsize=(14, 12))
     ax = gca()
-    xticks = range(0, 2000, length = 5)
+    xticks = range(-1000, 1000, length = 5)
+    yticks = range(0, 2000, length = 5)
     ax.set_title("Potential temperature perturbation [K]")
     ax.set_xlim([xticks[1], xticks[end]])
-    ax.set_ylim([xticks[1], xticks[end]])
+    ax.set_ylim([yticks[1], yticks[end]])
     ax.set_xticks(xticks)
-    ax.set_yticks(xticks)
+    ax.set_yticks(yticks)
     ax.set_xlabel(L"x" * " [m]")
     ax.set_ylabel(L"z" * " [m]")
     norm = matplotlib.colors.TwoSlopeNorm(vmin=levels[1], vcenter=0, vmax=levels[end])

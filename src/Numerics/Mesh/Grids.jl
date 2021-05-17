@@ -227,12 +227,17 @@ struct DiscontinuousSpectralElementGrid{
         # Create element operators for each polynomial order
         ξω = ntuple(j -> Elements.lglpoints(FloatType, N[j]), dim)
         ξ, ω = ntuple(j -> map(x -> x[j], ξω), 2)
+        ξ = ntuple(d -> (ξ[d] .- reverse(ξ[d])) ./ 2, dim)
+        ω = ntuple(d -> (ω[d] .+ reverse(ω[d])) ./ 2, dim)
 
         Imat = ntuple(
             j -> indefinite_integral_interpolation_matrix(ξ[j], ω[j]),
             dim,
         )
-        D = ntuple(j -> Elements.spectralderivative(ξ[j]), dim)
+        D = ntuple(dim) do j
+          Dj = Elements.spectralderivative(ξ[j])
+          (Dj - Dj[end:-1:1, end:-1:1]) / 2
+        end
 
         (vgeo, sgeo) = computegeometry(topology, D, ξ, ω, meshwarp, vmap⁻)
 

@@ -238,7 +238,7 @@ function rcParams!(rcParams)
   rcParams["axes.labelpad"] = 10
 end
 
-function interpolate_equidistant(state_diagnostic, vgeo, dim, N, K)
+function interpolate_equidistant(state_diagnostic, vgeo, dim, N, K; Nqi = 4 * (N + 1))
     FT = eltype(state_diagnostic)
     Np = size(state_diagnostic, 1)
     Ns = size(state_diagnostic, 2)
@@ -246,7 +246,6 @@ function interpolate_equidistant(state_diagnostic, vgeo, dim, N, K)
 
     ξsrc, _ = lglpoints(FT, N)
     
-    Nqi = 4 * (N + 1)
     Npi = Nqi ^ dim
     dξi = 2 / Nqi
     ξdst = [-1 + (j - 1 / 2) * dξi for j in 1:Nqi]
@@ -257,6 +256,7 @@ function interpolate_equidistant(state_diagnostic, vgeo, dim, N, K)
     state_diagnostic_i = ntuple(_->Array{FT}(undef, Nqi .* K), Ns)
     x_i = ntuple(_->Array{FT}(undef, Nqi .* K), dim)
 
+    org = ntuple(d -> minimum(vgeo[:, _x1 + d - 1, :]), dim)
     @views for e in 1:Ne
       xe_i = ntuple(d -> I * vgeo[:, _x1 + d - 1, e], dim)
       dx_i = ntuple(dim) do d
@@ -266,7 +266,7 @@ function interpolate_equidistant(state_diagnostic, vgeo, dim, N, K)
         xd_i[C0 + Cd] - xd_i[C0]
       end
       de_i = ntuple(s -> I * state_diagnostic[:, s, e], Ns)
-      ie_i = ntuple(d -> round.(Int, (xe_i[d] .+ dx_i[d] / 2) ./ dx_i[d]), dim)
+      ie_i = ntuple(d -> round.(Int, (xe_i[d] .- org[d] .+ dx_i[d] / 2) ./ dx_i[d]), dim)
       C = CartesianIndex.(ie_i...)
       for ijk in 1:Npi
         for s in 1:Ns

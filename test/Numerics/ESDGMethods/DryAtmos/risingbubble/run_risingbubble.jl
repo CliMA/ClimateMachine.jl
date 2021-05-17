@@ -36,11 +36,14 @@ function main()
 
     mpicomm = MPI.COMM_WORLD
     N = 4
-    K = (10, 10)
+    K = (40, 40)
+    #K = (4, 4)
     timeend = 1000
 
-    for relaxation in (true,)
-      for surfaceflux in (EntropyConservative, MatrixFlux)
+    for relaxation in (false,)
+      #for surfaceflux in (EntropyConservative, MatrixFlux)
+      for surfaceflux in (MatrixFlux,)
+      #for surfaceflux in (EntropyConservativeWithPenalty,)
         result = run(
             mpicomm,
             N,
@@ -70,7 +73,7 @@ function run(
 
     dim = 2
     brickrange = (
-        range(FT(0), stop = problem.xmax, length = K[1] + 1),
+        range(FT(-problem.xmax / 2), stop = problem.xmax / 2, length = K[1] + 1),
         range(FT(0), stop = problem.zmax, length = K[2] + 1),
     )
     boundary = ((0, 0), (1, 2))
@@ -179,8 +182,8 @@ function run(
     output_vtk = false
     if output_vtk
         # create vtk dir
-        Nelem = Ne[1]
-        vtkdir = joinpath(outdir, vtk)
+        Nelem = K[1]
+        vtkdir = joinpath(outdir, "vtk")
         mkpath(vtkdir)
 
         vtkstep = 0
@@ -221,6 +224,7 @@ function run(
     callbacks = (callbacks..., cbstep)
 
     solve!(Q, odesolver; callbacks = callbacks, timeend = timeend)
+    #solve!(Q, odesolver; callbacks = callbacks, numberofsteps = 1)
 
     @save(joinpath(outdir, "rtb_entropy_residual.jld2"), dη_timeseries)
 
@@ -251,8 +255,9 @@ function do_output(mpicomm, vtkdir, vtkstep, esdg, Q, model, N, testname = "RTB"
     statenames = flattenednames(vars_state(model, Prognostic(), eltype(Q)))
     auxnames = flattenednames(vars_state(model, Auxiliary(), eltype(Q)))
 
-    writevtk(filename, Q, esdg, statenames, esdg.state_auxiliary, auxnames;
-             number_sample_points = 2 * (N + 1))
+    writevtk(filename, Q, esdg, statenames, esdg.state_auxiliary, auxnames)
+    #writevtk(filename, Q, esdg, statenames, esdg.state_auxiliary, auxnames;
+    #         number_sample_points = 2 * (N + 1))
 
     ## Generate the pvtu file for these vtk files
     if MPI.Comm_rank(mpicomm) == 0

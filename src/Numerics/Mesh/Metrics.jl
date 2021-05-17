@@ -45,17 +45,36 @@ function creategrid!(x1, x2, e2c, ξ1, ξ2)
     x2 = reshape(x2, (Nq..., nelem))
 
     # # bilinear blend of corners
-    @inbounds for (f, n) in zip((x1, x2), 1:d)
-        for e in 1:nelem, j in 1:Nq[2], i in 1:Nq[1]
-            f[i, j, e] =
+    #@inbounds for (f, n) in zip((x1, x2), 1:d)
+    #    for e in 1:nelem, j in 1:Nq[2], i in 1:Nq[1]
+    #        f[i, j, e] =
+    #            (
+    #                (1 - ξ1[i]) * (1 - ξ2[j]) * e2c[n, 1, e] +
+    #                (1 + ξ1[i]) * (1 - ξ2[j]) * e2c[n, 2, e] +
+    #                (1 - ξ1[i]) * (1 + ξ2[j]) * e2c[n, 3, e] +
+    #                (1 + ξ1[i]) * (1 + ξ2[j]) * e2c[n, 4, e]
+    #            ) / 4
+    #    end
+    #end
+    @inbounds for e in 1:nelem, j in 1:Nq[2], i in 1:Nq[1]
+            x1[i, j, e] =
                 (
-                    (1 - ξ1[i]) * (1 - ξ2[j]) * e2c[n, 1, e] +
-                    (1 + ξ1[i]) * (1 - ξ2[j]) * e2c[n, 2, e] +
-                    (1 - ξ1[i]) * (1 + ξ2[j]) * e2c[n, 3, e] +
-                    (1 + ξ1[i]) * (1 + ξ2[j]) * e2c[n, 4, e]
-                ) / 4
-        end
+                    (1 - ξ1[i]) * e2c[1, 1, e] +
+                    (1 + ξ1[i]) * e2c[1, 2, e]
+                ) / 2
     end
+    
+    @inbounds for e in 1:nelem, j in 1:Nq[2], i in 1:Nq[1]
+            x2[i, j, e] =
+                (
+                    (1 - ξ2[j]) * e2c[2, 1, e] +
+                    (1 + ξ2[j]) * e2c[2, 4, e]
+                ) / 2
+    end
+
+    #@show x1
+    #@show x2[1, :, :]
+    #error("hey")
     nothing
 end
 
@@ -160,6 +179,9 @@ function computemetric!(x1, x2, J, ξ1x1, ξ2x1, ξ1x2, ξ2x2, sJ, n1, n2, D1, D
     sJ = reshape(sJ, (maximum(Nfp), nface, nelem))
 
     for e in 1:nelem
+        dx = x1[end, 1, e] - x1[1, 1, e]
+        dy = x2[1, end, e] - x2[1, 1, e]
+
         for j in 1:Nq[2], i in 1:Nq[1]
             x1ξ1 = x1ξ2 = zero(T)
             x2ξ1 = x2ξ2 = zero(T)
@@ -171,38 +193,55 @@ function computemetric!(x1, x2, J, ξ1x1, ξ2x1, ξ1x2, ξ2x2, sJ, n1, n2, D1, D
                 x1ξ2 += D2[j, n] * x1[i, n, e]
                 x2ξ2 += D2[j, n] * x2[i, n, e]
             end
-            J[i, j, e] = x1ξ1 * x2ξ2 - x2ξ1 * x1ξ2
-            ξ1x1[i, j, e] = x2ξ2 / J[i, j, e]
-            ξ2x1[i, j, e] = -x2ξ1 / J[i, j, e]
-            ξ1x2[i, j, e] = -x1ξ2 / J[i, j, e]
-            ξ2x2[i, j, e] = x1ξ1 / J[i, j, e]
+            #J[i, j, e] = x1ξ1 * x2ξ2 - x2ξ1 * x1ξ2
+            J[i, j, e] = dx * dy / 4
+
+            #ξ1x1[i, j, e] = x2ξ2 / J[i, j, e]
+            #ξ2x1[i, j, e] = -x2ξ1 / J[i, j, e]
+            #ξ1x2[i, j, e] = -x1ξ2 / J[i, j, e]
+            #ξ2x2[i, j, e] = x1ξ1 / J[i, j, e]
+            
+            ξ1x1[i, j, e] = 2 / dx
+            ξ2x1[i, j, e] = 0
+            ξ1x2[i, j, e] = 0
+            ξ2x2[i, j, e] = 2 / dy
         end
 
         for i in 1:maximum(Nfp)
             if i <= Nfp[1]
-                n1[i, 1, e] = -J[1, i, e] * ξ1x1[1, i, e]
-                n2[i, 1, e] = -J[1, i, e] * ξ1x2[1, i, e]
-                n1[i, 2, e] = J[Nq[1], i, e] * ξ1x1[Nq[1], i, e]
-                n2[i, 2, e] = J[Nq[1], i, e] * ξ1x2[Nq[1], i, e]
+                #n1[i, 1, e] = -J[1, i, e] * ξ1x1[1, i, e]
+                #n2[i, 1, e] = -J[1, i, e] * ξ1x2[1, i, e]
+                #n1[i, 2, e] = J[Nq[1], i, e] * ξ1x1[Nq[1], i, e]
+                #n2[i, 2, e] = J[Nq[1], i, e] * ξ1x2[Nq[1], i, e]
+                n1[i, 1, e] = -1
+                n2[i, 1, e] = 0
+                n1[i, 2, e] = 1
+                n2[i, 2, e] = 0
             else
                 n1[i, 1:2, e] .= NaN
                 n2[i, 1:2, e] .= NaN
             end
             if i <= Nfp[2]
-                n1[i, 3, e] = -J[i, 1, e] * ξ2x1[i, 1, e]
-                n2[i, 3, e] = -J[i, 1, e] * ξ2x2[i, 1, e]
-                n1[i, 4, e] = J[i, Nq[2], e] * ξ2x1[i, Nq[2], e]
-                n2[i, 4, e] = J[i, Nq[2], e] * ξ2x2[i, Nq[2], e]
+                #n1[i, 3, e] = -J[i, 1, e] * ξ2x1[i, 1, e]
+                #n2[i, 3, e] = -J[i, 1, e] * ξ2x2[i, 1, e]
+                #n1[i, 4, e] = J[i, Nq[2], e] * ξ2x1[i, Nq[2], e]
+                #n2[i, 4, e] = J[i, Nq[2], e] * ξ2x2[i, Nq[2], e]
+                n1[i, 3, e] = 0
+                n2[i, 3, e] = -1
+                n1[i, 4, e] = 0
+                n2[i, 4, e] = 1
             else
                 n1[i, 3:4, e] .= NaN
                 n2[i, 3:4, e] .= NaN
             end
 
-            for n in 1:nface
-                sJ[i, n, e] = hypot(n1[i, n, e], n2[i, n, e])
-                n1[i, n, e] /= sJ[i, n, e]
-                n2[i, n, e] /= sJ[i, n, e]
-            end
+            sJ[i, 1:2, e] .= dy / 2
+            sJ[i, 3:4, e] .= dx / 2
+            #for n in 1:nface
+            #    sJ[i, n, e] = hypot(n1[i, n, e], n2[i, n, e])
+            #    n1[i, n, e] /= sJ[i, n, e]
+            #    n2[i, n, e] /= sJ[i, n, e]
+            #end
         end
     end
 

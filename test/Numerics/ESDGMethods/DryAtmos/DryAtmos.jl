@@ -582,12 +582,20 @@ function numerical_flux_first_order!(
     Mcut = numerical_flux.Mcut
     kinetic_energy_preserving = numerical_flux.kinetic_energy_preserving
 
-    ω = FT(π) / 3
-    δ = FT(π) / 5
-    random_unit_vector = SVector(sin(ω) * cos(δ), cos(ω) * cos(δ), sin(δ))
-    # tangent space basis
-    τ1 = random_unit_vector × normal_vector
-    τ2 = τ1 × normal_vector
+    #ω = FT(π) / 3
+    #δ = FT(π) / 5
+    #random_unit_vector = SVector(sin(ω) * cos(δ), cos(ω) * cos(δ), sin(δ))
+    ## tangent space basis
+    #τ1 = random_unit_vector × normal_vector
+    #τ2 = τ1 × normal_vector
+   
+    if abs(normal_vector[1]) == 1
+      τ1 = SVector{3, FT}(0, 1, 0)
+      τ2 = SVector{3, FT}(0, 0, 1)
+    elseif abs(normal_vector[2]) == 1
+      τ1 = SVector{3, FT}(1, 0, 0)
+      τ2 = SVector{3, FT}(0, 0, 1)
+    end
 
     ρ⁻ = state_prognostic⁻.ρ
     ρu⁻ = state_prognostic⁻.ρu

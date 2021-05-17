@@ -3,7 +3,7 @@ include("../DryAtmos.jl")
 Base.@kwdef struct RisingBubble{FT} <: AbstractDryAtmosProblem
   xmax::FT = 2000
   zmax::FT = 2000
-  xc::FT = 1000
+  xc::FT = 0
   rc::FT = 250
   zc::FT = rc + 10
   θref::FT = 300
