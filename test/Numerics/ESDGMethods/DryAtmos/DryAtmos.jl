@@ -736,3 +736,4 @@ drag_source!(m::DryAtmosModel, ::NoDrag, args...) = nothing
 
 
 include("linear.jl")
+include("vorticitymodel.jl")

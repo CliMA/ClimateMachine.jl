@@ -22,14 +22,16 @@ import CLIMAParameters
 using MPI, Logging, StaticArrays, LinearAlgebra, Printf, Dates, Test
 using CUDA
 
-const output_vtk = false
+const output_vtk = true
 
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet();
 #const X = 20
 const X = 1
-CLIMAParameters.Planet.planet_radius(::EarthParameterSet) = 6.371e6 / X
-CLIMAParameters.Planet.Omega(::EarthParameterSet) = 7.2921159e-5 * X
+CLIMAParameters.Planet.planet_radius(::EarthParameterSet) = 6.371229e6 / X
+CLIMAParameters.Planet.Omega(::EarthParameterSet) = 7.29212e-5 * X
+CLIMAParameters.Planet.MSLP(::EarthParameterSet) = 1e5
+CLIMAParameters.Planet.grav(::EarthParameterSet) = 9.80616
 
 include("DryAtmos.jl")
 
@@ -48,6 +50,8 @@ function sphr_to_cart_vec(
 end
 
 struct BaroclinicWave <: AbstractDryAtmosProblem end
+
+vars_state(::DryAtmosModel, ::BaroclinicWave, ::Auxiliary, FT) = @vars(ωk::FT)
 
 function init_state_prognostic!(bl::DryAtmosModel,
                                 ::BaroclinicWave,
@@ -173,15 +177,12 @@ function main()
 
     mpicomm = MPI.COMM_WORLD
 
-    polynomialorder = 4
+    polynomialorder = 3
 
-    numelem_horz = 12
-    numelem_vert = 6
+    numelem_horz = 16
+    numelem_vert = 8
 
-    #timeend = 5 * 43200
-    #outputtime = 600
-
-    timeend = 12 * 24 * 3600
+    timeend = 15 * 24 * 3600
     outputtime = 24 * 3600
 
     FT = Float64
@@ -199,7 +200,7 @@ end
 
 function run(
     mpicomm,
-    polynomialorder,
+    N,
     numelem_horz,
     numelem_vert,
     timeend,
@@ -207,6 +208,8 @@ function run(
     ArrayType,
     FT,
 )
+
+    Nq = N + 1
     _planet_radius::FT = planet_radius(param_set)
     domain_height = FT(30e3)
     vert_range = grid1d(
@@ -220,7 +223,7 @@ function run(
         topology,
         FloatType = FT,
         DeviceArray = ArrayType,
-        polynomialorder = polynomialorder,
+        polynomialorder = N,
         meshwarp = cubedshellwarp,
     )
 
@@ -258,8 +261,8 @@ function run(
     acoustic_speed = soundspeed_air(param_set, FT(330))
     #dt_factor = 1
     #dt = dt_factor * element_size / acoustic_speed / polynomialorder^2
-    dx = min_node_distance(grid, HorizontalDirection())
-    cfl = 0.05
+    dx = min_node_distance(grid)
+    cfl = 3.0
     dt = cfl * dx / acoustic_speed
 
     Q = init_ode_state(esdg, FT(0))
@@ -286,7 +289,7 @@ function run(
                       numelem_vert    = %d
                       dt              = %.16e
                       norm(Q₀)        = %.16e
-                      """ "$ArrayType" "$FT" polynomialorder numelem_horz numelem_vert dt eng0
+                      """ "$ArrayType" "$FT" N numelem_horz numelem_vert dt eng0
 
     # Set up the information callback
     starttime = Ref(now())
@@ -353,24 +356,73 @@ function run(
                               Advection (horizontal) Courant number = %.2g
                               """ simtime c_v c_h ca_v ca_h
     end
-    callbacks = (cbinfo, cbcfl)
+
+    times = FT[]
+    pmin = FT[]
+    vmax = FT[]
+
+    cb_vel_p = EveryXSimulationSteps(100) do
+            γ = FT(gamma(param_set))
+            simtime = gettime(odesolver)
+            push!(times, simtime)
+            
+            ρ = Array(view(Q.data, :, 1, :))
+            ρu = Array(view(Q.data, :, 2, :))
+            ρv = Array(view(Q.data, :, 3, :))
+            ρw = Array(view(Q.data, :, 4, :))
+            ρe = Array(view(Q.data, :, 5, :))
+            Φ = Array(view(esdg.state_auxiliary.data, :, 1, :))
+            
+            vel = @. sqrt((ρu ^ 2 + ρv ^ 2 + ρw ^ 2) / ρ ^ 2)
+            push!(vmax, maximum(vel))
+
+            p = @. (γ - 1) * (ρe - (ρu ^ 2 + ρv ^ 2 + ρw ^ 2) / (2 * ρ) - ρ * Φ)
+            psurf = @view p[1:Nq^2, 1:numelem_vert:end]
+            push!(pmin, minimum(psurf))
+    end
+    callbacks = (cbinfo, cbcfl, cb_vel_p)
 
     if output_vtk
+        # vorticity stuff
+        ω = similar(Q; vars = @vars(ω::SVector{3, FT}), nstate = 3)
+        vort_model = VorticityModel()
+        vort_dg = DGModel(
+            vort_model,
+            grid,
+            CentralNumericalFluxFirstOrder(),
+            CentralNumericalFluxSecondOrder(),
+            CentralNumericalFluxGradient(),
+        )
+        vortQ = init_ode_state(vort_dg, FT(0))
+        ∇Φ1 = view(esdg.state_auxiliary.data, :, 2, :)
+        ∇Φ2 = view(esdg.state_auxiliary.data, :, 3, :)
+        ∇Φ3 = view(esdg.state_auxiliary.data, :, 4, :)
+        
         # create vtk dir
         vtkdir =
             "vtk_esdg_baroclinic" *
-            "_poly$(polynomialorder)_horz$(numelem_horz)_vert$(numelem_vert)" *
+            "_poly$(N)_horz$(numelem_horz)_vert$(numelem_vert)" *
             "_$(ArrayType)_$(FT)"
         mkpath(vtkdir)
 
         vtkstep = 0
         # output initial step
-        do_output(mpicomm, vtkdir, vtkstep, esdg, Q, model)
+        do_output(mpicomm, vtkdir, vtkstep, esdg, Q, model, Nq)
 
         # setup the output callback
         cbvtk = EveryXSimulationSteps(floor(outputtime / dt)) do
             vtkstep += 1
-            do_output(mpicomm, vtkdir, vtkstep, esdg, Q, model)
+
+            vort_dg.state_auxiliary.data .= @view Q.data[:, 1:4, :]
+            vort_dg(ω, vortQ, nothing, FT(0))
+            
+            _grav = FT(grav(param_set))
+            ω1 = view(ω.data, :, 1, :)
+            ω2 = view(ω.data, :, 2, :)
+            ω3 = view(ω.data, :, 3, :)
+            esdg.state_auxiliary.data[:, end, :]  .= @. (∇Φ1 * ω1 + ∇Φ2 * ω2 + ∇Φ3 * ω3) / _grav
+
+            do_output(mpicomm, vtkdir, vtkstep, esdg, Q, model, Nq)
         end
         callbacks = (callbacks..., cbvtk)
     end
@@ -382,6 +434,14 @@ function run(
         adjustfinalstep = false,
         callbacks = callbacks,
     )
+    open(joinpath(vtkdir, "timeseries.txt"), "w") do f
+      msg = ""
+      for i in 1:length(times)
+        msg *= @sprintf("%.16e %.16e %.16e\n", times[i], pmin[i], vmax[i])
+      end
+      write(f, msg)
+    end
+
 
     # final statistics
     engf = norm(Q)
@@ -401,6 +461,7 @@ function do_output(
     dg,
     Q,
     model,
+    Nq,
     testname = "baroclinicwave",
 )
     ## name of the file that this MPI rank will write
@@ -415,7 +476,7 @@ function do_output(
     statenames = flattenednames(vars_state(model, Prognostic(), eltype(Q)))
     auxnames = flattenednames(vars_state(model, Auxiliary(), eltype(Q)))
     writevtk(filename, Q, dg, statenames, dg.state_auxiliary, auxnames;
-             number_sample_points=10)
+             number_sample_points=2 * Nq)
 
     ## Generate the pvtu file for these vtk files
     if MPI.Comm_rank(mpicomm) == 0
