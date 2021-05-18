@@ -156,14 +156,10 @@ function soil_boundary_flux!(
     _...,
 )
     bc_function = bc.scalar_flux_bc
-    # on faces at the top and bottom of the domain,
-    # the vector n̂ can point in either ± ẑ, depending on which side of the domain
-    # we are on. The user supplies a scalar flux F, such that the flux at the boundary
-    # is assumed to be F⃗ = F ẑ - i.e. the user doesn't need to worry about the normal vector.
-    # so, we take the absolute value of n̂ here.
-    # The minus sign is because the condition is applied on minus the flux.
-    # the same argument applies for the other directions.
-    diff⁺.soil.water.K∇h = abs.(n̂) * (-bc_function(aux⁻, t))
+    # See documentation for `Neumann`. The user supplies f = scalar_flux_bc
+    # such that F⃗ = -K∇h = -f n̂. 
+    # Since the BC is on K∇h, no minus sign is needed.
+    diff⁺.soil.water.K∇h = n̂ * bc_function(aux⁻, t)
 end
 
 
@@ -202,14 +198,10 @@ function soil_boundary_flux!(
     _...,
 )
     bc_function = bc.scalar_flux_bc
-    # on faces at the top and bottom of the domain,
-    # the vector n̂ can point in either ± ẑ, depending on which side of the domain
-    # we are on. The user supplies a scalar flux F, such that the flux at the boundary
-    # is assumed to be F⃗ = F ẑ - i.e. the user doesn't need to worry about the normal vector.
-    # so, we take the absolute value of n̂ here.
-    # The minus sign is because the condition is applied on minus the flux.
-    # the same argument applies for the other directions.
-    diff⁺.soil.heat.κ∇T = abs.(n̂) * (-bc_function(aux⁻, t))
+    # See documentation for `Neumann`. The user supplies f = scalar_flux_bc
+    # such that F⃗ = -κ∇T = -f n̂. 
+    # Since the BC is on κ∇T, no minus sign is needed.
+    diff⁺.soil.heat.κ∇T = n̂ * bc_function(aux⁻, t)
 end
 
 

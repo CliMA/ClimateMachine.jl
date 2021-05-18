@@ -33,6 +33,9 @@ abstract type AbstractPrecipModel{FT <: AbstractFloat} end
 Instance of a precipitation distribution where the precipication value
 is constant across the domain. However, this value can change in time.
 
+Precipitation is assumed to be aligned with the vertical, i.e. P⃗ = Pẑ,
+with P<0.  
+
 # Fields
 $(DocStringExtensions.FIELDS)
 """
@@ -86,7 +89,9 @@ end
                                      )
 
 Given a runoff model and a precipitation distribution function, compute 
-the surface water Neumann BC. This can be a function of time, and state.
+the surface water flux normal to the surface. The sign of the flux
+(inwards or outwards) is determined by the magnitude of precipitation,
+evaporation, and infiltration.
 """
 function compute_surface_grad_bc(
     soil::SoilModel,
@@ -99,7 +104,8 @@ function compute_surface_grad_bc(
     t::Real,
 )
     FT = eltype(state⁻)
-    incident_water_flux = precip_model(t)
+    precip_vector = (FT(0), FT(0), precip_model(t))
+    incident_water_flux = dot(precip_vector, n̂)
     Δz = runoff_model.Δz
     water = soil.water
     param_functions = soil.param_functions
@@ -163,7 +169,9 @@ end
                                      )
 
 Given a runoff model and a precipitation distribution function, compute 
-the surface water Neumann BC. This can be a function of time, and state.
+the surface water flux normal to the surface. In this case, no runoff is
+assumed. The direction of the flux (inwards or outwards) depends on the
+magnitude of evaporation, precipitation, and infiltration.
 """
 function compute_surface_grad_bc(
     soil::SoilModel,
@@ -176,7 +184,8 @@ function compute_surface_grad_bc(
     t::Real,
 )
     FT = eltype(state⁻)
-    incident_water_flux = precip_model(t)
+    precip_vector = (FT(0), FT(0), precip_model(t))
+    incident_water_flux = dot(precip_vector, n̂)
     K∇h⁺ = n̂ * (-FT(2) * incident_water_flux) - diff⁻.soil.water.K∇h
     return K∇h⁺
 end

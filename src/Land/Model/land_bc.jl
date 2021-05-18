@@ -39,13 +39,17 @@ end
 """
     Neumann{Ff} <: AbstractBoundaryConditions
 
-A concrete type to hold the diffusive flux 
-function, if Neumann boundary conditions are desired.
+A concrete type for specifying the magnitude of an inward diffusive flux,
+normal to the domain boundary, from which a Neumann boundary condition 
+is determined and applied.
 
-Note that these are intended to be scalar values. In the boundary_state!
-functions, they are multiplied by the `ẑ` vector (i.e. the normal vector `n̂`
-to the domain at the upper boundary, and -`n̂` at the lower boundary. These
-normal vectors point out of the domain.)
+For the soil water model, the Darcy flux is defined as F⃗(Darcy) = -K∇h. 
+With the `Neumann` boundary
+condition type, the user supplies a scalar `f` such that the applied flux
+boundary conditon is F⃗(Darcy, boundary) = -f n̂, 
+where n̂ is the normal vector pointing out of the domain. For the soil heat model,
+the same rule applies, except now we have a conductive heat flux 
+F⃗(Conductive, boundary) = -κ∇T = -f n̂.
 
 # Fields
 $(DocStringExtensions.FIELDS)
@@ -59,8 +63,14 @@ end
     SurfaceDrivenWaterBoundaryConditions{FT, PD, RD} <: AbstractBoundaryConditions
 
 Boundary condition type to be used when the user wishes to 
-apply physical fluxes of water at the top of the domain (according to precipitation, runoff, and 
-evaporation rates).
+apply physical fluxes of water at the top of the domain, normal to the surface.
+The flux can be inwards or outwards, depending on the magnitude of infiltration,
+evaporation, and precipitation.
+
+Precipitation is assumed to be 
+in the ẑ direction, P⃗ = Pẑ, while evaporation is along the normal 
+direction, E⃗ = En̂. The applied boundary flux is F⃗ = f n̂, and the magnitude f is
+determined internally from P⃗, E⃗, and soil conditions.
 
 # Fields
 $(DocStringExtensions.FIELDS)
@@ -98,7 +108,7 @@ end
     SurfaceDrivenHeatBoundaryConditions{FT, SWD} <: AbstractBoundaryConditions
 
 Boundary condition type to be used when the user wishes to 
-apply physical fluxes of heat at the top of the domain 
+apply normal fluxes of heat at the top of the domain 
 (according to radiative energy fluxes).
 
 # Fields
