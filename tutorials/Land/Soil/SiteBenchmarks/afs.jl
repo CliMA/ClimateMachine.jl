@@ -2,14 +2,13 @@
 
 # # Preliminary setup
 
-# - Load external packages
-
 using MPI
 using OrderedCollections
 using StaticArrays
 using Statistics
 using Dierckx
-# - Load CLIMAParameters and ClimateMachine modules
+using DelimitedFiles
+using Plots
 
 using CLIMAParameters
 struct EarthParameterSet <: AbstractEarthParameterSet end
@@ -17,6 +16,7 @@ const param_set = EarthParameterSet()
 
 using ClimateMachine
 using ClimateMachine.Land
+using ClimateMachine.Land.Runoff
 using ClimateMachine.Land.SoilWaterParameterizations
 using ClimateMachine.Mesh.Topologies
 using ClimateMachine.Mesh.Grids
@@ -31,49 +31,54 @@ using ClimateMachine.SingleStackUtils
 using ClimateMachine.BalanceLaws:
     BalanceLaw, Prognostic, Auxiliary, Gradient, GradientFlux, vars_state
 
-
-# - Define the float type desired (`Float64` or `Float32`)
 const FT = Float64;
 
-# - Initialize ClimateMachine for CPU
 ClimateMachine.init(; disable_gpu = true);
 
-# Load plot helpers:
 const clima_dir = dirname(dirname(pathof(ClimateMachine)));
 include(joinpath(clima_dir, "docs", "plothelpers.jl"));
 
 # # Set up the soil model
 
 soil_heat_model = PrescribedTemperatureModel();
+function Ks(z::F) where {F}
+    if z < F(-0.75)
+        return F(1e-9)
+    else
+        return F(1e-8)
+    end
+end
 
-wpf = WaterParamFunctions(FT; Ksat = 2e-6 / 100, S_s = 1e-3);
-soil_param_functions = SoilParamFunctions(FT; porosity = 0.71, water = wpf);
+wpf = WaterParamFunctions(FT; Ksat = (aux) -> Ks(aux.z), S_s = 1e-4, θ_r = 0.15);
+soil_param_functions = SoilParamFunctions(FT; porosity = 0.8, water = wpf);
 
-# Define the boundary conditions. The user can specify two conditions,
-# either at the top or at the bottom, and they can either be Dirichlet
-# (on `ϑ_l`) or Neumann (on `-K∇h`). Note that fluxes are supplied as
-# scalars, inside the code they are multiplied by ẑ.
 file2 = "./data/amargosa/ET-AFS 30 min-Table 1.csv"
 data2 = readdlm(file2, ',')
 s = 7
 columns = data2[6,:]
 timestamp = data2[s:end,1]
-t = Array(0:1:length(timestamp)-1) .* 30.0 * 60.0
+t = Array(1:1:length(timestamp)) .* 30.0 * 60.0
 ET = Float64.(data2[s:end, 2])
 P = Float64.(data2[s:end, 12])
 I = (-P.+ET) .*1e-3 ./ 60.0 ./ 30.0
 I_function = Spline1D(t, I)
-bottom_state = (aux, t) -> eltype(aux)(0.71);
+#bottom_state = (aux, t) -> eltype(aux)(0.8);
+bottom_flux = (aux, t) -> aux.soil.water.K * eltype(aux)(-1)
+N_poly = 1;
+nelem_vert = 30;
 
-# Our problem is effectively 1D, so we do not need to specify lateral boundary
-# conditions.
+# Specify the domain boundaries.
+zmax = FT(0);
+zmin = FT(-2);
+Δ = FT((zmax-zmin)/nelem_vert/2)
 bc = LandDomainBC(
 bottom_bc = LandComponentBC(
-    soil_water = Dirichlet(bottom_state)
+    soil_water = Neumann(bottom_flux)
 ),
 surface_bc = LandComponentBC(
     soil_water = SurfaceDrivenWaterBoundaryConditions(FT;
-                                                  precip_model = DrivenConstantPrecip{FT}(I_function),
+                                                      precip_model = DrivenConstantPrecip{FT}(I_function),
+                                                      runoff_model = CoarseGridRunoff{FT}(Δ),
                                                   )
 )
 )
@@ -82,22 +87,29 @@ surface_bc = LandComponentBC(
 # Define the initial state function. The default for `θ_i` is zero.
 function f(z::F) where {F}
     max = F(0)
-    change = F(-1)
-    inter = F(0.2)
-    slope = (F(0.7)-inter)/(change-max) 
-    initial = z < change ? F(0.7) : slope*(z-max)+inter
+    min = F(-2)
+    change = F(-0.5)
+    inter1 = F(0.2)
+    slope1 = (F(0.6)-inter1)/(change-max)
+    inter2 = F(0.6)
+    slope2 = (F(0.8)-inter2)/(min-F(-1))
+    if z > F(-1)
+        if z < F(-0.5)
+            initial = inter2
+        else
+            initial = slope1*(z-max)+inter1
+        end
+    else
+        initial = slope2*(z-F(-1))+inter2
+    end
+    
     return initial
 end
 
     
 ϑ_l0 = aux -> f(aux.z)
 
-# Create the SoilWaterModel. The defaults are a temperature independent
-# viscosity, and no impedance factor due to ice. We choose to make the
-# hydraulic conductivity a function of the moisture content `ϑ_l`,
-# and employ the vanGenuchten hydraulic model with `n` = 2.0. The van
-# Genuchten parameter `m` is calculated from `n`, and we use the default
-# value for `α`.
+
 soil_water_model = SoilWaterModel(
     FT;
     moisture_factor = MoistureDependent{FT}(),
@@ -128,16 +140,6 @@ m = LandModel(
     init_state_prognostic = init_soil_water!,
 );
 
-# # Specify the numerical configuration and output data.
-
-# Specify the polynomial order and vertical resolution.
-N_poly = 1;
-nelem_vert = 20;
-
-# Specify the domain boundaries.
-zmax = FT(0);
-zmin = FT(-4);
-
 # Create the driver configuration.
 driver_config = ClimateMachine.SingleStackConfiguration(
     "LandModel",
@@ -152,17 +154,17 @@ driver_config = ClimateMachine.SingleStackConfiguration(
 
 # Choose the initial and final times, as well as a timestep.
 t0 = FT(0)
-timeend = FT(60 * 60 * 24 * 365)
-dt = FT(60 * 30);
+timeend = FT(60 * 60 * 24 * 120) + t0
+dt = FT(60);
 
 # Create the solver configuration.
 solver_config =
     ClimateMachine.SolverConfiguration(t0, timeend, driver_config, ode_dt = dt);
 
 # Determine how often you want output.
-n_outputs = 365;
+n_outputs = 120;
 
-every_x_simulation_time = ceil(Int, timeend / n_outputs);
+every_x_simulation_time = ceil(Int, (timeend-t0) / n_outputs);
 
 # Create a place to store this output.
 state_types = (Prognostic(), Auxiliary(), GradientFlux())
@@ -182,65 +184,3 @@ ClimateMachine.invoke!(solver_config; user_callbacks = (callback,));
 # Get z-coordinate
 z = get_z(solver_config.dg.grid; rm_dupes = true);
 
-# # Create some plots
-# We'll plot the moisture content vs depth in the soil, as well as
-# the expected profile of `ϑ_l` in hydrostatic equilibrium.
-# For `ϑ_l` values above porosity, the soil is
-# saturated, and the pressure head changes from being equal to the matric
-# potential to the pressure generated by compression of water and the soil
-# matrix. The profile can be solved
-# for analytically by (1) solving for the form that `ϑ_l(z)` must take
-# in both the saturated and unsaturated zones to satisfy the steady-state
-# requirement with zero flux boundary conditions, (2) requiring that
-# at the interface between saturated and unsaturated zones, the water content
-# equals porosity, and (3) solving for the location of the interface by
-# requiring that the integrated water content at the end matches that
-# at the beginning (yielding an interface location of `z≈-0.56m`).
-output_dir = @__DIR__;
-
-t = time_data ./ (60 * 60 * 24);
-
-plot(
-    dons_arr[1]["soil.water.ϑ_l"],
-    dons_arr[1]["z"],
-    label = string("t = ", string(t[1]), "days"),
-    xlim = [0.47, 0.501],
-    ylabel = "z",
-    xlabel = "ϑ_l",
-    legend = :bottomleft,
-    title = "Equilibrium test",
-);
-plot!(
-    dons_arr[2]["soil.water.ϑ_l"],
-    dons_arr[2]["z"],
-    label = string("t = ", string(t[2]), "days"),
-);
-plot!(
-    dons_arr[7]["soil.water.ϑ_l"],
-    dons_arr[7]["z"],
-    label = string("t = ", string(t[7]), "days"),
-);
-function expected(z, z_interface)
-    ν = 0.495
-    S_s = 1e-3
-    α = 2.6
-    n = 2.0
-    m = 0.5
-    if z < z_interface
-        return -S_s * (z - z_interface) + ν
-    else
-        return ν * (1 + (α * (z - z_interface))^n)^(-m)
-    end
-end
-plot!(expected.(dons_arr[1]["z"], -0.56), dons_arr[1]["z"], label = "expected");
-
-plot!(
-    1e-3 .+ dons_arr[1]["soil.water.ϑ_l"],
-    dons_arr[1]["z"],
-    label = "porosity",
-);
-# save the output.
-savefig(joinpath(output_dir, "equilibrium_test_ϑ_l_vG.png"))
-# ![](equilibrium_test_ϑ_l_vG.png)
-# # References
-# - [Woodward00a](@cite)
