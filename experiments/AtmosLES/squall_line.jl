@@ -11,7 +11,7 @@ using Printf
 
 using ClimateMachine
 using ClimateMachine.Atmos
-using ClimateMachine.ArtifactWrappers
+using ArtifactWrappers
 using ClimateMachine.Orientations
 using ClimateMachine.ConfigTypes
 using ClimateMachine.Diagnostics

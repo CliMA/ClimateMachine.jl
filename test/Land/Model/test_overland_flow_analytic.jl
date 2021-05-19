@@ -25,7 +25,7 @@ using ClimateMachine.VariableTemplates
 using ClimateMachine.SingleStackUtils
 using ClimateMachine.BalanceLaws:
     BalanceLaw, Prognostic, Auxiliary, Gradient, GradientFlux, vars_state
-using ClimateMachine.ArtifactWrappers
+using ArtifactWrappers
 
 
 # Test that the land model with no surface flow works correctly

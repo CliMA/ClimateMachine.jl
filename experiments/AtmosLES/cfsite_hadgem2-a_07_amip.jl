@@ -15,7 +15,7 @@ using UnPack
 # ClimateMachine Modules
 using ClimateMachine
 
-using ClimateMachine.ArtifactWrappers
+using ArtifactWrappers
 using ClimateMachine.Atmos
 using ClimateMachine.ConfigTypes
 using ClimateMachine.GenericCallbacks

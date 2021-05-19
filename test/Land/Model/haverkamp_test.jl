@@ -29,7 +29,7 @@ using ClimateMachine.VariableTemplates
 using ClimateMachine.SingleStackUtils
 using ClimateMachine.BalanceLaws:
     BalanceLaw, Prognostic, Auxiliary, Gradient, GradientFlux, vars_state
-using ClimateMachine.ArtifactWrappers
+using ArtifactWrappers
 
 haverkamp_dataset = ArtifactWrapper(
     @__DIR__,

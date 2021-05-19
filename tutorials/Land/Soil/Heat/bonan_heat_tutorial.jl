@@ -111,7 +111,7 @@ using ClimateMachine.BalanceLaws:
     vars_state,
     parameter_set
 import ClimateMachine.DGMethods: calculate_dt
-using ClimateMachine.ArtifactWrappers
+using ArtifactWrappers
 
 # # Preliminary set-up
 # Get the parameter set, which holds constants used across CliMA models.
