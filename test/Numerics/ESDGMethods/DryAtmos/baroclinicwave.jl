@@ -382,9 +382,9 @@ function run(
             w = ρw ./ ρ
 
             s = @. k1 * u + k2 * v + k3 * w
-            @. u -= s * u
-            @. v -= s * v
-            @. w -= s * w
+            @. u -= s * k1
+            @. v -= s * k2
+            @. w -= s * k3
             
             vel = @. sqrt(u ^ 2 + v ^ 2 + w ^ 2)
             push!(vmax, maximum(vel))
