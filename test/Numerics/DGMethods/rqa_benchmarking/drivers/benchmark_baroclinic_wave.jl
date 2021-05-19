@@ -151,7 +151,9 @@ model = DryAtmosModel(
     boundary_conditions = (5, 6),
     initial_conditions = (ρ = ρ₀ᶜᵃʳᵗ, ρu = ρu⃗₀ᶜᵃʳᵗ, ρe = ρeᶜᵃʳᵗ),
     numerics = (
-        flux = RusanovNumericalFlux(),
+        # flux = RusanovNumericalFlux(),
+        # flux = RoeNumericalFlux(),
+        flux = LMARSNumericalFlux(),
     ),
     parameters = parameters,
 )
@@ -161,7 +163,9 @@ linear_model = DryAtmosLinearModel(
     boundary_conditions = model.boundary_conditions,
     initial_conditions = nothing,
     numerics = (
-        flux = model.numerics.flux,
+        # flux = model.numerics.flux,
+        flux = RusanovNumericalFlux(),
+        # flux = RoeNumericalFlux(),
         direction = VerticalDirection()
     ),
     parameters = model.parameters,
