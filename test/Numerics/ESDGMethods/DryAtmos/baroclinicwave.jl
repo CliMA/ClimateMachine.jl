@@ -361,7 +361,11 @@ function run(
     pmin = FT[]
     vmax = FT[]
 
-    cb_vel_p = EveryXSimulationSteps(100) do
+    _grav = FT(grav(param_set))
+    k1 = Array(view(esdg.state_auxiliary.data, :, 2, :)) ./ _grav
+    k2 = Array(view(esdg.state_auxiliary.data, :, 3, :)) ./ _grav
+    k3 = Array(view(esdg.state_auxiliary.data, :, 4, :)) ./ _grav
+    cb_vel_p = EveryXSimulationSteps(1000) do
             γ = FT(gamma(param_set))
             simtime = gettime(odesolver)
             push!(times, simtime)
@@ -372,8 +376,17 @@ function run(
             ρw = Array(view(Q.data, :, 4, :))
             ρe = Array(view(Q.data, :, 5, :))
             Φ = Array(view(esdg.state_auxiliary.data, :, 1, :))
+
+            u = ρu ./ ρ
+            v = ρv ./ ρ
+            w = ρw ./ ρ
+
+            s = @. k1 * u + k2 * v + k3 * w
+            @. u -= s * u
+            @. v -= s * v
+            @. w -= s * w
             
-            vel = @. sqrt((ρu ^ 2 + ρv ^ 2 + ρw ^ 2) / ρ ^ 2)
+            vel = @. sqrt(u ^ 2 + v ^ 2 + w ^ 2)
             push!(vmax, maximum(vel))
 
             p = @. (γ - 1) * (ρe - (ρu ^ 2 + ρv ^ 2 + ρw ^ 2) / (2 * ρ) - ρ * Φ)
@@ -416,7 +429,6 @@ function run(
             vort_dg.state_auxiliary.data .= @view Q.data[:, 1:4, :]
             vort_dg(ω, vortQ, nothing, FT(0))
             
-            _grav = FT(grav(param_set))
             ω1 = view(ω.data, :, 1, :)
             ω2 = view(ω.data, :, 2, :)
             ω3 = view(ω.data, :, 3, :)
