@@ -34,6 +34,7 @@ method = ARK2GiraldoKellyConstantinescu
 simulation = Simulation(
     (model, linear_esdg_model);
     grid = grid,
+    timesteppers = (explicit, implicit, )
     timestepper = (method = method, timestep = Δt),
     time        = (start = start_time, finish = end_time),
 );
@@ -69,8 +70,8 @@ cfl = 7.5 # maybe 2
 Δt = cfl * dx / 330.0
 start_time = 0
 end_time = 30 * 86400 # Δt
-method = ARK2GiraldoKellyConstantinescu 
-
+method = ARK2GiraldoKellyConstantinescu
+# Explicit(advection, rate = 1), Explicit(soundwave_horizontal, rate = 10), Explicit(radiation, rate = 0.1), Explicit(microphysics, rate = 5)
 simulation = Simulation(
     (Explicit(model), Implicit(linear_esdg_model));
     grid = grid,
@@ -111,10 +112,9 @@ cfl = 7.5 # maybe 2
 start_time = 0
 end_time = 30 * 86400 # Δt
 
-
 timestepper = IMEX(implicit = linear_model, 
                    explicit = model, 
-                   method = ARK2GiraldoKellyConstantinescu
+                   method = ARK2GiraldoKellyConstantinescu,
                    Δt = Δt,
                    start_time = 0,
                    end_time = 30 * 86400)
@@ -134,5 +134,5 @@ Disadvantages:
 1. More code necessary
 2. Structception
 3. Perhaps too much information at once
-4. Redandancy in having models as a part of simulation 
+4. Redundancy in having models as a part of simulation 
 =#
