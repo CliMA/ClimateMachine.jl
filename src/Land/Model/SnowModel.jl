@@ -77,9 +77,6 @@ function sn_T_ave(sn_int::FT,
 ) where {FT}
     _T_ref = FT(T_0(param_set))
     _LH_f0 = FO(LH_f0(param_set))
-    _c_i = FT(cp_i(param_set))
-    _c_l = FT(cp_l(param_set))
-    c_snow = _c_i*(FT(1.0)-l) + l*_c_i
-    sn_T_ave = (sn_int+(1-l)*_LH_f0)/(ρ_snow*c_snow) + _T_ref
+    sn_T_ave = (sn_int+(1-l)*_LH_f0)/ρc_snow + _T_ref
     return sn_T_ave
 end
