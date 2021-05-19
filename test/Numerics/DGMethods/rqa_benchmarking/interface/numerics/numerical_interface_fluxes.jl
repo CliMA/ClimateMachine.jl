@@ -3,6 +3,46 @@ using ClimateMachine.Thermodynamics
 
 import ClimateMachine.NumericalFluxes: numerical_flux_first_order!
 
+# used in the RusanovNumericalFlux function
+
+function wavespeed(
+    lm::DryAtmosLinearModel,
+    nM,
+    state::Vars,
+    aux::Vars,
+    t::Real,
+    direction,
+)
+    ref = aux.ref_state
+    return soundspeed(ref.ρ, ref.p)
+end
+
+function wavespeed(
+    ::DryAtmosModel,
+    nM,
+    state::Vars,
+    aux::Vars,
+    t::Real,
+    direction,
+)
+    # Take the same wavespeed as the linear model. No need to make dynamic
+    # This helps a bit with timestepping with the linear model
+    #=
+    ρ = state.ρ
+    ρu = state.ρu
+    ρe = state.ρe
+    Φ = aux.Φ
+    p = pressure(ρ, ρu, ρe, Φ)
+
+    u = ρu / ρ
+    uN = abs(dot(nM, u))
+    return uN + soundspeed(ρ, p)
+    =#
+    ref = aux.ref_state
+    return soundspeed(ref.ρ, ref.p)
+end
+
+
 Base.@kwdef struct RoesanovFlux{S,T} <: NumericalFluxFirstOrder
     ω_roe::S = 1.0
     ω_rusanov::T = 1.0

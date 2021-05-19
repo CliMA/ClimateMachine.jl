@@ -488,34 +488,3 @@ numerical_boundary_flux_second_order!(::Nothing, _...) = nothing
 numerical_flux_first_order!(::Nothing, ::DryAtmosModel, _...) = nothing
 numerical_flux_second_order!(::Nothing, ::DryAtmosModel, _...) = nothing
 numerical_boundary_flux_second_order!(::Nothing, a, ::DryAtmosModel, _...) = nothing
-
-function wavespeed(
-    lm::DryAtmosLinearModel,
-    nM,
-    state::Vars,
-    aux::Vars,
-    t::Real,
-    direction,
-)
-    ref = aux.ref_state
-    return soundspeed(ref.ρ, ref.p)
-end
-
-function wavespeed(
-    ::DryAtmosModel,
-    nM,
-    state::Vars,
-    aux::Vars,
-    t::Real,
-    direction,
-)
-    ρ = state.ρ
-    ρu = state.ρu
-    ρe = state.ρe
-    Φ = aux.Φ
-    p = pressure(ρ, ρu, ρe, Φ)
-
-    u = ρu / ρ
-    uN = abs(dot(nM, u))
-    return uN + soundspeed(ρ, p)
-end
