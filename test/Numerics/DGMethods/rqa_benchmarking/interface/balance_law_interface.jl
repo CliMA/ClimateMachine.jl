@@ -75,80 +75,6 @@ function nodal_init_state_auxiliary!(
     # init_state_auxiliary!(m, m.physics.ref_state, state_auxiliary, geom)
 end
 
-function init_state_auxiliary!(
-    ::ModelSetup,
-    ::SphericalOrientation,
-    state_auxiliary,
-    geom,
-)
-    FT = eltype(state_auxiliary)
-    _grav = FT(grav(param_set))
-    r = norm(geom.coord)
-    state_auxiliary.x = geom.coord[1]
-    state_auxiliary.y = geom.coord[2]
-    state_auxiliary.z = geom.coord[3]
-    state_auxiliary.Φ = _grav * r
-    state_auxiliary.∇Φ = _grav * geom.coord / r
-end
-
-function init_state_auxiliary!(
-    ::ModelSetup,
-    ::FlatOrientation,
-    state_auxiliary,
-    geom,
-)
-    FT = eltype(state_auxiliary)
-    _grav = FT(grav(param_set))
-    @inbounds r = geom.coord[3]
-    state_auxiliary.x = geom.coord[1]
-    state_auxiliary.y = geom.coord[2]
-    state_auxiliary.z = geom.coord[3]
-    state_auxiliary.Φ = _grav * r
-    state_auxiliary.∇Φ = SVector{3, FT}(0, 0, _grav)
-end
-
-
-# function init_state_auxiliary!(
-#     model::ModelSetup,
-#     state_auxiliary::MPIStateArray,
-#     grid,
-#     direction,
-# )
-#     # domain = model.numerics.grid.domain
-#     orientation = model.physics.orientation
-
-#     # helper function for storing coordinates (used only once here)
-#     function init_coords!(::ModelSetup, aux, geom)
-#         aux.x = geom.coord[1]
-#         aux.y = geom.coord[2]
-#         aux.z = geom.coord[3]
-    
-#         return nothing
-#     end
-
-#     # store coordinates
-#     init_state_auxiliary!(
-#         model,
-#         (model, aux, tmp, geom) -> init_coords!(model, aux, geom),
-#         state_auxiliary,
-#         grid,
-#         direction,
-#     )
-
-#     # store orientation
-#     init_state_auxiliary!(
-#         model,
-#         # (model, aux, tmp, geom) -> orientation_nodal_init_aux!(orientation, domain, aux, geom),
-#         (model, aux, tmp, geom) -> orientation_nodal_init_aux!(orientation, aux, geom),
-#         state_auxiliary,
-#         grid,
-#         direction,
-#     )
-
-#     # store vertical unit vector
-#     orientation_gradient(model, orientation, state_auxiliary, grid, direction)
-# end
-
 function init_state_prognostic!(model::ModelSetup, state::Vars, aux::Vars, localgeo, t)
     x = aux.x
     y = aux.y
@@ -264,6 +190,3 @@ end
     calc_boundary_state!(numerical_flux, bc.ρu, model, diffusion, args...)
     calc_boundary_state!(numerical_flux, bc.ρθ, model, diffusion, args...)
 end
-
-@inline vertical_unit_vector(::Orientation, aux) = aux.∇Φ / grav(param_set)
-@inline vertical_unit_vector(::NoOrientation, aux) = @SVector [0, 0, 1]
