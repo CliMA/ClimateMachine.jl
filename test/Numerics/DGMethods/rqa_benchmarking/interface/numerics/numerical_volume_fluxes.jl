@@ -492,6 +492,7 @@ numerical_flux_first_order!(::Nothing, ::DryAtmosModel, _...) = nothing
 numerical_flux_second_order!(::Nothing, ::DryAtmosModel, _...) = nothing
 numerical_boundary_flux_second_order!(::Nothing, a, ::DryAtmosModel, _...) = nothing
 
+# These technically affect the RusanovNumericalFlux and should be moved to the interface flux
 function wavespeed(
     lm::DryAtmosLinearModel,
     nM,
