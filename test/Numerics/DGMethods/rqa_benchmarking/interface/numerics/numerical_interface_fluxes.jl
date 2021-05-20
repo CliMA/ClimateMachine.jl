@@ -1,5 +1,5 @@
 using ClimateMachine.NumericalFluxes
-using ClimateMachine.Thermodynamics
+using ClimateMachine.Thermodynamics: total_specific_enthalpy, soundspeed_air, air_pressure, internal_energy
 
 import ClimateMachine.NumericalFluxes: numerical_flux_first_order!
 
@@ -371,7 +371,6 @@ function numerical_flux_first_order!(
 
     return nothing
 end
-
 
 function numerical_flux_first_order!(
     ::LMARSNumericalFlux,

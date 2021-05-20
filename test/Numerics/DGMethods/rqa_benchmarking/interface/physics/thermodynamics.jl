@@ -36,7 +36,6 @@ linearize(eos::DryEuler) = LinearizedDryEuler(eos.γ)
 """
   Thermodynamic relationships
 """
-
 @inline function calc_pressure(eos::BarotropicFluid, state) 
     cₛ = eos.cₛ 
     ρₒ = eos.ρₒ

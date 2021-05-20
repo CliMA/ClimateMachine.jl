@@ -124,26 +124,32 @@ function numerical_volume_conservative_flux_first_order!(
     ρ_1 = state_1.ρ
     ρu_1 = state_1.ρu
     ρe_1 = state_1.ρe
+    ρq_1 = state_1.ρq
     u_1 = ρu_1 / ρ_1
     e_1 = ρe_1 / ρ_1
+    q_1 = ρq_1 / ρ_1
     p_1 = pressure(ρ_1, ρu_1, ρe_1, Φ_1)
 
     Φ_2 = aux_2.Φ
     ρ_2 = state_2.ρ
     ρu_2 = state_2.ρu
     ρe_2 = state_2.ρe
+    ρq_2 = state_2.ρq
     u_2 = ρu_2 / ρ_2
     e_2 = ρe_2 / ρ_2
+    q_2 = ρq_2 / ρ_2
     p_2 = pressure(ρ_2, ρu_2, ρe_2, Φ_2)
 
     ρ_avg = ave(ρ_1, ρ_2)
     u_avg = ave(u_1, u_2)
     e_avg = ave(e_1, e_2)
+    q_avg = ave(q_1, q_2)
     p_avg = ave(p_1, p_2)
 
     F.ρ = ρ_avg * u_avg
     F.ρu = p_avg * I + ρ_avg * u_avg .* u_avg'
     F.ρe = ρ_avg * u_avg * e_avg + p_avg * u_avg
+    F.ρq = ρ_avg * u_avg * q_avg
 end
 
 struct EntropyConservativeWithPenalty <: NumericalFluxFirstOrder end

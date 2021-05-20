@@ -32,7 +32,7 @@ using ClimateMachine.VariableTemplates: flattenednames
 
 # to be removed
 using CLIMAParameters: AbstractEarthParameterSet
-using CLIMAParameters.Planet: grav, R_d, cp_d, cv_d, planet_radius, MSLP, Omega, T_0
+using CLIMAParameters.Planet: grav, R_d, R_v, press_triple, T_triple, cp_d, cp_v, cp_l, cv_d, cv_v, cv_l, LH_v0, e_int_v0, planet_radius, MSLP, Omega, T_0
 
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
@@ -61,6 +61,7 @@ include("../physics/coriolis.jl")
 include("../physics/gravity.jl")
 include("../physics/pressure_force.jl")
 include("../physics/diffusion.jl")
+include("../physics/microphysics.jl")
 # boundary conditions
 include("../boundary_conditions/boundary_conditions.jl")
 include("../boundary_conditions/bc_first_order.jl")

@@ -44,6 +44,7 @@ function vars_state(::Union{DryAtmosModel,DryAtmosLinearModel}, ::Prognostic, FT
         ρ::FT
         ρu::SVector{3, FT}
         ρe::FT
+        ρq::FT
     end
 end
 
@@ -51,6 +52,7 @@ function vars_state(::DryAtmosModel, ::Entropy, FT)
     @vars begin
         ρ::FT
         ρu::SVector{3, FT}
+        ρe::FT
         ρe::FT
         Φ::FT
     end
@@ -77,10 +79,12 @@ function init_state_prognostic!(
     parameters = model.parameters
     ic = model.initial_conditions
 
+    # TODO!: Set to 0 by default or assign IC
     if !isnothing(ic)
         state.ρ  = ic.ρ(parameters, x, y, z)
         state.ρu = ic.ρu(parameters, x, y, z)
         state.ρe = ic.ρe(parameters, x, y, z)
+        state.ρq = ic.ρq(parameters, x, y, z)
     end
 
     return nothing

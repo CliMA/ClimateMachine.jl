@@ -32,6 +32,7 @@ end
     flux.ρ += ρu
     #flux.ρu += -0
     flux.ρe += (ρeᵣ + pᵣ) / ρᵣ * ρu
+    #flux.ρq += -0
 
     return nothing
 end
@@ -41,13 +42,16 @@ end
     ρ = state.ρ
     ρu = state.ρu
     ρe = state.ρe
+    ρq = state.ρq
     eos = advection.eos
+    ρ⁻¹ = 1 / ρ
 
     p = calc_pressure(eos, state, aux)
 
     flux.ρ  += ρu
-    flux.ρu += ρu ⊗ ρu / ρ
-    flux.ρe += ρu * (ρe + p) / ρ
+    flux.ρu += ρ⁻¹ * ρu ⊗ ρu
+    flux.ρe += ρ⁻¹ * ρu * (ρe + p)
+    flux.ρq += ρ⁻¹ * ρu * ρq
     
     return nothing
 end
