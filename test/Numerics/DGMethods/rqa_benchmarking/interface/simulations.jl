@@ -70,6 +70,51 @@ function Simulation(model::Tuple; grid, timestepper, time, callbacks)
     return Simulation(model, grid, timestepper, time, callbacks, rhs, state)
 end
 
+#=
+# prep for timestepping changes 
+function Simulation(model::Tuple{AbstractRate, AbstractRate}; grid, timestepper, time, callbacks)
+    println("hello I am being called")
+    rhs = []
+    for item in model
+        if item isa Explicit
+            println("explicit model")
+            tmp = Explicit(ESDGModel(
+                item.model,
+                grid.numerical,
+                surface_numerical_flux_first_order = item.model.numerics.flux,
+                volume_numerical_flux_first_order = KGVolumeFlux(),
+            ))
+            push!(rhs, tmp)
+        elseif item isa Implicit
+            println("implicit model")
+            #=
+            tmp = Implicit(VESDGModel(
+                item.model,
+                grid.numerical,
+                surface_numerical_flux_first_order = item.model.numerics.flux,
+                volume_numerical_flux_first_order = LinearKGVolumeFlux(),
+            ))
+            =#
+            tmp = Implicit(DGModel(
+                item.model,
+                grid.numerical,
+                item.model.numerics.flux,
+                CentralNumericalFluxSecondOrder(),
+                CentralNumericalFluxGradient();
+                direction = item.model.numerics.direction,
+            ))
+            push!(rhs, tmp)
+        end
+    end
+    rhs = Tuple(rhs)
+
+    FT = eltype(rhs[1].model.grid.vgeo)
+    state = init_ode_state(rhs[1].model, FT(0); init_on_cpu = true)
+    
+    return Simulation(model, grid, timestepper, time, callbacks, rhs, state)
+end
+=#
+
 function initialize!(simulation::Simulation; overwrite = false)
     if overwrite
         simulation = Simulation(
