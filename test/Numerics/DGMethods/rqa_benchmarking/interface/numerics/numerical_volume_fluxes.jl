@@ -73,17 +73,22 @@ function numerical_volume_fluctuation_flux_first_order!(
 )
     if fluctuation_gravity
         FT = eltype(D)
-        ρ_1, ρu_1, ρe_1 = state_1.ρ, state_1.ρu, state_1.ρe
-        ρ_2, ρu_2, ρe_2 = state_2.ρ, state_2.ρu, state_2.ρe
+        ρ_1, ρ_2 = aux_1.ρ, aux_2.ρ
         Φ_1, Φ_2 = aux_1.Φ, aux_2.Φ
-        p_1 = pressure(ρ_1, ρu_1, ρe_1, Φ_1)
-        p_2 = pressure(ρ_2, ρu_2, ρe_2, Φ_2)
-        b_1 = ρ_1 / 2p_1
-        b_2 = ρ_2 / 2p_2
 
-        ρ_log = logave(ρ_1, ρ_2)
-        b_avg = ave(b_1, b_2)
-        α = b_avg * ρ_log / 2b_1
+        # old fluctuation gravity
+        # ρ_1, ρu_1, ρe_1 = state_1.ρ, state_1.ρu, state_1.ρe
+        # ρ_2, ρu_2, ρe_2 = state_2.ρ, state_2.ρu, state_2.ρe
+        # p_1 = pressure(ρ_1, ρu_1, ρe_1, Φ_1)
+        # p_2 = pressure(ρ_2, ρu_2, ρe_2, Φ_2)
+        # b_1 = ρ_1 / 2p_1
+        # b_2 = ρ_2 / 2p_2
+        # ρ_log = logave(ρ_1, ρ_2)
+        # b_avg = ave(b_1, b_2)
+        # α = b_avg * ρ_log / 2b_1
+        # end of old fluctation gravity
+
+        α = ave(ρ_1, ρ_2) * 0.5
 
         D.ρu -= α * (Φ_1 - Φ_2) * I
     end
