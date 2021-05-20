@@ -906,17 +906,18 @@ function precompute(::EDMF, bl, args, ts, ::Flux{SecondOrder})
     K_h = K_m / Pr_t
     ρaw_up = vuntuple(i -> up[i].ρaw, N_up)
 
+    w_up = vuntuple(N_up) do i
+        fix_void_up(ρa_up[i], up[i].ρaw / ρa_up[i])
+    end
+
     ρu_gm_tup = Tuple(gm.ρu)
     ρa_en = gm.ρ * env.a
     # TODO: Consider turbulent contribution:
 
-    e_kin_up = vuntuple(N_up) do i
-        FT(1 // 2) * (
-            (gm.ρu[1] * ρ_inv)^2 +
-            (gm.ρu[2] * ρ_inv)^2 +
-            (fix_void_up(up[i].ρa, up[i].ρaw / up[i].ρa))^2
-        )
-    end
+    e_kin_up =
+        FT(1 / 2) .* ntuple(N_up) do i
+            (ρu_gm_tup[1] * ρ_inv)^2 + (ρu_gm_tup[2] * ρ_inv)^2 + w_up[i]^2
+        end
     e_kin_en =
         FT(1 // 2) * ((gm.ρu[1] * ρ_inv)^2 + (gm.ρu[2] * ρ_inv)^2 + env.w)^2
 
@@ -926,7 +927,6 @@ function precompute(::EDMF, bl, args, ts, ::Flux{SecondOrder})
     e_tot_en = total_energy(e_kin_en, _grav * z, ts_en)
     h_tot_en = total_specific_enthalpy(ts_en, e_tot_en)
     h_tot_gm = total_specific_enthalpy(ts, gm.energy.ρe * ρ_inv)
-
 
     massflux_h_tot = sum(
         ntuple(N_up) do i
@@ -946,7 +946,6 @@ function precompute(::EDMF, bl, args, ts, ::Flux{SecondOrder})
         0,
         -gm.ρ * env.a * K_h * en_dif.∇h_tot[3] + massflux_h_tot,
     )
-
 
     return (;
         env,
