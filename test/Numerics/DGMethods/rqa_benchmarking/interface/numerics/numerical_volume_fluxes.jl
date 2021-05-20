@@ -157,6 +157,65 @@ function numerical_volume_conservative_flux_first_order!(
     F.ρq = ρ_avg * u_avg * q_avg
 end
 
+struct LinearKGVolumeFlux <: NumericalFluxFirstOrder end
+function numerical_volume_conservative_flux_first_order!(
+    ::LinearKGVolumeFlux,
+    ::DryAtmosModel,
+    F::Grad,
+    state_1::Vars,
+    aux_1::Vars,
+    state_2::Vars,
+    aux_2::Vars,
+)
+    
+    Φ_1 = aux_1.Φ
+    ρ_1 = state_1.ρ
+    ρu_1 = state_1.ρu
+    ρe_1 = state_1.ρe
+
+    ρuᵣ = ρu_1 * 0
+    p_1 = linearized_pressure(ρ_1, ρe_1, Φ_1)
+
+    # grab reference state
+    ρᵣ_1 = aux_1.ref_state.ρ
+    pᵣ_1 = aux_1.ref_state.p
+    ρeᵣ_1 = aux_1.ref_state.ρe
+
+    # only ρu fluctuates in the non-pressure terms
+    u_1 = ρu_1 / ρᵣ_1 
+    eᵣ_1 = ρeᵣ_1 / ρᵣ_1
+
+    Φ_2 = aux_2.Φ
+    ρ_2 = state_2.ρ
+    ρu_2 = state_2.ρu
+    ρe_2 = state_2.ρe
+
+    ρuᵣ = ρu_2 * 0
+    p_2 = linearized_pressure(ρ_2, ρe_2, Φ_2)
+
+    # grab reference state
+    ρᵣ_2 = aux_2.ref_state.ρ
+    pᵣ_2 = aux_2.ref_state.p
+    ρeᵣ_2 = aux_2.ref_state.ρe
+
+    # only ρu fluctuates in the non-pressure terms
+    u_2 = ρu_2 / ρᵣ_2 
+    eᵣ_2 = ρeᵣ_2 / ρᵣ_2
+
+    # construct averages
+    ρᵣ_avg = ave(ρᵣ_1, ρᵣ_2)
+    eᵣ_avg = ave(eᵣ_1, eᵣ_2)
+    pᵣ_avg = ave(pᵣ_1, pᵣ_2)
+
+    u_avg = ave(u_1, u_2)
+    p_avg = ave(p_1, p_2)
+
+    F.ρ = ρᵣ_avg * u_avg 
+    F.ρu = p_avg * I + ρuᵣ .* ρuᵣ' # the latter term is needed to determine size of I
+    F.ρe = (ρᵣ_avg * eᵣ_avg + pᵣ_avg) * u_avg
+    
+end
+
 struct EntropyConservativeWithPenalty <: NumericalFluxFirstOrder end
 function numerical_flux_first_order!(
     numerical_flux::EntropyConservativeWithPenalty,
