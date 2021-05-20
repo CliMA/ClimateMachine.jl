@@ -54,7 +54,7 @@ include("../models.jl")
 include("../numerics/filters.jl")
 # physics
 include("../physics/physics.jl")
-# include("../grid/orientations.jl")
+include("../grid/orientations.jl")
 include("../physics/advection.jl")
 include("../physics/thermodynamics.jl")
 include("../physics/coriolis.jl")

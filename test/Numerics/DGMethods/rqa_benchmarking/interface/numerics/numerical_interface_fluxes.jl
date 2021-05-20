@@ -207,6 +207,68 @@ function numerical_flux_first_order!(
 end
 
 function numerical_flux_first_order!(
+    ::RoeNumericalFlux,
+    balance_law::DryAtmosLinearModel,
+    fluxᵀn::Vars{S},
+    normal_vector::SVector,
+    state_prognostic⁻::Vars{S},
+    state_auxiliary⁻::Vars{A},
+    state_prognostic⁺::Vars{S},
+    state_auxiliary⁺::Vars{A},
+    t,
+    direction,
+) where {S, A}
+
+    numerical_flux_first_order!(
+        CentralNumericalFluxFirstOrder(),
+        balance_law,
+        fluxᵀn,
+        normal_vector,
+        state_prognostic⁻,
+        state_auxiliary⁻,
+        state_prognostic⁺,
+        state_auxiliary⁺,
+        t,
+        direction,
+    )
+    # atmos = balance_law.atmos
+    # param_set = parameter_set(atmos)
+
+    ρu⁻ = state_prognostic⁻.ρu
+
+    ref_ρ⁻ = state_auxiliary⁻.ref_state.ρ
+    ref_ρe⁻ = state_auxiliary⁻.ref_state.ρe
+    ref_T⁻ = state_auxiliary⁻.ref_state.T
+    ref_p⁻ = state_auxiliary⁻.ref_state.p
+    ref_h⁻ = (ref_ρe⁻ + ref_p⁻) / ref_ρ⁻
+    ref_c⁻ = soundspeed_air(param_set, ref_T⁻)
+
+    pL⁻ = linearized_pressure(state_prognostic⁻.ρ, state_prognostic⁻.ρe, state_auxiliary⁻.Φ)
+
+    ρu⁺ = state_prognostic⁺.ρu
+
+    ref_ρ⁺ = state_auxiliary⁺.ref_state.ρ
+    ref_ρe⁺ = state_auxiliary⁺.ref_state.ρe
+    ref_T⁺ = state_auxiliary⁺.ref_state.T
+    ref_p⁺ = state_auxiliary⁺.ref_state.p
+    ref_h⁺ = (ref_ρe⁺ + ref_p⁺) / ref_ρ⁺
+    ref_c⁺ = soundspeed_air(param_set, ref_T⁺)
+
+    pL⁺ = linearized_pressure(state_prognostic⁺.ρ, state_prognostic⁺.ρe, state_auxiliary⁺.Φ)
+
+    # not sure if arithmetic averages are a good idea here
+    h̃ = (ref_h⁻ + ref_h⁺) / 2
+    c̃ = (ref_c⁻ + ref_c⁺) / 2
+
+    ΔpL = pL⁺ - pL⁻
+    Δρuᵀn = (ρu⁺ - ρu⁻)' * normal_vector
+
+    fluxᵀn.ρ -= ΔpL / 2c̃
+    fluxᵀn.ρu -= c̃ * Δρuᵀn * normal_vector / 2
+    fluxᵀn.ρe -= h̃ * ΔpL / 2c̃
+end
+
+function numerical_flux_first_order!(
     ϕ::RoesanovFlux,
     model::ModelSetup,
     fluxᵀn::Vars{S},
@@ -308,4 +370,89 @@ function numerical_flux_first_order!(
 
 
     return nothing
+end
+
+
+function numerical_flux_first_order!(
+    ::LMARSNumericalFlux,
+    balance_law::DryAtmosModel,
+    fluxᵀn::Vars{S},
+    normal_vector::SVector,
+    state_prognostic⁻::Vars{S},
+    state_auxiliary⁻::Vars{A},
+    state_prognostic⁺::Vars{S},
+    state_auxiliary⁺::Vars{A},
+    t,
+    direction,
+) where {S, A}
+
+    FT = eltype(fluxᵀn)
+    # param_set = parameter_set(balance_law)
+
+    ρ⁻ = state_prognostic⁻.ρ
+    ρu⁻ = state_prognostic⁻.ρu
+    ρe⁻ = state_prognostic⁻.ρe
+    Φ⁻ = state_auxiliary⁻.Φ
+    # ts⁻ = recover_thermo_state(balance_law, state_prognostic⁻, state_auxiliary⁻)
+    ts⁻ = PhaseDry(param_set, internal_energy(ρ⁻,ρe⁻,ρu⁻,Φ⁻), ρ⁻)
+
+    u⁻ = ρu⁻ / ρ⁻
+    e⁻ = ρe⁻ / ρ⁻
+    uᵀn⁻ = u⁻' * normal_vector
+    p⁻ = air_pressure(ts⁻)
+    # ref_state = reference_state(balance_law)
+    # if ref_state isa HydrostaticState && ref_state.subtract_off
+    #     p⁻ -= state_auxiliary⁻.ref_state.p
+    # end
+    c⁻ = soundspeed_air(ts⁻)
+    h⁻ = total_specific_enthalpy(ts⁻, e⁻)
+
+    ρ⁺ = state_prognostic⁺.ρ
+    ρu⁺ = state_prognostic⁺.ρu
+    ρe⁺ = state_prognostic⁺.ρe
+    Φ⁺ = state_auxiliary⁺.Φ
+    # ts⁺ = recover_thermo_state(balance_law, state_prognostic⁺, state_auxiliary⁺)
+    ts⁺ = PhaseDry(param_set, internal_energy(ρ⁺,ρe⁺,ρu⁺,Φ⁺), ρ⁺)
+
+    u⁺ = ρu⁺ / ρ⁺
+    e⁺ = ρe⁺ / ρ⁺
+    uᵀn⁺ = u⁺' * normal_vector
+    p⁺ = air_pressure(ts⁺)
+    # if ref_state isa HydrostaticState && ref_state.subtract_off
+    #     p⁺ -= state_auxiliary⁺.ref_state.p
+    # end
+    c⁺ = soundspeed_air(ts⁺)
+    h⁺ = total_specific_enthalpy(ts⁺, e⁺)
+
+    # Eqn (49), (50), β the tuning parameter
+    β = FT(1)
+    u_half = 1 / 2 * (uᵀn⁺ + uᵀn⁻) - β * 1 / (ρ⁻ + ρ⁺) / c⁻ * (p⁺ - p⁻)
+    p_half = 1 / 2 * (p⁺ + p⁻) - β * ((ρ⁻ + ρ⁺) * c⁻) / 4 * (uᵀn⁺ - uᵀn⁻)
+
+    # Eqn (46), (47)
+    ρ_b = u_half > FT(0) ? ρ⁻ : ρ⁺
+    ρu_b = u_half > FT(0) ? ρu⁻ : ρu⁺
+    ρh_b = u_half > FT(0) ? ρ⁻ * h⁻ : ρ⁺ * h⁺
+
+    # Update fluxes Eqn (18)
+    fluxᵀn.ρ = ρ_b * u_half
+    fluxᵀn.ρu = ρu_b * u_half .+ p_half * normal_vector
+    fluxᵀn.ρe = ρh_b * u_half
+
+    # if moisture_model(balance_law) isa EquilMoist
+    #     ρq⁻ = state_prognostic⁻.moisture.ρq_tot
+    #     q⁻ = ρq⁻ / ρ⁻
+    #     ρq⁺ = state_prognostic⁺.moisture.ρq_tot
+    #     q⁺ = ρq⁺ / ρ⁺
+    #     ρq_b = u_half > FT(0) ? ρq⁻ : ρq⁺
+    #     fluxᵀn.moisture.ρq_tot = ρq_b * u_half
+    # end
+    # if !(tracer_model(balance_law) isa NoTracers)
+    #     ρχ⁻ = state_prognostic⁻.tracers.ρχ
+    #     χ⁻ = ρχ⁻ / ρ⁻
+    #     ρχ⁺ = state_prognostic⁺.tracers.ρχ
+    #     χ⁺ = ρχ⁺ / ρ⁺
+    #     ρχ_b = u_half > FT(0) ? ρχ⁻ : ρχ⁺
+    #     fluxᵀn.tracers.ρχ = ρχ_b * u_half
+    # end
 end
