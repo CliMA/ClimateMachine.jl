@@ -1,5 +1,5 @@
 # # Lamont
-
+# to do - compare STAMP to swats, get soil characeteristics for the soil here. make sure IC are correct.
 # # Preliminary setup
 
 using MPI
@@ -10,6 +10,7 @@ using Dierckx
 using DelimitedFiles
 using Plots
 using Dates
+using NCDatasets
 
 using CLIMAParameters
 struct EarthParameterSet <: AbstractEarthParameterSet end
@@ -52,22 +53,30 @@ wpf = WaterParamFunctions(FT; Ksat = loam_ks, S_s = 1e-4, θ_r = θ_r);
 soil_param_functions = SoilParamFunctions(FT; porosity = ν, water = wpf);
 
 ### Read in flux data
-cutoff1 = DateTime(2005,06,22)
-cutoff2 = DateTime(2005,09,01)
-p = ((tss .<cutoff2) .+ (tss .> cutoff1)) .==2
-foo = (tss[p] .-tss[p][1])./1000
-seconds = [k.value for k in foo]
-lhf = data[:, columns .=="LE"][p]
-g =  data[:, columns .=="G"][p]
-precip = data[:,columns.=="P"][p] # mm - need to convert to a rate
-precip_rate = precip*1e-3 ./ 30 ./ 60 # m/s
-L = 2.466e6
+cutoff1 = DateTime(2016,04,01)
+cutoff2 = DateTime(2016,07,01)
+filepath = "data/lamont/arms_flux/sgparmbeatmC1.c1.20160101.003000.nc"
+ds = Dataset(filepath)
+times = ds["time"][:]
+p = ((times .<=cutoff2) .+ (times .>= cutoff1)) .== 2
+precip_rate = ds["precip_rate_sfc"][p] # mm/hr
+lhf_baebbr = ds["latent_heat_flux_baebbr"][p]
+times = ds["time"][p]
+close(ds)
+keep1 = (typeof.(lhf_baebbr) .!= Missing)
+lhf = lhf_baebbr[keep1]
+keep2 = (typeof.(precip_rate) .!= Missing)
+precip_rate = precip_rate[keep2] ./1000 ./ 3600
+Lv = 2.5008e6
 ρ = 1e3
-evap_rate = lhf ./ L ./ ρ 
-evap_measured = (lhf .!== -9999)
+evap_rate = lhf ./ Lv ./ρ
+
+foo = (times .-times[1])./1000
+seconds = [k.value for k in foo]
+
 # Create interpolating function for evap_rate. same for P. then we have a net water flux
-E = Spline1D(seconds[evap_measured], evap_rate[evap_measured])
-P  = Spline1D(seconds, precip_rate)
+E = Spline1D(seconds[keep1], evap_rate)
+P  = Spline1D(seconds[keep2], precip_rate)
 function net_water_flux(t::Real, P::Spline1D, E::Spline1D)
     net = -P(t) +E(t)
     return net
@@ -78,11 +87,11 @@ incident = (t) -> net_water_flux(t, P, E)
 bottom_flux = (aux, t) -> aux.soil.water.K * eltype(aux)(-1)
 surface_flux = (aux, t) -> -incident(t)
 N_poly = 1;
-nelem_vert = 40;
+nelem_vert = 20;
 
 # Specify the domain boundaries.
 zmax = FT(0);
-zmin = FT(-2);
+zmin = FT(-1);
 Δ = FT((zmax-zmin)/nelem_vert/2)
 bc = LandDomainBC(
 bottom_bc = LandComponentBC(
@@ -96,13 +105,12 @@ surface_bc = LandComponentBC(
 )
 )
 
-depths = [5, 15,25,35,60,85,125,175] .* (-0.01) # m
-data = readdlm("swc_depth.txt", '\t', String)
+depths = [5, 10,20,50,75] .* (-0.01) # m
+data = readdlm("./data/lamont/stamps_swc_depth.txt", '\t', String)
 ts = DateTime.(data[:,1], "yyyymmdd")
-soil_data = tryparse.(Float64, data[:, 3:end])
-keep = ((ts .< cutoff2) .+ (ts .> cutoff1)) .==2
-swc = FT.(soil_data[keep,:][1,:])
-depths= depths[2:end]
+soil_data = tryparse.(Float64, data[:, 2:end-1])
+keep = ((ts .<= cutoff2) .+ (ts .>= cutoff1)) .==2
+swc = FT.(soil_data[keep,:][1,:]).*0.01
 θ = Spline1D(reverse(depths), reverse(swc), k=1)
 
 
@@ -231,7 +239,7 @@ N = length(dons_arr)
 
 mask = z .== depths[1]
 l1 = [dons_arr[k]["soil.water.ϑ_l"][mask][1] for k in 1:N]
-mask = z .== round(depths[3].*100)/100
+mask = z .== depths[3]
 l3 = [dons_arr[k]["soil.water.ϑ_l"][mask][1] for k in 1:N]
 mask = z .== depths[2]
 l2 = [dons_arr[k]["soil.water.ϑ_l"][mask][1] for k in 1:N]
@@ -239,13 +247,11 @@ mask = z .== depths[4]
 l4 = [dons_arr[k]["soil.water.ϑ_l"][mask][1] for k in 1:N]
 mask = z .== depths[5]
 l5 = [dons_arr[k]["soil.water.ϑ_l"][mask][1] for k in 1:N]
-mask = z .== depths[6]
-l6 = [dons_arr[k]["soil.water.ϑ_l"][mask][1] for k in 1:N]
 
 T = typeof(cutoff2 - cutoff1)
 steps = T.(time_data*1000)
 times = cutoff1 .+ steps
-
+soil_data = soil_data ./ 100
 plot1 = plot(times,l1, label = "", color = "red", title = "Layer 1")
 scatter!(ts[keep], soil_data[keep,1], ms = 2, color = "blue", label = "")
 plot!(ylim = [0,0.4])
@@ -262,8 +268,4 @@ plot!(ylim = [0,0.4])
 
 plot5 = plot(times,l5, label = "", color = "red", title = "Layer 5")
 scatter!(ts[keep], soil_data[keep,5], ms = 2, color = "blue", label = "")
-plot!(ylim = [0,0.4])
-
-plot6 = plot(times,l6, label = "", color = "red", title = "Layer 6")
-scatter!(ts[keep], soil_data[keep,6], ms = 2, color = "blue", label = "")
 plot!(ylim = [0,0.4])

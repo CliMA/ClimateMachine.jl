@@ -2,25 +2,25 @@ using NCDatasets
 using Dates
 using Statistics
 using DelimitedFiles
-start = DateTime(2005,06,22)
-endtime = DateTime(2005,09,01)
+start = DateTime(2016,04,01)
+endtime = DateTime(2016,07,01)
 n = 1
 output_ln = []
 output_dir = @__DIR__;
-mydir = joinpath(output_dir, "data/lamont/arms_stamp")
+mydir = joinpath(output_dir, "data/lamont/arms_stamps")
 for (root, dirs, files) in walkdir(mydir)
     filepaths = joinpath.(root, files)
     for filepath in filepaths
         println(filepath)
-        datestring = filepath[120:127]# fix this
+        datestring = filepath[127:134]# fix this
         
         println(datestring)
         date = DateTime(datestring,"yyyymmdd")
-        if (date < endtime ) & (date > start)
+        if (date <= endtime ) & (date >= start)
             ds = Dataset(filepath)
-            swc = ds[""soil_specific_water_content_west""][:]
-            if size(swc) == (8, 24)
-                depths = reshape(repeat(ds["depth"][:], 24), (8,24))
+            swc = ds["soil_specific_water_content_west"][:]
+            if size(swc) == (6, 48)
+                depths = reshape(repeat(ds["depth"][:], 48), (6,48))
                 mask = ds["qc_soil_specific_water_content_west"][:].== 0
                 
                 d = depths[mask]
@@ -35,7 +35,7 @@ for (root, dirs, files) in walkdir(mydir)
                         append!(sc,[mean(swc[newmask])])
                     end
                 end
-                output = reshape(append!([datestring], string.(sc)),(1, 9))
+                output = reshape(append!([datestring], string.(sc)),(1, 7))
                 if n == 1
                     global output_ln = output
                     global n = 2
