@@ -108,6 +108,7 @@ end
                      + ρuˡᵃᵗ(𝒫, lon(x...), lat(x...), rad(x...)) * ϕ̂(x...)
                      + ρuˡᵒⁿ(𝒫, lon(x...), lat(x...), rad(x...)) * λ̂(x...) )
 ρeᶜᵃʳᵗ(𝒫, x...) = ρe(𝒫, lon(x...), lat(x...), rad(x...))
+ρqᶜᵃʳᵗ(𝒫, x...) = 0.0
 
 ########
 # Set up model physics
@@ -150,7 +151,7 @@ linear_physics = Physics(
 model = DryAtmosModel(
     physics = physics,
     boundary_conditions = (5, 6),
-    initial_conditions = (ρ = ρ₀ᶜᵃʳᵗ, ρu = ρu⃗₀ᶜᵃʳᵗ, ρe = ρeᶜᵃʳᵗ),
+    initial_conditions = (ρ = ρ₀ᶜᵃʳᵗ, ρu = ρu⃗₀ᶜᵃʳᵗ, ρe = ρeᶜᵃʳᵗ, ρq = ρqᶜᵃʳᵗ),
     numerics = (
         flux = RusanovNumericalFlux(),
     ),
@@ -179,7 +180,7 @@ cfl = 3
 Δt = cfl * dx / 330.0
 start_time = 0
 end_time = 30 * 24 * 3600
-method = IMEX() # ARK2GiraldoKellyConstantinescu
+method = IMEX() 
 callbacks = (
   Info(),
   CFL(),
@@ -200,13 +201,4 @@ simulation = Simulation(
 # Run the simulation
 ########
 # initialize!(simulation)
-# evolve!(simulation)
-
-state         = simulation.state
-rhs           = simulation.rhs
-timestepper   = simulation.timestepper
-t0            = simulation.time.start
-tend          = simulation.time.finish
-Δt            = timestepper.timestep
-
-odesolver = construct_odesolver(timestepper.method, rhs, state, Δt, t0 = t0) 
+prototype_evolve!(simulation)

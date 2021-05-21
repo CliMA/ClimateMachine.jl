@@ -73,7 +73,7 @@ function numerical_volume_fluctuation_flux_first_order!(
 )
     if fluctuation_gravity
         FT = eltype(D)
-        ρ_1, ρ_2 = aux_1.ρ, aux_2.ρ
+        ρ_1, ρ_2 = state_1.ρ, state_2.ρ
         Φ_1, Φ_2 = aux_1.Φ, aux_2.Φ
 
         # old fluctuation gravity

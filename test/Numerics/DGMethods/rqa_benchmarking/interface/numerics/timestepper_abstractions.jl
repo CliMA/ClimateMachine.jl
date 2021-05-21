@@ -1,6 +1,5 @@
 abstract type AbstractRate end
 
-
 # TODO: Add more methods here such as MultiRate, Explicit [can't reuse word]
 Base.@kwdef struct IMEX{ℱ}
     method::ℱ
