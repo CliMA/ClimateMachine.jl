@@ -7,7 +7,10 @@ how_to_guides = Any[
         "Thermodynamics" => "HowToGuides/Common/Thermodynamics.md",
         "Universal Functions" => "HowToGuides/Common/UniversalFunctions.md",
     ],
-    "Balance Laws" => Any["How to make a balance law" => "HowToGuides/BalanceLaws/how_to_make_a_balance_law.md",],
+    "Balance Laws" => Any[
+        "How to make a balance law" => "HowToGuides/BalanceLaws/how_to_make_a_balance_law.md",
+        "How to define boundary conditions" => "HowToGuides/BalanceLaws/how_to_define_bcs.md",
+    ],
     "Atmos" => Any[
         "Temperature profiles" => "HowToGuides/Atmos/TemperatureProfiles.md",
         "Reference profiles" => "HowToGuides/Atmos/AtmosReferenceState.md",
