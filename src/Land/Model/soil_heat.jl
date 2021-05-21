@@ -138,8 +138,10 @@ function land_nodal_update_auxiliary_state!(
 )
 
     param_set = parameter_set(land)
+    ν  = soil.param_functions.porosity(aux)
+
     ϑ_l, θ_i = get_water_content(land.soil.water, aux, state, t)
-    eff_porosity = soil.param_functions.porosity - θ_i
+    eff_porosity = ν - θ_i
     θ_l = volumetric_liquid_fraction(ϑ_l, eff_porosity)
     ρc_ds = soil.param_functions.ρc_ds
     ρc_s = volumetric_heat_capacity(θ_l, θ_i, ρc_ds, param_set)
@@ -158,8 +160,9 @@ function compute_gradient_argument!(
 )
 
     param_set = parameter_set(land)
+    ν  = soil.param_functions.porosity(aux)
     ϑ_l, θ_i = get_water_content(land.soil.water, aux, state, t)
-    eff_porosity = soil.param_functions.porosity - θ_i
+    eff_porosity = ν - θ_i
     θ_l = volumetric_liquid_fraction(ϑ_l, eff_porosity)
     ρc_ds = soil.param_functions.ρc_ds
     ρc_s = volumetric_heat_capacity(θ_l, θ_i, ρc_ds, param_set)
@@ -178,11 +181,12 @@ function compute_gradient_flux!(
     t::Real,
 )
     param_set = parameter_set(land)
+    ν  = soil.param_functions.porosity(aux)
     ϑ_l, θ_i = get_water_content(land.soil.water, aux, state, t)
-    eff_porosity = soil.param_functions.porosity - θ_i
+    eff_porosity = ν - θ_i
     θ_l = volumetric_liquid_fraction(ϑ_l, eff_porosity)
     κ_dry = k_dry(param_set, soil.param_functions)
-    S_r = relative_saturation(θ_l, θ_i, soil.param_functions.porosity)
+    S_r = relative_saturation(θ_l, θ_i, ν)
     kersten = kersten_number(θ_i, S_r, soil.param_functions)
     κ_sat = saturated_thermal_conductivity(
         θ_l,

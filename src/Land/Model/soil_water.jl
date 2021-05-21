@@ -175,7 +175,7 @@ function soil_init_aux!(
     FT = eltype(aux)
     T = get_initial_temperature(land.soil.heat, aux, FT(0.0))
     θ_r = soil.param_functions.water.θ_r(aux)
-    ν = soil.param_functions.porosity #(aux)
+    ν = soil.param_functions.porosity(aux)
     S_s = soil.param_functions.water.S_s(aux)
     Ksat = soil.param_functions.water.Ksat(aux)
 
@@ -206,7 +206,7 @@ function land_nodal_update_auxiliary_state!(
     aux::Vars,
     t::Real,
 )
-    ν = soil.param_functions.porosity #(aux)
+    ν = soil.param_functions.porosity(aux)
     S_s = soil.param_functions.water.S_s(aux)
     Ksat = soil.param_functions.water.Ksat(aux)
     θ_r = soil.param_functions.water.θ_r(aux)
@@ -239,7 +239,7 @@ function compute_gradient_argument!(
     aux::Vars,
     t::Real,
 )
-    ν = soil.param_functions.porosity #(aux)
+    ν = soil.param_functions.porosity(aux)
     S_s = soil.param_functions.water.S_s(aux)
     θ_r = soil.param_functions.water.θ_r(aux)
     ϑ_l = state.soil.water.ϑ_l

@@ -104,7 +104,7 @@ function compute_surface_grad_bc(
     water = soil.water
     param_functions = soil.param_functions
     hydraulics = water.hydraulics(aux⁻)
-    ν = param_functions.porosity
+    ν = param_functions.porosity(aux⁻)
     θ_r = param_functions.water.θ_r(aux⁻)
     S_s = param_functions.water.S_s(aux⁻)
 

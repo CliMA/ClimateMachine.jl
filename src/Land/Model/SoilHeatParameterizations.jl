@@ -281,7 +281,7 @@ function k_dry(
 ) where {PS}
     κ_dry_parameter = soil_param_functions.κ_dry_parameter
     FT = typeof(κ_dry_parameter)
-    porosity = soil_param_functions.porosity
+    porosity = soil_param_functions.porosity#has to be fixed
     ρp = soil_param_functions.ρp
     κ_solid = soil_param_functions.κ_solid
     κ_air = FT(K_therm(param_set))

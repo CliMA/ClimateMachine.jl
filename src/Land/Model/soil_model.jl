@@ -112,7 +112,7 @@ end
 
 function SoilParamFunctions(
     ::Type{FT};
-    porosity::FT = FT(NaN),
+    porosity::Union{Function, AbstractFloat} = (aux) -> eltype(aux)(0.0),
     ν_ss_gravel::FT = FT(NaN),
     ν_ss_om::FT = FT(NaN),
     ν_ss_quartz::FT = FT(NaN),
@@ -126,8 +126,10 @@ function SoilParamFunctions(
     κ_dry_parameter::FT = FT(0.053),
     water::AbstractSoilParameterFunctions{FT} = WaterParamFunctions(FT;),
 ) where {FT}
+    fporosity = porosity isa AbstractFloat ? (aux) -> FT(porosity) : (aux) -> FT(porosity(aux))
+
     args = (
-        porosity,
+        fporosity,
         ν_ss_gravel,
         ν_ss_om,
         ν_ss_quartz,
