@@ -176,10 +176,10 @@ linear_model = DryAtmosLinearModel(
 # element_size = (domain_height / numelem_vert)
 # acoustic_speed = soundspeed_air(param_set, FT(330))
 dx = min_node_distance(grid.numerical)
-cfl = 6
+cfl = 14 # 14 for 10 days, 7.5 for 200+ days
 Δt = cfl * dx / 330.0
 start_time = 0
-end_time = 30 * 24 * 3600
+end_time = 10 * 24 * 3600
 method = IMEX() 
 callbacks = (
   Info(),
