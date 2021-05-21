@@ -43,7 +43,17 @@ Any `P <: NumericalFluxGradient` should define methods for:
         Q⁺, Qstate_gradient_flux⁺, Qaux⁺,
         t
     )
+"""
+abstract type NumericalFluxGradient end
 
+"""
+    CentralNumericalFluxGradient <: NumericalFluxGradient
+
+"""
+struct CentralNumericalFluxGradient <: NumericalFluxGradient end
+
+
+"""
     numerical_boundary_flux_gradient!(
         gnf::P,
         balance_law::BalanceLaw,
@@ -55,14 +65,9 @@ Any `P <: NumericalFluxGradient` should define methods for:
         t
     )
 
+Define the gradient numerical flux at the boundary.
 """
-abstract type NumericalFluxGradient end
-
-"""
-    CentralNumericalFluxGradient <: NumericalFluxGradient
-
-"""
-struct CentralNumericalFluxGradient <: NumericalFluxGradient end
+function numerical_boundary_flux_gradient! end
 
 function numerical_flux_gradient!(
     ::CentralNumericalFluxGradient,
@@ -142,9 +147,12 @@ where
 - `normal_vector⁻` is the unit normal
 - `Q⁻`/`Q⁺` are the minus/positive state arrays
 - `t` is the time
+"""
+abstract type NumericalFluxFirstOrder end
 
-An optional method can also be defined for
+function numerical_flux_first_order! end
 
+"""
     numerical_boundary_flux_first_order!(
         numerical_flux::N,
         balance_law::BalanceLaw,
@@ -155,10 +163,9 @@ An optional method can also be defined for
         bctype, t
     )
 
+Defines the first order numerical flux on the boundary.
 """
-abstract type NumericalFluxFirstOrder end
-
-function numerical_flux_first_order! end
+function numerical_boundary_flux_first_order! end
 
 function numerical_boundary_flux_first_order!(
     numerical_flux::NumericalFluxFirstOrder,
@@ -633,9 +640,12 @@ where
 - `Qstate_gradient_flux⁻`/`Qstate_gradient_flux⁺` are the minus/positive diffusive state arrays
 - `Qstate_gradient_flux⁻`/`Qstate_gradient_flux⁺` are the minus/positive auxiliary state arrays
 - `t` is the time
+"""
+abstract type NumericalFluxSecondOrder end
 
-An optional method can also be defined for
+function numerical_flux_second_order! end
 
+"""
     numerical_boundary_flux_second_order!(
         numerical_flux::N,
         balance_law::BalanceLaw,
@@ -647,11 +657,8 @@ An optional method can also be defined for
         t
     )
 
+Defines the second order numerical flux on the boundary.
 """
-abstract type NumericalFluxSecondOrder end
-
-function numerical_flux_second_order! end
-
 function numerical_boundary_flux_second_order! end
 
 """
@@ -729,6 +736,24 @@ function numerical_flux_divergence!(
         (parent(grad⁺) .+ parent(grad⁻))' * (normal_vector / 2)
 end
 
+"""
+    numerical_boundary_flux_divergence!(
+        numerical_flux,
+        bctype,
+        balance_law::BalanceLaw,
+        div_penalty::Vars{GL},
+        normal_vector::SVector,
+        grad⁻::Grad{GL},
+        state_auxiliary⁻::Vars{A},
+        grad⁺::Grad{GL},
+        state_auxiliary⁺::Vars{A},
+        t,
+    ) where {GL, A}
+
+Define the numerical flux divergence at the boundary.
+"""
+function numerical_boundary_flux_divergence! end
+
 function numerical_boundary_flux_divergence!(
     numerical_flux::CentralNumericalFluxDivergence,
     bctype,
@@ -788,6 +813,26 @@ function numerical_flux_higher_order!(
         t,
     )
 end
+
+"""
+    numerical_boundary_flux_higher_order!(
+        numerical_flux,
+        bctype,
+        balance_law::BalanceLaw,
+        hyperdiff::Vars{HD},
+        normal_vector::SVector,
+        lap⁻::Vars{GL},
+        state_prognostic⁻::Vars{S},
+        state_auxiliary⁻::Vars{A},
+        lap⁺::Vars{GL},
+        state_prognostic⁺::Vars{S},
+        state_auxiliary⁺::Vars{A},
+        t,
+    ) where {HD, GL, S, A}
+
+Define the higher order numerical fluxes on the boundary.
+"""
+function numerical_boundary_flux_higher_order! end
 
 function numerical_boundary_flux_higher_order!(
     numerical_flux::CentralNumericalFluxHigherOrder,
