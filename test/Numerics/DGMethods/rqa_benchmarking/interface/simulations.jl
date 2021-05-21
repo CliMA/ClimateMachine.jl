@@ -73,11 +73,11 @@ end
 
 # prep for timestepping changes 
 function Simulation(model::Tuple{AbstractRate, AbstractRate}; grid, timestepper, time, callbacks)
-    println("hello I am being called")
+    println("Constructing DG Models")
     rhs = []
     for item in model
         if item isa Explicit
-            println("explicit model")
+            println("constructing explicit model")
             tmp = Explicit(ESDGModel(
                 item.model,
                 grid.numerical,
@@ -86,7 +86,7 @@ function Simulation(model::Tuple{AbstractRate, AbstractRate}; grid, timestepper,
             ))
             push!(rhs, tmp)
         elseif item isa Implicit
-            println("implicit model")
+            println("constructing implicit models")
             #=
             tmp = Implicit(VESDGModel(
                 item.model,
@@ -109,8 +109,10 @@ function Simulation(model::Tuple{AbstractRate, AbstractRate}; grid, timestepper,
     rhs = Tuple(rhs)
 
     FT = eltype(rhs[1].model.grid.vgeo)
+    println("constructing initial state")
     state = init_ode_state(rhs[1].model, FT(0); init_on_cpu = true)
-    
+    println("done")
+
     return Simulation(model, grid, timestepper, time, callbacks, rhs, state)
 end
 
