@@ -64,12 +64,12 @@ function vgn(z::F) where {F}
     if z > F(-0.2)
         #silt loam
         n = F(1.4)
-    elseif z > F(-0.5)
+    elseif z > F(-0.3)
         #clay
         n = F(1.09)
     else
-        #silty clay loam
-        n = F(1.23)
+        #clay loam
+        n = F(1.31)
     end
     return n
 end
@@ -77,12 +77,12 @@ function vgα(z::F) where {F}
     if z > F(-0.2)
         #silt loam
         α = F(2)
-    elseif z > F(-0.5)
+    elseif z > F(-0.3)
         #clay
         α = F(0.8)
     else
-        #silty clay loam
-        α = F(1.0)
+        #clay loam
+        α = F(1.9)
     end
     return α
 end
@@ -91,12 +91,12 @@ function ks(z::F) where {F}
     if z > F(-0.2)
         #silt loam
         k = F(0.45/3600/100)
-    elseif z > F(-0.5)
+    elseif z > F(-0.3)
         #clay
         k = F(0.2/3600/100)
     else
-        #silty clay loam
-        k = F(0.07/3600/100)
+        # clay loam
+        k = F(0.26/3600/100)
     end
     return k
 end
@@ -204,11 +204,11 @@ bottom_flux = (aux, t) -> aux.soil.water.K * eltype(aux)(-1)
 surface_flux = (aux, t) -> -incident(t)
 surface_zero_flux = (aux, t) -> eltype(aux)(0)
 N_poly = 1;
-nelem_vert = 25;
+nelem_vert = 20;
 
 # Specify the domain boundaries.
 zmax = FT(0);
-zmin = FT(-1.25);
+zmin = FT(-1);
 Δ = FT((zmax-zmin)/nelem_vert/2)
 bc = LandDomainBC(
 bottom_bc = LandComponentBC(
