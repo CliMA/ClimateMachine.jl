@@ -70,14 +70,14 @@ function Simulation(model::Tuple; grid, timestepper, time, callbacks)
     return Simulation(model, grid, timestepper, time, callbacks, rhs, state)
 end
 
-#=
+
 # prep for timestepping changes 
 function Simulation(model::Tuple{AbstractRate, AbstractRate}; grid, timestepper, time, callbacks)
-    println("hello I am being called")
+    println("Constructing DG Models")
     rhs = []
     for item in model
         if item isa Explicit
-            println("explicit model")
+            println("constructing explicit model")
             tmp = Explicit(ESDGModel(
                 item.model,
                 grid.numerical,
@@ -86,7 +86,7 @@ function Simulation(model::Tuple{AbstractRate, AbstractRate}; grid, timestepper,
             ))
             push!(rhs, tmp)
         elseif item isa Implicit
-            println("implicit model")
+            println("constructing implicit models")
             #=
             tmp = Implicit(VESDGModel(
                 item.model,
@@ -109,11 +109,13 @@ function Simulation(model::Tuple{AbstractRate, AbstractRate}; grid, timestepper,
     rhs = Tuple(rhs)
 
     FT = eltype(rhs[1].model.grid.vgeo)
+    println("constructing initial state")
     state = init_ode_state(rhs[1].model, FT(0); init_on_cpu = true)
-    
+    println("done")
+
     return Simulation(model, grid, timestepper, time, callbacks, rhs, state)
 end
-=#
+
 
 function initialize!(simulation::Simulation; overwrite = false)
     if overwrite
@@ -233,6 +235,50 @@ function evolve!(simulation::Simulation{<:Tuple}; refDat = ())
         split_explicit_implicit = false,
     )
 
+    # Make callbacks from callbacks tuple
+    cbvector = create_callbacks(simulation, odesolver)
+
+    # Perform evolution of simulations
+    if isempty(cbvector)
+        solve!(state, odesolver; timeend = tend, adjustfinalstep = false)
+    else
+        solve!(
+            state,
+            odesolver;
+            timeend = tend,
+            callbacks = cbvector,
+            adjustfinalstep = false,
+        )
+    end
+
+    # Check results against reference if StateCheck callback is used
+    # TODO: TB: I don't think this should live within this function
+    if any(typeof.(simulation.callbacks) .<: StateCheck)
+      check_inds = findall(typeof.(simulation.callbacks) .<: StateCheck)
+      @assert length(check_inds) == 1 "Only use one StateCheck in callbacks!"
+
+      ClimateMachine.StateCheck.scprintref(cbvector[check_inds[1]])
+      if length(refDat) > 0
+        @test ClimateMachine.StateCheck.scdocheck(cbvector[check_inds[1]], refDat)
+      end
+    end
+
+    return nothing
+end
+
+function prototype_evolve!(simulation::Simulation{<:Tuple}; refDat = ())
+    # Unpack everything we need in this routine here
+    model         = simulation.model[1]
+    state         = simulation.state
+    rhs           = simulation.rhs
+    grid          = simulation.grid.numerical
+    timestepper   = simulation.timestepper
+    t0            = simulation.time.start
+    tend          = simulation.time.finish
+    Δt            = timestepper.timestep
+    
+    # Instantiate time stepping method    
+    odesolver = construct_odesolver(timestepper.method, rhs, state, Δt, t0 = t0) 
     # Make callbacks from callbacks tuple
     cbvector = create_callbacks(simulation, odesolver)
 

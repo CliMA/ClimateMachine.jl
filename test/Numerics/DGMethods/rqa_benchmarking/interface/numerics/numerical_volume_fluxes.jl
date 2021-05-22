@@ -511,6 +511,7 @@ function wavespeed(
     t::Real,
     direction,
 )
+    #=
     ρ = state.ρ
     ρu = state.ρu
     ρe = state.ρe
@@ -520,4 +521,8 @@ function wavespeed(
     u = ρu / ρ
     uN = abs(dot(nM, u))
     return uN + soundspeed(ρ, p, model.parameters.γ)
+    return uN + soundspeed(ρ, p)
+    =#
+    ref = aux.ref_state
+    return soundspeed(ref.ρ, ref.p)
 end

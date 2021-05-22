@@ -1,6 +1,7 @@
 abstract type AbstractRate end
 
-Base.@kwdef struct IMEX{ℱ} <: AbstractAdditiveRungeKutta
+# TODO: Add more methods here such as MultiRate, Explicit [can't reuse word]
+Base.@kwdef struct IMEX{ℱ}
     method::ℱ
 end
 
@@ -22,6 +23,7 @@ function Explicit(model::SpaceDiscretization; rate = 1)
     return Explicit(model = model, rate = rate)
 end
 
+# perhaps "solver_method" instead of "method"?
 Base.@kwdef struct Implicit{ℳ, ℛ, 𝒜} <: AbstractRate
     model::ℳ
     rate::ℛ = 1
@@ -69,8 +71,13 @@ function construct_odesolver(method, rhs, state, Δt; t0 = 0, split_explicit_imp
     # put error checking here 
     explicit_rhs = explicit(rhs)
     implicit_rhs = implicit(rhs)
-    @assert length(explicit_rhs) = 1
-    @assert length(implicit_rhs) = 0
+    number_implicit = length(implicit_rhs)
+    number_explicit = length(explicit_rhs) 
+    if (number_implicit != 0) | (number_explicit != 1)
+        error_string = "Explicit methods require one (and only one) explicit model"
+        error_string *= "\n for example, a tuple of the form  (Explicit(model),) or just (model,)"
+        @error(error_string)
+    end
 
     explicit_model = explicit_rhs[1]
 

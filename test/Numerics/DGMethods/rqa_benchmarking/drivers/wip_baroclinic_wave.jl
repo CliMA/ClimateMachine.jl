@@ -108,6 +108,7 @@ end
                      + ρuˡᵃᵗ(𝒫, lon(x...), lat(x...), rad(x...)) * ϕ̂(x...)
                      + ρuˡᵒⁿ(𝒫, lon(x...), lat(x...), rad(x...)) * λ̂(x...) )
 ρeᶜᵃʳᵗ(𝒫, x...) = ρe(𝒫, lon(x...), lat(x...), rad(x...))
+ρqᶜᵃʳᵗ(𝒫, x...) = 0.0
 
 ########
 # Set up model physics
@@ -126,7 +127,7 @@ physics = Physics(
         ESDGNonLinearAdvection(eos = eos),
         PressureDivergence(eos = eos),
     ),
-    sources     = sources = (
+    sources     = (
         DeepShellCoriolis{FT}(Ω = parameters.Ω),
     ),
 )
@@ -150,7 +151,7 @@ linear_physics = Physics(
 model = DryAtmosModel(
     physics = physics,
     boundary_conditions = (5, 6),
-    initial_conditions = (ρ = ρ₀ᶜᵃʳᵗ, ρu = ρu⃗₀ᶜᵃʳᵗ, ρe = ρeᶜᵃʳᵗ),
+    initial_conditions = (ρ = ρ₀ᶜᵃʳᵗ, ρu = ρu⃗₀ᶜᵃʳᵗ, ρe = ρeᶜᵃʳᵗ, ρq = ρqᶜᵃʳᵗ),
     numerics = (
         flux = RusanovNumericalFlux(),
     ),
@@ -175,11 +176,11 @@ linear_model = DryAtmosLinearModel(
 # element_size = (domain_height / numelem_vert)
 # acoustic_speed = soundspeed_air(param_set, FT(330))
 dx = min_node_distance(grid.numerical)
-cfl = 3
+cfl = 14 # 14 for 10 days, 7.5 for 200+ days
 Δt = cfl * dx / 330.0
 start_time = 0
-end_time = 30 * 24 * 3600
-method = IMEX() # ARK2GiraldoKellyConstantinescu
+end_time = 10 * 24 * 3600
+method = IMEX() 
 callbacks = (
   Info(),
   CFL(),
@@ -200,13 +201,61 @@ simulation = Simulation(
 # Run the simulation
 ########
 # initialize!(simulation)
-# evolve!(simulation)
+# prototype_evolve!(simulation)
 
-state         = simulation.state
-rhs           = simulation.rhs
-timestepper   = simulation.timestepper
-t0            = simulation.time.start
-tend          = simulation.time.finish
-Δt            = timestepper.timestep
 
-odesolver = construct_odesolver(timestepper.method, rhs, state, Δt, t0 = t0) 
+## 
+linear_eos = linearize(physics.eos)
+linear_physics = Physics(
+    orientation = physics.orientation,
+    ref_state   = physics.ref_state,
+    eos         = linear_eos,
+    lhs         = (
+        ESDGLinearAdvection(),
+        PressureDivergence(eos = linear_eos),
+    ),
+    sources     = (),
+)
+
+linear_model = DryAtmosModel(
+    physics = linear_physics,
+    boundary_conditions = (5, 6),
+    initial_conditions = (ρ = ρ₀ᶜᵃʳᵗ, ρu = ρu⃗₀ᶜᵃʳᵗ, ρe = ρeᶜᵃʳᵗ, ρq = ρqᶜᵃʳᵗ),
+    numerics = (
+        flux = RusanovNumericalFlux(),
+    ),
+    parameters = parameters,
+)
+
+
+rhs1 = Explicit(ESDGModel(
+                model,
+                grid.numerical,
+                surface_numerical_flux_first_order = model.numerics.flux,
+                volume_numerical_flux_first_order = KGVolumeFlux(),
+            ))
+
+rhs2 = Implicit(VESDGModel(
+    linear_model,
+    grid.numerical,
+    surface_numerical_flux_first_order = linear_model.numerics.flux,
+    volume_numerical_flux_first_order = LinearKGVolumeFlux(),
+))
+
+rhs = (rhs1, rhs2)
+odesolver = construct_odesolver(method, rhs, simulation.state, Δt, t0 = 0) 
+# Make callbacks from callbacks tuple
+cbvector = create_callbacks(simulation, odesolver)
+
+# Perform evolution of simulations
+if isempty(cbvector)
+    solve!(simulation.state, odesolver; timeend = 10 * 86400, adjustfinalstep = false)
+else
+    solve!(
+        simulation.state,
+        odesolver;
+        timeend = 10 * 86400,
+        callbacks = cbvector,
+        adjustfinalstep = false,
+    )
+end
