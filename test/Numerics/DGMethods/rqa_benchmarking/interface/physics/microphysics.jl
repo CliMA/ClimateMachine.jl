@@ -17,18 +17,18 @@ end
   q  = ρq / ρ
 
   # thermodynamic parameters
-  _pₜᵣ      = press_triple(param_set) 
-  _R_v      = R_v(param_set)
-  _Tₜᵣ      = T_triple(param_set)
-  _T_0      = T_0(param_set)
-  _cv_d     = cv_d(param_set)
-  _cv_v     = cv_v(param_set)
-  _cv_l     = cv_l(param_set)
-  _cp_v     = cp_v(param_set)
-  _LH_v0    = LH_v0(param_set)
-  _cp_v     = cp_v(param_set)
-  _cp_l     = cp_l(param_set)
-  _e_int_v0 = e_int_v0(param_set)
+  _pₜᵣ      = get_planet_parameter(:press_triple) 
+  _R_v      = get_planet_parameter(:R_v)
+  _Tₜᵣ      = get_planet_parameter(:T_triple)
+  _T_0      = get_planet_parameter(:T_0)
+  _cv_d     = get_planet_parameter(:cv_d)
+  _cv_v     = get_planet_parameter(:cv_v)
+  _cv_l     = get_planet_parameter(:cv_l)
+  _cp_v     = get_planet_parameter(:cp_v)
+  _LH_v0    = get_planet_parameter(:LH_v0)
+  _cp_v     = get_planet_parameter(:cp_v)
+  _cp_l     = get_planet_parameter(:cp_l)
+  _e_int_v0 = get_planet_parameter(:e_int_v0)
 
   # moist internal energy (dry calculation)
   ρ⁻¹ = 1 / ρ

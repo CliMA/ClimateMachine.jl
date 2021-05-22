@@ -27,18 +27,14 @@ using ClimateMachine.VTK
 using ClimateMachine.GenericCallbacks:
     EveryXWallTimeSeconds, EveryXSimulationSteps
 using ClimateMachine.Thermodynamics: soundspeed_air
-using ClimateMachine.TemperatureProfiles
+# using ClimateMachine.TemperatureProfiles
 using ClimateMachine.VariableTemplates: flattenednames
 
 # to be removed
-using CLIMAParameters: AbstractEarthParameterSet
-using CLIMAParameters.Planet: grav, R_d, R_v, press_triple, T_triple, cp_d, cp_v, cp_l, cv_d, cv_v, cv_l, LH_v0, e_int_v0, planet_radius, MSLP, Omega, T_0
-
-struct EarthParameterSet <: AbstractEarthParameterSet end
-const param_set = EarthParameterSet()
-
-import CLIMAParameters
-CLIMAParameters.Planet.T_0(::EarthParameterSet) = 0.0
+using CLIMAParameters#: AbstractEarthParameterSet
+#using CLIMAParameters.Planet: grav, R_d, R_v, press_triple, T_triple, cp_d, cp_v, cp_l, cv_d, cv_v, cv_l, LH_v0, e_int_v0, planet_radius, MSLP, Omega, T_0
+struct PlanetParameterSet <: AbstractEarthParameterSet end
+get_planet_parameter(p::Symbol) = getproperty(CLIMAParameters.Planet, p)(PlanetParameterSet())
 
 const total_energy = true
 const fluctuation_gravity = true
@@ -62,6 +58,7 @@ include("../physics/gravity.jl")
 include("../physics/pressure_force.jl")
 include("../physics/diffusion.jl")
 include("../physics/microphysics.jl")
+include("../physics/temperature_profiles.jl")
 # boundary conditions
 include("../boundary_conditions/boundary_conditions.jl")
 include("../boundary_conditions/bc_first_order.jl")

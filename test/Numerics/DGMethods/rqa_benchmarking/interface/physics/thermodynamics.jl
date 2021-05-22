@@ -131,9 +131,8 @@ end
 """
   Maciek's world
 """
-function pressure(ρ, ρu, ρe, Φ)
+function pressure(ρ, ρu, ρe, Φ, γ)
     FT = eltype(ρ)
-    γ = FT(gamma(param_set))
     if total_energy
         (γ - 1) * (ρe - dot(ρu, ρu) / 2ρ - ρ * Φ)
     else
@@ -141,9 +140,8 @@ function pressure(ρ, ρu, ρe, Φ)
     end
 end
 
-function totalenergy(ρ, ρu, p, Φ)
+function totalenergy(ρ, ρu, p, Φ, γ)
     FT = eltype(ρ)
-    γ = FT(gamma(param_set))
     if total_energy
         return p / (γ - 1) + dot(ρu, ρu) / 2ρ + ρ * Φ
     else
@@ -151,15 +149,13 @@ function totalenergy(ρ, ρu, p, Φ)
     end
 end
 
-function soundspeed(ρ, p)
+function soundspeed(ρ, p, γ)
     FT = eltype(ρ)
-    γ = FT(gamma(param_set))
     sqrt(γ * p / ρ)
 end
 
-@inline function linearized_pressure(ρ, ρe, Φ)
+@inline function linearized_pressure(ρ, ρe, Φ, γ)
     FT = eltype(ρ)
-    γ = FT(gamma(param_set))
     if total_energy
         (γ - 1) * (ρe - ρ * Φ)
     else

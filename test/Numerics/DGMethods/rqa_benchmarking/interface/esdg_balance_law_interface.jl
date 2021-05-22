@@ -91,23 +91,23 @@ function init_state_prognostic!(
 end
 
 function nodal_init_state_auxiliary!(
-    m::Union{DryAtmosModel,DryAtmosLinearModel},
+    model::Union{DryAtmosModel,DryAtmosLinearModel},
     state_auxiliary,
     tmp,
     geom,
 )
-    init_state_auxiliary!(m, m.physics.orientation, state_auxiliary, geom)
-    init_state_auxiliary!(m, m.physics.ref_state, state_auxiliary, geom)
+    init_state_auxiliary!(model, model.physics.orientation, state_auxiliary, geom)
+    init_state_auxiliary!(model, model.physics.ref_state, state_auxiliary, geom)
 end
 
 function init_state_auxiliary!(
-    ::Union{DryAtmosModel,DryAtmosLinearModel},
+    model::Union{DryAtmosModel,DryAtmosLinearModel},
     ::SphericalOrientation,
     state_auxiliary,
     geom,
 )
     FT = eltype(state_auxiliary)
-    _grav = FT(grav(param_set))
+    _grav = model.parameters.g
     r = norm(geom.coord)
     state_auxiliary.x = geom.coord[1]
     state_auxiliary.y = geom.coord[2]
@@ -117,13 +117,13 @@ function init_state_auxiliary!(
 end
 
 function init_state_auxiliary!(
-    ::Union{DryAtmosModel,DryAtmosLinearModel},
+    m::Union{DryAtmosModel,DryAtmosLinearModel},
     ::FlatOrientation,
     state_auxiliary,
     geom,
 )
     FT = eltype(state_auxiliary)
-    _grav = FT(grav(param_set))
+    _grav = model.parameters.g
     @inbounds r = geom.coord[3]
     state_auxiliary.x = geom.coord[1]
     state_auxiliary.y = geom.coord[2]
@@ -140,16 +140,16 @@ function init_state_auxiliary!(
 ) end
 
 function init_state_auxiliary!(
-    m::Union{DryAtmosModel,DryAtmosLinearModel},
+    model::Union{DryAtmosModel,DryAtmosLinearModel},
     ref_state::DryReferenceState,
     state_auxiliary,
     geom,
 )
     FT = eltype(state_auxiliary)
-    z = altitude(m, m.physics.orientation, geom)
-    T, p = ref_state.temperature_profile(param_set, z)
+    z = altitude(model, model.physics.orientation, geom)
+    T, p = ref_state.temperature_profile(model.parameters, z)
 
-    _R_d::FT = R_d(param_set)
+    _R_d::FT = model.parameters.R_d
     ρ = p / (_R_d * T)
     Φ = state_auxiliary.Φ
     ρu = SVector{3, FT}(0, 0, 0)
@@ -157,7 +157,7 @@ function init_state_auxiliary!(
     state_auxiliary.ref_state.T = T
     state_auxiliary.ref_state.p = p
     state_auxiliary.ref_state.ρ = ρ
-    state_auxiliary.ref_state.ρe = totalenergy(ρ, ρu, p, Φ)
+    state_auxiliary.ref_state.ρe = totalenergy(ρ, ρu, p, Φ, model.parameters.γ)
 end
 
 """
@@ -247,9 +247,9 @@ function vertical_unit_vector(::Union{DryAtmosModel,DryAtmosLinearModel}, aux::V
     aux.∇Φ / FT(grav(param_set))
 end
 
-function altitude(::Union{DryAtmosModel,DryAtmosLinearModel}, ::SphericalOrientation, geom)
+function altitude(model::Union{DryAtmosModel,DryAtmosLinearModel}, ::SphericalOrientation, geom)
     FT = eltype(geom)
-    _planet_radius::FT = planet_radius(param_set)
+    _planet_radius::FT = model.parameters.a
     norm(geom.coord) - _planet_radius
 end
 

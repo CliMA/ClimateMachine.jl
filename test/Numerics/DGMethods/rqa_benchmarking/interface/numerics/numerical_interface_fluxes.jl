@@ -243,7 +243,7 @@ function numerical_flux_first_order!(
     ref_h⁻ = (ref_ρe⁻ + ref_p⁻) / ref_ρ⁻
     ref_c⁻ = soundspeed_air(param_set, ref_T⁻)
 
-    pL⁻ = linearized_pressure(state_prognostic⁻.ρ, state_prognostic⁻.ρe, state_auxiliary⁻.Φ)
+    pL⁻ = linearized_pressure(state_prognostic⁻.ρ, state_prognostic⁻.ρe, state_auxiliary⁻.Φ, balance_law.parameters.γ)
 
     ρu⁺ = state_prognostic⁺.ρu
 
@@ -254,7 +254,7 @@ function numerical_flux_first_order!(
     ref_h⁺ = (ref_ρe⁺ + ref_p⁺) / ref_ρ⁺
     ref_c⁺ = soundspeed_air(param_set, ref_T⁺)
 
-    pL⁺ = linearized_pressure(state_prognostic⁺.ρ, state_prognostic⁺.ρe, state_auxiliary⁺.Φ)
+    pL⁺ = linearized_pressure(state_prognostic⁺.ρ, state_prognostic⁺.ρe, state_auxiliary⁺.Φ, balance_law.parameters.γ)
 
     # not sure if arithmetic averages are a good idea here
     h̃ = (ref_h⁻ + ref_h⁺) / 2
@@ -399,8 +399,7 @@ function numerical_flux_first_order!(
     e⁻ = ρe⁻ / ρ⁻
     uᵀn⁻ = u⁻' * normal_vector
     p⁻ = air_pressure(ts⁻)
-    # ref_state = reference_state(balance_law)
-    # if ref_state isa HydrostaticState && ref_state.subtract_off
+    # if the reference state is removed in the momentum equations (meaning p-p_ref is used for pressure gradient force) then we should remove the reference pressure
     #     p⁻ -= state_auxiliary⁻.ref_state.p
     # end
     c⁻ = soundspeed_air(ts⁻)
@@ -417,7 +416,7 @@ function numerical_flux_first_order!(
     e⁺ = ρe⁺ / ρ⁺
     uᵀn⁺ = u⁺' * normal_vector
     p⁺ = air_pressure(ts⁺)
-    # if ref_state isa HydrostaticState && ref_state.subtract_off
+    # if the reference state is removed in the momentum equations (meaning p-p_ref is used for pressure gradient force) then we should remove the reference pressure
     #     p⁺ -= state_auxiliary⁺.ref_state.p
     # end
     c⁺ = soundspeed_air(ts⁺)

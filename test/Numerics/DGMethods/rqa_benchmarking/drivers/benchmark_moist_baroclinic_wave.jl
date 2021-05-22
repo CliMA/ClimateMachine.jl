@@ -5,26 +5,38 @@ include("../interface/utilities/boilerplate.jl")
 # Set up parameters
 ########
 parameters = (
-    a    = 6.371e6,
-    Ω    = 7.2921159e-5,
-    g    = 9.81,
-    H    = 30e3,
-    R_d  = 287.0024093890231,
-    pₒ   = 1.01325e5,
-    k    = 3.0,
-    Γ    = 0.005,
-    T_E  = 310.0,
-    T_P  = 240.0,
-    b    = 2.0,
-    z_t  = 15e3,
-    λ_c  = π / 9,
-    ϕ_c  = 2 * π / 9,
-    V_p  = 1.0,
-    κ    = 2/7,
-    ϕ_w  = 2*π/9,
-    p_w  = 3.4e4,
-    q₀   = 0.018,
-    qₜ   = 1e-12,
+    a        = get_planet_parameter(:planet_radius),
+    Ω        = get_planet_parameter(:Omega),
+    g        = get_planet_parameter(:grav),
+    κ        = get_planet_parameter(:kappa_d),
+    R_d      = get_planet_parameter(:R_d),
+    R_v      = get_planet_parameter(:R_v),
+    cv_d     = get_planet_parameter(:cv_d),
+    cv_v     = get_planet_parameter(:cv_v),
+    cv_l     = get_planet_parameter(:cv_l),
+    cp_v     = get_planet_parameter(:cp_v),
+    cp_l     = get_planet_parameter(:cp_l),
+    γ        = get_planet_parameter(:cp_d)/get_planet_parameter(:cv_d),
+    pₒ       = get_planet_parameter(:MSLP),
+    pₜᵣ      = get_planet_parameter(:press_triple),
+    Tₜᵣ      = get_planet_parameter(:T_triple),
+    T_0      = 0.0, #get_planet_parameter(:T_0),
+    LH_v0    = get_planet_parameter(:LH_v0),
+    e_int_v0 = get_planet_parameter(:e_int_v0),
+    H        = 30e3,
+    k        = 3.0,
+    Γ        = 0.005,
+    T_E      = 310.0,
+    T_P      = 240.0,
+    b        = 2.0,
+    z_t      = 15e3,
+    λ_c      = π / 9,
+    ϕ_c      = 2 * π / 9,
+    V_p      = 1.0,
+    ϕ_w      = 2*π/9,
+    p_w      = 3.4e4,
+    q₀       = 0.018,
+    qₜ       = 1e-12,
     τ_precip = 40.0,
 )
 
@@ -32,7 +44,7 @@ parameters = (
 # Set up domain
 ########
 domain = SphericalShell(
-    radius = planet_radius(param_set),
+    radius = parameters.a,
     height = 30e3,
 )
 grid = DiscretizedDomain(
@@ -120,7 +132,7 @@ end
 ########
 FT = Float64
 
-ref_state = DryReferenceState(DecayingTemperatureProfile{FT}(param_set, FT(290), FT(220), FT(8e3)))
+ref_state = DryReferenceState(DecayingTemperatureProfile{FT}(parameters, FT(290), FT(220), FT(8e3)))
 
 # total energy
 eos     = TotalEnergy(γ = 1 / (1 - parameters.κ))
