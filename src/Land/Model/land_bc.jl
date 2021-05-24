@@ -162,6 +162,9 @@ of the land model.
 The boundary conditions supplied should be of type `AbstractBoundaryConditions`. 
 The default is `NoBC` for each component, so that the user only
 needs to define the BC for the components they wish to model.
+
+Note that the single-layer snow model `SnowModel` is an ODE, and does not need
+boundary conditions.
 """
 Base.@kwdef struct LandComponentBC{
     SW <: AbstractBoundaryConditions,

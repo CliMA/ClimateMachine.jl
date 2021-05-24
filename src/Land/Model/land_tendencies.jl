@@ -5,6 +5,10 @@
 eq_tends(pv::AbstractPrognosticVariable, m::LandModel, tt::Source) =
     (m.source_dt[pv]...,)
 
+### Note that the snow model is an ODE - so we do not define any methods for
+### eq_tends for it, except for sources.
+
+
 #####
 ##### First order fluxes
 #####

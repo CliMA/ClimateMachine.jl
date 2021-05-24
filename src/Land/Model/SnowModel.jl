@@ -2,81 +2,94 @@ module SnowModel
 
 using DocStringExtensions
 using UnPack
-using CLIMAParameters
-using CLIMAParameters.Planet: cp_l, cp_i, T_0, LH_f0
+using ..Land
+using ..VariableTemplates
+using ..BalanceLaws
+import ..BalanceLaws:
+    BalanceLaw,
+    prognostic_vars,
+    flux,
+    source,
+    precompute,
+    eq_tends,
+    vars_state,
+    Prognostic,
+    Auxiliary,
+    Gradient,
+    GradientFlux
+
+using ...DGMethods: LocalGeometry, DGModel
+using StaticArrays: SVector
+
+export SingleLayerSnowModel,
+    NoSnowModel,
+    SnowWaterEquivalent,
+    SnowVolumetricInternalEnergy
+
+"""
+    SnowWaterEquivalent <: AbstractPrognosticVariable
+
+A prognostic variable type for the snow model. Used only for
+dispatching on.
+"""
+struct SnowWaterEquivalent <: AbstractPrognosticVariable end
+
+"""
+    SnowVolumetricInternalEnergy <: AbstractPrognosticVariable
+
+A prognostic variable type for the snow model. Used only for
+dispatching on.
+"""
+struct SnowVolumetricInternalEnergy <: AbstractPrognosticVariable end
 
 
 """
-    ρc_snow(l::FT,
-            ρ_snow::FT,
-            param_set::AbstractParamSet
-            ) where {FT}
+    NoSnowModel <: BalanceLaw
 
-Computes the volumetric heat capacity of snow pack given the liquid water
-fraction l and snow density ρ_snow.
+The default snow model, which does not add any prognostic variables
+to the land model and therefore does not model snow.
 """
-function ρc_snow(l::FT,
-                 ρ_snow::FT,
-                 param_set::AbstractParameterSet
-                 ) where {FT}
-    _c_i = FT(cp_i(param_set))
-    _c_l = FT(cp_l(param_set))
-    c_snow = _c_i*(FT(1.0)-l) + l*_c_i
-    ρc_snow = ρ_snow*c_snow
-    return ρc_snow
+struct NoSnowModel <: BalanceLaw end
+
+"""
+    SingleLayerSnowModel{pt, ft, rm}  <: BalanceLaw 
+
+The surface snow model balance law type, with prognostic variables of
+snow water equivalent (SWE) and snow volumetric internal energy (ρe_int).
+
+This single-layer model allows for simulating changes in snow internal energy and water
+ mass due to fluxes at the top and bottom of the snowpack, as well as 
+liquid water runoff. As the snow model differential equations are
+ordinary, there is no need to specify flux methods, or boundary conditions.
+# Fields
+$(DocStringExtensions.FIELDS)
+"""
+struct  SingleLayerSnowModel{pt, ft, rm} <: BalanceLaw
+    "Parameter functions"
+    parameters::pt
+    "Forcing functions"
+    forcing::ft
+    "Runoff model"
+    runoff_model::rm
 end
 
-"""
-function l(sn_int::FT,
-    ρ_snow::FT,
-    param_set::AbstractParameterSet
-) where {FT}
+vars_state(surface:: SingleLayerSnowModel, st::Prognostic, FT) = @vars(swe::FT, ρe_int::FT)
 
-Computes the liquid water mass fraction l given volumetric internal energy of snow
-sn_int and snow density ρ_snow
+function Land.land_init_aux!(
+    land::LandModel,
+    snow::Union{NoSnowModel,  SingleLayerSnowModel},
+    aux,
+    geom::LocalGeometry,
+) end
 
-Q: elseif sn_int_l0 < sn_int < sn_int_l1
+function Land.land_nodal_update_auxiliary_state!(
+    land::LandModel,
+    snow::Union{NoSnowModel,  SingleLayerSnowModel},
+    state,
+    aux,
+    t,
+) end
 
-"""
-function l(sn_int::FT,
-           ρ_snow::FT,
-           param_set::AbstractParameterSet
-) where {FT}
-    _c_i = FT(cp_i(param_set))
-    _c_l = FT(cp_l(param_set))
-    _T_fr = FT(T_freeze(param_set))
-    _T_ref = FT(T_0(param_set))
-    _LH_f0 = FO(LH_f0(param_set))
- 
-    sn_int_l0 =  ρ_snow*(_c_i(_T_fr-_T_ref)-_LH_f0)
-    sn_int_l1 =  ρ_snow*_c_l(_T_fr-_T_ref)
 
-    if sn_int < sn_int_l0
-        l = 0
-    elseif sn_int > sn_int_l0 && sn_int < sn_int_l1
-        l = (sn_int/ρ_snow+_LH_f0-_c_i*(_T_fr-_T_ref))/((_c_l-_c_i)*(_T_fr-_T_ref)+_LH_f0)
-    else
-        l = 1
-    end
-    return l
-end
 
-"""
-function sn_T_ave(sn_int::FT,
-    ρ_snow::FT,
-    param_set::AbstractParameterSet
-) where {FT}
-
-Computes the average snow pack temperature given volumetric internal energy of snow
-sn_int and volumetric_liquid_fraction l
-
-"""
-function sn_T_ave(sn_int::FT,
-           l::FT,
-           param_set::AbstractParameterSet
-) where {FT}
-    _T_ref = FT(T_0(param_set))
-    _LH_f0 = FO(LH_f0(param_set))
-    sn_T_ave = (sn_int+(1-l)*_LH_f0)/ρc_snow + _T_ref
-    return sn_T_ave
 end

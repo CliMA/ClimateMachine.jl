@@ -46,6 +46,7 @@ Users may over-ride prescribed default values for each field.
         param_set,
         soil;
         surface,
+        snow,
         boundary_conditions,
         source,
         source_dt,
@@ -55,13 +56,15 @@ Users may over-ride prescribed default values for each field.
 # Fields
 $(DocStringExtensions.FIELDS)
 """
-struct LandModel{PS, S, SF, LBC, SRC, SRCDT, IS} <: BalanceLaw
+struct LandModel{PS, S, SF, SN,LBC, SRC, SRCDT, IS} <: BalanceLaw
     "Parameter set"
     param_set::PS
     "Soil model"
     soil::S
     "Surface Flow model"
     surface::SF
+    "Snow Model"
+    snow::SN
     "struct of boundary conditions"
     boundary_conditions::LBC
     "Source Terms (Problem specific source terms)"
@@ -79,6 +82,7 @@ parameter_set(m::LandModel) = m.param_set
         param_set::AbstractParameterSet,
         soil::BalanceLaw;
         surface::BalanceLaw = NoSurfaceFlowModel(),
+        snow::BalanceLaw = NoSnowModel(),
         boundary_conditions::LBC = (),
         source::SRC = (),
         init_state_prognostic::IS = nothing
@@ -90,6 +94,7 @@ function LandModel(
     param_set::AbstractParameterSet,
     soil::BalanceLaw;
     surface::BalanceLaw = NoSurfaceFlowModel(),
+    snow::BalanceLaw = NoSnowModel(),
     boundary_conditions::LBC = LandDomainBC(),
     source::SRC = (),
     init_state_prognostic::IS = nothing,
@@ -100,6 +105,7 @@ function LandModel(
         param_set,
         soil,
         surface,
+        snow,
         boundary_conditions,
         source,
         source_dt,
@@ -113,6 +119,7 @@ function vars_state(land::LandModel, st::Prognostic, FT)
     @vars begin
         soil::vars_state(land.soil, st, FT)
         surface::vars_state(land.surface, st, FT)
+        snow::vars_state(land.snow, st, FT)
     end
 end
 
@@ -124,6 +131,7 @@ function vars_state(land::LandModel, st::Auxiliary, FT)
         z::FT
         soil::vars_state(land.soil, st, FT)
         surface::vars_state(land.surface, st, FT)
+        snow::vars_state(land.snow, st, FT)
     end
 end
 
@@ -152,6 +160,7 @@ function nodal_init_state_auxiliary!(
     aux.z = geom.coord[3]
     land_init_aux!(land, land.soil, aux, geom)
     land_init_aux!(land, land.surface, aux, geom)
+    land_init_aux!(land, land.snow, aux, geom)
 end
 
 function compute_gradient_argument!(
@@ -194,6 +203,7 @@ function nodal_update_auxiliary_state!(
 )
     land_nodal_update_auxiliary_state!(land, land.soil, state, aux, t)
     land_nodal_update_auxiliary_state!(land, land.surface, state, aux, t)
+    land_nodal_update_auxiliary_state!(land, land.snow, state, aux, t)
 end
 
 function init_state_prognostic!(
@@ -222,6 +232,8 @@ using .Runoff
 include("land_bc.jl")
 include("SurfaceFlow.jl")
 using .SurfaceFlow
+include("SnowModel.jl")
+using .SnowModel
 include("soil_bc.jl")
 include("prognostic_vars.jl")
 include("land_tendencies.jl")
