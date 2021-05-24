@@ -204,11 +204,11 @@ bottom_flux = (aux, t) -> aux.soil.water.K * eltype(aux)(-1)
 surface_flux = (aux, t) -> -incident(t)
 surface_zero_flux = (aux, t) -> eltype(aux)(0)
 N_poly = 1;
-nelem_vert = 20;
+nelem_vert = 30;
 
 # Specify the domain boundaries.
 zmax = FT(0);
-zmin = FT(-1);
+zmin = FT(-1.5);
 Δ = FT((zmax-zmin)/nelem_vert/2)
 bc = LandDomainBC(
 bottom_bc = LandComponentBC(
@@ -295,7 +295,7 @@ driver_config = ClimateMachine.SingleStackConfiguration(
 # Choose the initial and final times, as well as a timestep.
 t0 = FT(0)
 timeend = FT(60 *60 * 24*90)+t0
-dt = FT(50);
+dt = FT(25);
 
 # Create the solver configuration.
 solver_config =
@@ -346,7 +346,7 @@ solver_config =
     solver_config.solver = ode_solver
 
 # Determine how often you want output.
-n_outputs = 120;
+n_outputs = 90;
 
 every_x_simulation_time = ceil(Int, (timeend-t0) / n_outputs);
 
@@ -423,3 +423,4 @@ plot5 = plot(times,l5, label = "", color = "red", title = "-75cm")
 scatter!(ts[keep], soil_data[keep,5], ms = 2, color = "blue", label = "")
 #scatter!(scan_date[scan_keep], scan_swc[:,5], ms = 2, color = "green", label = "")
 plot!(ylim = [0.05,0.45])
+
