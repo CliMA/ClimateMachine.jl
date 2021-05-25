@@ -94,8 +94,8 @@ function main(::Type{FT}, cl_args) where {FT}
     surface_flux = cl_args["surface_flux"]
 
     # Choice of compressibility and CFL
-    # compressibility = Compressible()
-    compressibility = Anelastic1D()
+    compressibility = Compressible()
+    # compressibility = Anelastic1D()
     str_comp = compressibility == Compressible() ? "COMPRESS" : "ANELASTIC"
 
     # DG polynomial order
@@ -106,7 +106,7 @@ function main(::Type{FT}, cl_args) where {FT}
     zmax = FT(400)
     # Simulation time
     t0 = FT(0)
-    timeend = FT(1800 * 1)
+    timeend = FT(100 * 1)
     CFLmax = compressibility == Compressible() ? FT(1) : FT(100)
 
     config_type = SingleStackConfigType
@@ -155,6 +155,7 @@ function main(::Type{FT}, cl_args) where {FT}
         ode_solver_type = ode_solver_type,
         init_on_cpu = true,
         Courant_number = CFLmax,
+        # fixed_number_of_steps = 5,
     )
 
     # --- Zero-out horizontal variations:

@@ -135,6 +135,9 @@ function init_problem!(problem, bl, state, aux, localgeo, t)
     γ::FT = c_p / c_v
     # Initialise speeds [u = Eastward, v = Northward, w = Vertical]
     u::FT = 8
+    if z<FT(300)
+        u = 8 - 0.1*(300-z)
+    end
     v::FT = 0
     w::FT = 0
     # Assign piecewise quantities to θ_liq and q_tot
