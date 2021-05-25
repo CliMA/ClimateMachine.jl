@@ -5,12 +5,14 @@ include("../interface/utilities/boilerplate.jl")
 # Set up parameters
 ########
 parameters = (
-    R_d  = 8.3144598 / 28.97e-3,
-    pₒ   = 1.01325e5,
-    κ    = 2.0/7.0,
-    g    = 9.81,
-    cp_d = (8.3144598 / 28.97e-3) / (2/7),
-    cv_d = (8.3144598 / 28.97e-3) / (2/7) - 8.3144598 / 28.97e-3,
+    R_d  = get_planet_parameter(:R_d),
+    pₒ   = get_planet_parameter(:MSLP),
+    κ    = get_planet_parameter(:kappa_d),
+    g    = get_planet_parameter(:grav),
+    cp_d = get_planet_parameter(:cp_d),
+    cv_d = get_planet_parameter(:cv_d),
+    γ    = get_planet_parameter(:cp_d)/get_planet_parameter(:cv_d),
+    T_0  = 0.0,
     xc   = 5000,
     yc   = 1000,
     zc   = 2000,
@@ -41,17 +43,19 @@ grid = DiscretizedDomain(
 # Set up model physics
 ########
 # eos = DryIdealGas{Float64}(R = parameters.R_d, pₒ = parameters.pₒ, γ = 1 / (1 - parameters.κ))
-eos     = TotalEnergy(γ = 1 / (1 - parameters.κ))
+# eos     = TotalEnergy(γ = 1 / (1 - parameters.κ))
+eos = IdealGas{(:ρ, :ρu, :ρe)}()
 physics = Physics(
     orientation = FlatOrientation(),
     ref_state   = NoReferenceState(),
     eos         = eos,
     lhs         = (
-        ESDGNonLinearAdvection(eos = eos),
-        PressureDivergence(eos = eos),
+        NonlinearAdvection{(:ρ, :ρu, :ρe)}(),
+        PressureDivergence{(:ρ, :ρu, :ρe)}(),
     ),
     sources     = (
     ),
+    parameters  = parameters,
 )
 
 ########
@@ -69,6 +73,7 @@ e_pot(p, x, y, z) = p.g * z
 e_int(p, x, y, z) = p.cv_d * θ₀(p, x, y, z) * π_exner(p, x, y, z)
 e_kin(p, x, y, z) = 0.0
 ρe(p, x, y, z) = ρ₀(p, x, y, z) * (e_kin(p, x, y, z) + e_int(p, x, y, z) + e_pot(p, x, y, z))
+ρq(p, x, y, z) = 0
 
 # ########
 # # Set up boundary conditions
@@ -84,9 +89,10 @@ e_kin(p, x, y, z) = 0.0
 model = DryAtmosModel(
     physics = physics,
     boundary_conditions = (0,0,1,1,2,3),
-    initial_conditions = (ρ = ρ₀, ρu = ρu⃗₀, ρe = ρe),
+    initial_conditions = (ρ = ρ₀, ρu = ρu⃗₀, ρe = ρe, ρq = ρq),
     numerics = (
         flux = RoeNumericalFlux(),
+        # flux = RusanovNumericalFlux(),
     ),
     parameters = parameters,
 )

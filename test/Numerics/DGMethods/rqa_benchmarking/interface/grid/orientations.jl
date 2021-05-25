@@ -60,13 +60,13 @@ import ClimateMachine.Orientations: vertical_unit_vector
 # end
 
 function init_state_auxiliary!(
-    ::ModelSetup,
+    model::ModelSetup,
     ::FlatOrientation,
     state_auxiliary,
     geom,
 )
     FT = eltype(state_auxiliary)
-    _grav = FT(grav(param_set))
+    _grav = model.physics.parameters.g
     @inbounds r = geom.coord[3]
     state_auxiliary.x = geom.coord[1]
     state_auxiliary.y = geom.coord[2]
@@ -76,13 +76,13 @@ function init_state_auxiliary!(
 end
 
 function init_state_auxiliary!(
-    ::ModelSetup,
+    model::ModelSetup,
     ::SphericalOrientation,
     state_auxiliary,
     geom,
 )
     FT = eltype(state_auxiliary)
-    _grav = FT(grav(param_set))
+    _grav = model.physics.parameters.g
     r = norm(geom.coord)
     state_auxiliary.x = geom.coord[1]
     state_auxiliary.y = geom.coord[2]
@@ -91,5 +91,5 @@ function init_state_auxiliary!(
     state_auxiliary.∇Φ = _grav * geom.coord / r
 end
 
-@inline vertical_unit_vector(::Orientation, aux) = aux.∇Φ / grav(param_set)
+@inline vertical_unit_vector(::Orientation, aux) = aux.∇Φ / norm(aux.∇Φ)
 @inline vertical_unit_vector(::NoOrientation, aux) = @SVector [0, 0, 1]

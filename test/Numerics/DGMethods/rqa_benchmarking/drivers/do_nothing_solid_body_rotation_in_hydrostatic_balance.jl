@@ -5,13 +5,13 @@ include("../interface/utilities/boilerplate.jl")
 # Set up parameters
 ########
 parameters = (
-    ρₒ = 1,          # reference density
-    cₛ = 100.0,      # sound speed
-    a  = 6e6,        # Earth radius
-    H  = 1e5,        # atmos height
-    Ω  = 2π/86400,   # Earth angular velocity
-    α  = 2e-4,       # buoyancy scaling [K⁻¹]
-    g  = 9.81,       # gravity of Earth
+    a  = get_planet_parameter(:planet_radius), # Earth radius
+    Ω  = get_planet_parameter(:Omega),         # Earth angular velocity
+    g  = get_planet_parameter(:grav),          # gravity of Earth
+    H  = 1e5,                                  # atmos height
+    ρₒ = 1,                                    # reference density
+    cₛ = 100.0,                                # sound speed
+    α  = 2e-4,                                 # buoyancy scaling [K⁻¹]
     ∂θ = 0.98 / 1e5, 
     power = 1,       
     ef = 4.0,       
@@ -36,7 +36,8 @@ physics = Physics(
     advection   = NonLinearAdvection(),
     coriolis    = ThinShellCoriolis{Float64}(Ω = parameters.Ω),
     gravity     = Buoyancy{Float64}(α = parameters.α, g = parameters.g),
-    eos         = BarotropicFluid{Float64}(ρₒ = parameters.ρₒ, cₛ = parameters.cₛ),
+    eos         = BarotropicFluid{(:ρ, :ρu)}(),
+    parameters  = parameters,
 )
 
 ########
@@ -46,7 +47,7 @@ physics = Physics(
 # longitude: λ ∈ [-π, π), λ = 0 is the Greenwich meridian
 # latitude:  ϕ ∈ [-π/2, π/2], ϕ = 0 is the equator
 # radius:    r ∈ [Rₑ, Rₑ+H], Rₑ = Radius of sphere; H = height of atmosphere
-ρ₀(p, λ, ϕ, r)    = (1 -  p.∂θ * (r - 6e6)^p.power/p.power * 1e5^(1-p.power)) * p.ρₒ
+ρ₀(p, λ, ϕ, r)    = (1 -  p.∂θ * (r - p.a)^p.power/p.power * p.H^(1-p.power)) * p.ρₒ
 ρuʳᵃᵈ(p, λ, ϕ, r) = 0.0
 ρuˡᵃᵗ(p, λ, ϕ, r) = 0.0
 ρuˡᵒⁿ(p, λ, ϕ, r) = 0.0
@@ -84,7 +85,6 @@ model = ModelSetup(
         flux = RoesanovFlux(ω_roe = 1.0, ω_rusanov = 0.1), 
         staggering = true
     ),
-    parameters = parameters,
 )
 
 ########

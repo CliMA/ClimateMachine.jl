@@ -5,12 +5,13 @@ include("../interface/utilities/boilerplate.jl")
 # Set up parameters
 ########
 parameters = (
-    R_d  = 8.3144598 / 28.97e-3,
-    pₒ   = 1.01325e5,
-    κ    = 2.0/7.0,
-    g    = 9.81,
-    cp_d = (8.3144598 / 28.97e-3) / (2/7),
-    cv_d = (8.3144598 / 28.97e-3) / (2/7) - 8.3144598 / 28.97e-3,
+    R_d  = get_planet_parameter(:R_d),
+    pₒ   = get_planet_parameter(:MSLP),
+    κ    = get_planet_parameter(:kappa_d),
+    g    = get_planet_parameter(:grav),
+    cp_d = get_planet_parameter(:cp_d),
+    cv_d = get_planet_parameter(:cv_d),
+    γ    = get_planet_parameter(:cp_d)/get_planet_parameter(:cv_d),
     xc   = 5000,
     yc   = 1000,
     zc   = 2000,
@@ -44,7 +45,8 @@ physics = Physics(
     orientation = FlatOrientation(),
     advection   = NonLinearAdvection(),
     gravity     = ThinShellGravity{Float64}(g = parameters.g),
-    eos         = DryIdealGas{Float64}(R = parameters.R_d, pₒ = parameters.pₒ, γ = 1 / (1 - parameters.κ)),
+    eos         = DryIdealGas{(:ρ, :ρu, :ρθ)}(),
+    parameters  = parameters,
 )
 
 ########
@@ -76,7 +78,6 @@ model = ModelSetup(
     boundary_conditions = bcs,
     initial_conditions = (ρ = ρ₀, ρu = ρu⃗₀, ρθ = ρθ₀),
     numerics = (flux = RoeNumericalFlux(),),
-    parameters = parameters,
 )
 
 ########
@@ -108,4 +109,4 @@ simulation = Simulation(
 initialize!(simulation)
 evolve!(simulation)
 
-# nothing
+nothing

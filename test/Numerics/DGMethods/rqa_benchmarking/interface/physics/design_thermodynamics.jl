@@ -1,9 +1,10 @@
 abstract type AbstractEquationOfState{𝒯} end
 
 struct BarotropicFluid{𝒯} <: AbstractEquationOfState{𝒯} end
+struct DryIdealGas{𝒯} <: AbstractEquationOfState{𝒯} end
 struct IdealGas{𝒯} <: AbstractEquationOfState{𝒯} end
 
-@inline function pressure(::BarotropicFluid{(:ρ, :ρu)}, state, aux, params)
+@inline function calc_pressure(::BarotropicFluid{(:ρ, :ρu)}, state, aux, params)
     ρ  = state.ρ
     cₛ = params.cₛ
     ρₒ = params.ρₒ
@@ -11,7 +12,16 @@ struct IdealGas{𝒯} <: AbstractEquationOfState{𝒯} end
     return (cₛ * ρ)^2 / (2 * ρₒ)
 end
 
-@inline function pressure(::IdealGas{(:ρ, :ρu, :ρe)}, state, aux, params)
+@inline function calc_pressure(::DryIdealGas{(:ρ, :ρu, :ρθ)}, state, aux, params)
+    ρθ  = state.ρθ
+    R_d = params.R_d
+    pₒ  = params.pₒ
+    γ   = params.γ
+
+    return pₒ * (R_d / pₒ * ρθ)^γ
+end
+
+@inline function calc_pressure(::IdealGas{(:ρ, :ρu, :ρe)}, state, aux, params)
     ρ  = state.ρ
     ρu = state.ρu
     ρe = state.ρe
@@ -21,7 +31,7 @@ end
     return (γ - 1) * (ρe - dot(ρu, ρu) / 2ρ - ρ * Φ)
 end
 
-@inline function sound_speed(::BarotropicFluid{(:ρ, :ρu)}, state, aux, params)
+@inline function calc_sound_speed(::BarotropicFluid{(:ρ, :ρu)}, state, aux, params)
     cₛ = params.cₛ 
     ρₒ = params.ρₒ
     ρ = state.ρ
@@ -29,7 +39,15 @@ end
     return cₛ * sqrt(ρ / ρₒ) 
 end
 
-@inline function sound_speed(eos::IdealGas{(:ρ, :ρu, :ρe)}, state, aux, params)
+@inline function calc_sound_speed(eos::DryIdealGas{(:ρ, :ρu, :ρθ)}, state, aux, params)
+    γ   = params.γ
+    ρ   = state.ρ
+    p   = calc_pressure(eos, state, aux, params)
+
+    return sqrt(γ * p / ρ)
+end
+
+@inline function calc_sound_speed(eos::IdealGas{(:ρ, :ρu, :ρe)}, state, aux, params)
     ρ  = state.ρ
     ρu = state.ρu
     ρe = state.ρe
@@ -39,4 +57,12 @@ end
     p  = calc_pressure(eos, state, aux, params)
 
     return sqrt(γ * p / ρ)
+end
+
+@inline function calc_total_specific_enthalpy(eos::AbstractEquationOfState, state, aux, params)
+    ρ  = state.ρ
+    ρe = state.ρe
+    p  = calc_pressure(eos, state, aux, params)
+
+    return ρe + p / ρ
 end

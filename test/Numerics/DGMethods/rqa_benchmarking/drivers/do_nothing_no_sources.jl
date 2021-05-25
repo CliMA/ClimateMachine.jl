@@ -5,6 +5,7 @@ include("../interface/utilities/boilerplate.jl")
 # Set up parameters
 ########
 parameters = (
+    g  = 1.0,     # not used as gravity; but needed in initialize aux.Φ
     ρₒ = 1,       # reference density
     cₛ = 1e-2,    # sound speed
     a  = 1.0,     # Earth radius [m]
@@ -28,7 +29,8 @@ grid = DiscretizedDomain(
 physics = Physics(
     orientation = SphericalOrientation(),
     advection   = NonLinearAdvection(),
-    eos         = BarotropicFluid{Float64}(ρₒ = parameters.ρₒ, cₛ = parameters.cₛ),
+    eos         = BarotropicFluid{(:ρ, :ρu)}(),
+    parameters  = parameters,
 )
 
 ########
@@ -58,7 +60,6 @@ model = ModelSetup(
     boundary_conditions = bcs,
     initial_conditions = (ρ = ρ₀, ρu = ρu⃗₀, ρθ = ρθ₀),
     numerics = (flux = RoeNumericalFlux(),),
-    parameters = parameters,
 )
 
 ########

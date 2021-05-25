@@ -122,6 +122,8 @@ function numerical_volume_conservative_flux_first_order!(
     state_2::Vars,
     aux_2::Vars,
 )
+    eos = model.physics.eos
+    parameters = model.physics.parameters
 
     Φ_1 = aux_1.Φ
     ρ_1 = state_1.ρ
@@ -131,7 +133,7 @@ function numerical_volume_conservative_flux_first_order!(
     u_1 = ρu_1 / ρ_1
     e_1 = ρe_1 / ρ_1
     q_1 = ρq_1 / ρ_1
-    p_1 = pressure(ρ_1, ρu_1, ρe_1, Φ_1, model.parameters.γ)
+    p_1 = calc_pressure(eos, state_1, aux_1, parameters)
 
     Φ_2 = aux_2.Φ
     ρ_2 = state_2.ρ
@@ -141,7 +143,7 @@ function numerical_volume_conservative_flux_first_order!(
     u_2 = ρu_2 / ρ_2
     e_2 = ρe_2 / ρ_2
     q_2 = ρq_2 / ρ_2
-    p_2 = pressure(ρ_2, ρu_2, ρe_2, Φ_2, model.parameters.γ)
+    p_2 = calc_pressure(eos, state_2, aux_2, parameters)
 
     ρ_avg = ave(ρ_1, ρ_2)
     u_avg = ave(u_1, u_2)
@@ -490,39 +492,57 @@ numerical_flux_first_order!(::Nothing, ::DryAtmosModel, _...) = nothing
 numerical_flux_second_order!(::Nothing, ::DryAtmosModel, _...) = nothing
 numerical_boundary_flux_second_order!(::Nothing, a, ::DryAtmosModel, _...) = nothing
 
-# These technically affect the RusanovNumericalFlux and should be moved to the interface flux
-function wavespeed(
-    lm::DryAtmosLinearModel,
-    nM,
-    state::Vars,
-    aux::Vars,
-    t::Real,
-    direction,
-)
-    ref = aux.ref_state
-    return soundspeed(ref.ρ, ref.p, lm.parameters.γ)
-end
+# # These technically affect the RusanovNumericalFlux and should be moved to the interface flux
+# function wavespeed(
+#     model::DryAtmosLinearModel,
+#     nM,
+#     state::Vars,
+#     aux::Vars,
+#     t::Real,
+#     direction,
+# )
+#     ref = aux.ref_state
+#     return soundspeed(ref.ρ, ref.p, lm.parameters.γ)
+# end
+
+# function wavespeed(
+#     model::DryAtmosModel,
+#     nM,
+#     state::Vars,
+#     aux::Vars,
+#     t::Real,
+#     direction,
+# )
+#     #=
+#     ρ = state.ρ
+#     ρu = state.ρu
+#     ρe = state.ρe
+#     Φ = aux.Φ
+#     p = pressure(ρ, ρu, ρe, Φ, model.parameters.γ)
+
+#     u = ρu / ρ
+#     uN = abs(dot(nM, u))
+#     return uN + soundspeed(ρ, p, model.parameters.γ)
+#     return uN + soundspeed(ρ, p)
+#     =#
+#     ref = aux.ref_state
+#     return soundspeed(ref.ρ, ref.p)
+# end
 
 function wavespeed(
     model::DryAtmosModel,
-    nM,
+    n⁻,
     state::Vars,
     aux::Vars,
     t::Real,
     direction,
 )
-    #=
+    eos = model.physics.eos
+    parameters = model.physics.parameters
     ρ = state.ρ
     ρu = state.ρu
-    ρe = state.ρe
-    Φ = aux.Φ
-    p = pressure(ρ, ρu, ρe, Φ, model.parameters.γ)
 
     u = ρu / ρ
-    uN = abs(dot(nM, u))
-    return uN + soundspeed(ρ, p, model.parameters.γ)
-    return uN + soundspeed(ρ, p)
-    =#
-    ref = aux.ref_state
-    return soundspeed(ref.ρ, ref.p)
+    u_norm = abs(dot(n⁻, u))
+    return u_norm + calc_sound_speed(eos, state, aux, parameters)
 end

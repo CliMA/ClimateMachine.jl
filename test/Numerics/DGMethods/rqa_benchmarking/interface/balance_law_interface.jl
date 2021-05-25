@@ -72,7 +72,6 @@ function nodal_init_state_auxiliary!(
     geom,
 )
     init_state_auxiliary!(m, m.physics.orientation, state_auxiliary, geom)
-    # init_state_auxiliary!(m, m.physics.ref_state, state_auxiliary, geom)
 end
 
 function init_state_prognostic!(model::ModelSetup, state::Vars, aux::Vars, localgeo, t)
@@ -80,7 +79,7 @@ function init_state_prognostic!(model::ModelSetup, state::Vars, aux::Vars, local
     y = aux.y
     z = aux.z
 
-    parameters = model.parameters
+    parameters = model.physics.parameters
     ic = model.initial_conditions
 
     state.ρ = ic.ρ(parameters, x, y, z)
@@ -101,7 +100,10 @@ end
     t::Real,
     direction,
 )
-    flux.ρu += calc_pressure(model.physics.eos, state) * I
+    eos = model.physics.eos
+    params = model.physics.parameters
+
+    flux.ρu += calc_pressure(eos, state, aux, params) * I
 
     calc_advective_flux!(flux, model.physics.advection, state, aux, t)
 

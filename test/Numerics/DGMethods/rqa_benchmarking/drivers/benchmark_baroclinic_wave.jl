@@ -5,12 +5,14 @@ include("../interface/utilities/boilerplate.jl")
 # Set up parameters
 ########
 parameters = (
-    a    = 6.371e6,
-    Ω    = 7.2921159e-5,
-    g    = 9.81,
+    a    = get_planet_parameter(:planet_radius),
+    Ω    = get_planet_parameter(:Omega),
+    g    = get_planet_parameter(:grav),
+    κ    = get_planet_parameter(:kappa_d),
+    R_d  = get_planet_parameter(:R_d),
+    γ    = get_planet_parameter(:cp_d)/get_planet_parameter(:cv_d),
+    pₒ   = get_planet_parameter(:MSLP),
     H    = 30e3,
-    R_d  = 287.0024093890231,
-    pₒ   = 1.01325e5,
     k    = 3.0,
     Γ    = 0.005,
     T_E  = 310.0,
@@ -20,15 +22,14 @@ parameters = (
     λ_c  = π / 9,
     ϕ_c  = 2 * π / 9,
     V_p  = 1.0,
-    κ    = 2/7,
 )
 
 ########
 # Set up domain
 ########
 domain = SphericalShell(
-    radius = planet_radius(param_set),
-    height = 30e3,
+    radius = parameters.a,
+    height = parameters.H,
 )
 grid = DiscretizedDomain(
     domain;
@@ -107,13 +108,15 @@ end
                      + ρuˡᵃᵗ(𝒫, lon(x...), lat(x...), rad(x...)) * ϕ̂(x...)
                      + ρuˡᵒⁿ(𝒫, lon(x...), lat(x...), rad(x...)) * λ̂(x...) )
 ρeᶜᵃʳᵗ(𝒫, x...) = ρe(𝒫, lon(x...), lat(x...), rad(x...))
+ρqᶜᵃʳᵗ(𝒫, x...) = 0
 
 ########
 # Set up model physics
 ########
 FT = Float64
 
-ref_state = DryReferenceState(DecayingTemperatureProfile{FT}(param_set, FT(290), FT(220), FT(8e3)))
+# ref_state = DryReferenceState(DecayingTemperatureProfile{FT}(param_set, FT(290), FT(220), FT(8e3)))
+ref_state = DryReferenceState(DecayingTemperatureProfile{FT}(parameters, FT(290), FT(220), FT(8e3)))
 
 # total energy
 eos     = TotalEnergy(γ = 1 / (1 - parameters.κ))
@@ -149,7 +152,7 @@ linear_physics = Physics(
 model = DryAtmosModel(
     physics = physics,
     boundary_conditions = (5, 6),
-    initial_conditions = (ρ = ρ₀ᶜᵃʳᵗ, ρu = ρu⃗₀ᶜᵃʳᵗ, ρe = ρeᶜᵃʳᵗ),
+    initial_conditions = (ρ = ρ₀ᶜᵃʳᵗ, ρu = ρu⃗₀ᶜᵃʳᵗ, ρe = ρeᶜᵃʳᵗ, ρq = ρqᶜᵃʳᵗ),
     numerics = (
         # flux = RusanovNumericalFlux(),
         # flux = RoeNumericalFlux(),

@@ -5,14 +5,15 @@ include("../interface/utilities/boilerplate.jl")
 # Set up parameters
 ########
 parameters = (
-    a  = 6e6,
-    H  = 10e3,
-    g  = 9.8,
-    κ  = 2/7,
-    Tₒ = 300,
-    R  = 287, 
-    pₒ = 1e5,
-    uₒ = 20,
+    a    = get_planet_parameter(:planet_radius),
+    g    = get_planet_parameter(:grav),
+    κ    = get_planet_parameter(:kappa_d),
+    R_d  = get_planet_parameter(:R_d), 
+    pₒ   = get_planet_parameter(:MSLP),
+    γ    = get_planet_parameter(:cp_d)/get_planet_parameter(:cv_d),
+    H    = 10e3,
+    Tₒ   = 300,
+    uₒ   = 20,
 )
 
 ########
@@ -33,7 +34,8 @@ physics = Physics(
     orientation = SphericalOrientation(),
     advection   = NonLinearAdvection(),
     gravity     = ThinShellGravity{Float64}(g = parameters.g),
-    eos         = DryIdealGas{Float64}(R = parameters.R, pₒ = parameters.pₒ, γ = 1 / (1 - parameters.κ)),
+    eos         = DryIdealGas{(:ρ, :ρu, :ρθ)}(),
+    parameters  = parameters,
 )
 
 ########
@@ -41,12 +43,12 @@ physics = Physics(
 ########
 F1(𝒫,r)     = r - 𝒫.a
 F2(𝒫,r)     = (r - 𝒫.a)/𝒫.a + (r - 𝒫.a)^2/(2*𝒫.a^2)
-expo(𝒫,ϕ,r) = 𝒫.uₒ^2/(𝒫.R*𝒫.Tₒ)*(F2(𝒫,r)*cos(ϕ)^2-sin(ϕ)^2/2)-𝒫.g*F1(𝒫,r)/(𝒫.R*𝒫.Tₒ)
+expo(𝒫,ϕ,r) = 𝒫.uₒ^2/(𝒫.R_d*𝒫.Tₒ)*(F2(𝒫,r)*cos(ϕ)^2-sin(ϕ)^2/2)-𝒫.g*F1(𝒫,r)/(𝒫.R_d*𝒫.Tₒ)
 
 dudz(𝒫,r)    = 1 + (r - 𝒫.a) / 𝒫.a 
 p(𝒫,λ,ϕ,r)   = 𝒫.pₒ * exp(expo(𝒫,ϕ,r)) 
-ρ₀(𝒫,λ,ϕ,r)  = p(𝒫,λ,ϕ,r) / 𝒫.R / 𝒫.Tₒ
-ρθ₀(𝒫,λ,ϕ,r) = 𝒫.pₒ / 𝒫.R * (p(𝒫,λ,ϕ,r) / 𝒫.pₒ)^(1 - 𝒫.κ)
+ρ₀(𝒫,λ,ϕ,r)  = p(𝒫,λ,ϕ,r) / 𝒫.R_d / 𝒫.Tₒ
+ρθ₀(𝒫,λ,ϕ,r) = 𝒫.pₒ / 𝒫.R_d * (p(𝒫,λ,ϕ,r) / 𝒫.pₒ)^(1 - 𝒫.κ)
 
 uʳᵃᵈ(𝒫,λ,ϕ,r) = 0.0
 uˡᵃᵗ(𝒫,λ,ϕ,r) = 0.0
@@ -79,7 +81,6 @@ model = ModelSetup(
     boundary_conditions = bcs,
     initial_conditions = (ρ = ρ₀ᶜᵃʳᵗ, ρu = ρu⃗₀ᶜᵃʳᵗ, ρθ = ρθ₀ᶜᵃʳᵗ),
     numerics = (flux = RoeNumericalFlux(), staggering = true),
-    parameters = parameters,
 )
 
 ########

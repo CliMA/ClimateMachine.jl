@@ -5,6 +5,7 @@ include("../interface/utilities/boilerplate.jl")
 # Set up parameters
 ########
 parameters = (
+    g   = get_planet_parameter(:grav),
     L   = 1,     # domain length
     k   = 0.5,   # sinusoidal wavenumber
     ϵ   = 1e-3,  # perturbation amplitude
@@ -33,7 +34,8 @@ grid = DiscretizedDomain(
 physics = Physics(
     orientation = FlatOrientation(),
     advection   = NonLinearAdvection(),
-    eos         = BarotropicFluid(ρₒ = parameters.ρₒ, cₛ = parameters.cₛ),
+    eos         = BarotropicFluid{(:ρ, :ρu)}(),
+    parameters  = parameters,
 )
 
 ########
@@ -63,7 +65,7 @@ model = ModelSetup(
     boundary_conditions = bcs,
     initial_conditions = (ρ = ρ₀, ρu = ρu⃗₀, ρθ = ρθ₀),
     numerics = (flux = RoeNumericalFlux(),),
-    parameters = parameters,
+    # parameters = parameters,
 )
 
 ########

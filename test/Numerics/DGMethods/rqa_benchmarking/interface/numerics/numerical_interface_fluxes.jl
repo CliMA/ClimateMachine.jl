@@ -1,5 +1,10 @@
 using ClimateMachine.NumericalFluxes
-using ClimateMachine.Thermodynamics: total_specific_enthalpy, soundspeed_air, air_pressure, internal_energy
+using ClimateMachine.Thermodynamics: 
+    total_specific_enthalpy, 
+    soundspeed_air, 
+    air_pressure, 
+    internal_energy,
+    PhaseDry
 
 import ClimateMachine.NumericalFluxes: numerical_flux_first_order!
 
@@ -36,6 +41,7 @@ function numerical_flux_first_order!(
         direction,
     )
     eos = model.physics.eos
+    parameters = model.physics.parameters 
 
     FT = eltype(fluxᵀn)
 
@@ -50,8 +56,8 @@ function numerical_flux_first_order!(
     uₙ⁻ = u⁻' * n⁻
 
     # in general thermodynamics
-    p⁻ = calc_pressure(eos, state⁻)
-    c⁻ = calc_sound_speed(eos, state⁻)
+    p⁻ = calc_pressure(eos, state⁻, aux⁻, parameters)
+    c⁻ = calc_sound_speed(eos, state⁻, aux⁻, parameters)
 
     # + states
     ρ⁺ = state⁺.ρ
@@ -64,8 +70,8 @@ function numerical_flux_first_order!(
     uₙ⁺ = u⁺' * n⁻
 
     # in general thermodynamics
-    p⁺ = calc_pressure(eos, state⁺)
-    c⁺ = calc_sound_speed(eos, state⁺)
+    p⁺ = calc_pressure(eos, state⁺, aux⁺, parameters)
+    c⁺ = calc_sound_speed(eos, state⁺, aux⁺, parameters)
 
     # construct roe averges
     ρ = sqrt(ρ⁻ * ρ⁺)
@@ -133,9 +139,10 @@ function numerical_flux_first_order!(
     )
 
     FT = eltype(fluxᵀn)
-    # param_set = parameter_set(balance_law)
-    _cv_d::FT = cv_d(param_set)
-    _T_0::FT = T_0(param_set)
+    eos = balance_law.physics.eos
+    parameters = balance_law.physics.parameters
+    _cv_d::FT = parameters.cv_d
+    _T_0::FT = parameters.T_0
 
     # Φ = gravitational_potential(balance_law, state_auxiliary⁻)
     Φ = state_auxiliary⁻.Φ
@@ -145,14 +152,17 @@ function numerical_flux_first_order!(
     ρe⁻ = state_prognostic⁻.ρe
 
     # ts⁻ = recover_thermo_state(balance_law, state_prognostic⁻, state_auxiliary⁻)
-    ts⁻ = PhaseDry(param_set, internal_energy(ρ⁻,ρe⁻,ρu⁻,Φ), ρ⁻) 
+    # ts⁻ = PhaseDry(param_set, internal_energy(ρ⁻,ρe⁻,ρu⁻,Φ), ρ⁻) 
 
     u⁻ = ρu⁻ / ρ⁻
     uᵀn⁻ = u⁻' * normal_vector
     e⁻ = ρe⁻ / ρ⁻
-    h⁻ = total_specific_enthalpy(ts⁻, e⁻)
-    p⁻ = air_pressure(ts⁻)
-    c⁻ = soundspeed_air(ts⁻)
+    # h⁻ = total_specific_enthalpy(ts⁻, e⁻)
+    # p⁻ = air_pressure(ts⁻)
+    # c⁻ = soundspeed_air(ts⁻)
+    p⁻ = calc_pressure(eos, state_prognostic⁻, state_auxiliary⁻, parameters)
+    c⁻ = calc_sound_speed(eos, state_prognostic⁻, state_auxiliary⁻, parameters)
+    h⁻ = calc_total_specific_enthalpy(eos, state_prognostic⁻, state_auxiliary⁻, parameters)
 
     ρ⁺ = state_prognostic⁺.ρ
     ρu⁺ = state_prognostic⁺.ρu
@@ -162,14 +172,17 @@ function numerical_flux_first_order!(
     # TODO: state_auxiliary⁺ is not up-to-date
     # with state_prognostic⁺ on the boundaries
     # ts⁺ = recover_thermo_state(balance_law, state_prognostic⁺, state_auxiliary⁺)
-    ts⁺ = PhaseDry(param_set, internal_energy(ρ⁺,ρe⁺,ρu⁺,Φ⁺), ρ⁺) 
+    # ts⁺ = PhaseDry(param_set, internal_energy(ρ⁺,ρe⁺,ρu⁺,Φ⁺), ρ⁺) 
 
     u⁺ = ρu⁺ / ρ⁺
     uᵀn⁺ = u⁺' * normal_vector
     e⁺ = ρe⁺ / ρ⁺
-    h⁺ = total_specific_enthalpy(ts⁺, e⁺)
-    p⁺ = air_pressure(ts⁺)
-    c⁺ = soundspeed_air(ts⁺)
+    # h⁺ = total_specific_enthalpy(ts⁺, e⁺)
+    # p⁺ = air_pressure(ts⁺)
+    # c⁺ = soundspeed_air(ts⁺)
+    p⁺ = calc_pressure(eos, state_prognostic⁺, state_auxiliary⁺, parameters)
+    c⁺ = calc_sound_speed(eos, state_prognostic⁺, state_auxiliary⁺, parameters)
+    h⁺ = calc_total_specific_enthalpy(eos, state_prognostic⁺, state_auxiliary⁺, parameters)
 
     ρ̃ = sqrt(ρ⁻ * ρ⁺)
     ũ = roe_average(ρ⁻, ρ⁺, u⁻, u⁺)
@@ -307,8 +320,8 @@ function numerical_flux_first_order!(
     uₙ⁻ = u⁻' * n⁻
 
     # in general thermodynamics
-    p⁻ = calc_pressure(eos, state⁻)
-    c⁻ = calc_sound_speed(eos, state⁻)
+    p⁻ = calc_pressure(eos, state⁻, aux⁻, parameters)
+    c⁻ = calc_sound_speed(eos, state⁻, aux⁻, parameters)
 
     # + states
     ρ⁺ = state⁺.ρ
@@ -321,8 +334,8 @@ function numerical_flux_first_order!(
     uₙ⁺ = u⁺' * n⁻
 
     # in general thermodynamics
-    p⁺ = calc_pressure(eos, state⁺)
-    c⁺ = calc_sound_speed(eos, state⁺)
+    p⁺ = calc_pressure(eos, state⁺, aux⁺, parameters)
+    c⁺ = calc_sound_speed(eos, state⁺, aux⁺, parameters)
 
     # construct roe averges
     ρ = sqrt(ρ⁻ * ρ⁺)

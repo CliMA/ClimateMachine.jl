@@ -5,6 +5,7 @@ include("../interface/utilities/boilerplate.jl")
 # Set up parameters
 ########
 parameters = (
+    g  = 0.0,
     ρₒ = 1.0,  # reference density
     cₛ = 1e-2, # sound speed
     ℓᵐ = 10,   # jet thickness, (larger is thinner)
@@ -35,8 +36,8 @@ physics = Physics(
     orientation = SphericalOrientation(),
     advection   = NonLinearAdvection(),
     coriolis    = DeepShellCoriolis{Float64}(Ω = parameters.Ω),
-    gravity     = Buoyancy{Float64}(α = parameters.α, g = 0.0),
-    eos         = BarotropicFluid{Float64}(ρₒ = parameters.ρₒ, cₛ = parameters.cₛ),
+    eos         = BarotropicFluid{(:ρ, :ρu)}(),
+    parameters  = parameters,
 )
 
 ########
@@ -82,7 +83,6 @@ model = ModelSetup(
     boundary_conditions = bcs,
     initial_conditions = (ρ = ρ₀ᶜᵃʳᵗ, ρu = ρu⃗₀ᶜᵃʳᵗ, ρθ = ρθ₀ᶜᵃʳᵗ),
     numerics = (flux = RoeNumericalFlux(),),
-    parameters = parameters,
 )
 
 ########

@@ -1,6 +1,7 @@
 abstract type AbstractTerm{𝒯} end
 
 struct NonlinearAdvection{𝒯} <: AbstractTerm{𝒯} end
+struct LinearAdvection{𝒯} <: AbstractTerm{𝒯} end
 
 @inline calc_component!(flux, ::Nothing, _...) = nothing
 @inline calc_component!(flux, ::AbstractTerm, _...) = nothing
@@ -24,8 +25,9 @@ end
     ρu  = state.ρu
     ρe  = state.ρe
     eos = physics.eos
+    parameters = physics.parameters
 
-    p = calc_pressure(eos, state, aux)
+    p = calc_pressure(eos, state, aux, parameters)
     u = ρu / ρ
 
     flux.ρ  += ρu
