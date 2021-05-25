@@ -28,13 +28,13 @@ parameters = (
 # Set up domain
 ########
 domain = SphericalShell(
-    radius = planet_radius(param_set),
+    radius = 6378e3,
     height = 30e3,
 )
 grid = DiscretizedDomain(
     domain;
-    elements = (vertical = 5, horizontal = 6),
-    polynomial_order = (vertical = 3, horizontal = 6),
+    elements = (vertical = 15, horizontal = 6),
+    polynomial_order = (vertical = 1, horizontal = 6),
     overintegration_order = (vertical = 0, horizontal = 0),
 )
 
@@ -227,7 +227,6 @@ linear_model = DryAtmosModel(
     parameters = parameters,
 )
 
-
 rhs1 = Explicit(ESDGModel(
                 model,
                 grid.numerical,
@@ -248,6 +247,7 @@ odesolver = construct_odesolver(method, rhs, simulation.state, Δt, t0 = 0)
 cbvector = create_callbacks(simulation, odesolver)
 
 # Perform evolution of simulations
+#=
 if isempty(cbvector)
     solve!(simulation.state, odesolver; timeend = 10 * 86400, adjustfinalstep = false)
 else
@@ -259,3 +259,4 @@ else
         adjustfinalstep = false,
     )
 end
+=#
