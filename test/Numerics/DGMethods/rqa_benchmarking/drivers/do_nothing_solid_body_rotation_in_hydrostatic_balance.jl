@@ -35,7 +35,7 @@ physics = Physics(
     orientation = SphericalOrientation(),
     advection   = NonlinearAdvection{(:ρ, :ρu, :ρθ)}(),
     coriolis    = ThinShellCoriolis(),
-    gravity     = Buoyancy(),
+    gravity     = Buoyancy{(:ρ, :ρu, :ρθ)}(),
     eos         = BarotropicFluid{(:ρ, :ρu)}(),
     parameters  = parameters,
 )

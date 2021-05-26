@@ -42,7 +42,7 @@ grid = DiscretizedDomain(
 ########
 # Set up model physics
 ########
-eos = IdealGas{(:ρ, :ρu, :ρe)}()
+eos = DryIdealGas{(:ρ, :ρu, :ρe)}()
 physics = Physics(
     orientation = FlatOrientation(),
     ref_state   = NoReferenceState(),

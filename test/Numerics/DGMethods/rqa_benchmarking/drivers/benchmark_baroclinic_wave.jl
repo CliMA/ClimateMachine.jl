@@ -120,7 +120,7 @@ FT = Float64
 ref_state = DryReferenceState(DecayingTemperatureProfile{FT}(parameters, FT(290), FT(220), FT(8e3)))
 
 # total energy
-eos = IdealGas{(:ρ, :ρu, :ρe)}()
+eos = DryIdealGas{(:ρ, :ρu, :ρe)}()
 physics = Physics(
     orientation = SphericalOrientation(),
     ref_state   = ref_state,

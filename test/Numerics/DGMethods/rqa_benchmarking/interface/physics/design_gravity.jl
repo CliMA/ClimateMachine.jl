@@ -1,7 +1,7 @@
 abstract type AbstractGravity <: AbstractTerm end
 
 struct Gravity <: AbstractGravity end
-struct Buoyancy <: AbstractGravity end
+struct Buoyancy{𝒯} <: AbstractGravity end
 
 @inline calc_component!(source, ::Nothing, state, _...) = nothing
 
@@ -14,7 +14,7 @@ struct Buoyancy <: AbstractGravity end
     nothing
 end
 
-@inline function calc_component!(source, ::Buoyancy, state, aux, physics)
+@inline function calc_component!(source, ::Buoyancy{(:ρ, :ρu, :ρθ)}, state, aux, physics)
     ρθ = state.ρθ
     α = physics.parameters.α 
     g = physics.parameters.g
