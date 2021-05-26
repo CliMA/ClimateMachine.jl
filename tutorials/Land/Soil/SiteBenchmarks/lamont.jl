@@ -44,6 +44,7 @@ include(joinpath(clima_dir, "docs", "plothelpers.jl"));
 # # Set up the soil model
 
 soil_heat_model = PrescribedTemperatureModel();
+#=
 θ_r = FT(0.0)
 
 #Based of of soil classes
@@ -100,73 +101,44 @@ function ks(z::F) where {F}
     end
     return k
 end
-
-
-#=
-#Based of of elreno
-function vgn(z::F) where {F}
-    if z > F(-0.2)
-        #silt loam still
-        n = F(1.4)
-    end
-    if z > F(-0.37) && z <= F(-0.2)
-        n = F(10)^F(0.1811)
-    end
-    if z > F(-0.53) && z <= F(-0.37)
-        n = F(10)^F(0.1609)
-    end
-    if z > F(-0.85) && z <= F(-0.53)
-        n = F(10)^F(0.1319)
-    end
-    if z <= F(-0.85)
-        n = F(10)^F(0.1154)
-    end
-    return n
-end
-
-function vgα(z::F) where {F}
-    if z > F(-0.2)
-        #silt loam
-        α = F(2)
-    end
-    if z > F(-0.37) && z <= F(-0.2)
-        α = F(10)^F(-2.287)*F(100)
-    end
-    if z > F(-0.53) && z <= F(-0.37)
-        α = F(10)^F(-2.19)*F(100)
-    end
-    if z > F(-0.85) && z <= F(-0.53)
-        α = F(10)^F(-2.028)*F(100)
-    end
-    if z <= F(-0.85)
-        α = F(10)^F(-1.89)*F(100)
-    end
-    return α
-end
-
-function ks(z::F) where {F}
-    if z > F(-0.2)
-        #silt loam
-        k = F(0.45/3600/100)
-    end
-    if z > F(-0.37) && z <= F(-0.2)
-        k = F(0.1/3600/100)
-    end
-    if z > F(-0.53) && z <= F(-0.37)
-        k = F(0.1/3600/100)
-    end
-    if z > F(-0.85) && z <= F(-0.53)
-        k = F(0.1/3600/100)
-    end
-    if z <= F(-0.85)
-        k = F(0.26/3600/100)
-    end
-    return k
-end
 =#
-ν = FT(0.49)#changing ν doesnt seem to do much.
-wpf = WaterParamFunctions(FT; Ksat = (aux)->ks(aux.z), S_s = 1e-4, θ_r = θ_r);
-soil_param_functions = SoilParamFunctions(FT; porosity = ν, water = wpf)#(aux)->porosity(aux.z), water = wpf);
+soil_depths = FT.([2.5,10,22.5,45,80,150]./(100))
+paramvalues = FT.(readdlm("./data/lamont/polaris_mean/polaris_mean_results.csv", ','))
+#s_vgn = Spline1D(reverse(-soil_depths), reverse(paramvalues[1,:]),k=1)
+#s_vgα = Spline1D(reverse(-soil_depths), reverse(paramvalues[3,:]),k=1)
+#s_ksat = Spline1D(reverse(-soil_depths), reverse(paramvalues[2,:]),k=1)
+#s_θr = Spline1D(reverse(-soil_depths), reverse(paramvalues[4,:]),k=1)
+#s_ν = Spline1D(reverse(-soil_depths), reverse(paramvalues[5,:]),k=1)
+
+
+code ="""
+function mymap(z::F,  depths::Array{F,1},values::Array{F,1}) where {F}
+    N = length(depths)
+    v = F(0)
+    if -z < depths[1]
+        v =  values[1]
+    elseif -z >=depths[N]
+        v =  values[N]
+    else
+        for i in 2:1:N
+            if -z < depths[i] && -z>= depths[i-1]
+                num = values[i-1]*(depths[i]+z)+values[i]*(-z-depths[i-1])
+                denom = depths[i]-depths[i-1]
+                v =  num/denom
+            end
+        end
+    end
+    return v
+    
+end
+soil_depths = FT.([2.5,10,22.5,45,80,150]./(100))
+paramvalues = FT.(readdlm("./data/lamont/polaris_mean/polaris_mean_results.csv", ','))
+@code_typed(mymap(-1.0,soil_depths, paramvalues[1,:]))
+"""
+
+
+wpf = WaterParamFunctions(FT; Ksat = (aux)->mymap(aux.z, soil_depths, paramvalues[2,:]), S_s = 1e-4, θ_r = (aux)->mymap(aux.z,soil_depths, paramvalues[4,:]))
+soil_param_functions = SoilParamFunctions(FT; porosity = (aux)->mymap(aux.z,soil_depths, paramvalues[5,:]), water = wpf)#(aux)->porosity(aux.z), water = wpf);
 
 ### Read in flux data
 cutoff1 = DateTime(2016,04,01)
@@ -253,7 +225,7 @@ swc = FT.(soil_data[keep,:][1,:]).*0.01
 soil_water_model = SoilWaterModel(
     FT;
     moisture_factor = MoistureDependent{FT}(),
-    hydraulics = vanGenuchten(FT; n = (aux) -> vgn(aux.z), α = (aux)->vgα(aux.z)),
+    hydraulics = vanGenuchten(FT; n = (aux) ->mymap(aux.z,soil_depths, paramvalues[1,:]), α = (aux)->mymap(aux.z,soil_depths, paramvalues[3,:])),
     initialϑ_l = ϑ_l0,
 );
 
