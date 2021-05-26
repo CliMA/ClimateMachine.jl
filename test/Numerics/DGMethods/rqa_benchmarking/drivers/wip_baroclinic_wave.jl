@@ -22,6 +22,29 @@ parameters = (
     ϕ_c  = 2 * π / 9,
     V_p  = 1.0,
     κ    = 2/7,
+    γ    = 7/5,
+)
+
+parameters = (
+    a    = get_planet_parameter(:planet_radius),
+    Ω    = get_planet_parameter(:Omega),
+    g    = get_planet_parameter(:grav),
+    κ    = get_planet_parameter(:kappa_d),
+    R_d  = get_planet_parameter(:R_d),
+    γ    = get_planet_parameter(:cp_d)/get_planet_parameter(:cv_d),
+    pₒ   = get_planet_parameter(:MSLP),
+    cv_d = get_planet_parameter(:cv_d),
+    T_0  = 0.0,
+    H    = 30e3,
+    k    = 3.0,
+    Γ    = 0.005,
+    T_E  = 310.0,
+    T_P  = 240.0,
+    b    = 2.0,
+    z_t  = 15e3,
+    λ_c  = π / 9,
+    ϕ_c  = 2 * π / 9,
+    V_p  = 1.0,
 )
 
 ########
@@ -33,8 +56,8 @@ domain = SphericalShell(
 )
 grid = DiscretizedDomain(
     domain;
-    elements = (vertical = 15, horizontal = 6),
-    polynomial_order = (vertical = 1, horizontal = 6),
+    elements = (vertical = 5, horizontal = 6),
+    polynomial_order = (vertical = 3, horizontal = 6),
     overintegration_order = (vertical = 0, horizontal = 0),
 )
 
@@ -115,34 +138,21 @@ end
 ########
 FT = Float64
 
-ref_state = DryReferenceState(DecayingTemperatureProfile{FT}(param_set, FT(290), FT(220), FT(8e3)))
+ref_state = DryReferenceState(DecayingTemperatureProfile{FT}(parameters, FT(290), FT(220), FT(8e3)))
 
 # total energy
-eos     = TotalEnergy(γ = 1 / (1 - parameters.κ))
 physics = Physics(
     orientation = SphericalOrientation(),
     ref_state   = ref_state,
-    eos         = eos,
+    eos         = DryIdealGas{(:ρ, :ρu, :ρe)}(),
     lhs         = (
-        ESDGNonLinearAdvection(eos = eos),
-        PressureDivergence(eos = eos),
+        NonlinearAdvection{(:ρ, :ρu, :ρe)}(),
+        PressureDivergence(),
     ),
     sources     = (
-        DeepShellCoriolis{FT}(Ω = parameters.Ω),
+        DeepShellCoriolis(),
     ),
-)
-linear_eos = linearize(physics.eos)
-linear_physics = Physics(
-    orientation = physics.orientation,
-    ref_state   = physics.ref_state,
-    eos         = linear_eos,
-    lhs         = (
-        ESDGLinearAdvection(),
-        PressureDivergence(eos = linear_eos),
-    ),
-    sources     = (
-        ThinShellGravityFromPotential(),
-    ),
+    parameters = parameters,
 )
 
 ########
@@ -153,20 +163,8 @@ model = DryAtmosModel(
     boundary_conditions = (5, 6),
     initial_conditions = (ρ = ρ₀ᶜᵃʳᵗ, ρu = ρu⃗₀ᶜᵃʳᵗ, ρe = ρeᶜᵃʳᵗ, ρq = ρqᶜᵃʳᵗ),
     numerics = (
-        flux = RusanovNumericalFlux(),
+        flux = RefanovFlux(),
     ),
-    parameters = parameters,
-)
-
-linear_model = DryAtmosLinearModel(
-    physics = linear_physics,
-    boundary_conditions = model.boundary_conditions,
-    initial_conditions = nothing,
-    numerics = (
-        flux = model.numerics.flux,
-        direction = VerticalDirection()
-    ),
-    parameters = model.parameters,
 )
 
 ########
@@ -189,32 +187,19 @@ callbacks = (
 ########
 # Set up simulation
 ########
-simulation = Simulation(
-    (Explicit(model), Implicit(linear_model),);
-    grid = grid,
-    timestepper = (method = method, timestep = Δt),
-    time        = (start = start_time, finish = end_time),
-    callbacks   = callbacks,
-);
-
-########
-# Run the simulation
-########
-# initialize!(simulation)
-# prototype_evolve!(simulation)
 
 
 ## 
-linear_eos = linearize(physics.eos)
 linear_physics = Physics(
     orientation = physics.orientation,
     ref_state   = physics.ref_state,
-    eos         = linear_eos,
+    eos         = physics.eos,
     lhs         = (
-        ESDGLinearAdvection(),
-        PressureDivergence(eos = linear_eos),
+        LinearAdvection{(:ρ, :ρu, :ρe)}(),
+        LinearPressureDivergence(),
     ),
     sources     = (),
+    parameters = parameters,
 )
 
 linear_model = DryAtmosModel(
@@ -222,9 +207,9 @@ linear_model = DryAtmosModel(
     boundary_conditions = (5, 6),
     initial_conditions = (ρ = ρ₀ᶜᵃʳᵗ, ρu = ρu⃗₀ᶜᵃʳᵗ, ρe = ρeᶜᵃʳᵗ, ρq = ρqᶜᵃʳᵗ),
     numerics = (
-        flux = RusanovNumericalFlux(),
+        flux = RefanovFlux(),
     ),
-    parameters = parameters,
+
 )
 
 rhs1 = Explicit(ESDGModel(
@@ -242,6 +227,17 @@ rhs2 = Implicit(VESDGModel(
 ))
 
 rhs = (rhs1, rhs2)
+
+
+simulation = Simulation(
+    (Explicit(model), Implicit(linear_model),);
+    grid = grid,
+    timestepper = (method = method, timestep = Δt),
+    time        = (start = start_time, finish = end_time),
+    callbacks   = callbacks,
+);
+
+
 odesolver = construct_odesolver(method, rhs, simulation.state, Δt, t0 = 0) 
 # Make callbacks from callbacks tuple
 cbvector = create_callbacks(simulation, odesolver)
@@ -254,7 +250,7 @@ else
     solve!(
         simulation.state,
         odesolver;
-        timeend = 10 * 86400,
+        timeend = Δt, # 10 * 86400,
         callbacks = cbvector,
         adjustfinalstep = false,
     )

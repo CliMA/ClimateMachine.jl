@@ -129,7 +129,7 @@ physics = Physics(
         NonlinearAdvection{(:ρ, :ρu, :ρe)}(),
         PressureDivergence(),
     ),
-    sources     = sources = (
+    sources     = (
         DeepShellCoriolis(),
     ),
     parameters = parameters,

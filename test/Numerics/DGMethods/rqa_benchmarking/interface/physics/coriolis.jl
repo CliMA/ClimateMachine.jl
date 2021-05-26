@@ -1,50 +1,45 @@
-abstract type AbstractCoriolis  <: AbstractPhysicsComponent end
+abstract type AbstractCoriolis <: AbstractTerm end
 
-@Base.kwdef struct DeepShellCoriolis{FT} <: AbstractCoriolis
-    Ω :: FT # s⁻¹
+struct DeepShellCoriolis <: AbstractCoriolis end
+struct ThinShellCoriolis <: AbstractCoriolis end
+struct BetaPlaneCoriolis <: AbstractCoriolis end
+
+@inline calc_component!(source, ::Nothing, state, _...) = nothing
+@inline calc_component!(source, ::AbstractTerm, _...) = nothing
+
+@inline function calc_component!(source, ::DeepShellCoriolis, state, aux, physics)
+    ρu = state.ρu
+    Ω  = @SVector [-0, -0, physics.parameters.Ω]
+
+    source.ρu -= 2Ω × ρu
+
+    nothing
 end
 
-@Base.kwdef struct ThinShellCoriolis{FT} <: AbstractCoriolis
-    Ω :: FT # s⁻¹
-end
-
-@Base.kwdef struct BetaPlaneCoriolis{FT} <: AbstractCoriolis
-    f₀ :: FT # s⁻¹
-    β  :: FT # s⁻¹m⁻¹
-end
-
-@inline calc_force!(source, ::Nothing, state, _...) = nothing
-
-@inline function calc_force!(source, coriolis::DeepShellCoriolis, state, _...)
-    Ω⃗  = @SVector [-0, -0, coriolis.Ω]
-    ρu⃗ = state.ρu
-
-    source.ρu -= 2Ω⃗ × ρu⃗
-
-    return nothing
-end
-
-@inline function calc_force!(source, coriolis::ThinShellCoriolis, state, aux, orientation, _...)
-    Ω⃗  = @SVector [-0, -0, coriolis.Ω]
-    ρu⃗ = state.ρu
-
-    k̂ = vertical_unit_vector(orientation, aux)
-
-    source.ρu -= (2Ω⃗ ⋅ k̂) * (k̂ × ρu⃗)
+@inline function calc_component!(source, ::ThinShellCoriolis, state, aux, physics)
+    ρu = state.ρu
+    orientation = physics.orientation
     
-    return nothing
+    k  = vertical_unit_vector(orientation, aux)
+    Ω  = @SVector [-0, -0, physics.parameters.Ω]
+
+    source.ρu -= (2Ω ⋅ k) * (k × ρu)
+    
+    nothing
 end
 
-@inline function calc_force!(source, coriolis::BetaPlaneCoriolis, state, aux, orientation, _...)
-    f₀ = coriolis.f₀
-    β  = coriolis.β
-    ρu⃗ = state.ρu
+@inline function calc_component!(source, ::BetaPlaneCoriolis, state, aux, physics)
+    ρu = state.ρu
     y  = aux.y
+    orientation = physics.orientation
+
+    k  = vertical_unit_vector(orientation, aux)
+    f₀ = physics.parameters.f₀
+    β  = physics.parameters.β
 
     f = f₀ + β * y
-    k̂ = vertical_unit_vector(orientation, aux)
     
-    source.ρu -= f * (k̂ × ρu⃗)
+    source.ρu -= f * (k × ρu)
 
-    return nothing
+    nothing
 end

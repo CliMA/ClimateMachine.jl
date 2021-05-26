@@ -87,22 +87,13 @@ function Simulation(model::Tuple{AbstractRate, AbstractRate}; grid, timestepper,
             push!(rhs, tmp)
         elseif item isa Implicit
             println("constructing implicit models")
-            #=
             tmp = Implicit(VESDGModel(
                 item.model,
                 grid.numerical,
                 surface_numerical_flux_first_order = item.model.numerics.flux,
                 volume_numerical_flux_first_order = LinearKGVolumeFlux(),
             ))
-            =#
-            tmp = Implicit(DGModel(
-                item.model,
-                grid.numerical,
-                item.model.numerics.flux,
-                CentralNumericalFluxSecondOrder(),
-                CentralNumericalFluxGradient();
-                direction = item.model.numerics.direction,
-            ))
+            
             push!(rhs, tmp)
         end
     end

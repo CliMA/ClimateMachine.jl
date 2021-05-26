@@ -1,57 +1,48 @@
-abstract type AbstractAdvection <: AbstractPhysicsComponent end
+struct NonlinearAdvection{𝒯} <: AbstractTerm end
+struct LinearAdvection{𝒯} <: AbstractTerm end
 
-struct NonLinearAdvection <: AbstractAdvection end
+@inline calc_component!(flux, ::Nothing, _...) = nothing
+@inline calc_component!(flux, ::AbstractTerm, _...) = nothing
 
-struct ESDGLinearAdvection <: AbstractAdvection end
-Base.@kwdef struct ESDGNonLinearAdvection{𝒯} <: AbstractAdvection
-    eos::𝒯
-end
-
-@inline calc_advective_flux!(flux, ::Nothing, _...) = nothing
-@inline calc_advective_flux!(flux, ::Nothing, _...) = nothing
-@inline calc_advective_flux!(flux, ::AbstractAdvection, _...) = nothing
-
-@inline function calc_advective_flux!(flux, ::NonLinearAdvection, state, aux, t)
+@inline function calc_component!(flux, ::NonlinearAdvection{(:ρ, :ρu, :ρθ)}, state, aux, physics)
     ρ  = state.ρ
     ρu = state.ρu
     ρθ = state.ρθ
+    
+    u = ρu / ρ
 
-    flux.ρ  += state.ρu
-    flux.ρu += ρu ⊗ ρu / ρ
-    flux.ρθ += ρu * ρθ / ρ
+    flux.ρ  += ρu
+    flux.ρu += ρu ⊗ u
+    flux.ρθ += ρθ * u
 
-    return nothing
+    nothing
 end
 
-@inline function calc_flux!(flux, ::ESDGLinearAdvection, state, aux, t)
+@inline function calc_component!(flux, ::NonlinearAdvection{(:ρ, :ρu, :ρe)}, state, aux, physics)
+    ρ   = state.ρ
+    ρu  = state.ρu
+    ρe  = state.ρe
+    eos = physics.eos
+    parameters = physics.parameters
+
+    p = calc_pressure(eos, state, aux, parameters)
+    u = ρu / ρ
+
+    flux.ρ  += ρu
+    flux.ρu += ρu ⊗ u
+    flux.ρe += (ρe + p) * u
+
+    nothing
+end
+
+@inline function calc_component!(flux, ::LinearAdvection{(:ρ, :ρu, :ρe)}, state, aux, physics)
     ρu  = state.ρu
     ρᵣ  = aux.ref_state.ρ
     pᵣ  = aux.ref_state.p
     ρeᵣ = aux.ref_state.ρe
 
-    flux.ρ += ρu
-    #flux.ρu += -0
-    flux.ρe += (ρeᵣ + pᵣ) / ρᵣ * ρu
-    #flux.ρq += -0
-
-    return nothing
-end
-
-
-@inline function calc_flux!(flux, advection::ESDGNonLinearAdvection, state, aux, t)
-    ρ = state.ρ
-    ρu = state.ρu
-    ρe = state.ρe
-    ρq = state.ρq
-    eos = advection.eos
-    ρ⁻¹ = 1 / ρ
-
-    p = calc_pressure(eos, state, aux)
-
     flux.ρ  += ρu
-    flux.ρu += ρ⁻¹ * ρu ⊗ ρu
-    flux.ρe += ρ⁻¹ * ρu * (ρe + p)
-    flux.ρq += ρ⁻¹ * ρu * ρq
-    
-    return nothing
+    flux.ρe += (ρeᵣ + pᵣ) * ρu / ρᵣ 
+
+    nothing
 end

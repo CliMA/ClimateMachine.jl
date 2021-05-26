@@ -23,7 +23,6 @@ function numerical_volume_fluctuation_flux_first_order!(
     aux_2::Vars,
 )
     if fluctuation_gravity
-        FT = eltype(D)
         ρ_1, ρ_2 = state_1.ρ, state_2.ρ
         Φ_1, Φ_2 = aux_1.Φ, aux_2.Φ
 
@@ -64,7 +63,6 @@ function numerical_volume_conservative_flux_first_order!(
     eos = model.physics.eos
     parameters = model.physics.parameters
 
-    Φ_1 = aux_1.Φ
     ρ_1 = state_1.ρ
     ρu_1 = state_1.ρu
     ρe_1 = state_1.ρe
@@ -74,7 +72,6 @@ function numerical_volume_conservative_flux_first_order!(
     q_1 = ρq_1 / ρ_1
     p_1 = calc_pressure(eos, state_1, aux_1, parameters)
 
-    Φ_2 = aux_2.Φ
     ρ_2 = state_2.ρ
     ρu_2 = state_2.ρu
     ρe_2 = state_2.ρe
@@ -108,13 +105,9 @@ function numerical_volume_conservative_flux_first_order!(
     eos = model.physics.eos
     parameters = model.physics.parameters
     
-    Φ_1 = aux_1.Φ
-    ρ_1 = state_1.ρ
     ρu_1 = state_1.ρu
-    ρe_1 = state_1.ρe
-
     ρuᵣ = ρu_1 * 0
-    p_1 = calc_pressure(eos, state_1, aux_1, parameters)
+    p_1 = calc_linear_pressure(eos, state_1, aux_1, parameters)
 
     # grab reference state
     ρᵣ_1 = aux_1.ref_state.ρ
@@ -124,14 +117,10 @@ function numerical_volume_conservative_flux_first_order!(
     # only ρu fluctuates in the non-pressure terms
     u_1 = ρu_1 / ρᵣ_1 
     eᵣ_1 = ρeᵣ_1 / ρᵣ_1
-
-    Φ_2 = aux_2.Φ
-    ρ_2 = state_2.ρ
     ρu_2 = state_2.ρu
-    ρe_2 = state_2.ρe
 
     ρuᵣ = ρu_2 * 0
-    p_2 = calc_pressure(eos, state_2, aux_2, parameters)
+    p_2 = calc_linear_pressure(eos, state_2, aux_2, parameters)
 
     # grab reference state
     ρᵣ_2 = aux_2.ref_state.ρ
@@ -153,5 +142,4 @@ function numerical_volume_conservative_flux_first_order!(
     F.ρ = ρᵣ_avg * u_avg 
     F.ρu = p_avg * I + ρuᵣ .* ρuᵣ' # the latter term is needed to determine size of I
     F.ρe = (ρᵣ_avg * eᵣ_avg + pᵣ_avg) * u_avg
-    
 end
