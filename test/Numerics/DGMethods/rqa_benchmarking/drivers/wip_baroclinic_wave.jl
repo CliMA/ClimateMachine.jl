@@ -51,8 +51,8 @@ parameters = (
 # Set up domain
 ########
 domain = SphericalShell(
-    radius = 6378e3,
-    height = 30e3,
+    radius = parameters.a,
+    height = parameters.H,
 )
 grid = DiscretizedDomain(
     domain;
@@ -133,9 +133,14 @@ end
 ρeᶜᵃʳᵗ(𝒫, x...) = ρe(𝒫, lon(x...), lat(x...), rad(x...))
 ρqᶜᵃʳᵗ(𝒫, x...) = 0.0
 
+
+
+
+
 ########
 # Set up model physics
 ########
+
 FT = Float64
 
 ref_state = DryReferenceState(DecayingTemperatureProfile{FT}(parameters, FT(290), FT(220), FT(8e3)))
@@ -243,7 +248,7 @@ odesolver = construct_odesolver(method, rhs, simulation.state, Δt, t0 = 0)
 cbvector = create_callbacks(simulation, odesolver)
 
 # Perform evolution of simulations
-#=
+
 if isempty(cbvector)
     solve!(simulation.state, odesolver; timeend = 10 * 86400, adjustfinalstep = false)
 else
@@ -255,4 +260,4 @@ else
         adjustfinalstep = false,
     )
 end
-=#
+
