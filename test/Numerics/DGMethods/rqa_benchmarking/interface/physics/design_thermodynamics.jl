@@ -2,7 +2,6 @@ abstract type AbstractEquationOfState{𝒯} end
 
 struct BarotropicFluid{𝒯} <: AbstractEquationOfState{𝒯} end
 struct DryIdealGas{𝒯} <: AbstractEquationOfState{𝒯} end
-struct IdealGas{𝒯} <: AbstractEquationOfState{𝒯} end
 
 @inline function calc_pressure(::BarotropicFluid{(:ρ, :ρu)}, state, aux, params)
     ρ  = state.ρ
@@ -21,7 +20,7 @@ end
     return pₒ * (R_d / pₒ * ρθ)^γ
 end
 
-@inline function calc_pressure(::IdealGas{(:ρ, :ρu, :ρe)}, state, aux, params)
+@inline function calc_pressure(::DryIdealGas{(:ρ, :ρu, :ρe)}, state, aux, params)
     ρ  = state.ρ
     ρu = state.ρu
     ρe = state.ρe
@@ -31,7 +30,7 @@ end
     return (γ - 1) * (ρe - dot(ρu, ρu) / 2ρ - ρ * Φ)
 end
 
-@inline function calc_linear_pressure(::IdealGas{(:ρ, :ρu, :ρe)}, state, aux, params)
+@inline function calc_linear_pressure(::DryIdealGas{(:ρ, :ρu, :ρe)}, state, aux, params)
     ρ  = state.ρ
     ρe = state.ρe
     Φ  = aux.Φ
@@ -57,7 +56,7 @@ end
     return sqrt(γ * p / ρ)
 end
 
-@inline function calc_sound_speed(eos::IdealGas{(:ρ, :ρu, :ρe)}, state, aux, params)
+@inline function calc_sound_speed(eos::DryIdealGas{(:ρ, :ρu, :ρe)}, state, aux, params)
     ρ  = state.ρ
     γ  = params.γ
 
@@ -66,11 +65,7 @@ end
     return sqrt(γ * p / ρ)
 end
 
-@inline function calc_ref_sound_speed(
-    ::Union{IdealGas{(:ρ, :ρu, :ρe)}, DryIdealGas{(:ρ, :ρu, :ρθ)}}, 
-    aux, 
-    params
-)
+@inline function calc_ref_sound_speed(::DryIdealGas, aux, params)
     p = aux.ref_state.p
     ρ = aux.ref_state.ρ
     γ = params.γ
@@ -78,7 +73,7 @@ end
     return sqrt(γ * p / ρ)
 end
 
-@inline function calc_total_specific_enthalpy(eos::AbstractEquationOfState, state, aux, params)
+@inline function calc_total_specific_enthalpy(eos::DryIdealGas, state, aux, params)
     ρ  = state.ρ
     ρe = state.ρe
 
