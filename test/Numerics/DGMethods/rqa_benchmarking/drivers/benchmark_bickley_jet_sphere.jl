@@ -34,8 +34,8 @@ grid = DiscretizedDomain(
 ########
 physics = Physics(
     orientation = SphericalOrientation(),
-    advection   = NonLinearAdvection(),
-    coriolis    = DeepShellCoriolis{Float64}(Ω = parameters.Ω),
+    advection   = NonlinearAdvection{(:ρ, :ρu, :ρθ)}(),
+    coriolis    = DeepShellCoriolis(),
     eos         = BarotropicFluid{(:ρ, :ρu)}(),
     parameters  = parameters,
 )

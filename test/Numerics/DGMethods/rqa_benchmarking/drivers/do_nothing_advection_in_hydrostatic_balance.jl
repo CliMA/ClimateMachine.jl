@@ -32,8 +32,8 @@ grid = DiscretizedDomain(
 ########
 physics = Physics(
     orientation = SphericalOrientation(),
-    advection   = NonLinearAdvection(),
-    gravity     = ThinShellGravity{Float64}(g = parameters.g),
+    advection   = NonlinearAdvection{(:ρ, :ρu, :ρθ)}(),
+    gravity     = Gravity(),
     eos         = DryIdealGas{(:ρ, :ρu, :ρθ)}(),
     parameters  = parameters,
 )

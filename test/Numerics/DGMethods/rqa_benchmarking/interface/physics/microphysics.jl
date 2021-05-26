@@ -1,18 +1,16 @@
 abstract type AbstractMicrophysics  <: AbstractPhysicsComponent end
 
-@Base.kwdef struct ZeroMomentMicrophysics{FT} <: AbstractMicrophysics
-    τ :: FT # s
-end
+@Base.kwdef struct ZeroMomentMicrophysics <: AbstractMicrophysics end
 
-@inline calc_force!(source, ::Nothing, state, _...) = nothing
+@inline calc_component!(source, ::Nothing, state, _...) = nothing
 
-@inline function calc_force!(source, microphysics::ZeroMomentMicrophysics, state, aux, _...) 
+@inline function calc_component!(source, ::ZeroMomentMicrophysics, state, aux, physics) 
   ρ  = state.ρ
   ρu = state.ρu
   ρe = state.ρe
   ρq = state.ρq
   Φ  = aux.Φ
-  τ  = microphysics.τ
+  τ  = physics.parameters.τ_precip
 
   q  = ρq / ρ
 
@@ -34,11 +32,7 @@ end
   ρ⁻¹ = 1 / ρ
   ρe_kin = ρ⁻¹ * (ρu ⋅ ρu) / 2
   ρe_pot = ρ * Φ
-  if total_energy
-    ρe_int = ρe - ρe_kin - ρe_pot # - latent_energy
-  else
-    ρe_int = ρe - ρe_kin
-  end
+  ρe_int = ρe - ρe_kin - ρe_pot # - latent_energy
   e_int = ρ⁻¹ * ρe_int
 
   # temperature

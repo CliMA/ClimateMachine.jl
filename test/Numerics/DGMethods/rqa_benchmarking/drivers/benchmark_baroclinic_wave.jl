@@ -12,6 +12,8 @@ parameters = (
     R_d  = get_planet_parameter(:R_d),
     γ    = get_planet_parameter(:cp_d)/get_planet_parameter(:cv_d),
     pₒ   = get_planet_parameter(:MSLP),
+    cv_d = get_planet_parameter(:cv_d),
+    T_0  = 0.0,
     H    = 30e3,
     k    = 3.0,
     Γ    = 0.005,
@@ -115,35 +117,35 @@ end
 ########
 FT = Float64
 
-# ref_state = DryReferenceState(DecayingTemperatureProfile{FT}(param_set, FT(290), FT(220), FT(8e3)))
 ref_state = DryReferenceState(DecayingTemperatureProfile{FT}(parameters, FT(290), FT(220), FT(8e3)))
 
 # total energy
-eos     = TotalEnergy(γ = 1 / (1 - parameters.κ))
+eos = IdealGas{(:ρ, :ρu, :ρe)}()
 physics = Physics(
     orientation = SphericalOrientation(),
     ref_state   = ref_state,
     eos         = eos,
     lhs         = (
-        ESDGNonLinearAdvection(eos = eos),
-        PressureDivergence(eos = eos),
+        NonlinearAdvection{(:ρ, :ρu, :ρe)}(),
+        PressureDivergence(),
     ),
     sources     = sources = (
-        DeepShellCoriolis{FT}(Ω = parameters.Ω),
+        DeepShellCoriolis(),
     ),
+    parameters = parameters,
 )
-linear_eos = linearize(physics.eos)
 linear_physics = Physics(
     orientation = physics.orientation,
     ref_state   = physics.ref_state,
-    eos         = linear_eos,
+    eos         = physics.eos, 
     lhs         = (
-        ESDGLinearAdvection(),
-        PressureDivergence(eos = linear_eos),
+        LinearAdvection{(:ρ, :ρu, :ρe)}(),
+        LinearPressureDivergence(),
     ),
     sources     = (
-        ThinShellGravityFromPotential(),
+        Gravity(),
     ),
+    parameters = parameters,
 )
 
 ########
@@ -158,7 +160,6 @@ model = DryAtmosModel(
         # flux = RoeNumericalFlux(),
         flux = LMARSNumericalFlux(),
     ),
-    parameters = parameters,
 )
 
 linear_model = DryAtmosLinearModel(
@@ -166,12 +167,9 @@ linear_model = DryAtmosLinearModel(
     boundary_conditions = model.boundary_conditions,
     initial_conditions = nothing,
     numerics = (
-        # flux = model.numerics.flux,
         flux = RusanovNumericalFlux(),
-        # flux = RoeNumericalFlux(),
         direction = VerticalDirection()
     ),
-    parameters = model.parameters,
 )
 
 ########

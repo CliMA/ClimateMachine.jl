@@ -32,10 +32,10 @@ grid = DiscretizedDomain(
 ########
 physics = Physics(
     orientation = SphericalOrientation(),
-    advection   = NonLinearAdvection(),
+    advection   = NonlinearAdvection{(:ρ, :ρu, :ρθ)}(),
     dissipation = ConstantViscosity{Float64}(μ = 0.0, ν = 1e5/4/4, κ = 0.0),
-    coriolis    = DeepShellCoriolis{Float64}(Ω = parameters.Ω),
-    gravity     = DeepShellGravity{Float64}(g = parameters.g, a = parameters.a),
+    coriolis    = DeepShellCoriolis(),
+    gravity     = Gravity(),
     eos         = DryIdealGas{(:ρ, :ρu, :ρθ)}(),
     parameters  = parameters,
 )

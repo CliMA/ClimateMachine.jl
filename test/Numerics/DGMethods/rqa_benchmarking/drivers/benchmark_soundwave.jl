@@ -33,7 +33,7 @@ grid = DiscretizedDomain(
 ########
 physics = Physics(
     orientation = FlatOrientation(),
-    advection   = NonLinearAdvection(),
+    advection   = NonlinearAdvection{(:ρ, :ρu, :ρθ)}(),
     eos         = BarotropicFluid{(:ρ, :ρu)}(),
     parameters  = parameters,
 )
@@ -65,7 +65,6 @@ model = ModelSetup(
     boundary_conditions = bcs,
     initial_conditions = (ρ = ρ₀, ρu = ρu⃗₀, ρθ = ρθ₀),
     numerics = (flux = RoeNumericalFlux(),),
-    # parameters = parameters,
 )
 
 ########

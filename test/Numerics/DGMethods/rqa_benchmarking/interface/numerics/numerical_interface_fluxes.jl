@@ -1,10 +1,4 @@
 using ClimateMachine.NumericalFluxes
-using ClimateMachine.Thermodynamics: 
-    total_specific_enthalpy, 
-    soundspeed_air, 
-    air_pressure, 
-    internal_energy,
-    PhaseDry
 
 import ClimateMachine.NumericalFluxes: numerical_flux_first_order!
 
@@ -141,25 +135,20 @@ function numerical_flux_first_order!(
     FT = eltype(fluxᵀn)
     eos = balance_law.physics.eos
     parameters = balance_law.physics.parameters
+
     _cv_d::FT = parameters.cv_d
     _T_0::FT = parameters.T_0
 
-    # Φ = gravitational_potential(balance_law, state_auxiliary⁻)
     Φ = state_auxiliary⁻.Φ
 
     ρ⁻ = state_prognostic⁻.ρ
     ρu⁻ = state_prognostic⁻.ρu
     ρe⁻ = state_prognostic⁻.ρe
 
-    # ts⁻ = recover_thermo_state(balance_law, state_prognostic⁻, state_auxiliary⁻)
-    # ts⁻ = PhaseDry(param_set, internal_energy(ρ⁻,ρe⁻,ρu⁻,Φ), ρ⁻) 
-
     u⁻ = ρu⁻ / ρ⁻
     uᵀn⁻ = u⁻' * normal_vector
     e⁻ = ρe⁻ / ρ⁻
-    # h⁻ = total_specific_enthalpy(ts⁻, e⁻)
-    # p⁻ = air_pressure(ts⁻)
-    # c⁻ = soundspeed_air(ts⁻)
+
     p⁻ = calc_pressure(eos, state_prognostic⁻, state_auxiliary⁻, parameters)
     c⁻ = calc_sound_speed(eos, state_prognostic⁻, state_auxiliary⁻, parameters)
     h⁻ = calc_total_specific_enthalpy(eos, state_prognostic⁻, state_auxiliary⁻, parameters)
@@ -171,15 +160,11 @@ function numerical_flux_first_order!(
 
     # TODO: state_auxiliary⁺ is not up-to-date
     # with state_prognostic⁺ on the boundaries
-    # ts⁺ = recover_thermo_state(balance_law, state_prognostic⁺, state_auxiliary⁺)
-    # ts⁺ = PhaseDry(param_set, internal_energy(ρ⁺,ρe⁺,ρu⁺,Φ⁺), ρ⁺) 
 
     u⁺ = ρu⁺ / ρ⁺
     uᵀn⁺ = u⁺' * normal_vector
     e⁺ = ρe⁺ / ρ⁺
-    # h⁺ = total_specific_enthalpy(ts⁺, e⁺)
-    # p⁺ = air_pressure(ts⁺)
-    # c⁺ = soundspeed_air(ts⁺)
+
     p⁺ = calc_pressure(eos, state_prognostic⁺, state_auxiliary⁺, parameters)
     c⁺ = calc_sound_speed(eos, state_prognostic⁺, state_auxiliary⁺, parameters)
     h⁺ = calc_total_specific_enthalpy(eos, state_prognostic⁺, state_auxiliary⁺, parameters)
@@ -399,41 +384,41 @@ function numerical_flux_first_order!(
 ) where {S, A}
 
     FT = eltype(fluxᵀn)
-    # param_set = parameter_set(balance_law)
+    eos = balance_law.physics.eos
+    parameters = balance_law.physics.parameters
 
     ρ⁻ = state_prognostic⁻.ρ
     ρu⁻ = state_prognostic⁻.ρu
     ρe⁻ = state_prognostic⁻.ρe
     Φ⁻ = state_auxiliary⁻.Φ
-    # ts⁻ = recover_thermo_state(balance_law, state_prognostic⁻, state_auxiliary⁻)
-    ts⁻ = PhaseDry(param_set, internal_energy(ρ⁻,ρe⁻,ρu⁻,Φ⁻), ρ⁻)
 
     u⁻ = ρu⁻ / ρ⁻
     e⁻ = ρe⁻ / ρ⁻
     uᵀn⁻ = u⁻' * normal_vector
-    p⁻ = air_pressure(ts⁻)
+
+    p⁻ = calc_pressure(eos, state_prognostic⁻, state_auxiliary⁻, parameters)
     # if the reference state is removed in the momentum equations (meaning p-p_ref is used for pressure gradient force) then we should remove the reference pressure
     #     p⁻ -= state_auxiliary⁻.ref_state.p
     # end
-    c⁻ = soundspeed_air(ts⁻)
-    h⁻ = total_specific_enthalpy(ts⁻, e⁻)
+    c⁻ = calc_sound_speed(eos, state_prognostic⁻, state_auxiliary⁻, parameters)
+    h⁻ = calc_total_specific_enthalpy(eos, state_prognostic⁻, state_auxiliary⁻, parameters)
 
     ρ⁺ = state_prognostic⁺.ρ
     ρu⁺ = state_prognostic⁺.ρu
     ρe⁺ = state_prognostic⁺.ρe
     Φ⁺ = state_auxiliary⁺.Φ
-    # ts⁺ = recover_thermo_state(balance_law, state_prognostic⁺, state_auxiliary⁺)
-    ts⁺ = PhaseDry(param_set, internal_energy(ρ⁺,ρe⁺,ρu⁺,Φ⁺), ρ⁺)
 
     u⁺ = ρu⁺ / ρ⁺
     e⁺ = ρe⁺ / ρ⁺
     uᵀn⁺ = u⁺' * normal_vector
-    p⁺ = air_pressure(ts⁺)
+
+    p⁺ = calc_pressure(eos, state_prognostic⁺, state_auxiliary⁺, parameters)
     # if the reference state is removed in the momentum equations (meaning p-p_ref is used for pressure gradient force) then we should remove the reference pressure
     #     p⁺ -= state_auxiliary⁺.ref_state.p
     # end
-    c⁺ = soundspeed_air(ts⁺)
-    h⁺ = total_specific_enthalpy(ts⁺, e⁺)
+    c⁺ = calc_sound_speed(eos, state_prognostic⁺, state_auxiliary⁺, parameters)
+    h⁺ = calc_total_specific_enthalpy(eos, state_prognostic⁺, state_auxiliary⁺, parameters)
+
 
     # Eqn (49), (50), β the tuning parameter
     β = FT(1)
@@ -466,4 +451,65 @@ function numerical_flux_first_order!(
     #     ρχ_b = u_half > FT(0) ? ρχ⁻ : ρχ⁺
     #     fluxᵀn.tracers.ρχ = ρχ_b * u_half
     # end
+end
+
+numerical_flux_first_order!(::Nothing, ::DryAtmosModel, _...) = nothing
+numerical_flux_second_order!(::Nothing, ::DryAtmosModel, _...) = nothing
+numerical_boundary_flux_second_order!(::Nothing, a, ::DryAtmosModel, _...) = nothing
+
+# These technically affect the RusanovNumericalFlux and should be moved to the interface flux
+function wavespeed(
+    model::DryAtmosLinearModel,
+    nM,
+    state::Vars,
+    aux::Vars,
+    t::Real,
+    direction,
+)
+    eos = model.physics.eos
+    parameters = model.physics.parameters
+    
+    return calc_ref_sound_speed(eos, aux, parameters)
+end
+
+# function wavespeed(
+#     model::DryAtmosModel,
+#     nM,
+#     state::Vars,
+#     aux::Vars,
+#     t::Real,
+#     direction,
+# )
+#     #=
+#     ρ = state.ρ
+#     ρu = state.ρu
+#     ρe = state.ρe
+#     Φ = aux.Φ
+#     p = pressure(ρ, ρu, ρe, Φ, model.parameters.γ)
+
+#     u = ρu / ρ
+#     uN = abs(dot(nM, u))
+#     return uN + soundspeed(ρ, p, model.parameters.γ)
+#     return uN + soundspeed(ρ, p)
+#     =#
+#     ref = aux.ref_state
+#     return soundspeed(ref.ρ, ref.p)
+# end
+
+function wavespeed(
+    model::DryAtmosModel,
+    n⁻,
+    state::Vars,
+    aux::Vars,
+    t::Real,
+    direction,
+)
+    eos = model.physics.eos
+    parameters = model.physics.parameters
+    ρ = state.ρ
+    ρu = state.ρu
+
+    u = ρu / ρ
+    u_norm = abs(dot(n⁻, u))
+    return u_norm + calc_sound_speed(eos, state, aux, parameters)
 end

@@ -21,15 +21,12 @@ import ClimateMachine.BalanceLaws:
     vars_state returns a NamedTuple of data types.
 """
 function vars_state(model::ModelSetup, aux::Auxiliary, T)
-    # orientation = model.physics.orientation
-
     @vars begin
         x::T
         y::T
         z::T
         Φ::T
         ∇Φ::SVector{3, T} # TODO: only needed for the linear model
-        # orientation::vars_state(orientation, aux, T)
     end
 end
 
@@ -102,10 +99,11 @@ end
 )
     eos = model.physics.eos
     params = model.physics.parameters
+    physics = model.physics
 
     flux.ρu += calc_pressure(eos, state, aux, params) * I
 
-    calc_advective_flux!(flux, model.physics.advection, state, aux, t)
+    calc_component!(flux, model.physics.advection, state, aux, physics)
 
     return nothing
 end
@@ -165,10 +163,10 @@ end
 )
     coriolis = model.physics.coriolis
     gravity = model.physics.gravity
-    orientation = model.physics.orientation
+    physics = model.physics
 
-    calc_force!(source, coriolis, state, aux, orientation, t)
-    calc_force!(source, gravity, state, aux, orientation, t)
+    calc_component!(source, coriolis, state, aux, physics)
+    calc_component!(source, gravity, state, aux, physics)
 
     return nothing
 end

@@ -28,7 +28,7 @@ grid = DiscretizedDomain(
 ########
 physics = Physics(
     orientation = SphericalOrientation(),
-    advection   = NonLinearAdvection(),
+    advection   = NonlinearAdvection{(:ρ, :ρu, :ρθ)}(),
     eos         = BarotropicFluid{(:ρ, :ρu)}(),
     parameters  = parameters,
 )

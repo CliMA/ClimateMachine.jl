@@ -1,5 +1,5 @@
 abstract type AbstractPhysicsComponent end
-abstract type AbstractTerm{𝒯} end
+abstract type AbstractTerm end
 
 """
     Physics

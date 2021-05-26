@@ -135,32 +135,33 @@ FT = Float64
 ref_state = DryReferenceState(DecayingTemperatureProfile{FT}(parameters, FT(290), FT(220), FT(8e3)))
 
 # total energy
-eos     = TotalEnergy(γ = 1 / (1 - parameters.κ))
+eos = IdealGas{(:ρ, :ρu, :ρe)}()
 physics = Physics(
     orientation = SphericalOrientation(),
     ref_state   = ref_state,
     eos         = eos,
     lhs         = (
-        ESDGNonLinearAdvection(eos = eos),
-        PressureDivergence(eos = eos),
+        NonlinearAdvection{(:ρ, :ρu, :ρe)}(),
+        PressureDivergence(),
     ),
     sources     = (
-        DeepShellCoriolis{FT}(Ω = parameters.Ω),
-        ZeroMomentMicrophysics{FT}(τ = parameters.τ_precip),
+        DeepShellCoriolis(),
+        ZeroMomentMicrophysics(),
     ),
+    parameters = parameters,
 )
-linear_eos = linearize(physics.eos)
 linear_physics = Physics(
     orientation = physics.orientation,
     ref_state   = physics.ref_state,
-    eos         = linear_eos,
+    eos         = physics.eos,
     lhs         = (
-        ESDGLinearAdvection(),
-        PressureDivergence(eos = linear_eos),
+        LinearAdvection{(:ρ, :ρu, :ρe)}(),
+        LinearPressureDivergence(),
     ),
     sources     = (
-        ThinShellGravityFromPotential(),
+        Gravity(),
     ),
+    parameters = parameters,
 )
 
 ########
@@ -173,7 +174,6 @@ model = DryAtmosModel(
     numerics = (
         flux = RusanovNumericalFlux(),
     ),
-    parameters = parameters,
 )
 
 linear_model = DryAtmosLinearModel(
@@ -184,7 +184,6 @@ linear_model = DryAtmosLinearModel(
         flux = model.numerics.flux,
         direction = VerticalDirection()
     ),
-    parameters = model.parameters,
 )
 
 ########

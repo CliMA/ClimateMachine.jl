@@ -43,8 +43,8 @@ grid = DiscretizedDomain(
 ########
 physics = Physics(
     orientation = FlatOrientation(),
-    advection   = NonLinearAdvection(),
-    gravity     = ThinShellGravity{Float64}(g = parameters.g),
+    advection   = NonlinearAdvection{(:ρ, :ρu, :ρθ)}(),
+    gravity     = Gravity(),
     eos         = DryIdealGas{(:ρ, :ρu, :ρθ)}(),
     parameters  = parameters,
 )
@@ -58,7 +58,6 @@ r(p, x, z)      = sqrt((x - p.xc)^2 + (z - p.zc)^2)
 π_exner(p, x, y, z)   = 1.0 - p.g / (p.cp_d * θ₀(p, x, y, z) ) * z  
 
 ρ₀(p, x, y, z)  = p.pₒ / (p.R_d * θ₀(p, x, y, z)) * (π_exner(p, x, y, z))^(p.cv_d/p.R_d)
-# ρ₀(p, x, y, z)  = 1.0
 ρθ₀(p, x, y, z)     = ρ₀(p, x, y, z) * θ₀(p, x, y, z) 
 ρu⃗₀(p, x, y, z)     = @SVector [0,0,0]
 

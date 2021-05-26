@@ -36,7 +36,7 @@ function vars_state(m::Union{DryAtmosModel,DryAtmosLinearModel}, st::Auxiliary, 
 end
 
 vars_state(::Union{DryAtmosModel,DryAtmosLinearModel}, ::DryReferenceState, ::Auxiliary, FT) =
-    @vars(T::FT, p::FT, ρ::FT, ρe::FT)
+    @vars(T::FT, p::FT, ρ::FT, ρu::SVector{3, FT}, ρe::FT, ρq::FT)
 vars_state(::Union{DryAtmosModel,DryAtmosLinearModel}, ::NoReferenceState, ::Auxiliary, FT) = @vars()
 
 function vars_state(::Union{DryAtmosModel,DryAtmosLinearModel}, ::Prognostic, FT)
@@ -45,16 +45,6 @@ function vars_state(::Union{DryAtmosModel,DryAtmosLinearModel}, ::Prognostic, FT
         ρu::SVector{3, FT}
         ρe::FT
         ρq::FT
-    end
-end
-
-function vars_state(::DryAtmosModel, ::Entropy, FT)
-    @vars begin
-        ρ::FT
-        ρu::SVector{3, FT}
-        ρe::FT
-        ρe::FT
-        Φ::FT
     end
 end
 
@@ -76,7 +66,7 @@ function init_state_prognostic!(
     y = aux.y
     z = aux.z
 
-    parameters = model.parameters
+    parameters = model.physics.parameters
     ic = model.initial_conditions
 
     # TODO!: Set to 0 by default or assign IC
@@ -106,8 +96,7 @@ function init_state_auxiliary!(
     state_auxiliary,
     geom,
 )
-    FT = eltype(state_auxiliary)
-    _grav = model.parameters.g
+    _grav = model.physics.parameters.g
     r = norm(geom.coord)
     state_auxiliary.x = geom.coord[1]
     state_auxiliary.y = geom.coord[2]
@@ -117,13 +106,13 @@ function init_state_auxiliary!(
 end
 
 function init_state_auxiliary!(
-    m::Union{DryAtmosModel,DryAtmosLinearModel},
+    model::Union{DryAtmosModel,DryAtmosLinearModel},
     ::FlatOrientation,
     state_auxiliary,
     geom,
 )
     FT = eltype(state_auxiliary)
-    _grav = model.parameters.g
+    _grav = model.physics.parameters.g
     @inbounds r = geom.coord[3]
     state_auxiliary.x = geom.coord[1]
     state_auxiliary.y = geom.coord[2]
@@ -145,19 +134,27 @@ function init_state_auxiliary!(
     state_auxiliary,
     geom,
 )
-    FT = eltype(state_auxiliary)
-    z = altitude(model, model.physics.orientation, geom)
-    T, p = ref_state.temperature_profile(model.parameters, z)
+    orientation = model.physics.orientation   
+    R_d         = model.physics.parameters.R_d
+    γ           = model.physics.parameters.γ
+    Φ           = state_auxiliary.Φ
 
-    _R_d::FT = model.parameters.R_d
-    ρ = p / (_R_d * T)
-    Φ = state_auxiliary.Φ
+    FT = eltype(state_auxiliary)
+
+    # Calculation of a dry reference state
+    z = altitude(model, orientation, geom)
+    T, p = ref_state.temperature_profile(model.physics.parameters, z)
+    ρ  = p / R_d / T
     ρu = SVector{3, FT}(0, 0, 0)
+    ρe = p / (γ - 1) + dot(ρu, ρu) / 2ρ + ρ * Φ
+    ρq = FT(0)
 
     state_auxiliary.ref_state.T = T
     state_auxiliary.ref_state.p = p
     state_auxiliary.ref_state.ρ = ρ
-    state_auxiliary.ref_state.ρe = totalenergy(ρ, ρu, p, Φ, model.parameters.γ)
+    state_auxiliary.ref_state.ρu = ρu
+    state_auxiliary.ref_state.ρe = ρe
+    state_auxiliary.ref_state.ρq = ρq    
 end
 
 """
@@ -184,10 +181,11 @@ end
 """
 function source!(m::DryAtmosModel, source, state_prognostic, state_auxiliary, _...)
     sources = m.physics.sources
+    physics = m.physics
 
     ntuple(Val(length(sources))) do s
         Base.@_inline_meta
-        calc_force!(source, sources[s], state_prognostic, state_auxiliary)
+        calc_component!(source, sources[s], state_prognostic, state_auxiliary, physics)
     end
 end
 
@@ -201,10 +199,11 @@ function source!(
     ::NTuple{1, Dir},
 ) where {Dir <: Direction}
     sources = m.physics.sources
+    physics = m.physics
 
     ntuple(Val(length(sources))) do s
         Base.@_inline_meta
-        calc_force!(source, sources[s], state, aux)
+        calc_component!(source, sources[s], state, aux, physics)
     end
 end
 
@@ -249,7 +248,7 @@ end
 
 function altitude(model::Union{DryAtmosModel,DryAtmosLinearModel}, ::SphericalOrientation, geom)
     FT = eltype(geom)
-    _planet_radius::FT = model.parameters.a
+    _planet_radius::FT = model.physics.parameters.a
     norm(geom.coord) - _planet_radius
 end
 

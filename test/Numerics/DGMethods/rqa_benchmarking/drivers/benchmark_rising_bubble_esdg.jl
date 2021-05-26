@@ -42,8 +42,6 @@ grid = DiscretizedDomain(
 ########
 # Set up model physics
 ########
-# eos = DryIdealGas{Float64}(R = parameters.R_d, pₒ = parameters.pₒ, γ = 1 / (1 - parameters.κ))
-# eos     = TotalEnergy(γ = 1 / (1 - parameters.κ))
 eos = IdealGas{(:ρ, :ρu, :ρe)}()
 physics = Physics(
     orientation = FlatOrientation(),
@@ -51,7 +49,7 @@ physics = Physics(
     eos         = eos,
     lhs         = (
         NonlinearAdvection{(:ρ, :ρu, :ρe)}(),
-        PressureDivergence{(:ρ, :ρu, :ρe)}(),
+        PressureDivergence(),
     ),
     sources     = (
     ),
@@ -91,10 +89,10 @@ model = DryAtmosModel(
     boundary_conditions = (0,0,1,1,2,3),
     initial_conditions = (ρ = ρ₀, ρu = ρu⃗₀, ρe = ρe, ρq = ρq),
     numerics = (
-        flux = RoeNumericalFlux(),
+        # flux = RoeNumericalFlux(),
+        flux = LMARSNumericalFlux(),
         # flux = RusanovNumericalFlux(),
     ),
-    parameters = parameters,
 )
 
 ########
