@@ -117,16 +117,17 @@ function main(::Type{FT}, cl_args) where {FT}
     # Choice of SGS model
     N_updrafts = 1
     N_quad = 3
-    turbconv = EDMF(
-        FT,
-        N_updrafts,
-        N_quad,
-        param_set,
-        surface = NeutralDrySurfaceModel{FT}(param_set),
-        coupling = Coupled(),
-    )
+    turbconv = NoTurbConv()
+    # turbconv = EDMF(
+    #     FT,
+    #     N_updrafts,
+    #     N_quad,
+    #     param_set,
+    #     surface = NeutralDrySurfaceModel{FT}(param_set),
+    #     coupling = Coupled(),
+    # )
 
-    turbulence = ConstantKinematicViscosity(FT(0.0))
+    turbulence = ConstantKinematicViscosity(FT(0.1))
     model = stable_bl_model(
         FT,
         config_type,

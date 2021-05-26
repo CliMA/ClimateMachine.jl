@@ -419,6 +419,9 @@ Pre-transform gradient variables.
 function vars_state(m::AtmosModel, st::Gradient, FT)
     @vars begin
         u::SVector{3, FT}
+        u_1::FT
+        v_1::FT
+        w_1::FT
         energy::vars_state(energy_model(m), st, FT)
         turbulence::vars_state(turbulence_model(m), st, FT)
         turbconv::vars_state(turbconv_model(m), st, FT)
@@ -437,6 +440,9 @@ Post-transform gradient variables.
 """
 function vars_state(m::AtmosModel, st::GradientFlux, FT)
     @vars begin
+        u::SVector{3, FT}
+        v::SVector{3, FT}
+        w::SVector{3, FT}
         energy::vars_state(energy_model(m), st, FT)
         turbulence::vars_state(turbulence_model(m), st, FT)
         turbconv::vars_state(turbconv_model(m), st, FT)
@@ -627,6 +633,9 @@ function compute_gradient_argument!(
 )
     ρinv = 1 / state.ρ
     transform.u = ρinv * state.ρu
+    transform.u_1 = ρinv * state.ρu[1]
+    transform.v_1 = ρinv * state.ρu[2]
+    transform.w_1 = ρinv * state.ρu[3]
 
     compute_gradient_argument!(
         energy_model(atmos),
@@ -679,6 +688,9 @@ function compute_gradient_flux!(
     aux::Vars,
     t::Real,
 )
+    diffusive.u = ∇transform.u_1
+    diffusive.v = ∇transform.v_1
+    diffusive.w = ∇transform.w_1
     compute_gradient_flux!(
         energy_model(atmos),
         diffusive,
