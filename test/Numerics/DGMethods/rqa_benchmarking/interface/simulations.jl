@@ -54,7 +54,7 @@ function Simulation(model::Tuple; grid, timestepper, time, callbacks)
                     surface_numerical_flux_first_order = item.model.numerics.flux,
                     volume_numerical_flux_first_order = KGVolumeFlux(),
                 ))
-            elseif (item.model isa DryAtmosLinearModel) | (item.model isa ModelSetup)
+            elseif item.model isa ModelSetup
                 tmp = Explicit(DGModel(
                     item.model,
                     grid.numerical,
@@ -76,7 +76,7 @@ function Simulation(model::Tuple; grid, timestepper, time, callbacks)
                     surface_numerical_flux_first_order = item.model.numerics.flux,
                     volume_numerical_flux_first_order = LinearKGVolumeFlux(),
                 ))
-            elseif (item.model isa DryAtmosLinearModel) | (item.model isa ModelSetup)
+            elseif item.model isa ModelSetup
                 tmp = Implicit(DGModel(
                     item.model,
                     grid.numerical,

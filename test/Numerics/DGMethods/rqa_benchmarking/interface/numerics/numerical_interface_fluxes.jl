@@ -185,68 +185,6 @@ function numerical_flux_first_order!(
         ) / 2
 end
 
-# function numerical_flux_first_order!(
-#     ::RoeNumericalFlux,
-#     balance_law::DryAtmosLinearModel,
-#     fluxᵀn::Vars{S},
-#     normal_vector::SVector,
-#     state_prognostic⁻::Vars{S},
-#     state_auxiliary⁻::Vars{A},
-#     state_prognostic⁺::Vars{S},
-#     state_auxiliary⁺::Vars{A},
-#     t,
-#     direction,
-# ) where {S, A}
-
-#     numerical_flux_first_order!(
-#         CentralNumericalFluxFirstOrder(),
-#         balance_law,
-#         fluxᵀn,
-#         normal_vector,
-#         state_prognostic⁻,
-#         state_auxiliary⁻,
-#         state_prognostic⁺,
-#         state_auxiliary⁺,
-#         t,
-#         direction,
-#     )
-#     # atmos = balance_law.atmos
-#     # param_set = parameter_set(atmos)
-
-#     ρu⁻ = state_prognostic⁻.ρu
-
-#     ref_ρ⁻ = state_auxiliary⁻.ref_state.ρ
-#     ref_ρe⁻ = state_auxiliary⁻.ref_state.ρe
-#     ref_T⁻ = state_auxiliary⁻.ref_state.T
-#     ref_p⁻ = state_auxiliary⁻.ref_state.p
-#     ref_h⁻ = (ref_ρe⁻ + ref_p⁻) / ref_ρ⁻
-#     ref_c⁻ = soundspeed_air(param_set, ref_T⁻)
-
-#     pL⁻ = linearized_pressure(state_prognostic⁻.ρ, state_prognostic⁻.ρe, state_auxiliary⁻.Φ, balance_law.parameters.γ)
-
-#     ρu⁺ = state_prognostic⁺.ρu
-
-#     ref_ρ⁺ = state_auxiliary⁺.ref_state.ρ
-#     ref_ρe⁺ = state_auxiliary⁺.ref_state.ρe
-#     ref_T⁺ = state_auxiliary⁺.ref_state.T
-#     ref_p⁺ = state_auxiliary⁺.ref_state.p
-#     ref_h⁺ = (ref_ρe⁺ + ref_p⁺) / ref_ρ⁺
-#     ref_c⁺ = soundspeed_air(param_set, ref_T⁺)
-
-#     pL⁺ = linearized_pressure(state_prognostic⁺.ρ, state_prognostic⁺.ρe, state_auxiliary⁺.Φ, balance_law.parameters.γ)
-
-#     # not sure if arithmetic averages are a good idea here
-#     h̃ = (ref_h⁻ + ref_h⁺) / 2
-#     c̃ = (ref_c⁻ + ref_c⁺) / 2
-
-#     ΔpL = pL⁺ - pL⁻
-#     Δρuᵀn = (ρu⁺ - ρu⁻)' * normal_vector
-
-#     fluxᵀn.ρ -= ΔpL / 2c̃
-#     fluxᵀn.ρu -= c̃ * Δρuᵀn * normal_vector / 2
-#     fluxᵀn.ρe -= h̃ * ΔpL / 2c̃
-# end
-
 function numerical_flux_first_order!(
     ϕ::RoesanovFlux,
     model::ModelSetup,

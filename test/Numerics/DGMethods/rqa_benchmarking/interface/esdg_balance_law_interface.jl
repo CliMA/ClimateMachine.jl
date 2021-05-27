@@ -244,18 +244,14 @@ end
 """
     Utils
 """
-function vertical_unit_vector(::Union{DryAtmosModel,DryAtmosLinearModel}, aux::Vars)
-    FT = eltype(aux)
-    aux.∇Φ / FT(grav(param_set))
+function vertical_unit_vector(::Union{DryAtmosModel, DryAtmosLinearModel}, aux::Vars)
+    return aux.∇Φ / norm(aux.∇Φ)
 end
 
 function altitude(model::Union{DryAtmosModel,DryAtmosLinearModel}, ::SphericalOrientation, geom)
-    FT = eltype(geom)
-    _planet_radius::FT = model.physics.parameters.a
-    norm(geom.coord) - _planet_radius
+    return norm(geom.coord) - model.physics.parameters.a
 end
 
 function altitude(::Union{DryAtmosModel,DryAtmosLinearModel}, ::FlatOrientation, geom)
     @inbounds geom.coord[3]
 end
-

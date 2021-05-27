@@ -1,9 +1,11 @@
 #!/usr/bin/env julia --project
 include("../interface/utilities/boilerplate.jl")
+include("../interface/numerics/timestepper_abstractions.jl")
 
 ########
 # Set up parameters
 ########
+
 parameters = (
     a    = get_planet_parameter(:planet_radius),
     Ω    = get_planet_parameter(:Omega),
@@ -110,21 +112,21 @@ end
                      + ρuˡᵃᵗ(𝒫, lon(x...), lat(x...), rad(x...)) * ϕ̂(x...)
                      + ρuˡᵒⁿ(𝒫, lon(x...), lat(x...), rad(x...)) * λ̂(x...) )
 ρeᶜᵃʳᵗ(𝒫, x...) = ρe(𝒫, lon(x...), lat(x...), rad(x...))
-ρqᶜᵃʳᵗ(𝒫, x...) = 0
+ρqᶜᵃʳᵗ(𝒫, x...) = 0.0
 
 ########
 # Set up model physics
 ########
+
 FT = Float64
 
 ref_state = DryReferenceState(DecayingTemperatureProfile{FT}(parameters, FT(290), FT(220), FT(8e3)))
 
 # total energy
-eos = DryIdealGas{(:ρ, :ρu, :ρe)}()
 physics = Physics(
     orientation = SphericalOrientation(),
     ref_state   = ref_state,
-    eos         = eos,
+    eos         = DryIdealGas{(:ρ, :ρu, :ρe)}(),
     lhs         = (
         NonlinearAdvection{(:ρ, :ρu, :ρe)}(),
         PressureDivergence(),
@@ -134,20 +136,35 @@ physics = Physics(
     ),
     parameters = parameters,
 )
-linear_physics = Physics(
-    orientation = physics.orientation,
-    ref_state   = physics.ref_state,
-    eos         = physics.eos, 
-    lhs         = (
-        LinearAdvection{(:ρ, :ρu, :ρe)}(),
-        LinearPressureDivergence(),
-    ),
-    sources     = (
-        Gravity(),
-    ),
+#=
+physics = EulerModel(
+    orientation = SphericalOrientation(),
+    eos = TotalEnergy(),
+    sources = (
+        DeepShellCoriolis(),
+        FluctationGravity(),
+    )
     parameters = parameters,
 )
 
+physics = Physics(
+    orientation = SphericalOrientation(),
+    ref_state   = ref_state,
+    eos         = DryIdealGas{(:ρ, :ρu, :ρe)}(),
+    lhs         = (
+        ProductRuleAdvectionPressure(),
+        KGVolumeFlux(),
+        SplitFormNonlinearAdvectionPressure(),
+
+    ),
+    sources     = (
+        DeepShellCoriolis(),
+        Gravity(), # or KGVolumeGravity(), SplitFormGravity()
+    ),
+    parameters = parameters,
+)
+=#
+# linear_model = linearize(model, ref_states = ())
 ########
 # Set up model
 ########
@@ -156,19 +173,7 @@ model = DryAtmosModel(
     boundary_conditions = (5, 6),
     initial_conditions = (ρ = ρ₀ᶜᵃʳᵗ, ρu = ρu⃗₀ᶜᵃʳᵗ, ρe = ρeᶜᵃʳᵗ, ρq = ρqᶜᵃʳᵗ),
     numerics = (
-        # flux = RusanovNumericalFlux(),
-        # flux = RoeNumericalFlux(),
-        flux = LMARSNumericalFlux(),
-    ),
-)
-
-linear_model = DryAtmosLinearModel(
-    physics = linear_physics,
-    boundary_conditions = model.boundary_conditions,
-    initial_conditions = nothing,
-    numerics = (
-        flux = RusanovNumericalFlux(),
-        direction = VerticalDirection()
+        flux = RefanovFlux(),
     ),
 )
 
@@ -179,34 +184,48 @@ linear_model = DryAtmosLinearModel(
 # element_size = (domain_height / numelem_vert)
 # acoustic_speed = soundspeed_air(param_set, FT(330))
 dx = min_node_distance(grid.numerical)
-cfl = 3
+cfl = 13.5 # 13 for 10 days, 7.5 for 200+ days
 Δt = cfl * dx / 330.0
 start_time = 0
-end_time = 30 * 24 * 3600
-method = IMEX()
+end_time = 10 * 24 * 3600
+method = IMEX() 
 callbacks = (
   Info(),
   CFL(),
-  VTKState(
-    iteration = Int(floor(6*3600/Δt)), 
-    filepath = "./out/"),
 )
 
 ########
 # Set up simulation
 ########
+
+linear_physics = Physics(
+    orientation = physics.orientation,
+    ref_state   = physics.ref_state,
+    eos         = physics.eos,
+    lhs         = (
+        LinearAdvection{(:ρ, :ρu, :ρe)}(),
+        LinearPressureDivergence(),
+    ),
+    sources     = (),
+    parameters = parameters,
+)
+
+linear_model = DryAtmosModel(
+    physics = linear_physics,
+    boundary_conditions = (5, 6),
+    initial_conditions = (ρ = ρ₀ᶜᵃʳᵗ, ρu = ρu⃗₀ᶜᵃʳᵗ, ρe = ρeᶜᵃʳᵗ, ρq = ρqᶜᵃʳᵗ),
+    numerics = (
+        flux = RefanovFlux(),
+    ),
+
+)
+
 simulation = Simulation(
     (Explicit(model), Implicit(linear_model),);
     grid = grid,
     timestepper = (method = method, timestep = Δt),
     time        = (start = start_time, finish = end_time),
     callbacks   = callbacks,
-)
+);
 
-########
-# Run the simulation
-########
-# initialize!(simulation)
 evolve!(simulation)
-
-nothing

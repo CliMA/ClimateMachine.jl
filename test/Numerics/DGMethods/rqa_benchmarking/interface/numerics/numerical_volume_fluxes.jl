@@ -15,13 +15,15 @@ struct LinearKGVolumeFlux <: NumericalFluxFirstOrder end
 
 function numerical_volume_fluctuation_flux_first_order!(
     ::NumericalFluxFirstOrder,
-    ::DryAtmosModel,
+    model::DryAtmosModel,
     D::Grad,
     state_1::Vars,
     aux_1::Vars,
     state_2::Vars,
     aux_2::Vars,
 )
+    # calc_fluctuation_gravity!(model.physics.sources, state_1, state_2, aux_1, aux_2, D)
+    # sources = (FluctationGravity(), )
     if fluctuation_gravity
         ρ_1, ρ_2 = state_1.ρ, state_2.ρ
         Φ_1, Φ_2 = aux_1.Φ, aux_2.Φ

@@ -38,18 +38,6 @@ Base.@kwdef struct DryAtmosModel{𝒯,𝒰,𝒱,𝒲} <: AbstractFluidModel
     numerics::𝒲
 end
 
-"""
-    DryAtmosLinearModel <: AbstractFluidModel
-
-    temporarily use this struct
-"""
-Base.@kwdef struct DryAtmosLinearModel{𝒯,𝒰,𝒱,𝒲} <: AbstractFluidModel
-    physics::𝒯
-    boundary_conditions::𝒰
-    initial_conditions::𝒱
-    numerics::𝒲
-end
-
 function unpack_boundary_conditions(bcs)
     # We need to repackage the boundary conditions to match the
     # boundary conditions interface of the Balance Law and DGModel
