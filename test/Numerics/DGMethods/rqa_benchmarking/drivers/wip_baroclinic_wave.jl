@@ -179,7 +179,7 @@ model = DryAtmosModel(
 # element_size = (domain_height / numelem_vert)
 # acoustic_speed = soundspeed_air(param_set, FT(330))
 dx = min_node_distance(grid.numerical)
-cfl = 14 # 14 for 10 days, 7.5 for 200+ days
+cfl = 13.5 # 14 for 10 days, 7.5 for 200+ days
 Δt = cfl * dx / 330.0
 start_time = 0
 end_time = 10 * 24 * 3600
@@ -242,22 +242,23 @@ simulation = Simulation(
     callbacks   = callbacks,
 );
 
-
 odesolver = construct_odesolver(method, rhs, simulation.state, Δt, t0 = 0) 
 # Make callbacks from callbacks tuple
 cbvector = create_callbacks(simulation, odesolver)
 
 # Perform evolution of simulations
-
+tic = Base.time()
+time_end = 10 * 86400
 if isempty(cbvector)
-    solve!(simulation.state, odesolver; timeend = 10 * 86400, adjustfinalstep = false)
+    solve!(simulation.state, odesolver; timeend = time_end, adjustfinalstep = false)
 else
     solve!(
         simulation.state,
         odesolver;
-        timeend = Δt, # 10 * 86400,
+        timeend = time_end,
         callbacks = cbvector,
         adjustfinalstep = false,
     )
 end
-
+toc = Base.time()
+println("The simulation takes ", toc-tic, " seconds")

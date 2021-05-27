@@ -457,7 +457,7 @@ end
 
 function numerical_flux_first_order!(
     ::RefanovFlux,
-    balance_law::DryAtmosModel,
+    model::DryAtmosModel,
     fluxᵀn::Vars{S},
     normal_vector::SVector,
     state⁻::Vars{S},
@@ -470,7 +470,7 @@ function numerical_flux_first_order!(
 
     numerical_flux_first_order!(
         CentralNumericalFluxFirstOrder(),
-        balance_law,
+        model,
         fluxᵀn,
         normal_vector,
         state⁻,
@@ -502,7 +502,8 @@ function numerical_flux_first_order!(
     Δρu = ρu⁺ - ρu⁻
     Δρe = ρe⁺ - ρe⁻
 
-    fluxᵀn.ρ  -= c * Δρ * 0.5
+    fluxᵀn.ρ  -= c * Δρ  * 0.5
     fluxᵀn.ρu -= c * Δρu * 0.5
     fluxᵀn.ρe -= c * Δρe * 0.5
+    
 end
