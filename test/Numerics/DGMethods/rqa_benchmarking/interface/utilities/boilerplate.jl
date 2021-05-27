@@ -35,7 +35,7 @@ struct PlanetParameterSet <: AbstractEarthParameterSet end
 get_planet_parameter(p::Symbol) = getproperty(CLIMAParameters.Planet, p)(PlanetParameterSet())
 
 const total_energy = true
-const fluctuation_gravity = true
+# const fluctuation_gravity = true
 
 # utils
 include("../utilities/operations.jl")

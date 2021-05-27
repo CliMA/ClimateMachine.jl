@@ -22,8 +22,14 @@ function numerical_volume_fluctuation_flux_first_order!(
     state_2::Vars,
     aux_2::Vars,
 )
-    # calc_fluctuation_gravity!(model.physics.sources, state_1, state_2, aux_1, aux_2, D)
-    # sources = (FluctationGravity(), )
+
+    sources = model.physics.sources
+
+    ntuple(Val(length(sources))) do s
+        Base.@_inline_meta
+        calc_fluctuation_component!(D, sources[s], state_1, state_2, aux_1, aux_2)
+    end
+    #=
     if fluctuation_gravity
         ρ_1, ρ_2 = state_1.ρ, state_2.ρ
         Φ_1, Φ_2 = aux_1.Φ, aux_2.Φ
@@ -32,6 +38,7 @@ function numerical_volume_fluctuation_flux_first_order!(
 
         D.ρu -= α * (Φ_1 - Φ_2) * I
     end
+    =#
 end
 
 function numerical_volume_conservative_flux_first_order!(
@@ -89,7 +96,7 @@ function numerical_volume_conservative_flux_first_order!(
     q_avg = ave(q_1, q_2)
     p_avg = ave(p_1, p_2)
 
-    F.ρ = ρ_avg * u_avg
+    F.ρ  = ρ_avg * u_avg
     F.ρu = p_avg * I + ρ_avg * u_avg .* u_avg'
     F.ρe = ρ_avg * u_avg * e_avg + p_avg * u_avg
     F.ρq = ρ_avg * u_avg * q_avg
