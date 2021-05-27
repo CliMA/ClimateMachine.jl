@@ -133,7 +133,20 @@ physics = Physics(
     ),
     sources     = (
         DeepShellCoriolis(),
+        FluctuationGravity(),
     ),
+    parameters = parameters,
+)
+
+linear_physics = Physics(
+    orientation = physics.orientation,
+    ref_state   = physics.ref_state,
+    eos         = physics.eos,
+    lhs         = (
+        LinearAdvection{(:ρ, :ρu, :ρe)}(),
+        LinearPressureDivergence(),
+    ),
+    sources     = (FluctuationGravity(),),
     parameters = parameters,
 )
 
@@ -147,6 +160,16 @@ model = DryAtmosModel(
     numerics = (
         flux = RefanovFlux(),
     ),
+)
+
+linear_model = DryAtmosModel(
+    physics = linear_physics,
+    boundary_conditions = (5, 6),
+    initial_conditions = (ρ = ρ₀ᶜᵃʳᵗ, ρu = ρu⃗₀ᶜᵃʳᵗ, ρe = ρeᶜᵃʳᵗ, ρq = ρqᶜᵃʳᵗ),
+    numerics = (
+        flux = RefanovFlux(),
+    ),
+
 )
 
 ########
@@ -169,28 +192,6 @@ callbacks = (
 ########
 # Set up simulation
 ########
-
-linear_physics = Physics(
-    orientation = physics.orientation,
-    ref_state   = physics.ref_state,
-    eos         = physics.eos,
-    lhs         = (
-        LinearAdvection{(:ρ, :ρu, :ρe)}(),
-        LinearPressureDivergence(),
-    ),
-    sources     = (),
-    parameters = parameters,
-)
-
-linear_model = DryAtmosModel(
-    physics = linear_physics,
-    boundary_conditions = (5, 6),
-    initial_conditions = (ρ = ρ₀ᶜᵃʳᵗ, ρu = ρu⃗₀ᶜᵃʳᵗ, ρe = ρeᶜᵃʳᵗ, ρq = ρqᶜᵃʳᵗ),
-    numerics = (
-        flux = RefanovFlux(),
-    ),
-
-)
 
 simulation = Simulation(
     (Explicit(model), Implicit(linear_model),);
