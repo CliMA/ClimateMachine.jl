@@ -362,20 +362,6 @@ numerical_flux_second_order!(::Nothing, ::DryAtmosModel, _...) = nothing
 numerical_boundary_flux_second_order!(::Nothing, a, ::DryAtmosModel, _...) = nothing
 
 function wavespeed(
-    model::DryAtmosLinearModel,
-    nM,
-    state::Vars,
-    aux::Vars,
-    t::Real,
-    direction,
-)
-    eos = model.physics.eos
-    parameters = model.physics.parameters
-    
-    return calc_ref_sound_speed(eos, aux, parameters)
-end
-
-function wavespeed(
     model::DryAtmosModel,
     n⁻,
     state::Vars,
@@ -443,5 +429,4 @@ function numerical_flux_first_order!(
     fluxᵀn.ρ  -= c * Δρ  * 0.5
     fluxᵀn.ρu -= c * Δρu * 0.5
     fluxᵀn.ρe -= c * Δρe * 0.5
-    
 end

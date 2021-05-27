@@ -24,7 +24,7 @@ end
 
     vars_state returns a NamedTuple of data types.
 """
-function vars_state(m::Union{DryAtmosModel,DryAtmosLinearModel}, st::Auxiliary, FT)
+function vars_state(m::DryAtmosModel, st::Auxiliary, FT)
     @vars begin
         x::FT
         y::FT
@@ -35,11 +35,11 @@ function vars_state(m::Union{DryAtmosModel,DryAtmosLinearModel}, st::Auxiliary, 
     end
 end
 
-vars_state(::Union{DryAtmosModel,DryAtmosLinearModel}, ::DryReferenceState, ::Auxiliary, FT) =
+vars_state(::DryAtmosModel, ::DryReferenceState, ::Auxiliary, FT) =
     @vars(T::FT, p::FT, ρ::FT, ρu::SVector{3, FT}, ρe::FT, ρq::FT)
-vars_state(::Union{DryAtmosModel,DryAtmosLinearModel}, ::NoReferenceState, ::Auxiliary, FT) = @vars()
+vars_state(::DryAtmosModel, ::NoReferenceState, ::Auxiliary, FT) = @vars()
 
-function vars_state(::Union{DryAtmosModel,DryAtmosLinearModel}, ::Prognostic, FT)
+function vars_state(::DryAtmosModel, ::Prognostic, FT)
     @vars begin
         ρ::FT
         ρu::SVector{3, FT}
@@ -56,7 +56,7 @@ end
     the gradient flux variables by default.
 """
 function init_state_prognostic!(
-        model::Union{DryAtmosModel,DryAtmosLinearModel},
+        model::DryAtmosModel,
         state::Vars,
         aux::Vars,
         localgeo,
@@ -81,7 +81,7 @@ function init_state_prognostic!(
 end
 
 function nodal_init_state_auxiliary!(
-    model::Union{DryAtmosModel,DryAtmosLinearModel},
+    model::DryAtmosModel,
     state_auxiliary,
     tmp,
     geom,
@@ -91,7 +91,7 @@ function nodal_init_state_auxiliary!(
 end
 
 function init_state_auxiliary!(
-    model::Union{DryAtmosModel,DryAtmosLinearModel},
+    model::DryAtmosModel,
     ::SphericalOrientation,
     state_auxiliary,
     geom,
@@ -107,7 +107,7 @@ function init_state_auxiliary!(
 end
 
 function init_state_auxiliary!(
-    model::Union{DryAtmosModel,DryAtmosLinearModel},
+    model::DryAtmosModel,
     ::FlatOrientation,
     state_auxiliary,
     geom,
@@ -125,14 +125,14 @@ function init_state_auxiliary!(
 end
 
 function init_state_auxiliary!(
-    ::Union{DryAtmosModel,DryAtmosLinearModel},
+    ::DryAtmosModel,
     ::NoReferenceState,
     state_auxiliary,
     geom,
 ) end
 
 function init_state_auxiliary!(
-    model::Union{DryAtmosModel,DryAtmosLinearModel},
+    model::DryAtmosModel,
     ref_state::DryReferenceState,
     state_auxiliary,
     geom,
@@ -164,7 +164,7 @@ end
     LHS computations
 """
 @inline function flux_first_order!(
-    model::Union{DryAtmosModel,DryAtmosLinearModel},
+    model::DryAtmosModel,
     flux::Grad,
     state::Vars,
     aux::Vars,
@@ -192,33 +192,15 @@ function source!(m::DryAtmosModel, source, state_prognostic, state_auxiliary, _.
     end
 end
 
-function source!(
-    m::DryAtmosLinearModel,
-    source::Vars,
-    state::Vars,
-    diffusive::Vars,
-    aux::Vars,
-    t::Real,
-    ::NTuple{1, Dir},
-) where {Dir <: Direction}
-    sources = m.physics.sources
-    physics = m.physics
-
-    ntuple(Val(length(sources))) do s
-        Base.@_inline_meta
-        calc_component!(source, sources[s], state, aux, physics)
-    end
-end
-
 """
     Boundary conditions
 """
-boundary_conditions(model::Union{DryAtmosModel,DryAtmosLinearModel}) = model.boundary_conditions
+boundary_conditions(model::DryAtmosModel) = model.boundary_conditions
 
 function boundary_state!(
     ::NumericalFluxFirstOrder,
     bctype,
-    ::Union{DryAtmosModel,DryAtmosLinearModel},
+    ::DryAtmosModel,
     state⁺,
     aux⁺,
     n,
@@ -235,7 +217,7 @@ end
 function boundary_state!(
     nf::NumericalFluxSecondOrder,
     bc,
-    lm::Union{DryAtmosModel,DryAtmosLinearModel},
+    lm::DryAtmosModel,
     args...,
 )
     nothing
@@ -244,14 +226,10 @@ end
 """
     Utils
 """
-function vertical_unit_vector(::Union{DryAtmosModel, DryAtmosLinearModel}, aux::Vars)
-    return aux.∇Φ / norm(aux.∇Φ)
-end
-
-function altitude(model::Union{DryAtmosModel,DryAtmosLinearModel}, ::SphericalOrientation, geom)
+function altitude(model::DryAtmosModel, ::SphericalOrientation, geom)
     return norm(geom.coord) - model.physics.parameters.a
 end
 
-function altitude(::Union{DryAtmosModel,DryAtmosLinearModel}, ::FlatOrientation, geom)
+function altitude(::DryAtmosModel, ::FlatOrientation, geom)
     @inbounds geom.coord[3]
 end
