@@ -15,18 +15,18 @@ abstract type AbstractMicrophysics  <: AbstractPhysicsComponent end
   q  = ρq / ρ
 
   # thermodynamic parameters
-  _pₜᵣ      = get_planet_parameter(:press_triple) 
-  _R_v      = get_planet_parameter(:R_v)
-  _Tₜᵣ      = get_planet_parameter(:T_triple)
-  _T_0      = get_planet_parameter(:T_0)
-  _cv_d     = get_planet_parameter(:cv_d)
-  _cv_v     = get_planet_parameter(:cv_v)
-  _cv_l     = get_planet_parameter(:cv_l)
-  _cp_v     = get_planet_parameter(:cp_v)
-  _LH_v0    = get_planet_parameter(:LH_v0)
-  _cp_v     = get_planet_parameter(:cp_v)
-  _cp_l     = get_planet_parameter(:cp_l)
-  _e_int_v0 = get_planet_parameter(:e_int_v0)
+  pₜᵣ      = get_planet_parameter(:press_triple) 
+  R_v      = get_planet_parameter(:R_v)
+  Tₜᵣ      = get_planet_parameter(:T_triple)
+  T_0      = get_planet_parameter(:T_0)
+  cv_d     = get_planet_parameter(:cv_d)
+  cv_v     = get_planet_parameter(:cv_v)
+  cv_l     = get_planet_parameter(:cv_l)
+  cp_v     = get_planet_parameter(:cp_v)
+  LH_v0    = get_planet_parameter(:LH_v0)
+  cp_v     = get_planet_parameter(:cp_v)
+  cp_l     = get_planet_parameter(:cp_l)
+  e_int_v0 = get_planet_parameter(:e_int_v0)
 
   # moist internal energy (dry calculation)
   ρ⁻¹ = 1 / ρ
@@ -36,21 +36,21 @@ abstract type AbstractMicrophysics  <: AbstractPhysicsComponent end
   e_int = ρ⁻¹ * ρe_int
 
   # temperature
-  cv_m = _cv_d + (_cv_v - _cv_d) * q
-  T = _T_0 + (e_int - q * _e_int_v0) / cv_m
+  cv_m = cv_d + (cv_v - cv_d) * q
+  T = T_0 + (e_int - q * e_int_v0) / cv_m
 
   # saturation vapor pressure
-  Δcp = _cp_v - _cp_l
-  pᵥₛ = _pₜᵣ * (T / _Tₜᵣ)^(Δcp / _R_v) * exp((_LH_v0 - Δcp * _T_0) / _R_v * (1 / _Tₜᵣ - 1 / T))
+  Δcp = cp_v - cp_l
+  pᵥₛ = pₜᵣ * (T / Tₜᵣ)^(Δcp / R_v) * exp((LH_v0 - Δcp * T_0) / R_v * (1 / Tₜᵣ - 1 / T))
 
   # saturation specific humidity
-  qᵥₛ = pᵥₛ / (ρ * _R_v * T)
+  qᵥₛ = pᵥₛ / (ρ * R_v * T)
 
   # saturation excess
   S = max(0, q - qᵥₛ)
 
   # liquid internal energy
-  Iₗ = _cv_l * (T - _T_0)
+  Iₗ = cv_l * (T - T_0)
 
   source.ρ  -= ρ * S / τ
   source.ρe -= (Iₗ + Φ) * ρ * S / τ

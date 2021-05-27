@@ -5,27 +5,40 @@ include("../interface/numerics/timestepper_abstractions.jl")
 ########
 # Set up parameters
 ########
-
 parameters = (
-    a    = get_planet_parameter(:planet_radius),
-    Ω    = get_planet_parameter(:Omega),
-    g    = get_planet_parameter(:grav),
-    κ    = get_planet_parameter(:kappa_d),
-    R_d  = get_planet_parameter(:R_d),
-    γ    = get_planet_parameter(:cp_d)/get_planet_parameter(:cv_d),
-    pₒ   = get_planet_parameter(:MSLP),
-    cv_d = get_planet_parameter(:cv_d),
-    T_0  = 0.0,
-    H    = 30e3,
-    k    = 3.0,
-    Γ    = 0.005,
-    T_E  = 310.0,
-    T_P  = 240.0,
-    b    = 2.0,
-    z_t  = 15e3,
-    λ_c  = π / 9,
-    ϕ_c  = 2 * π / 9,
-    V_p  = 1.0,
+    a        = get_planet_parameter(:planet_radius),
+    Ω        = get_planet_parameter(:Omega),
+    g        = get_planet_parameter(:grav),
+    κ        = get_planet_parameter(:kappa_d),
+    R_d      = get_planet_parameter(:R_d),
+    R_v      = get_planet_parameter(:R_v),
+    cv_d     = get_planet_parameter(:cv_d),
+    cv_v     = get_planet_parameter(:cv_v),
+    cv_l     = get_planet_parameter(:cv_l),
+    cp_v     = get_planet_parameter(:cp_v),
+    cp_l     = get_planet_parameter(:cp_l),
+    γ        = get_planet_parameter(:cp_d)/get_planet_parameter(:cv_d),
+    pₒ       = get_planet_parameter(:MSLP),
+    pₜᵣ      = get_planet_parameter(:press_triple),
+    Tₜᵣ      = get_planet_parameter(:T_triple),
+    T_0      = 0.0, #get_planet_parameter(:T_0),
+    LH_v0    = get_planet_parameter(:LH_v0),
+    e_int_v0 = get_planet_parameter(:e_int_v0),
+    H        = 30e3,
+    k        = 3.0,
+    Γ        = 0.005,
+    T_E      = 310.0,
+    T_P      = 240.0,
+    b        = 2.0,
+    z_t      = 15e3,
+    λ_c      = π / 9,
+    ϕ_c      = 2 * π / 9,
+    V_p      = 1.0,
+    ϕ_w      = 2*π/9,
+    p_w      = 3.4e4,
+    q₀       = 0.018,
+    qₜ       = 1e-12,
+    τ_precip = 67.8*10000.0,
 )
 
 ########
@@ -71,12 +84,13 @@ cond(𝒫,λ,ϕ)  = (0 < d(𝒫,λ,ϕ) < d_0(𝒫)) * (d(𝒫,λ,ϕ) != 𝒫.a *
 
 # base-state thermodynamic variables
 I_T(𝒫,ϕ,r)   = (cos(ϕ) * r / 𝒫.a)^𝒫.k - 𝒫.k / (𝒫.k + 2) * (cos(ϕ) * r / 𝒫.a)^(𝒫.k + 2)
-T(𝒫,ϕ,r)     = (τ_1(𝒫,r) - τ_2(𝒫,r) * I_T(𝒫,ϕ,r))^(-1) * (𝒫.a/r)^2
+Tᵥ(𝒫,ϕ,r)    = (τ_1(𝒫,r) - τ_2(𝒫,r) * I_T(𝒫,ϕ,r))^(-1) * (𝒫.a/r)^2
 p(𝒫,ϕ,r)     = 𝒫.pₒ * exp(-𝒫.g / 𝒫.R_d * (τ_int_1(𝒫,r) - τ_int_2(𝒫,r) * I_T(𝒫,ϕ,r)))
-θ(𝒫,ϕ,r)     = T(𝒫,ϕ,r) * (𝒫.pₒ / p(𝒫,ϕ,r))^𝒫.κ
+#q(𝒫,ϕ,r)     = (p(𝒫,ϕ,r) > 𝒫.p_w) ? 𝒫.q₀ * exp(-(ϕ / 𝒫.ϕ_w)^4) * exp(-((p(𝒫,ϕ,r) - 𝒫.pₒ) / 𝒫.p_w)^2) : 𝒫.qₜ
+q(𝒫,ϕ,r)     = 𝒫.q₀ * exp(-(ϕ / 𝒫.ϕ_w)^4) * exp(-((p(𝒫,ϕ,r) - 𝒫.pₒ) / 𝒫.p_w)^2)
 
 # base-state velocity variables
-U(𝒫,ϕ,r)  = 𝒫.g * 𝒫.k / 𝒫.a * τ_int_2(𝒫,r) * T(𝒫,ϕ,r) * ((cos(ϕ) * r / 𝒫.a)^(𝒫.k - 1) - (cos(ϕ) * r / 𝒫.a)^(𝒫.k + 1))
+U(𝒫,ϕ,r)  = 𝒫.g * 𝒫.k / 𝒫.a * τ_int_2(𝒫,r) * Tᵥ(𝒫,ϕ,r) * ((cos(ϕ) * r / 𝒫.a)^(𝒫.k - 1) - (cos(ϕ) * r / 𝒫.a)^(𝒫.k + 1))
 u(𝒫,ϕ,r)  = -𝒫.Ω * r * cos(ϕ) + sqrt((𝒫.Ω * r * cos(ϕ))^2 + r * cos(ϕ) * U(𝒫,ϕ,r))
 v(𝒫,ϕ,r)  = 0.0
 w(𝒫,ϕ,r)  = 0.0
@@ -92,15 +106,16 @@ uˡᵒⁿ(𝒫,λ,ϕ,r)   = u(𝒫,ϕ,r) + δu(𝒫,λ,ϕ,r)
 uˡᵃᵗ(𝒫,λ,ϕ,r)   = v(𝒫,ϕ,r) + δv(𝒫,λ,ϕ,r)
 uʳᵃᵈ(𝒫,λ,ϕ,r)   = w(𝒫,ϕ,r) + δw(𝒫,λ,ϕ,r)
 
-e_int(𝒫,λ,ϕ,r)  = (𝒫.R_d / 𝒫.κ - 𝒫.R_d) * T(𝒫,ϕ,r)
+e_int(𝒫,λ,ϕ,r)  = (𝒫.R_d / 𝒫.κ - 𝒫.R_d) * Tᵥ(𝒫,ϕ,r)
 e_kin(𝒫,λ,ϕ,r)  = 0.5 * ( uˡᵒⁿ(𝒫,λ,ϕ,r)^2 + uˡᵃᵗ(𝒫,λ,ϕ,r)^2 + uʳᵃᵈ(𝒫,λ,ϕ,r)^2 )
 e_pot(𝒫,λ,ϕ,r)  = 𝒫.g * r
 
-ρ₀(𝒫,λ,ϕ,r)    = p(𝒫,ϕ,r) / 𝒫.R_d / T(𝒫,ϕ,r)
+ρ₀(𝒫,λ,ϕ,r)    = p(𝒫,ϕ,r) / 𝒫.R_d / Tᵥ(𝒫,ϕ,r)
 ρuˡᵒⁿ(𝒫,λ,ϕ,r) = ρ₀(𝒫,λ,ϕ,r) * uˡᵒⁿ(𝒫,λ,ϕ,r)
 ρuˡᵃᵗ(𝒫,λ,ϕ,r) = ρ₀(𝒫,λ,ϕ,r) * uˡᵃᵗ(𝒫,λ,ϕ,r)
 ρuʳᵃᵈ(𝒫,λ,ϕ,r) = ρ₀(𝒫,λ,ϕ,r) * uʳᵃᵈ(𝒫,λ,ϕ,r)
 ρe(𝒫,λ,ϕ,r) = ρ₀(𝒫,λ,ϕ,r) * (e_int(𝒫,λ,ϕ,r) + e_kin(𝒫,λ,ϕ,r) + e_pot(𝒫,λ,ϕ,r))
+ρq(𝒫,λ,ϕ,r) = ρ₀(𝒫,λ,ϕ,r) * q(𝒫,ϕ,r)
 
 # Cartesian Representation (boiler plate really)
 ρ₀ᶜᵃʳᵗ(𝒫, x...)  = ρ₀(𝒫, lon(x...), lat(x...), rad(x...))
@@ -108,12 +123,11 @@ e_pot(𝒫,λ,ϕ,r)  = 𝒫.g * r
                      + ρuˡᵃᵗ(𝒫, lon(x...), lat(x...), rad(x...)) * ϕ̂(x...)
                      + ρuˡᵒⁿ(𝒫, lon(x...), lat(x...), rad(x...)) * λ̂(x...) )
 ρeᶜᵃʳᵗ(𝒫, x...) = ρe(𝒫, lon(x...), lat(x...), rad(x...))
-ρqᶜᵃʳᵗ(𝒫, x...) = 0.0
+ρqᶜᵃʳᵗ(𝒫, x...) = ρq(𝒫, lon(x...), lat(x...), rad(x...))
 
 ########
 # Set up model physics
 ########
-
 FT = Float64
 
 ref_state = DryReferenceState(DecayingTemperatureProfile{FT}(parameters, FT(290), FT(220), FT(8e3)))
@@ -130,6 +144,7 @@ physics = Physics(
     sources     = (
         DeepShellCoriolis(),
         FluctuationGravity(),
+        #ZeroMomentMicrophysics(),
     ),
     parameters = parameters,
 )
@@ -185,7 +200,7 @@ callbacks = (
   CFL(),
   VTKState(
     iteration = Int(floor(6*3600/Δt)), 
-    filepath = "./out/"),
+    filepath = "./out/wip_moist_baroclinic_wave/"),
 )
 
 ########

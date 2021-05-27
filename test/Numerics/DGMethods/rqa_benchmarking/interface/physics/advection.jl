@@ -22,6 +22,7 @@ end
     ρ   = state.ρ
     ρu  = state.ρu
     ρe  = state.ρe
+    ρq  = state.ρq
     eos = physics.eos
     parameters = physics.parameters
 
@@ -31,6 +32,7 @@ end
     flux.ρ  += ρu
     flux.ρu += ρu ⊗ u
     flux.ρe += (ρe + p) * u
+    flux.ρq += ρq * u
 
     nothing
 end
