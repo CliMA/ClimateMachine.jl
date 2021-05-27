@@ -5,25 +5,6 @@ include("../interface/numerics/timestepper_abstractions.jl")
 ########
 # Set up parameters
 ########
-parameters = (
-    a    = 6.371e6,
-    Ω    = 7.2921159e-5,
-    g    = 9.81,
-    H    = 30e3,
-    R_d  = 287.0024093890231,
-    pₒ   = 1.01325e5,
-    k    = 3.0,
-    Γ    = 0.005,
-    T_E  = 310.0,
-    T_P  = 240.0,
-    b    = 2.0,
-    z_t  = 15e3,
-    λ_c  = π / 9,
-    ϕ_c  = 2 * π / 9,
-    V_p  = 1.0,
-    κ    = 2/7,
-    γ    = 7/5,
-)
 
 parameters = (
     a    = get_planet_parameter(:planet_radius),
@@ -133,10 +114,6 @@ end
 ρeᶜᵃʳᵗ(𝒫, x...) = ρe(𝒫, lon(x...), lat(x...), rad(x...))
 ρqᶜᵃʳᵗ(𝒫, x...) = 0.0
 
-
-
-
-
 ########
 # Set up model physics
 ########
@@ -179,7 +156,7 @@ model = DryAtmosModel(
 # element_size = (domain_height / numelem_vert)
 # acoustic_speed = soundspeed_air(param_set, FT(330))
 dx = min_node_distance(grid.numerical)
-cfl = 13.5 # 14 for 10 days, 7.5 for 200+ days
+cfl = 13.5 # 13 for 10 days, 7.5 for 200+ days
 Δt = cfl * dx / 330.0
 start_time = 0
 end_time = 10 * 24 * 3600
@@ -193,8 +170,6 @@ callbacks = (
 # Set up simulation
 ########
 
-
-## 
 linear_physics = Physics(
     orientation = physics.orientation,
     ref_state   = physics.ref_state,
@@ -217,23 +192,6 @@ linear_model = DryAtmosModel(
 
 )
 
-rhs1 = Explicit(ESDGModel(
-                model,
-                grid.numerical,
-                surface_numerical_flux_first_order = model.numerics.flux,
-                volume_numerical_flux_first_order = KGVolumeFlux(),
-            ))
-
-rhs2 = Implicit(VESDGModel(
-    linear_model,
-    grid.numerical,
-    surface_numerical_flux_first_order = linear_model.numerics.flux,
-    volume_numerical_flux_first_order = LinearKGVolumeFlux(),
-))
-
-rhs = (rhs1, rhs2)
-
-
 simulation = Simulation(
     (Explicit(model), Implicit(linear_model),);
     grid = grid,
@@ -242,23 +200,4 @@ simulation = Simulation(
     callbacks   = callbacks,
 );
 
-odesolver = construct_odesolver(method, rhs, simulation.state, Δt, t0 = 0) 
-# Make callbacks from callbacks tuple
-cbvector = create_callbacks(simulation, odesolver)
-
-# Perform evolution of simulations
-tic = Base.time()
-time_end = 10 * 86400
-if isempty(cbvector)
-    solve!(simulation.state, odesolver; timeend = time_end, adjustfinalstep = false)
-else
-    solve!(
-        simulation.state,
-        odesolver;
-        timeend = time_end,
-        callbacks = cbvector,
-        adjustfinalstep = false,
-    )
-end
-toc = Base.time()
-println("The simulation takes ", toc-tic, " seconds")
+evolve!(simulation)

@@ -100,6 +100,7 @@ callbacks   = (
 ########
 # Set up simulation
 ########
+
 simulation = Simulation(
     model;
     grid = grid,
@@ -111,7 +112,7 @@ simulation = Simulation(
 ########
 # Run the simulation
 ########
-initialize!(simulation)
+# initialize!(simulation)
 evolve!(simulation)
 
 nothing

@@ -39,65 +39,71 @@ function Simulation(model::DryAtmosModel; grid, timestepper, time, callbacks)
     return Simulation(model, grid, timestepper, time, callbacks, rhs, state)
 end
 
+# prep for timestepping changes  {AbstractRate, AbstractRate}
+# Alternatively, define method Explicit(::DryAtmosModel) so tmp = Explicit(item.model)
 function Simulation(model::Tuple; grid, timestepper, time, callbacks)
-    rhs = []
-    for item in model
-        if typeof(item) <: DryAtmosModel
-            tmp = ESDGModel(
-                item,
-                grid.numerical,
-                surface_numerical_flux_first_order = item.numerics.flux,
-                volume_numerical_flux_first_order = KGVolumeFlux(),
-            )
-            push!(rhs, tmp)
-        elseif typeof(item) <: DryAtmosLinearModel
-            tmp = DGModel(
-                item,
-                grid.numerical,
-                item.numerics.flux,
-                CentralNumericalFluxSecondOrder(),
-                CentralNumericalFluxGradient();
-                direction = item.numerics.direction,
-            )
-            push!(rhs, tmp)
-        end
-    end
-    rhs = Tuple(rhs)
-
-    FT = eltype(rhs[1].grid.vgeo)
-    state = init_ode_state(rhs[1], FT(0); init_on_cpu = true)
-    
-    return Simulation(model, grid, timestepper, time, callbacks, rhs, state)
-end
-
-
-# prep for timestepping changes 
-function Simulation(model::Tuple{AbstractRate, AbstractRate}; grid, timestepper, time, callbacks)
     println("Constructing DG Models")
     rhs = []
     for item in model
         if item isa Explicit
-            println("constructing explicit model")
-            tmp = Explicit(ESDGModel(
-                item.model,
-                grid.numerical,
-                surface_numerical_flux_first_order = item.model.numerics.flux,
-                volume_numerical_flux_first_order = KGVolumeFlux(),
-            ))
+            println("constructing explicit model") 
+            if item.model isa DryAtmosModel
+                tmp = Explicit(ESDGModel(
+                    item.model,
+                    grid.numerical,
+                    surface_numerical_flux_first_order = item.model.numerics.flux,
+                    volume_numerical_flux_first_order = KGVolumeFlux(),
+                ))
+            elseif (item.model isa DryAtmosLinearModel) | (item.model isa ModelSetup)
+                tmp = Explicit(DGModel(
+                    item.model,
+                    grid.numerical,
+                    item.model.numerics.flux,
+                    CentralNumericalFluxSecondOrder(),
+                    CentralNumericalFluxGradient();
+                    direction = item.model.numerics.direction,
+                ))
+            else
+                println("what are you doing!?!??!")
+            end
             push!(rhs, tmp)
         elseif item isa Implicit
             println("constructing implicit models")
-            tmp = Implicit(VESDGModel(
-                item.model,
-                grid.numerical,
-                surface_numerical_flux_first_order = item.model.numerics.flux,
-                volume_numerical_flux_first_order = LinearKGVolumeFlux(),
-            ))
-            
+            if item.model isa DryAtmosModel 
+                tmp = Implicit(VESDGModel(
+                    item.model,
+                    grid.numerical,
+                    surface_numerical_flux_first_order = item.model.numerics.flux,
+                    volume_numerical_flux_first_order = LinearKGVolumeFlux(),
+                ))
+            elseif (item.model isa DryAtmosLinearModel) | (item.model isa ModelSetup)
+                tmp = Implicit(DGModel(
+                    item.model,
+                    grid.numerical,
+                    item.model.numerics.flux,
+                    CentralNumericalFluxSecondOrder(),
+                    CentralNumericalFluxGradient();
+                    direction = item.model.numerics.direction,
+                ))
+            else
+                println("what are you doing!?!??!")
+            end
             push!(rhs, tmp)
         end
     end
+
     rhs = Tuple(rhs)
+
+    implicit_rhs = implicit(rhs)
+    explicit_rhs = explicit(rhs)
+    number_implicit = length(implicit_rhs)
+    number_explicit = length(explicit_rhs) 
+    if (number_implicit != 1) | (number_explicit != 1)
+        error_string = "IMEX methods require 1 implicit model and one explicit model"
+        error_string *= "\n for example, a tuple of the form  (Explicit(model), Implicit(linear_model),)"
+        @error(error_string)
+        return nothing
+    end
 
     FT = eltype(rhs[1].model.grid.vgeo)
     println("constructing initial state")
@@ -106,7 +112,6 @@ function Simulation(model::Tuple{AbstractRate, AbstractRate}; grid, timestepper,
 
     return Simulation(model, grid, timestepper, time, callbacks, rhs, state)
 end
-
 
 function initialize!(simulation::Simulation; overwrite = false)
     if overwrite
@@ -181,88 +186,16 @@ function evolve!(simulation::Simulation; refDat = ())
     return nothing
 end
 
-function rhs_closure(rhs, npoly, nover; staggering = false)
-    if staggering
-        function rhs_staggered(state_array, args...; kwargs...)
-            rhs(state_array, args...; kwargs...)
-            overintegration_filter!(state_array, rhs, npoly, nover)
-            staggering_filter!(state_array, rhs, npoly, nover)
-            return nothing
-        end
 
-        rhs_filtered = rhs_staggered
-    else
-        function rhs_unstaggered(state_array, args...; kwargs...)
-            rhs(state_array, args...; kwargs...)
-            overintegration_filter!(state_array, rhs, npoly, nover)
-            return nothing
-        end
-        
-        rhs_filtered = rhs_unstaggered
-    end
-
-    return rhs_filtered 
-end # returns a closure
-
-function evolve!(simulation::Simulation{<:Tuple}; refDat = ())
-    # Unpack everything we need in this routine here
-    model         = simulation.model[1]
-    state         = simulation.state
-    rhs           = simulation.rhs
-    grid          = simulation.grid.numerical
-    timestepper   = simulation.timestepper
-    t0            = simulation.time.start
-    tend          = simulation.time.finish
-    Δt            = timestepper.timestep
-    
-    # Instantiate time stepping method    
-    odesolver = timestepper.method(
-        rhs[1],
-        rhs[2],
-        LinearBackwardEulerSolver(ManyColumnLU(); isadjustable = false),
-        state;
-        dt = Δt,
-        t0 = t0,
-        split_explicit_implicit = false,
-    )
-
-    # Make callbacks from callbacks tuple
-    cbvector = create_callbacks(simulation, odesolver)
-
-    # Perform evolution of simulations
-    if isempty(cbvector)
-        solve!(state, odesolver; timeend = tend, adjustfinalstep = false)
-    else
-        solve!(
-            state,
-            odesolver;
-            timeend = tend,
-            callbacks = cbvector,
-            adjustfinalstep = false,
-        )
-    end
-
-    # Check results against reference if StateCheck callback is used
-    # TODO: TB: I don't think this should live within this function
-    if any(typeof.(simulation.callbacks) .<: StateCheck)
-      check_inds = findall(typeof.(simulation.callbacks) .<: StateCheck)
-      @assert length(check_inds) == 1 "Only use one StateCheck in callbacks!"
-
-      ClimateMachine.StateCheck.scprintref(cbvector[check_inds[1]])
-      if length(refDat) > 0
-        @test ClimateMachine.StateCheck.scdocheck(cbvector[check_inds[1]], refDat)
-      end
-    end
-
+function evolve!(simulation::Nothing)
+    println(" you dun messed up")
     return nothing
 end
 
-function prototype_evolve!(simulation::Simulation{<:Tuple}; refDat = ())
+function evolve!(simulation::Simulation{<:Tuple}; refDat = ())
     # Unpack everything we need in this routine here
-    model         = simulation.model[1]
     state         = simulation.state
     rhs           = simulation.rhs
-    grid          = simulation.grid.numerical
     timestepper   = simulation.timestepper
     t0            = simulation.time.start
     tend          = simulation.time.finish
@@ -335,3 +268,26 @@ function staggering_filter!(state_array, rhs, npoly, nover)
 
     return nothing
 end
+
+function rhs_closure(rhs, npoly, nover; staggering = false)
+    if staggering
+        function rhs_staggered(state_array, args...; kwargs...)
+            rhs(state_array, args...; kwargs...)
+            overintegration_filter!(state_array, rhs, npoly, nover)
+            staggering_filter!(state_array, rhs, npoly, nover)
+            return nothing
+        end
+
+        rhs_filtered = rhs_staggered
+    else
+        function rhs_unstaggered(state_array, args...; kwargs...)
+            rhs(state_array, args...; kwargs...)
+            overintegration_filter!(state_array, rhs, npoly, nover)
+            return nothing
+        end
+        
+        rhs_filtered = rhs_unstaggered
+    end
+
+    return rhs_filtered 
+end # returns a closure

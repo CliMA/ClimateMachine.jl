@@ -9,7 +9,6 @@ function IMEX()
     return IMEX(ARK2GiraldoKellyConstantinescu)
 end
 
-
 Base.@kwdef struct Explicit{ℳ, ℛ} <: AbstractRate
     model::ℳ
     rate::ℛ = 1
@@ -64,9 +63,8 @@ end
 # extension
 implicit(model) = implicit(())
 
-# methods for constructing odesolvers, TODO: Extend whatever struct an ODE solver is
-
 # Default to Explicit
+# TODO: Extend whatever struct an ODE solver is
 function construct_odesolver(method, rhs, state, Δt; t0 = 0, split_explicit_implicit = false)
     # put error checking here 
     explicit_rhs = explicit(rhs)
@@ -91,7 +89,6 @@ function construct_odesolver(method, rhs, state, Δt; t0 = 0, split_explicit_imp
     )
     return odesolver
 end
-
 
 # IMEX
 function construct_odesolver(timestepper::IMEX, rhs, state, Δt; t0 = 0, split_explicit_implicit = false)

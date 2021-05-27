@@ -183,7 +183,7 @@ cfl = 3
 Δt = cfl * dx / 330.0
 start_time = 0
 end_time = 30 * 24 * 3600
-method = ARK2GiraldoKellyConstantinescu
+method = IMEX()
 callbacks = (
   Info(),
   CFL(),
@@ -196,7 +196,7 @@ callbacks = (
 # Set up simulation
 ########
 simulation = Simulation(
-    (model, linear_model,);
+    (Explicit(model), Implicit(linear_model),);
     grid = grid,
     timestepper = (method = method, timestep = Δt),
     time        = (start = start_time, finish = end_time),
@@ -206,7 +206,7 @@ simulation = Simulation(
 ########
 # Run the simulation
 ########
-initialize!(simulation)
+# initialize!(simulation)
 evolve!(simulation)
 
 nothing

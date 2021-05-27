@@ -174,7 +174,16 @@ function create_callback(output::VTKState, simulation::Simulation, odesolver)
     mkpath(output.filepath)
 
     state = simulation.state
-    model = (simulation.rhs isa Tuple) ? simulation.rhs[1] : simulation.rhs 
+    if simulation.rhs isa Tuple
+        if simulation.rhs[1] isa AbstractRate 
+            model = simulation.rhs[1].model
+        else
+            model = simulation.rhs[1]
+        end
+    else
+        model = simulation.rhs
+    end
+    # model = (simulation.rhs isa Tuple) ? simulation.rhs[1] : simulation.rhs 
 
     function do_output(counter, model, state)
         mpicomm = MPI.COMM_WORLD
