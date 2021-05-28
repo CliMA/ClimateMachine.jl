@@ -20,6 +20,10 @@ Base.@kwdef struct VTKState{T, V, C, B} <: AbstractCallback
     overwrite::B = true
 end
 
+Base.@kwdef struct TMARCallback{ℱ} <: AbstractCallback 
+    filterstates::ℱ = 6:6
+end
+
 function create_callbacks(simulation::Simulation, odesolver)
     callbacks = simulation.callbacks
 
@@ -221,4 +225,13 @@ function create_callback(output::VTKState, simulation::Simulation, odesolver)
         end
 
     return cbvtk
+end
+
+function create_callback(filter::TMARCallback, simulation::Simulation, odesolver)
+    Q = simulation.state
+    grid = simulation.grid.numerical
+    tmar_filter = EveryXSimulationSteps(1) do
+        Filters.apply!(Q, filter.filterstates, grid, TMARFilter())
+        end
+    return tmar_filter
 end
