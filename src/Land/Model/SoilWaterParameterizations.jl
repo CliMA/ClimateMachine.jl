@@ -85,14 +85,16 @@ or functions that return abstract floats.
 
 $(DocStringExtensions.FIELDS)
 """
-struct vanGenuchten{FT, T1, T2, T3} <: AbstractHydraulicsModel{FT}
+struct vanGenuchten{FT, T1, T2, T3, T4} <: AbstractHydraulicsModel{FT}
     "Exponent parameter - used in matric potential"
     n::T1
     "used in matric potential. The inverse of this carries units in 
      the expression for matric potential (specify in inverse meters)."
     α::T2
+    "Hydraulic conductivity exponent"
+    L::T3
     "Exponent parameter - determined by n, used in hydraulic conductivity"
-    m::T3
+    m::T4
 end
 
 
@@ -100,13 +102,16 @@ function vanGenuchten(
     ::Type{FT};
     n::Union{AbstractFloat, Function} = FT(1.43),
     α::Union{AbstractFloat, Function} = FT(2.6),
+    L::Union{AbstractFloat, Function} = FT(0.5),
 ) where {FT}
     nt = n isa AbstractFloat ? FT(n) : (aux) -> FT(n(aux))
     mt =
         n isa AbstractFloat ? FT(1) - FT(1) / nt :
         (aux) -> FT(1) - FT(1) / nt(aux)
     αt = α isa AbstractFloat ? FT(α) : (aux) -> FT(α(aux))
-    args = (nt, αt, mt)
+    Lt = L isa AbstractFloat ? FT(L) : (aux) -> FT(L(aux))
+    
+    args = (nt, αt, Lt, mt)
     return vanGenuchten{FT, typeof.(args)...}(args...)
 end
 
@@ -118,11 +123,12 @@ Evaluate the hydraulic model parameters at aux, and return
 a struct of type `vanGenuchten` with those *constant* parameters,
 which will be of float type FT.
 """
-function (model::vanGenuchten{FT, T1, T2, T3})(aux) where {FT, T1, T2, T3}
-    @unpack n, α = model
+function (model::vanGenuchten{FT, T1, T2, T3, T4})(aux) where {FT, T1, T2, T3, T4}
+    @unpack n, α ,L = model
     fn = typeof(n) == FT ? n : n(aux)
     fα = typeof(α) == FT ? α : α(aux)
-    return vanGenuchten(FT; n = fn, α = fα)
+    fL = typeof(L) == FT ? L : L(aux)
+    return vanGenuchten(FT; n = fn, α = fα, L = fL)
 end
 
 """
@@ -276,8 +282,9 @@ function moisture_factor(
     S_l::FT,
 ) where {FT}
     m = hm.m
+    L = hm.L
     if S_l < FT(1)
-        K = sqrt(S_l) * (FT(1) - (FT(1) - S_l^(FT(1) / m))^m)^FT(2)
+        K = S_l^L * (FT(1) - (FT(1) - S_l^(FT(1) / m))^m)^FT(2)
     else
         K = FT(1)
     end

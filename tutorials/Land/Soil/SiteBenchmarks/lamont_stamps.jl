@@ -2,7 +2,7 @@ using NCDatasets
 using Dates
 using Statistics
 using DelimitedFiles
-start = DateTime(2016,04,01)
+start = DateTime(2016,03,01)
 endtime = DateTime(2016,07,01)
 n = 1
 output_ln = []
@@ -18,10 +18,12 @@ for (root, dirs, files) in walkdir(mydir)
         date = DateTime(datestring,"yyyymmdd")
         if (date <= endtime ) & (date >= start)
             ds = Dataset(filepath)
-            swc = ds["soil_specific_water_content_west"][:]
+            swc = ds["soil_specific_water_content_south"][:]
             if size(swc) == (6, 48)
                 depths = reshape(repeat(ds["depth"][:], 48), (6,48))
-                mask = ds["qc_soil_specific_water_content_west"][:].== 0
+                qc = ds["qc_soil_specific_water_content_south"][:]
+
+                mask = qc.== 0
                 
                 d = depths[mask]
                 swc = swc[mask]
@@ -54,7 +56,33 @@ for (root, dirs, files) in walkdir(mydir)
 end
 
 
-open("data/lamont/stamps_swc_depth.txt", "w") do io
+open("data/lamont/stamps_swc_depth_south.txt", "w") do io
     writedlm(io, output_ln)
 end
  
+
+
+
+#
+south = readdlm("data/lamont/stamps_swc_depth_south.txt",'\t', String)
+south_data = tryparse.(Float64, south[:, 2:end])
+MS =south_data .== -9999
+south_data[MS] .=0
+
+west = readdlm("data/lamont/stamps_swc_depth_west.txt",'\t', String)
+west_data = tryparse.(Float64, west[:, 2:end])
+MW =west_data .== -9999
+west_data[MW] .=0
+
+east = readdlm("data/lamont/stamps_swc_depth_east.txt",'\t', String)
+east_data = tryparse.(Float64, east[:, 2:end])
+ME =east_data .== -9999
+east_data[ME] .=0
+
+num = east_data .+ south_data .+ west_data
+denom  = 3.0 .- (Array(MW) .+Array(ME) .+ Array(MS))
+
+swc = num ./ denom
+open("data/lamont/stamps_swc_depth.txt", "w") do io
+    writedlm(io, hcat(south[:,1], string.(swc)))
+end

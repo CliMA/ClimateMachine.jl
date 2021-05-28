@@ -45,8 +45,8 @@ include(joinpath(clima_dir, "docs", "plothelpers.jl"));
 
 soil_heat_model = PrescribedTemperatureModel();
 
-#Based of of soil classes reported by SWAT
-#=
+#Based off of soil classes reported by SWAT
+
 function ν(z::F) where {F}
     if z > F(-0.2)
         #silt loam
@@ -115,7 +115,7 @@ function θr(z::F) where {F}
     end
     return k
 end
-=#
+
 
 # POLARIS
 #= 
@@ -266,92 +266,13 @@ end
 =#
 
 
-# Fitting SWATS data ψ,θ per layer
- 
-function ks(z::F) where {F}
-    if z >= F(-0.1)
-        k = F(3.3766173146432266e-6)
-    elseif z >= F(-0.2)
-        k = F(2.6405625703773694e-6)
-    elseif z >=  F(-0.3)
-        k = F(1.1375678923286614e-6)
-    elseif z>= F(-0.475)
-        k = F(5.483920517690422e-7)
-    else
-        k = F(0)
-    end
-    return k
-end
-
-function vgα(z::F) where {F}
-    if z >= F(-0.1)
-        k = F(4.06)
-    elseif z >= F(-0.2)
-        k = F(3.95)
-    elseif z >=  F(-0.3)
-        k = F(4.02)
-    elseif z>= F(-0.475)
-        k = F(3.31)
-    else
-        k = F(3.48)
-    end
-    return k
-end
-
-function vgn(z::F) where {F}
-    if z >= F(-0.1)
-        k = F(1.58)
-    elseif z >= F(-0.2)
-        k = F(1.60)
-    elseif z >=  F(-0.3)
-        k = F(1.53)
-    elseif z>= F(-0.475)
-        k = F(1.3)
-    else
-        k = F(1.29)
-    end
-    return k
-end
-
-
-function θr(z::F) where {F}
-    if z >= F(-0.1)
-        k = F(0.245)
-    elseif z >= F(-0.2)
-        k = F(0.245)
-    elseif z >=  F(-0.3)
-        k = F(0.265)
-    elseif z>= F(-0.475)
-        k = F(0.3)
-    else
-        k = F(0.3)
-    end
-    return k
-end
-
-
-function ν(z::F) where {F}
-    if z >= F(-0.1)
-        k = F(0.457)
-    elseif z >= F(-0.2)
-        k = F(0.461)
-    elseif z >=  F(-0.3)
-        k = F(0.44)
-    elseif z>= F(-0.475)
-        k = F(0.44)
-    else
-        k = F(0.44)
-    end
-    return k
-end
-
 wpf = WaterParamFunctions(FT; Ksat = (aux)->ks(aux.z), S_s = 1e-4, θ_r = (aux)->θr(aux.z))
 soil_param_functions = SoilParamFunctions(FT; porosity = (aux)->ν(aux.z), water = wpf)
 
 ### Read in flux data
 cutoff = DateTime(2016,03,20,0,30,0)
-cutoff1 = DateTime(2016,03,31,0,30,0)
-cutoff2 = DateTime(2016,07,01,0,30,0)
+cutoff1 = DateTime(2016,03,29,0,30,0)
+cutoff2 = DateTime(2016,06,01,0,30,0)
 filepath = "data/lamont/arms_flux/sgparmbeatmC1.c1.20160101.003000.nc"
 ds = Dataset(filepath)
 times = ds["time"][:]
@@ -381,15 +302,15 @@ end
 incident = (t) -> net_water_flux(t, P, E)
 
 
-bottom_flux = (aux, t) -> eltype(aux)(0)#aux.soil.water.K * eltype(aux)(-1)
+bottom_flux = (aux, t) -> aux.soil.water.K * eltype(aux)(-1)
 surface_flux = (aux, t) -> incident(t)
 surface_zero_flux = (aux, t) -> eltype(aux)(0)
 N_poly = 1;
-nelem_vert = 30;
+nelem_vert = 20;
 
 # Specify the domain boundaries.
 zmax = FT(0);
-zmin = FT(-1.5);
+zmin = FT(-1.0);
 Δ = FT((zmax-zmin)/nelem_vert/2)
 bc = LandDomainBC(
     bottom_bc = LandComponentBC(
@@ -403,34 +324,18 @@ bc = LandDomainBC(
     )
 )
 
-depths = [5, 15,25,35,60] .* (-0.01) # m
-data = readdlm("./data/lamont/swat_swc_depth.txt",'\t',String)
-#data = readdlm("./data/lamont/stamps_swc_depth_east.txt",'\t',String)
+depths = [5, 10,20,35,75] .* (-0.01) # m
+#data = readdlm("./data/lamont/swat_swc_depth.txt",'\t',String)
+data = readdlm("./data/lamont/stamps_swc_depth.txt",'\t',String)
 ts = DateTime.(data[:,1], "yyyymmdd")
-soil_data = tryparse.(Float64, data[:, 2:end])
+soil_data = tryparse.(Float64, data[:, 2:end-1])
 keep = ((ts .<= cutoff2) .+ (ts .>= cutoff1)) .==2
-swc = FT.(soil_data[keep,:][1,:])
-
-#swc[3] = FT(0.35)
-
-#depths2 = [5, 15,25,35,60] .* (-0.01) # m
-#data = readdlm("./data/lamont/swat_swc_depth.txt", '\t', String)
-#ts = DateTime.(data[:,1], "yyyymmdd")
-#soil_data2 = tryparse.(Float64, data[:, 2:end])
-#keep = ((ts .<= cutoff2) .+ (ts .>= cutoff1)) .==2
-#swc2 = FT.(soil_data2[keep,:][1,:])
-#append!(swc,swc2)
-#append!(depths,depths2)
-#depths = depths[swc .!==-9999.0]
-#swc = swc[swc .!==-9999.0]
-#indices = sortperm(depths)
-#depths = depths[indices][1:end-1]
-#swc =swc[indices][1:end-1]
-#swc[end] =  (0.1574521 +0.2923722)/2
+swc = FT.(soil_data[keep,:][1,:])*0.01
+swc[3] = FT(0.37)
+swc[4] = FT(0.34)
+swc[5] = FT(0.34)
 θ = Spline1D(reverse(depths), reverse(swc), k=2)
 
-
-    
 ϑ_l0 = aux -> θ(aux.z)
 
 
@@ -478,13 +383,13 @@ driver_config = ClimateMachine.SingleStackConfiguration(
 
 # Choose the initial and final times, as well as a timestep.
 t0 = FT(0)
-timeend = FT(60 *60 * 24*90)+t0
-dt = FT(5);
+timeend = FT(60 *60 * 24*61)+t0
+dt = FT(25);
 
 # Create the solver configuration.
 solver_config =
     ClimateMachine.SolverConfiguration(t0, timeend, driver_config, ode_dt = dt);
-#=
+
     dg = solver_config.dg
     Q = solver_config.Q
 
@@ -501,7 +406,7 @@ solver_config =
         Q;
         max_subspace_size = 30,
         atol = -1.0,
-        rtol = 1e-6,
+        rtol = 1e-5,
     )
 
     """
@@ -510,7 +415,7 @@ solver_config =
     ||F(Q^i) || / ||F(Q^0) || < tol
     """
     nonlinearsolver =
-        JacobianFreeNewtonKrylovSolver(Q, linearsolver; tol = 1e-6)
+        JacobianFreeNewtonKrylovSolver(Q, linearsolver; tol = 1e-5)
 
     ode_solver = ARK2GiraldoKellyConstantinescu(
         dg,
@@ -528,7 +433,7 @@ solver_config =
     )
 
     solver_config.solver = ode_solver
-=#
+
 # Determine how often you want output.
 n_outputs = 90;
 
@@ -574,14 +479,14 @@ times = cutoff1 .+ steps
 soil_data = soil_data ./ 100
 
 ## also plot scan data for elreno site
-d2016 = readdlm("data/lamont/2022_27_YEAR=2016.csv",',')
-scan_data = d2016[2:end,:]
-columns = d2016[1,:]
+#d2016 = readdlm("data/lamont/2022_27_YEAR=2016.csv",',')
+#scan_data = d2016[2:end,:]
+#columns = d2016[1,:]
 
-scan_date = DateTime.(scan_data[:,2])
-scan_keep = ((scan_date .<cutoff2) .+ (scan_date .> cutoff1)) .==2
-scan_swc = FT.(scan_data[scan_keep,:][:,4:8]) .* 0.01
-scan_depths = FT.([-2,-4,-8,-20, -40])*2.5/100.0
+#scan_date = DateTime.(scan_data[:,2])
+#scan_keep = ((scan_date .<cutoff2) .+ (scan_date .> cutoff1)) .==2
+#scan_swc = FT.(scan_data[scan_keep,:][:,4:8]) .* 0.01
+#scan_depths = FT.([-2,-4,-8,-20, -40])*2.5/100.0
 
 
 
@@ -606,5 +511,5 @@ scatter!(ts[keep], soil_data[keep,4], ms = 2, color = "blue", label = "")
 plot5 = plot(times,l5, label = "", color = "red", title = "-75cm")
 scatter!(ts[keep], soil_data[keep,5], ms = 2, color = "blue", label = "")
 #scatter!(scan_date[scan_keep], scan_swc[:,5], ms = 2, color = "green", label = "")
-plot!(ylim = [0.05,0.45])
+#plot!(ylim = [0.05,0.45])
 

@@ -2,8 +2,8 @@ using NCDatasets
 using Dates
 using Statistics
 using DelimitedFiles
-start = DateTime(2016,04,01)
-endtime = DateTime(2016,07,01)
+start = DateTime(2016,01,01)
+endtime = DateTime(2016,12,31)
 n = 1
 output_ln = []
 output_dir = @__DIR__;
@@ -18,10 +18,10 @@ for (root, dirs, files) in walkdir(mydir)
         date = DateTime(datestring,"yyyymmdd")
         if (date <= endtime ) & (date >= start)
             ds = Dataset(filepath)
-            swc = ds["watcont_w"][:]
+            swc = ds["watcont_e"][:]
             if size(swc) == (5, 24)
                 depths = reshape(repeat(ds["depth"][:], 24), (5,24))
-                mask = ds["qc_watcont_w"][:].== 0
+                mask = ds["qc_watcont_e"][:].== 0
                 
                 d = depths[mask]
                 swc = swc[mask]

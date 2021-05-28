@@ -45,182 +45,207 @@ include(joinpath(clima_dir, "docs", "plothelpers.jl"));
 
 soil_heat_model = PrescribedTemperatureModel();
 
-#Based of of soil classes reported by SWAT
+# Meso - v2
 #=
-function ν(z::F) where {F}
-    if z > F(-0.2)
-        #silt loam
-        ν = F(0.45)
-    elseif z > F(-0.3)
-        #clay - I adjusted this up because the data gives a value > clay's porosity for SWC
-        ν = F(0.43)
+function ks(z::F) where {F}
+    if z >= F(-0.075)
+        k = F(1.9e-7)
+    elseif z >= F(-0.175)
+        k = F(1.6e-7)
+    elseif z >=  F(-0.35)
+        k = F(1.1e-7)
+    elseif z>= F(-0.525)
+        k = F(2.4e-7)
+    elseif z>=F(-0.675)
+        k = F(1.6e-7)
     else
-        #clay loam
-        ν = F(0.45) # same, adjusted this up.
+        k = F(0.8e-7)
     end
-    return ν
-end
-function vgn(z::F) where {F}
-    if z > F(-0.2)
-        #silt loam
-        n = F(1.4)
-    elseif z > F(-0.3)
-        #clay
-        n = F(1.09)
-    else
-        #clay loam
-        n = F(1.31)
-    end
-    return n
-end
-function vgα(z::F) where {F}
-    if z > F(-0.2)
-        #silt loam
-        α = F(2)
-    elseif z > F(-0.3)
-        #clay
-        α = F(0.8)
-    else
-        #clay loam
-        α = F(1.9)
-    end
-    return α
+    
+    return k
 end
 
-function ks(z::F) where {F}
-    if z > F(-0.2)
-        #silt loam
-        k = F(0.45/3600/100)
-    elseif z > F(-0.3)
-        #clay
-        k = F(0.2/3600/100)
+function vgα(z::F) where {F}
+    if z >= F(-0.075)
+        k = F(0.71)
+    elseif z >= F(-0.175)
+        k = F(0.79)
+    elseif z >=  F(-0.35)
+        k = F(0.68)
+    elseif z>= F(-0.525)
+        k = F(1.0)
+    elseif z>=F(-0.675)
+        k = F(0.80)
     else
-        # clay loam
-        k = F(0.26/3600/100)
+        k = F(0.46)
     end
+    
     return k
+
+end
+function vgn(z::F) where {F}
+    if z >= F(-0.075)
+        k = F(1.37)
+    elseif z >= F(-0.175)
+        k = F(1.33)
+    elseif z >=  F(-0.35)
+        k = F(1.26)
+    elseif z>= F(-0.525)
+        k = F(1.16)
+    elseif z>=F(-0.675)
+        k = F(1.15)
+    else
+        k = F(1.15)
+    end
+    
+    return k
+
+end
+
+function ν(z::F) where {F}
+    if z >= F(-0.075)
+        k = F(0.406)
+    elseif z >= F(-0.175)
+        k = F(0.412)
+    elseif z >=  F(-0.35)
+        k = F(0.446)
+    elseif z>= F(-0.525)
+        k = F(0.419)
+    elseif z>=F(-0.675)
+        k = F(0.379)
+    else
+        k = F(0.358)
+    end
+    
+    return k
+
 end
 
 
 function θr(z::F) where {F}
-    if z > F(-0.2)
-        #silt loam
-        k = F(0.067)
-    elseif z > F(-0.3)
-        #clay
-        k = F(0.068)
+    if z >= F(-0.075)
+        k = F(0.078)
+    elseif z >= F(-0.175)
+        k = F(0.082)
+    elseif z >=  F(-0.35)
+        k = F(0.114)
+    elseif z>= F(-0.525)
+        k = F(0.13)
+    elseif z>=F(-0.675)
+        k = F(0.13)
     else
-        # clay loam
-        k = F(0.095)
+        k = F(0.121)
     end
+    
     return k
+
 end
 =#
 
-# POLARIS
-#= 
-soil_depths = FT.([2.5,10,22.5,45,80,150]./(100))
-paramvalues = FT.(readdlm("./data/lamont/polaris_mean/polaris_mean_results.csv", ','))
+
+# Meso - v13
 function ks(z::F) where {F}
-    if z >= F(-0.05)
-        k = F(3.3766173146432266e-6)
-    elseif z >= F(-0.15)
-        k = F(2.6405625703773694e-6)
-    elseif z >=  F(-0.3)
-        k = F(1.1375678923286614e-6)
-    elseif z>= F(-0.6)
-        k = F(5.483920517690422e-7)
-    elseif z>=F(-1)
-        k = F(5.072931799077196e-7)
-    elseif z>=F(-2)
-        k = F(4.872214276474551e-7)
+    if z >= F(-0.15)
+        k = F(3.5e-7)
+    elseif z >=  F(-0.35)
+        k = F(2.5e-7)
+    elseif z>= F(-0.525)
+        k = F(5.1e-7)
+    elseif z>=F(-0.675)
+        k = F(3.7e-7)
     else
-        k = F(0)
+        k = F(1.8e-7)
     end
+    
+    return k
+end
+
+
+function vgL(z::F) where {F}
+    if z >= F(-0.15)
+        k = F(-0.14)
+    elseif z >=  F(-0.35)
+        k = F(-0.34)
+    elseif z>= F(-0.525)
+        k = F(-1.67)
+    elseif z>=F(-0.675)
+        k = F(-3.29)
+    else
+        k = F(-5.1)
+    end
+    
     return k
 end
 
 function vgα(z::F) where {F}
-    if z >= F(-0.05)
-        k = F(2.6138508319854736)
-    elseif z >= F(-0.15)
-        k = F(2.083854913711548)
-    elseif z >=  F(-0.3)
-        k = F(1.6353344917297363)
-    elseif z>= F(-0.6)
-        k = F(1.7143518924713135)
-    elseif z>=F(-1)
-        k = F(1.9004451036453247)
-    elseif z>=F(-2)
-        k = F(1.946574330329895)
+    if z >= F(-0.15)
+        k = F(0.9)
+    elseif z >=  F(-0.35)
+        k = F(0.85)
+    elseif z>= F(-0.525)
+        k = F(1.78)
+    elseif z>=F(-0.675)
+        k = F(1.44)
     else
-        k = F(0)
+        k = F(0.7)
     end
+    
     return k
+
+end
+function vgn(z::F) where {F}
+    if z >= F(-0.15)
+        k = F(1.39)
+    elseif z >=  F(-0.35)
+        k = F(1.3)
+    elseif z>= F(-0.525)
+        k = F(1.19)
+    elseif z>=F(-0.675)
+        k = F(1.16)
+    else
+        k = F(1.14)
+    end
+    
+    return k
+
 end
 
-function vgn(z::F) where {F}
-    if z >= F(-0.05)
-        k = F(1.2909212112426758)
-    elseif z >= F(-0.15)
-        k = F(1.2684941291809082)
-    elseif z >=  F(-0.3)
-        k = F(1.2423386573791504)
-    elseif z>= F(-0.6)
-        k = F(1.2364747524261475)
-    elseif z>=F(-1)
-        k = F(1.2349828481674194)
-    elseif z>=F(-2)
-        k = F(1.2909212112426758)
+function ν(z::F) where {F}
+    if z >= F(-0.15)
+        k = F(0.41)
+    elseif z >=  F(-0.35)
+        k = F(0.46)
+    elseif z>= F(-0.525)
+        k = F(0.44)
+    elseif z>=F(-0.675)
+        k = F(0.40)
     else
-        k = F(0)
+        k = F(0.41)
     end
+    
     return k
+
 end
 
 
 function θr(z::F) where {F}
-    if z >= F(-0.05)
-        k = F(0.113)
-    elseif z >= F(-0.15)
-        k = F(0.126)
-    elseif z >=  F(-0.3)
-        k = F(0.134)
-    elseif z>= F(-0.6)
-        k = F(0.1433)
-    elseif z>=F(-1)
-        k = F(0.137)
-    elseif z>=F(-2)
-        k = F(0.136)
+    if z >= F(-0.15)
+        k = F(0.057)
+    elseif z >=  F(-0.35)
+        k = F(0.076)
+    elseif z>= F(-0.525)
+        k = F(0.075)
+    elseif z>=F(-0.675)
+        k = F(0.069)
     else
-        k = F(0)
+        k = F(0.061)
     end
-    return k
-end
-
-
-function ν(z::F) where {F}
-    if z >= F(-0.05)
-        k = F(0.4265)
-    elseif z >= F(-0.15)
-        k = F(0.4328)
-    elseif z >=  F(-0.3)
-        k = F(0.4418)
-    elseif z>= F(-0.6)
-        k = F(0.4414)
-    elseif z>=F(-1)
-        k = F(0.440)
-    elseif z>=F(-2)
-        k = F(0.43)
-    else
-        k = F(0)
-    end
-    return k
-end
     
+    return k
 
+end
 
-
+#=
 function mymap(z::F,  depths::Array{F,1},values::Array{F,1}) where {F}
     N = length(depths)
     v = F(0)
@@ -266,92 +291,13 @@ end
 =#
 
 
-# Fitting SWATS data ψ,θ per layer
- 
-function ks(z::F) where {F}
-    if z >= F(-0.1)
-        k = F(3.3766173146432266e-6)
-    elseif z >= F(-0.2)
-        k = F(2.6405625703773694e-6)
-    elseif z >=  F(-0.3)
-        k = F(1.1375678923286614e-6)
-    elseif z>= F(-0.475)
-        k = F(5.483920517690422e-7)
-    else
-        k = F(0)
-    end
-    return k
-end
-
-function vgα(z::F) where {F}
-    if z >= F(-0.1)
-        k = F(4.06)
-    elseif z >= F(-0.2)
-        k = F(3.95)
-    elseif z >=  F(-0.3)
-        k = F(4.02)
-    elseif z>= F(-0.475)
-        k = F(3.31)
-    else
-        k = F(3.48)
-    end
-    return k
-end
-
-function vgn(z::F) where {F}
-    if z >= F(-0.1)
-        k = F(1.58)
-    elseif z >= F(-0.2)
-        k = F(1.60)
-    elseif z >=  F(-0.3)
-        k = F(1.53)
-    elseif z>= F(-0.475)
-        k = F(1.3)
-    else
-        k = F(1.29)
-    end
-    return k
-end
-
-
-function θr(z::F) where {F}
-    if z >= F(-0.1)
-        k = F(0.245)
-    elseif z >= F(-0.2)
-        k = F(0.245)
-    elseif z >=  F(-0.3)
-        k = F(0.265)
-    elseif z>= F(-0.475)
-        k = F(0.3)
-    else
-        k = F(0.3)
-    end
-    return k
-end
-
-
-function ν(z::F) where {F}
-    if z >= F(-0.1)
-        k = F(0.457)
-    elseif z >= F(-0.2)
-        k = F(0.461)
-    elseif z >=  F(-0.3)
-        k = F(0.44)
-    elseif z>= F(-0.475)
-        k = F(0.44)
-    else
-        k = F(0.44)
-    end
-    return k
-end
-
 wpf = WaterParamFunctions(FT; Ksat = (aux)->ks(aux.z), S_s = 1e-4, θ_r = (aux)->θr(aux.z))
 soil_param_functions = SoilParamFunctions(FT; porosity = (aux)->ν(aux.z), water = wpf)
 
 ### Read in flux data
 cutoff = DateTime(2016,03,20,0,30,0)
 cutoff1 = DateTime(2016,03,31,0,30,0)
-cutoff2 = DateTime(2016,07,01,0,30,0)
+cutoff2 = DateTime(2016,06,01,0,30,0)
 filepath = "data/lamont/arms_flux/sgparmbeatmC1.c1.20160101.003000.nc"
 ds = Dataset(filepath)
 times = ds["time"][:]
@@ -381,7 +327,7 @@ end
 incident = (t) -> net_water_flux(t, P, E)
 
 
-bottom_flux = (aux, t) -> eltype(aux)(0)#aux.soil.water.K * eltype(aux)(-1)
+bottom_flux = (aux, t) -> aux.soil.water.K * eltype(aux)(-1)
 surface_flux = (aux, t) -> incident(t)
 surface_zero_flux = (aux, t) -> eltype(aux)(0)
 N_poly = 1;
@@ -403,41 +349,23 @@ bc = LandDomainBC(
     )
 )
 
-depths = [5, 15,25,35,60] .* (-0.01) # m
-data = readdlm("./data/lamont/swat_swc_depth.txt",'\t',String)
-#data = readdlm("./data/lamont/stamps_swc_depth_east.txt",'\t',String)
+depths = [5, 10,20,35,75] .* (-0.01) # m
+#data = readdlm("./data/lamont/swat_swc_depth.txt",'\t',String)
+data = readdlm("./data/lamont/stamps_swc_depth.txt",'\t',String)
 ts = DateTime.(data[:,1], "yyyymmdd")
-soil_data = tryparse.(Float64, data[:, 2:end])
+soil_data = tryparse.(Float64, data[:, 2:end-1])
 keep = ((ts .<= cutoff2) .+ (ts .>= cutoff1)) .==2
-swc = FT.(soil_data[keep,:][1,:])
-
-#swc[3] = FT(0.35)
-
-#depths2 = [5, 15,25,35,60] .* (-0.01) # m
-#data = readdlm("./data/lamont/swat_swc_depth.txt", '\t', String)
-#ts = DateTime.(data[:,1], "yyyymmdd")
-#soil_data2 = tryparse.(Float64, data[:, 2:end])
-#keep = ((ts .<= cutoff2) .+ (ts .>= cutoff1)) .==2
-#swc2 = FT.(soil_data2[keep,:][1,:])
-#append!(swc,swc2)
-#append!(depths,depths2)
-#depths = depths[swc .!==-9999.0]
-#swc = swc[swc .!==-9999.0]
-#indices = sortperm(depths)
-#depths = depths[indices][1:end-1]
-#swc =swc[indices][1:end-1]
-#swc[end] =  (0.1574521 +0.2923722)/2
+swc = FT.(soil_data[keep,:][1,:])*0.01
+swc[5] = FT(0.15)
 θ = Spline1D(reverse(depths), reverse(swc), k=2)
 
-
-    
 ϑ_l0 = aux -> θ(aux.z)
 
 
 soil_water_model = SoilWaterModel(
     FT;
     moisture_factor = MoistureDependent{FT}(),
-    hydraulics = vanGenuchten(FT; n = (aux) ->vgn(aux.z), α = (aux)->vgα(aux.z)),
+    hydraulics = vanGenuchten(FT; n = (aux) ->vgn(aux.z), α = (aux)->vgα(aux.z), L = (aux)->vgL(aux.z)),
     initialϑ_l = ϑ_l0,
 );
 
@@ -478,13 +406,13 @@ driver_config = ClimateMachine.SingleStackConfiguration(
 
 # Choose the initial and final times, as well as a timestep.
 t0 = FT(0)
-timeend = FT(60 *60 * 24*90)+t0
-dt = FT(5);
+timeend = FT(60 *60 * 24*61)+t0
+dt = FT(25);
 
 # Create the solver configuration.
 solver_config =
     ClimateMachine.SolverConfiguration(t0, timeend, driver_config, ode_dt = dt);
-#=
+
     dg = solver_config.dg
     Q = solver_config.Q
 
@@ -501,7 +429,7 @@ solver_config =
         Q;
         max_subspace_size = 30,
         atol = -1.0,
-        rtol = 1e-6,
+        rtol = 1e-5,
     )
 
     """
@@ -510,7 +438,7 @@ solver_config =
     ||F(Q^i) || / ||F(Q^0) || < tol
     """
     nonlinearsolver =
-        JacobianFreeNewtonKrylovSolver(Q, linearsolver; tol = 1e-6)
+        JacobianFreeNewtonKrylovSolver(Q, linearsolver; tol = 1e-5)
 
     ode_solver = ARK2GiraldoKellyConstantinescu(
         dg,
@@ -528,7 +456,7 @@ solver_config =
     )
 
     solver_config.solver = ode_solver
-=#
+
 # Determine how often you want output.
 n_outputs = 90;
 
@@ -574,14 +502,14 @@ times = cutoff1 .+ steps
 soil_data = soil_data ./ 100
 
 ## also plot scan data for elreno site
-d2016 = readdlm("data/lamont/2022_27_YEAR=2016.csv",',')
-scan_data = d2016[2:end,:]
-columns = d2016[1,:]
+#d2016 = readdlm("data/lamont/2022_27_YEAR=2016.csv",',')
+#scan_data = d2016[2:end,:]
+#columns = d2016[1,:]
 
-scan_date = DateTime.(scan_data[:,2])
-scan_keep = ((scan_date .<cutoff2) .+ (scan_date .> cutoff1)) .==2
-scan_swc = FT.(scan_data[scan_keep,:][:,4:8]) .* 0.01
-scan_depths = FT.([-2,-4,-8,-20, -40])*2.5/100.0
+#scan_date = DateTime.(scan_data[:,2])
+#scan_keep = ((scan_date .<cutoff2) .+ (scan_date .> cutoff1)) .==2
+#scan_swc = FT.(scan_data[scan_keep,:][:,4:8]) .* 0.01
+#scan_depths = FT.([-2,-4,-8,-20, -40])*2.5/100.0
 
 
 
@@ -589,22 +517,22 @@ scan_depths = FT.([-2,-4,-8,-20, -40])*2.5/100.0
 plot1 = plot(times,l1, label = "simulation;lamont", color = "red", title = "-5cm")
 scatter!(ts[keep], soil_data[keep,1], ms = 2, color = "blue", label = "stamp;lamont")
 #scatter!(scan_date[scan_keep], scan_swc[:,1], ms = 2, color = "green", label = "scan; elreno")
-
+savefig("./data/lamont/layer1_meso.png")
 
 plot2 = plot(times,l2, label = "", color = "red", title= "-10cm")
 scatter!(ts[keep], soil_data[keep,2], ms = 2, color = "blue", label = "")
 #scatter!(scan_date[scan_keep], scan_swc[:,2], ms = 2, color = "green", label = "")
-
+savefig("./data/lamont/layer2_meso.png")
 plot3 = plot(times,l3, label = "", color = "red", title = "-20cm")
 scatter!(ts[keep], soil_data[keep,3], ms = 2, color = "blue", label = "")
 #scatter!(scan_date[scan_keep], scan_swc[:,3], ms = 2, color = "green", label = "")
-
+savefig("./data/lamont/layer3_meso.png")
 plot4 = plot(times,l4, label = "", color = "red", title = "-50cm")
 scatter!(ts[keep], soil_data[keep,4], ms = 2, color = "blue", label = "")
 #scatter!(scan_date[scan_keep], scan_swc[:,4], ms = 2, color = "green", label = "")
-
+savefig("./data/lamont/layer4_meso.png")
 plot5 = plot(times,l5, label = "", color = "red", title = "-75cm")
 scatter!(ts[keep], soil_data[keep,5], ms = 2, color = "blue", label = "")
 #scatter!(scan_date[scan_keep], scan_swc[:,5], ms = 2, color = "green", label = "")
-plot!(ylim = [0.05,0.45])
-
+#plot!(ylim = [0.05,0.45])
+savefig("./data/lamont/layer5_meso.png")

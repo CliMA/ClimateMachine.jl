@@ -144,7 +144,7 @@ function compute_surface_grad_bc(
         K∇h⁺ = i_c
     else
 
-        K∇h⁺ = n̂ * (-FT(2) * incident_water_flux) - diff⁻.soil.water.K∇h
+        K∇h⁺ = n̂ * (-incident_water_flux)
     end
     return K∇h⁺
 end
@@ -177,7 +177,7 @@ function compute_surface_grad_bc(
 )
     FT = eltype(state⁻)
     incident_water_flux = precip_model(t)
-    K∇h⁺ = n̂ * (-FT(2) * incident_water_flux) - diff⁻.soil.water.K∇h
+    K∇h⁺ = n̂ * (-incident_water_flux)
     return K∇h⁺
 end
 
