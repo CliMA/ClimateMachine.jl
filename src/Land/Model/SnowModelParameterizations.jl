@@ -5,25 +5,27 @@ using UnPack
 using CLIMAParameters
 using CLIMAParameters.Planet: cp_l, cp_i, T_0, LH_f0
 
-""" define local parameter values
-volumetric liquid fraction of water in excess of the residual water in snow. could be a constant or a function of snow density
-θ_r = 0.08
-dt_runoff: timescale used for snow runoff terms, approximately equals dt
-"""
+#define local parameter values
+#volumetric liquid fraction of water in excess of the residual water in snow. could be a constant or a function of snow density
+#θ_r = 0.08
+#dt_runoff: timescale used for snow runoff terms, approximately equals dt
+
 
 """
-    ρc_snow(l::FT,
-            ρ_snow::FT,
-            param_set::AbstractParamSet
-            ) where {FT}
+    volumetric_heat_capacity(
+        l::FT,
+        ρ_snow::FT,
+        param_set::AbstractParamSet
+        ) where {FT}
 
 Computes the volumetric heat capacity of snow pack given the liquid water
-fraction l and snow density ρ_snow.
+fraction `l` and snow density `ρ_snow`.
 """
-function volumetric_heat_capacity(l::FT,
-                 ρ_snow::FT,
-                 param_set::AbstractParameterSet
-                 ) where {FT}
+function volumetric_heat_capacity(
+    l::FT,
+    ρ_snow::FT,
+    param_set::AbstractParameterSet
+) where {FT}
     _c_i = FT(cp_i(param_set))
     _c_l = FT(cp_l(param_set))
     c_snow = _c_i*(FT(1.0)-l) + l*_c_i
@@ -32,18 +34,20 @@ function volumetric_heat_capacity(l::FT,
 end
 
 """
-function l(ρe_int::FT,
-    ρ_snow::FT,
-    param_set::AbstractParameterSet
-) where {FT}
-
-Computes the liquid water mass fraction l given volumetric internal energy of snow
-ρe_int and snow density ρ_snow
-
-"""
-function liquid_fraction(ρe_int::FT,
+    liquid_fraction(
+        ρe_int::FT,
         ρ_snow::FT,
         param_set::AbstractParameterSet
+    ) where {FT}
+
+Computes the liquid water mass fraction l given volumetric internal energy of snow
+`ρe_int` and snow density `ρ_snow`.
+
+"""
+function liquid_fraction(
+    ρe_int::FT,
+    ρ_snow::FT,
+    param_set::AbstractParameterSet
 ) where {FT}
     _c_i = FT(cp_i(param_set))
     _c_l = FT(cp_l(param_set))
@@ -65,13 +69,14 @@ function liquid_fraction(ρe_int::FT,
 end
 
 """
-function T_snow_ave(ρe_int::FT,
-    ρ_snow::FT,
-    param_set::AbstractParameterSet
-) where {FT}
+    function T_snow_ave(
+        ρe_int::FT,
+        ρ_snow::FT,
+        param_set::AbstractParameterSet
+    ) where {FT}
 
 Computes the average snow pack temperature given volumetric internal energy of snow
-ρe_int and volumetric_liquid_fraction l
+`ρe_int` and volumetric liquid fraction `l`
 
 """
 function T_snow_ave(
@@ -84,6 +89,57 @@ function T_snow_ave(
     T_snow_ave = (ρe_int+(1-l)*_LH_f0)/ρc_snow + _T_ref
     return T_snow_ave
 end
+
+"""
+    Temperature profile
+"""
+function compute_profile_coefficients(
+    Q_surf::FT,
+    Q_bott::FT,
+    z_snow::FT,
+    ρ_snow::FT,
+    κ_snow::FT,
+    T_snow_ave::FT,
+    param_set::AbstractParameterSet,
+) where {FT}
+    _c_i = FT(cp_i(param_set))
+    _c_l = FT(cp_l(param_set))
+    c_snow = _c_i*(FT(1.0)-l) + l*_c_i
+    d = (2*κ_snow*24/(ρ_snow*c_snow))
+    h = max(0,z_snow-d)
+    T_surf = T_snow_ave+(Q_surf*(h^2-z^2)-Q2*h^2)/(2*z_snow*κ_snow)
+    T_bott = T_surf*(h-z_snow)/(h+z_snow) +(2*z_snow*T_snow_ave*κ_snow+Q_bott*h*z_snow)/((h+z_snow)*κ_snow)
+
+    return T_surf, T_bott, h, T_h
+end
+
+function get_temperature_profile(
+    Q_surf::FT,
+    Q_bott::FT,
+    z_snow::FT,
+    ρ_snow::FT,
+    κ_snow::FT,
+    T_snow_ave::FT,
+    param_set::AbstractParameterSet,
+) where {FT}
+    args = (Q_surf, Q_bott, z_snow, ρ_snow, κ_snow, T_snow_ave, param_set)
+    T_surf, T_bott, h, T_h = compute_profile_coefficients(args)
+    function T_profile(z::FT)
+        if z< h
+            T = T_bott+z/h*(T_h-T_bott)
+        else
+            T = T_h+ (z-h)/(z_snow-h)*(T_surf-T_h)
+        end
+        return T
+    end
+    return T_profile
+end
+
+end #module
+
+#=
+    
+
 
 """ using Q for energy, m for mass, v for volumetric ?
 lmax: maximum liquid water mass fraction
@@ -141,27 +197,5 @@ function evap_volumnetric_mass(
 
 end
 """
+=#
 
-"""
-Temperature profile
-"""
-function temperature_profile(
-    Q_surf::FT,
-    Q_bott::FT,
-    z_snow::FT,
-    ρ_snow::FT,
-    κ_snow::FT,
-    T_snow_ave::FT,
-    param_set::AbstractParameterSet,
-) where {FT}
-    _c_i = FT(cp_i(param_set))
-    _c_l = FT(cp_l(param_set))
-    c_snow = _c_i*(FT(1.0)-l) + l*_c_i
-    d = (2*κ_snow*24/(ρ_snow*c_snow))
-    h = max(0,z_snow-d)
-    T_surf = T_snow_ave+(Q_surf*(h^2-z^2)-Q2*h^2)/(2*z_snow*κ_snow)
-    T_bott = T_surf*(h-z_snow)/(h+z_snow) +(2*z_snow*T_snow_ave*κ_snow+Q_bott*h*z_snow)/((h+z_snow)*κ_snow)
-
-    T(z)
-    return T_surf, T_bott
-end

@@ -24,7 +24,11 @@ using StaticArrays: SVector
 export SingleLayerSnowModel,
     NoSnowModel,
     SnowWaterEquivalent,
-    SnowVolumetricInternalEnergy
+    SnowVolumetricInternalEnergy,
+    PrescribedForcing,
+    SnowParameters,
+    FluxDivergence
+
 
 """
     SnowWaterEquivalent <: AbstractPrognosticVariable
@@ -69,13 +73,40 @@ different models for the different parameters.
 # Fields
 $(DocStringExtensions.FIELDS)
 """
-struct SnowParameters{FT, TK, Tρ, Tscf} <: AbstractSoilParameterFunctions{FT}
+struct SnowParameters{FT, TK, Tρ, Tz} <: AbstractSnowParameters{FT}
     "Bulk thermal conductivity. W/m/K"
-    κ_snow::TF
+    κ_snow::TK
     "Bulk density. kg/m^3"
     ρ_snow::Tρ
-    "Snow cover fraction. unitless"
-    f_snow::Tscf
+    "Depth of snow"
+    z_snow::Tz
+end
+
+
+"""
+    AbstractSnowForcingModel{FT <: AbstractFloat}
+"""
+abstract type AbstractSnowForcingModel{FT <: AbstractFloat} end
+
+
+"""
+    PrescribedForcing{FT, F1, F2} <: AbstractSnowForcingModel{
+# Fields
+$(DocStringExtensions.FIELDS)
+"""
+struct PrescribedForcing{FT, F1, F2} <: AbstractSnowForcingModel{FT}
+    "surface flux function (of time)"
+    Q_surf::F1
+    "Bottom flux function of time"
+    Q_bottom::F2
+end
+
+function PrescribedForcing(::Type{FT};
+    Q_surf::Function = (t) -> eltype(t)(0.0),
+    Q_bottom::Function = (t) -> eltype(t)(0.0),
+) where {FT}
+    args = (Q_surf, Q_bottom)
+    return PrescribedForcing{FT, typeof.(args)...}(args...)
 end
 
 """
@@ -93,20 +124,20 @@ Initial conditions are still required.
 # Fields
 $(DocStringExtensions.FIELDS)
 """
-struct SingleLayerSnowModel{pt, ft, fs, fe} <: BalanceLaw
+struct SingleLayerSnowModel{pt, ft,  fe} <: BalanceLaw
     "Parameter functions"
     parameters::pt
     "Forcing functions"
     forcing::ft
-    "Initial condition for SWE"
-    initial_swe::fs
+#    "Initial condition for SWE"
+#    initial_swe::fs
     "Initial condition for ρe_int"
     initial_ρe_int::fe
 end
 
 
 
-vars_state(surface:: SingleLayerSnowModel, st::Prognostic, FT) = @vars(swe::FT, ρe_int::FT)
+vars_state(surface:: SingleLayerSnowModel, st::Prognostic, FT) = @vars(ρe_int::FT, swe::FT)
 
 function Land.land_init_aux!(
     land::LandModel,
@@ -123,6 +154,30 @@ function Land.land_nodal_update_auxiliary_state!(
     t,
 ) end
 
+
+
+"""
+    FluxDivergence <: TendencyDef{Source}
+
+A source term for the snow volumetric internal energy equation. It is equal
+to (Q_surf - Q_bottom)/z_snow.
+"""
+struct FluxDivergence{FT} <: TendencyDef{Source} end
+
+
+prognostic_vars(::FluxDivergence) = (SnowVolumetricInternalEnergy(),)
+
+
+precompute(source_type::FluxDivergence, land::LandModel, args, tt::Source) =
+    NamedTuple()
+
+function source(::SnowVolumetricInternalEnergy, s::FluxDivergence, land::LandModel, args)
+    @unpack state, diffusive, aux, t, direction = args
+    Q_surf = land.snow.forcing.Q_surf(t)
+    Q_bottom = land.snow.forcing.Q_bottom(t)
+    divflux = -(Q_surf-Q_bottom)/land.snow.parameters.z_snow
+    return divflux
+end
 
 
 end
