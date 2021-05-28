@@ -192,7 +192,7 @@ function evolve!(simulation::Nothing)
     return nothing
 end
 
-function evolve!(simulation::Simulation{<:Tuple}; refDat = ())
+function evolve!(simulation::Simulation{<:Tuple}; refDat = (), tmar_filter = false)
     # Unpack everything we need in this routine here
     state         = simulation.state
     rhs           = simulation.rhs
@@ -201,8 +201,15 @@ function evolve!(simulation::Simulation{<:Tuple}; refDat = ())
     tend          = simulation.time.finish
     Δt            = timestepper.timestep
     
-    # Instantiate time stepping method    
-    odesolver = construct_odesolver(timestepper.method, rhs, state, Δt, t0 = t0) 
+    # Instantiate time stepping method
+    if tmar_filter
+        explicit_rhs = explicit(simulation.rhs)[1].model
+        tmar_explicit_rhs = tmar_closure(explicit_rhs, simulation.grid)
+        rhs = (Explicit(tmar_explicit_rhs, 1.0), implicit(simulation.rhs)[1])
+        odesolver = construct_odesolver(timestepper.method, rhs, state, Δt, t0 = t0) 
+    else    
+        odesolver = construct_odesolver(timestepper.method, rhs, state, Δt, t0 = t0) 
+    end
     # Make callbacks from callbacks tuple
     cbvector = create_callbacks(simulation, odesolver)
 
@@ -290,4 +297,12 @@ function rhs_closure(rhs, npoly, nover; staggering = false)
     end
 
     return rhs_filtered 
+end # returns a closure
+
+function tmar_closure(rhs, grid; filterstates = 6:6)
+    function tmar_rhs(state_array, args...; kwargs...)
+        rhs(state_array, args...; kwargs...)
+        Filters.apply!(state_array, filterstates, grid.numerical, TMARFilter())
+    end
+    return tmar_rhs 
 end # returns a closure
