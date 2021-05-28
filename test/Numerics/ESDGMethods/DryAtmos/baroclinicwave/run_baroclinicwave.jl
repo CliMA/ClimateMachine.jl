@@ -3,6 +3,7 @@ using ClimateMachine.ConfigTypes
 using ClimateMachine.Mesh.Topologies:
     StackedCubedSphereTopology, cubedshellwarp, grid1d
 using ClimateMachine.Mesh.Grids
+using ClimateMachine.Mesh.Elements: lglpoints, interpolationmatrix
 using ClimateMachine.Mesh.Filters
 using ClimateMachine.DGMethods: ESDGModel, init_ode_state, courant
 using ClimateMachine.DGMethods.NumericalFluxes
@@ -17,159 +18,16 @@ using ClimateMachine.VariableTemplates: flattenednames
 
 using CLIMAParameters
 using CLIMAParameters.Planet: R_d, cv_d, Omega, planet_radius, MSLP
-import CLIMAParameters
 
 using MPI, Logging, StaticArrays, LinearAlgebra, Printf, Dates, Test
+using GaussQuadrature, Polynomials
+using JLD2
 using CUDA
 
-const output_vtk = true
+include("baroclinicwave.jl")
 
-struct EarthParameterSet <: AbstractEarthParameterSet end
-const param_set = EarthParameterSet();
-#const X = 20
-const X = 1
-CLIMAParameters.Planet.planet_radius(::EarthParameterSet) = 6.371229e6 / X
-CLIMAParameters.Planet.Omega(::EarthParameterSet) = 7.29212e-5 * X
-CLIMAParameters.Planet.MSLP(::EarthParameterSet) = 1e5
-CLIMAParameters.Planet.grav(::EarthParameterSet) = 9.80616
-
-include("DryAtmos.jl")
-
-function sphr_to_cart_vec(
-    vec, lat, lon
-)
-    FT = eltype(vec)
-    slat, clat = sin(lat), cos(lat)
-    slon, clon = sin(lon), cos(lon)
-    u = MVector{3, FT}(
-        -slon * vec[1] - slat * clon * vec[2] + clat * clon * vec[3],
-        clon * vec[1] - slat * slon * vec[2] + clat * slon * vec[3],
-        clat * vec[2] + slat * vec[3],
-    )
-    return u
-end
-
-struct BaroclinicWave <: AbstractDryAtmosProblem end
-
-vars_state(::DryAtmosModel, ::BaroclinicWave, ::Auxiliary, FT) = @vars(ωk::FT)
-
-function init_state_prognostic!(bl::DryAtmosModel,
-                                ::BaroclinicWave,
-                                state, aux, localgeo, t)
-    coords = localgeo.coord
-    FT = eltype(state)
-
-    # parameters
-    _grav::FT = grav(param_set)
-    _R_d::FT = R_d(param_set)
-    _cv_d::FT = cv_d(param_set)
-    _Ω::FT = Omega(param_set)
-    _a::FT = planet_radius(param_set)
-    _p_0::FT = MSLP(param_set)
-
-    k::FT = 3
-    T_E::FT = 310
-    T_P::FT = 240
-    T_0::FT = 0.5 * (T_E + T_P)
-    Γ::FT = 0.005
-    A::FT = 1 / Γ
-    B::FT = (T_0 - T_P) / T_0 / T_P
-    C::FT = 0.5 * (k + 2) * (T_E - T_P) / T_E / T_P
-    b::FT = 2
-    H::FT = _R_d * T_0 / _grav
-    z_t::FT = 15e3
-    λ_c::FT = π / 9
-    φ_c::FT = 2 * π / 9
-    d_0::FT = _a / 6
-    V_p::FT = 1
-    M_v::FT = 0.608
-    p_w::FT = 34e3             ## Pressure width parameter for specific humidity
-    η_crit::FT = 10 * _p_0 / p_w ## Critical pressure coordinate
-    q_0::FT = 0                ## Maximum specific humidity (default: 0.018)
-    q_t::FT = 1e-12            ## Specific humidity above artificial tropopause
-    φ_w::FT = 2π / 9           ## Specific humidity latitude wind parameter
-
-    # grid
-    λ = @inbounds atan(coords[2], coords[1])
-    φ =  @inbounds asin(coords[3] / norm(coords, 2))
-    z =  norm(coords) - _a
-
-    r::FT = z + _a
-    γ::FT = 1 # set to 0 for shallow-atmosphere case and to 1 for deep atmosphere case
-
-    # convenience functions for temperature and pressure
-    τ_z_1::FT = exp(Γ * z / T_0)
-    τ_z_2::FT = 1 - 2 * (z / b / H)^2
-    τ_z_3::FT = exp(-(z / b / H)^2)
-    τ_1::FT = 1 / T_0 * τ_z_1 + B * τ_z_2 * τ_z_3
-    τ_2::FT = C * τ_z_2 * τ_z_3
-    τ_int_1::FT = A * (τ_z_1 - 1) + B * z * τ_z_3
-    τ_int_2::FT = C * z * τ_z_3
-    I_T::FT =
-        (cos(φ) * (1 + γ * z / _a))^k -
-        k / (k + 2) * (cos(φ) * (1 + γ * z / _a))^(k + 2)
-
-    # base state virtual temperature, pressure, specific humidity, density
-    T_v::FT = (τ_1 - τ_2 * I_T)^(-1)
-    p::FT = _p_0 * exp(-_grav / _R_d * (τ_int_1 - τ_int_2 * I_T))
-
-    # base state velocity
-    U::FT =
-        _grav * k / _a *
-        τ_int_2 *
-        T_v *
-        (
-            (cos(φ) * (1 + γ * z / _a))^(k - 1) -
-            (cos(φ) * (1 + γ * z / _a))^(k + 1)
-        )
-    u_ref::FT =
-        -_Ω * (_a + γ * z) * cos(φ) +
-        sqrt((_Ω * (_a + γ * z) * cos(φ))^2 + (_a + γ * z) * cos(φ) * U)
-    v_ref::FT = 0
-    w_ref::FT = 0
-
-    # velocity perturbations
-    F_z::FT = 1 - 3 * (z / z_t)^2 + 2 * (z / z_t)^3
-    if z > z_t
-        F_z = FT(0)
-    end
-    d::FT = _a * acos(sin(φ) * sin(φ_c) + cos(φ) * cos(φ_c) * cos(λ - λ_c))
-    c3::FT = cos(π * d / 2 / d_0)^3
-    s1::FT = sin(π * d / 2 / d_0)
-    if 0 < d < d_0 && d != FT(_a * π)
-        u′::FT =
-            -16 * V_p / 3 / sqrt(3) *
-            F_z *
-            c3 *
-            s1 *
-            (-sin(φ_c) * cos(φ) + cos(φ_c) * sin(φ) * cos(λ - λ_c)) /
-            sin(d / _a)
-        v′::FT =
-            16 * V_p / 3 / sqrt(3) * F_z * c3 * s1 * cos(φ_c) * sin(λ - λ_c) /
-            sin(d / _a)
-    else
-        u′ = FT(0)
-        v′ = FT(0)
-    end
-    w′::FT = 0
-    u_sphere = SVector{3, FT}(u_ref + u′, v_ref + v′, w_ref + w′)
-    u_cart = sphr_to_cart_vec(u_sphere, φ, λ)
-
-    ## temperature & density
-    T::FT = T_v
-    ρ::FT = p / (_R_d * T)
-    ## potential & kinetic energy
-    e_pot = aux.Φ
-    e_kin::FT = 0.5 * u_cart' * u_cart
-    e_int = _cv_d * T
-
-    ## Assign state variables
-    state.ρ = ρ
-    state.ρu = ρ * u_cart
-    state.ρe = ρ * (e_int + e_kin + e_pot)
-    nothing
-end
-
+const output_vtk = false
+const output_jld = true
 
 function main()
     ClimateMachine.init(parse_clargs=true)
@@ -179,8 +37,8 @@ function main()
 
     polynomialorder = 3
 
-    numelem_horz = 16
-    numelem_vert = 8
+    #K = (16, 8)
+    K = (8, 4)
 
     timeend = 15 * 24 * 3600
     outputtime = 24 * 3600
@@ -189,8 +47,7 @@ function main()
     result = run(
         mpicomm,
         polynomialorder,
-        numelem_horz,
-        numelem_vert,
+        K,
         timeend,
         outputtime,
         ArrayType,
@@ -201,13 +58,17 @@ end
 function run(
     mpicomm,
     N,
-    numelem_horz,
-    numelem_vert,
+    K,
     timeend,
     outputtime,
     ArrayType,
     FT,
 )
+
+    outdir = joinpath("esdg_output",
+                      "baroclinicwave",
+                      "$N",
+                      "$(K[1])x$(K[2])")
 
     Nq = N + 1
     _planet_radius::FT = planet_radius(param_set)
@@ -215,9 +76,9 @@ function run(
     vert_range = grid1d(
         _planet_radius,
         FT(_planet_radius + domain_height),
-        nelem = numelem_vert,
+        nelem = K[2],
     )
-    topology = StackedCubedSphereTopology(mpicomm, numelem_horz, vert_range)
+    topology = StackedCubedSphereTopology(mpicomm, K[1], vert_range)
 
     grid = DiscontinuousSpectralElementGrid(
         topology,
@@ -257,7 +118,7 @@ function run(
      )
 
     # determine the time step
-    element_size = (domain_height / numelem_vert)
+    element_size = (domain_height / K[2])
     acoustic_speed = soundspeed_air(param_set, FT(330))
     #dt_factor = 1
     #dt = dt_factor * element_size / acoustic_speed / polynomialorder^2
@@ -289,7 +150,23 @@ function run(
                       numelem_vert    = %d
                       dt              = %.16e
                       norm(Q₀)        = %.16e
-                      """ "$ArrayType" "$FT" N numelem_horz numelem_vert dt eng0
+                      """ "$ArrayType" "$FT" N K[1] K[2] dt eng0
+
+    savejld2 = function(step, time)
+      state_prognostic = Array(Q)
+      state_auxiliary = Array(esdg.state_auxiliary)
+      vgeo = Array(grid.vgeo)
+      @save(joinpath(stepsdir, "bw_step$(lpad(step, 8, '0')).jld2"),
+            model,
+            problem,
+            step,
+            time,
+            N,
+            K,
+            state_prognostic,
+            state_auxiliary,
+            vgeo)
+    end
 
     # Set up the information callback
     starttime = Ref(now())
@@ -390,7 +267,7 @@ function run(
             push!(vmax, maximum(vel))
 
             p = @. (γ - 1) * (ρe - (ρu ^ 2 + ρv ^ 2 + ρw ^ 2) / (2 * ρ) - ρ * Φ)
-            psurf = @view p[1:Nq^2, 1:numelem_vert:end]
+            psurf = @view p[1:Nq^2, 1:K[2]:end]
             push!(pmin, minimum(psurf))
     end
     callbacks = (cbinfo, cbcfl, cb_vel_p)
@@ -412,10 +289,7 @@ function run(
         ∇Φ3 = view(esdg.state_auxiliary.data, :, 4, :)
         
         # create vtk dir
-        vtkdir =
-            "vtk_esdg_baroclinic" *
-            "_poly$(N)_horz$(numelem_horz)_vert$(numelem_vert)" *
-            "_$(ArrayType)_$(FT)"
+        vtkdir = joinpath(outdir, "vtk")
         mkpath(vtkdir)
 
         vtkstep = 0
@@ -439,6 +313,24 @@ function run(
         callbacks = (callbacks..., cbvtk)
     end
 
+    #compute_850(Q, esdg.state_auxiliary, N, K)
+  
+    if output_jld
+      stepsdir = joinpath(outdir, "steps")
+      mkpath(stepsdir)
+
+      step = 0
+      time = FT(0)
+      savejld2(step, time)
+      # setup the output callback
+      cbstep = EveryXSimulationSteps(floor(outputtime / dt)) do
+        step = getsteps(odesolver)
+        time = gettime(odesolver)
+        savejld2(step, time)
+      end
+      callbacks = (callbacks..., cbstep)
+    end
+
     solve!(
         Q,
         odesolver;
@@ -446,14 +338,13 @@ function run(
         adjustfinalstep = false,
         callbacks = callbacks,
     )
-    open(joinpath(vtkdir, "timeseries.txt"), "w") do f
+    open(joinpath(outdir, "timeseries.txt"), "w") do f
       msg = ""
       for i in 1:length(times)
         msg *= @sprintf("%.16e %.16e %.16e\n", times[i], pmin[i], vmax[i])
       end
       write(f, msg)
     end
-
 
     # final statistics
     engf = norm(Q)
@@ -463,6 +354,45 @@ function run(
     norm(Q) - norm(Q₀)      = %.16e
     """ engf engf / eng0 engf - eng0
     engf
+end
+
+function compute_850(Q, aux, N, numelem_horz, numelem_vert)
+  FT = eltype(Q)
+  Nq = N + 1
+  for eh in 1:numelem_horz
+    for i in 1:Nq
+      for j in 1:Nq
+        for ev in 1:numelem_vert
+          e = ev + (eh - 1) * numelem_vert
+          pe = MVector{Nq, FT}(undef)
+          for k in 1:Nq
+            ijk = i + Nq * (j - 1 + Nq * (k - 1))
+            ρ = Q[ijk, 1, e]
+            ρu = Q[ijk, 2:4, e]
+            ρe = Q[ijk, 5, e]
+            Φ = aux[ijk, 1, e]
+            pe[k] = pressure(ρ, ρu, ρe, Φ)
+          end
+          pmin, pmax = extrema(pe)
+          ξ, _ = lglpoints(FT, N)
+          V = vander(Polynomial{FT}, ξ, N)
+          pl = Polynomial(V \ pe)
+          ptest = pl(FT(-1))
+
+          psurf = FT(85000)
+          if pmin <= psurf <= pmax
+            r = filter(isreal, roots(pl - psurf))
+            @assert length(r) == 1
+            r = real.(r)
+            I = interpolationmatrix(ξ, r)
+            pr = I * pe
+            @show pe
+            @show eh, i, j, ev, pmin, pmax, ptest, pr
+          end
+        end
+      end
+    end
+  end
 end
 
 

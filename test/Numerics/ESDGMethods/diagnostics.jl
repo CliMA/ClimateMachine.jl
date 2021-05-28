@@ -2,7 +2,7 @@ using KernelAbstractions
 using ClimateMachine.MPIStateArrays: array_device, weightedsum
 using KernelAbstractions.Extras: @unroll
 using ClimateMachine.Mesh.Elements: interpolationmatrix, lglpoints
-using ClimateMachine.Mesh.Grids: _x1
+using ClimateMachine.Mesh.Grids: _x1, _x3
 
 function entropy_integral(dg, entropy, state_prognostic)
   balance_law = dg.balance_law
@@ -189,7 +189,7 @@ end
 end
 
 function nodal_diagnostics(diagnostic_fun!, diagnostic_vars,
-                           model, state_prognostic, state_auxiliary)
+                           model, state_prognostic, state_auxiliary, vgeo)
   FT = eltype(state_prognostic)
   diagnostic_vars = diagnostic_vars(FT)
   num_state_diagnostic = varsize(diagnostic_vars)
@@ -209,6 +209,7 @@ function nodal_diagnostics(diagnostic_fun!, diagnostic_vars,
     for ijk in 1:Np
        local_state_prognostic .= state_prognostic[ijk, :, e]
        local_state_auxiliary .= state_auxiliary[ijk, :, e]
+       local_coord = SVector{3, FT}(vgeo[ijk, _x1:_x3, e])
        diagnostic_fun!(
            model,
            Vars{diagnostic_vars}(
@@ -220,6 +221,7 @@ function nodal_diagnostics(diagnostic_fun!, diagnostic_vars,
            Vars{vars_state(model, Auxiliary(), FT)}(
                local_state_auxiliary,
            ),
+           local_coord
        )
        state_diagnostic[ijk, :, e] .= local_state_diagnostic
     end

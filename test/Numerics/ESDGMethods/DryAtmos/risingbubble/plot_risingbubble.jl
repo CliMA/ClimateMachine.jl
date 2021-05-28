@@ -16,7 +16,7 @@ function rtb_plots(datadir=joinpath("esdg_output", "risingbubble"))
 end
 
 rtb_diagnostic_vars(FT) = @vars(δθ::FT)
-function rtb_nodal_diagnostics!(atmos, diag::Vars, state::Vars, aux::Vars)
+function rtb_nodal_diagnostics!(atmos, diag::Vars, state::Vars, aux::Vars, coord)
   FT = eltype(state)
   _MSLP::FT = MSLP(param_set)
   _R_d::FT = R_d(param_set)

@@ -17,7 +17,7 @@ function gw_plots(datadir=joinpath("esdg_output", "gravitywave"))
 end
 
 gw_diagnostic_vars(FT) = @vars(δT::FT, w::FT)
-function gw_nodal_diagnostics!(atmos, diag::Vars, state::Vars, aux::Vars)
+function gw_nodal_diagnostics!(atmos, diag::Vars, state::Vars, aux::Vars, coord)
   FT = eltype(state)
   _MSLP::FT = MSLP(param_set)
   _R_d::FT = R_d(param_set)
