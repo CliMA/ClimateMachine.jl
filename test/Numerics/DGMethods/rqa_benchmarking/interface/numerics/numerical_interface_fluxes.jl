@@ -339,14 +339,14 @@ function numerical_flux_first_order!(
     fluxᵀn.ρu = ρu_b * u_half .+ p_half * normal_vector
     fluxᵀn.ρe = ρh_b * u_half
 
-    # if moisture_model(balance_law) isa EquilMoist
-    #     ρq⁻ = state_prognostic⁻.moisture.ρq_tot
-    #     q⁻ = ρq⁻ / ρ⁻
-    #     ρq⁺ = state_prognostic⁺.moisture.ρq_tot
-    #     q⁺ = ρq⁺ / ρ⁺
-    #     ρq_b = u_half > FT(0) ? ρq⁻ : ρq⁺
-    #     fluxᵀn.moisture.ρq_tot = ρq_b * u_half
-    # end
+    # Update fluxes for moisture
+    ρq⁻ = state_prognostic⁻.ρq
+    q⁻ = ρq⁻ / ρ⁻
+    ρq⁺ = state_prognostic⁺.ρq
+    q⁺ = ρq⁺ / ρ⁺
+    ρq_b = u_half > FT(0) ? ρq⁻ : ρq⁺
+    fluxᵀn.ρq = ρq_b * u_half
+
     # if !(tracer_model(balance_law) isa NoTracers)
     #     ρχ⁻ = state_prognostic⁻.tracers.ρχ
     #     χ⁻ = ρχ⁻ / ρ⁻

@@ -169,7 +169,7 @@ model = DryAtmosModel(
     boundary_conditions = (5, 6),
     initial_conditions = (ρ = ρ₀ᶜᵃʳᵗ, ρu = ρu⃗₀ᶜᵃʳᵗ, ρe = ρeᶜᵃʳᵗ, ρq = ρqᶜᵃʳᵗ),
     numerics = (
-        flux = RefanovFlux(),
+        flux = LMARSNumericalFlux(),
     ),
 )
 
@@ -190,7 +190,7 @@ linear_model = DryAtmosModel(
 # element_size = (domain_height / numelem_vert)
 # acoustic_speed = soundspeed_air(param_set, FT(330))
 dx = min_node_distance(grid.numerical)
-cfl = 13.5 # 13 for 10 days, 7.5 for 200+ days
+cfl = 3 #13.5 # 13 for 10 days, 7.5 for 200+ days
 Δt = cfl * dx / 330.0
 start_time = 0
 end_time = 10 * 24 * 3600
