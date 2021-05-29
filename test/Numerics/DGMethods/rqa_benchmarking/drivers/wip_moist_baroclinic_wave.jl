@@ -50,8 +50,8 @@ domain = SphericalShell(
 )
 grid = DiscretizedDomain(
     domain;
-    elements = (vertical = 5, horizontal = 6),
-    polynomial_order = (vertical = 3, horizontal = 6),
+    elements = (vertical = 8, horizontal = 10),
+    polynomial_order = (vertical = 5, horizontal = 5),
     overintegration_order = (vertical = 0, horizontal = 0),
 )
 
@@ -169,7 +169,8 @@ model = DryAtmosModel(
     boundary_conditions = (5, 6),
     initial_conditions = (ρ = ρ₀ᶜᵃʳᵗ, ρu = ρu⃗₀ᶜᵃʳᵗ, ρe = ρeᶜᵃʳᵗ, ρq = ρqᶜᵃʳᵗ),
     numerics = (
-        flux = LMARSNumericalFlux(),
+      #flux = RefanovFlux(),
+      flux = LMARSNumericalFlux(),
     ),
 )
 
@@ -190,7 +191,7 @@ linear_model = DryAtmosModel(
 # element_size = (domain_height / numelem_vert)
 # acoustic_speed = soundspeed_air(param_set, FT(330))
 dx = min_node_distance(grid.numerical)
-cfl = 3 #13.5 # 13 for 10 days, 7.5 for 200+ days
+cfl = 3 # 13 for 10 days, 7.5 for 200+ days
 Δt = cfl * dx / 330.0
 start_time = 0
 end_time = 10 * 24 * 3600
@@ -200,7 +201,7 @@ callbacks = (
   CFL(),
   VTKState(
     iteration = Int(floor(6*3600/Δt)), 
-    filepath = "./out/wip_moist_baroclinic_wave/"),
+    filepath = "/central/scratch/bischtob/wip_moist_baroclinic_wave/"),
 )
 
 ########
