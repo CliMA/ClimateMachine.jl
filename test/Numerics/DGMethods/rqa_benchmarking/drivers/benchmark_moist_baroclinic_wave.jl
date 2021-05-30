@@ -1,5 +1,6 @@
 #!/usr/bin/env julia --project
 include("../interface/utilities/boilerplate.jl")
+include("../interface/numerics/timestepper_abstractions.jl")
 
 ########
 # Set up parameters
@@ -37,7 +38,7 @@ parameters = (
     p_w      = 3.4e4,
     q₀       = 0.018,
     qₜ       = 1e-12,
-    τ_precip = 40.0,
+    τ_precip = 28.409,
 )
 
 ########
@@ -45,14 +46,14 @@ parameters = (
 ########
 domain = SphericalShell(
     radius = parameters.a,
-    height = 30e3,
+    height = parameters.H,
 )
 grid = DiscretizedDomain(
     domain;
-    elements = (vertical = 5, horizontal = 6),
-    polynomial_order = (vertical = 3, horizontal = 6),
+    elements = (vertical = 8, horizontal = 16),
+    polynomial_order = (vertical = 2, horizontal = 2),
     overintegration_order = (vertical = 0, horizontal = 0),
-)
+   )
 
 ########
 # Set up inital condition
@@ -112,11 +113,7 @@ e_pot(𝒫,λ,ϕ,r)  = 𝒫.g * r
 ρuˡᵒⁿ(𝒫,λ,ϕ,r) = ρ₀(𝒫,λ,ϕ,r) * uˡᵒⁿ(𝒫,λ,ϕ,r)
 ρuˡᵃᵗ(𝒫,λ,ϕ,r) = ρ₀(𝒫,λ,ϕ,r) * uˡᵃᵗ(𝒫,λ,ϕ,r)
 ρuʳᵃᵈ(𝒫,λ,ϕ,r) = ρ₀(𝒫,λ,ϕ,r) * uʳᵃᵈ(𝒫,λ,ϕ,r)
-if total_energy
-    ρe(𝒫,λ,ϕ,r) = ρ₀(𝒫,λ,ϕ,r) * (e_int(𝒫,λ,ϕ,r) + e_kin(𝒫,λ,ϕ,r) + e_pot(𝒫,λ,ϕ,r))
-else
-    ρe(𝒫,λ,ϕ,r) = ρ₀(𝒫,λ,ϕ,r) * (e_int(𝒫,λ,ϕ,r) + e_kin(𝒫,λ,ϕ,r))
-end
+ρe(𝒫,λ,ϕ,r) = ρ₀(𝒫,λ,ϕ,r) * (e_int(𝒫,λ,ϕ,r) + e_kin(𝒫,λ,ϕ,r) + e_pot(𝒫,λ,ϕ,r))
 ρq(𝒫,λ,ϕ,r) = ρ₀(𝒫,λ,ϕ,r) * q(𝒫,ϕ,r)
 
 # Cartesian Representation (boiler plate really)
@@ -132,24 +129,25 @@ end
 ########
 FT = Float64
 
-ref_state = DryReferenceState(DecayingTemperatureProfile{FT}(parameters, FT(290), FT(220), FT(8e3)))
-
-# total energy
-eos = IdealGas{(:ρ, :ρu, :ρe)}()
+ref_state = DryReferenceState(
+  DecayingTemperatureProfile{FT}(parameters, FT(290), FT(220), FT(8e3))
+)
 physics = Physics(
     orientation = SphericalOrientation(),
     ref_state   = ref_state,
-    eos         = eos,
+    eos         = DryIdealGas{(:ρ, :ρu, :ρe)}(),
     lhs         = (
         NonlinearAdvection{(:ρ, :ρu, :ρe)}(),
         PressureDivergence(),
     ),
     sources     = (
         DeepShellCoriolis(),
+        FluctuationGravity(),
         ZeroMomentMicrophysics(),
     ),
     parameters = parameters,
 )
+
 linear_physics = Physics(
     orientation = physics.orientation,
     ref_state   = physics.ref_state,
@@ -159,7 +157,7 @@ linear_physics = Physics(
         LinearPressureDivergence(),
     ),
     sources     = (
-        Gravity(),
+        FluctuationGravity(),
     ),
     parameters = parameters,
 )
@@ -172,55 +170,49 @@ model = DryAtmosModel(
     boundary_conditions = (5, 6),
     initial_conditions = (ρ = ρ₀ᶜᵃʳᵗ, ρu = ρu⃗₀ᶜᵃʳᵗ, ρe = ρeᶜᵃʳᵗ, ρq = ρqᶜᵃʳᵗ),
     numerics = (
-        flux = RusanovNumericalFlux(),
+      flux = LMARSNumericalFlux(),
     ),
 )
 
-linear_model = DryAtmosLinearModel(
+linear_model = DryAtmosModel(
     physics = linear_physics,
-    boundary_conditions = model.boundary_conditions,
-    initial_conditions = nothing,
+    boundary_conditions = (5, 6),
+    initial_conditions = (ρ = ρ₀ᶜᵃʳᵗ, ρu = ρu⃗₀ᶜᵃʳᵗ, ρe = ρeᶜᵃʳᵗ, ρq = ρqᶜᵃʳᵗ),
     numerics = (
-        flux = model.numerics.flux,
-        direction = VerticalDirection()
+        flux = RefanovFlux(),
     ),
+
 )
 
 ########
 # Set up time steppers (could be done automatically in simulation)
 ########
-# determine the time step construction
-# element_size = (domain_height / numelem_vert)
-# acoustic_speed = soundspeed_air(param_set, FT(330))
 dx = min_node_distance(grid.numerical)
-cfl = 3
+cfl = 5 # 13 for 10 days, 7.5 for 200+ days
 Δt = cfl * dx / 330.0
 start_time = 0
 end_time = 30 * 24 * 3600
-method = ARK2GiraldoKellyConstantinescu
+method = IMEX() 
 callbacks = (
   Info(),
   CFL(),
   VTKState(
     iteration = Int(floor(6*3600/Δt)), 
-    filepath = "./out/"),
+    filepath = "/central/scratch/bischtob/wip_moist_baroclinic_wave/"),
+  TMARCallback(),
 )
 
 ########
 # Set up simulation
 ########
 simulation = Simulation(
-    (model, linear_model,);
+    (Explicit(model), Implicit(linear_model),);
     grid = grid,
     timestepper = (method = method, timestep = Δt),
     time        = (start = start_time, finish = end_time),
     callbacks   = callbacks,
-)
+);
 
-########
-# Run the simulation
-########
-initialize!(simulation)
 evolve!(simulation)
 
 nothing
