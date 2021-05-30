@@ -38,7 +38,7 @@ parameters = (
     p_w      = 3.4e4,
     q₀       = 0.018,
     qₜ       = 1e-12,
-    τ_precip = 67.8*10000.0,
+    τ_precip = 28.409,
 )
 
 ########
@@ -50,10 +50,10 @@ domain = SphericalShell(
 )
 grid = DiscretizedDomain(
     domain;
-    elements = (vertical = 8, horizontal = 10),
-    polynomial_order = (vertical = 5, horizontal = 5),
+    elements = (vertical = 8, horizontal = 16),
+    polynomial_order = (vertical = 2, horizontal = 2),
     overintegration_order = (vertical = 0, horizontal = 0),
-)
+   )
 
 ########
 # Set up inital condition
@@ -86,8 +86,7 @@ cond(𝒫,λ,ϕ)  = (0 < d(𝒫,λ,ϕ) < d_0(𝒫)) * (d(𝒫,λ,ϕ) != 𝒫.a *
 I_T(𝒫,ϕ,r)   = (cos(ϕ) * r / 𝒫.a)^𝒫.k - 𝒫.k / (𝒫.k + 2) * (cos(ϕ) * r / 𝒫.a)^(𝒫.k + 2)
 Tᵥ(𝒫,ϕ,r)    = (τ_1(𝒫,r) - τ_2(𝒫,r) * I_T(𝒫,ϕ,r))^(-1) * (𝒫.a/r)^2
 p(𝒫,ϕ,r)     = 𝒫.pₒ * exp(-𝒫.g / 𝒫.R_d * (τ_int_1(𝒫,r) - τ_int_2(𝒫,r) * I_T(𝒫,ϕ,r)))
-#q(𝒫,ϕ,r)     = (p(𝒫,ϕ,r) > 𝒫.p_w) ? 𝒫.q₀ * exp(-(ϕ / 𝒫.ϕ_w)^4) * exp(-((p(𝒫,ϕ,r) - 𝒫.pₒ) / 𝒫.p_w)^2) : 𝒫.qₜ
-q(𝒫,ϕ,r)     = 𝒫.q₀ * exp(-(ϕ / 𝒫.ϕ_w)^4) * exp(-((p(𝒫,ϕ,r) - 𝒫.pₒ) / 𝒫.p_w)^2)
+q(𝒫,ϕ,r)     = (p(𝒫,ϕ,r) > 𝒫.p_w) ? 𝒫.q₀ * exp(-(ϕ / 𝒫.ϕ_w)^4) * exp(-((p(𝒫,ϕ,r) - 𝒫.pₒ) / 𝒫.p_w)^2) : 𝒫.qₜ
 
 # base-state velocity variables
 U(𝒫,ϕ,r)  = 𝒫.g * 𝒫.k / 𝒫.a * τ_int_2(𝒫,r) * Tᵥ(𝒫,ϕ,r) * ((cos(ϕ) * r / 𝒫.a)^(𝒫.k - 1) - (cos(ϕ) * r / 𝒫.a)^(𝒫.k + 1))
@@ -130,9 +129,9 @@ e_pot(𝒫,λ,ϕ,r)  = 𝒫.g * r
 ########
 FT = Float64
 
-ref_state = DryReferenceState(DecayingTemperatureProfile{FT}(parameters, FT(290), FT(220), FT(8e3)))
-
-# total energy
+ref_state = DryReferenceState(
+  DecayingTemperatureProfile{FT}(parameters, FT(290), FT(220), FT(8e3))
+)
 physics = Physics(
     orientation = SphericalOrientation(),
     ref_state   = ref_state,
@@ -144,7 +143,7 @@ physics = Physics(
     sources     = (
         DeepShellCoriolis(),
         FluctuationGravity(),
-        #ZeroMomentMicrophysics(),
+        ZeroMomentMicrophysics(),
     ),
     parameters = parameters,
 )
@@ -157,7 +156,9 @@ linear_physics = Physics(
         LinearAdvection{(:ρ, :ρu, :ρe)}(),
         LinearPressureDivergence(),
     ),
-    sources     = (FluctuationGravity(),),
+    sources     = (
+        FluctuationGravity(),
+    ),
     parameters = parameters,
 )
 
@@ -169,7 +170,6 @@ model = DryAtmosModel(
     boundary_conditions = (5, 6),
     initial_conditions = (ρ = ρ₀ᶜᵃʳᵗ, ρu = ρu⃗₀ᶜᵃʳᵗ, ρe = ρeᶜᵃʳᵗ, ρq = ρqᶜᵃʳᵗ),
     numerics = (
-      #flux = RefanovFlux(),
       flux = LMARSNumericalFlux(),
     ),
 )
@@ -187,14 +187,11 @@ linear_model = DryAtmosModel(
 ########
 # Set up time steppers (could be done automatically in simulation)
 ########
-# determine the time step construction
-# element_size = (domain_height / numelem_vert)
-# acoustic_speed = soundspeed_air(param_set, FT(330))
 dx = min_node_distance(grid.numerical)
-cfl = 3 # 13 for 10 days, 7.5 for 200+ days
+cfl = 5 # 13 for 10 days, 7.5 for 200+ days
 Δt = cfl * dx / 330.0
 start_time = 0
-end_time = 10 * 24 * 3600
+end_time = 30 * 24 * 3600
 method = IMEX() 
 callbacks = (
   Info(),
@@ -202,6 +199,7 @@ callbacks = (
   VTKState(
     iteration = Int(floor(6*3600/Δt)), 
     filepath = "/central/scratch/bischtob/wip_moist_baroclinic_wave/"),
+  TMARCallback(),
 )
 
 ########
@@ -216,3 +214,5 @@ simulation = Simulation(
 );
 
 evolve!(simulation)
+
+nothing
