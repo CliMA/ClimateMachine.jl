@@ -86,3 +86,37 @@ struct TemperatureFlux{T} <: TemperatureBC
         new{T}(flux)
     end
 end
+
+# Smart defaults
+#=
+function check_bc(bcs, ::Val{:ρe}, label)
+    if haskey(bcs, :ρe)
+        if haskey(bcs[:ρe], label)
+            return bcs[:ρe][label]
+        end
+    end
+
+    return NoFlux()
+end
+
+function check_bc(bcs, ::Val{:ρq}, label)
+    if haskey(bcs, :ρq)
+        if haskey(bcs[:ρq], label)
+            return bcs[:ρq][label]
+        end
+    end
+
+    return NoFlux()
+end
+
+function check_bc(bcs, ::Val{:ρu}, label)
+    if haskey(bcs, :ρu)
+        if haskey(bcs[:ρu], label)
+            return bcs[:ρu][label]
+        end
+    end
+
+    return FreeSlip()
+end
+
+=#
