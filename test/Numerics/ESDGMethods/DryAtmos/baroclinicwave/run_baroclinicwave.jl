@@ -20,7 +20,6 @@ using CLIMAParameters
 using CLIMAParameters.Planet: R_d, cv_d, Omega, planet_radius, MSLP
 
 using MPI, Logging, StaticArrays, LinearAlgebra, Printf, Dates, Test
-using GaussQuadrature, Polynomials
 using JLD2
 using CUDA
 
@@ -312,8 +311,6 @@ function run(
         end
         callbacks = (callbacks..., cbvtk)
     end
-
-    #compute_850(Q, esdg.state_auxiliary, N, K)
   
     if output_jld
       stepsdir = joinpath(outdir, "steps")
@@ -354,45 +351,6 @@ function run(
     norm(Q) - norm(Q₀)      = %.16e
     """ engf engf / eng0 engf - eng0
     engf
-end
-
-function compute_850(Q, aux, N, numelem_horz, numelem_vert)
-  FT = eltype(Q)
-  Nq = N + 1
-  for eh in 1:numelem_horz
-    for i in 1:Nq
-      for j in 1:Nq
-        for ev in 1:numelem_vert
-          e = ev + (eh - 1) * numelem_vert
-          pe = MVector{Nq, FT}(undef)
-          for k in 1:Nq
-            ijk = i + Nq * (j - 1 + Nq * (k - 1))
-            ρ = Q[ijk, 1, e]
-            ρu = Q[ijk, 2:4, e]
-            ρe = Q[ijk, 5, e]
-            Φ = aux[ijk, 1, e]
-            pe[k] = pressure(ρ, ρu, ρe, Φ)
-          end
-          pmin, pmax = extrema(pe)
-          ξ, _ = lglpoints(FT, N)
-          V = vander(Polynomial{FT}, ξ, N)
-          pl = Polynomial(V \ pe)
-          ptest = pl(FT(-1))
-
-          psurf = FT(85000)
-          if pmin <= psurf <= pmax
-            r = filter(isreal, roots(pl - psurf))
-            @assert length(r) == 1
-            r = real.(r)
-            I = interpolationmatrix(ξ, r)
-            pr = I * pe
-            @show pe
-            @show eh, i, j, ev, pmin, pmax, ptest, pr
-          end
-        end
-      end
-    end
-  end
 end
 
 

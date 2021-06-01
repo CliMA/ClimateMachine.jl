@@ -281,3 +281,32 @@ function interpolate_equidistant(state_diagnostic, vgeo, dim, N, K)
     end
     (x_i..., state_diagnostic_i...)
 end
+
+function interpolate_horz(state_diagnostic, vgeo, dim, N, K; Nqi)
+    FT = eltype(state_diagnostic)
+    Np = size(state_diagnostic, 1)
+    Ns = size(state_diagnostic, 2)
+    Ne = size(state_diagnostic, 3)
+
+    ξsrc, _ = lglpoints(FT, N)
+    Nq = N + 1
+    
+    Npi = Nq * Nqi ^ 2
+    dξi = 2 / Nqi
+    ξdst_h = [-1 + (j - 1 / 2) * dξi for j in 1:Nqi]
+    ξdst_v = range(-FT(1), stop=FT(1), length = Nqi)
+
+    I1d_h = interpolationmatrix(ξsrc, ξdst_h)
+    I1d_v = interpolationmatrix(ξsrc, ξdst_v)
+
+    I = kron(LinearAlgebra.I(Nq), I1d_h, I1d_h)
+   
+    state_diagnostic_i = Array{FT}(undef, Npi, Ns, Ne)
+
+    @views for e in 1:Ne
+      for s in 1:Ns
+        state_diagnostic_i[:, s, e] .= I * state_diagnostic[:, s, e]
+      end
+    end
+    state_diagnostic_i
+end
