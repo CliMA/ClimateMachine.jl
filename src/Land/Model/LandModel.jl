@@ -224,6 +224,8 @@ include("SoilWaterParameterizations.jl")
 using .SoilWaterParameterizations
 include("SoilHeatParameterizations.jl")
 using .SoilHeatParameterizations
+include("SnowModelParameterizations.jl")
+using .SnowModelParameterizations
 include("soil_model.jl")
 include("soil_water.jl")
 include("soil_heat.jl")

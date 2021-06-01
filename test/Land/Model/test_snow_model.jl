@@ -12,6 +12,7 @@ const param_set = EarthParameterSet()
 using ClimateMachine
 using ClimateMachine.Land
 using ClimateMachine.Land.SnowModel
+using ClimateMachine.Land.SnowModelParameterizations
 using ClimateMachine.Mesh.Topologies
 using ClimateMachine.Mesh.Grids
 using ClimateMachine.DGMethods
@@ -37,10 +38,14 @@ using ClimateMachine.ArtifactWrappers
 
     m_soil = SoilModel(soil_param_functions, soil_water_model, soil_heat_model)
 
-    snow_parameters = SnowParameters{FT,FT,FT,FT}(0.0,0.0,10.0)# κsnow = 0, ρsnow = 0, zsnow = 1m
-    Q_surf = (t) -> eltype(t)(900.0*sin(2.0*π/3600/24*t))
-    forcing = PrescribedForcing(FT;Q_surf = Q_surf)
-    ic = (aux) -> eltype(aux)(-1.8e5)
+    snow_parameters = SnowParameters{FT,FT,FT,FT}(0.05,100,1.0)
+Q_surf = (t) -> eltype(t)(-9.0*sin(2.0*π/3600/24*t))
+#Q_bott = (t) -> eltype(t)(-1.0*sin(2.0*π/3600/24*t))
+forcing = PrescribedForcing(FT;Q_surf = Q_surf)
+Tave_0 = FT(263.0)
+l_0 = FT(0.0)
+ρe_int0 = volumetric_internal_energy(Tave_0, snow_parameters.ρ_snow, l_0, param_set)
+    ic = (aux) -> eltype(aux)(ρe_int0)
     m_snow = SingleLayerSnowModel{typeof(snow_parameters), typeof(forcing),typeof(ic)}(
         snow_parameters,
         forcing,
@@ -66,7 +71,7 @@ using ClimateMachine.ArtifactWrappers
     nelem_vert = 1
 
     # Specify the domain boundaries
-    zmax = FT(10)
+    zmax = FT(1)
     zmin = FT(0)
 
     driver_config = ClimateMachine.SingleStackConfiguration(
@@ -109,6 +114,40 @@ using ClimateMachine.ArtifactWrappers
     # # Run the integration
     ClimateMachine.invoke!(solver_config; user_callbacks = (callback,));
     z = get_z(solver_config.dg.grid; rm_dupes = true);
-    N = length(dons_arr)
+N = length(dons_arr)
+ρe_int = [dons_arr[k]["snow.ρe_int"][1] for k in 1:N]
+T_ave = T_snow_ave.(ρe_int, Ref(0.0), Ref(100.0),Ref(param_set))
+coeffs = compute_profile_coefficients.(Q_surf.(time_data), Ref(0.0), Ref(snow_parameters.z_snow), Ref(snow_parameters.ρ_snow), Ref(snow_parameters.κ_snow), ρe_int, Ref(param_set))
+t_profs = get_temperature_profile.(Q_surf.(time_data), Ref(0.0), Ref(snow_parameters.z_snow), Ref(snow_parameters.ρ_snow), Ref(snow_parameters.κ_snow), ρe_int, Ref(param_set))
+z = 0:0.01:1
+
+
+function analytic(p, Q, a, tbar,z,t)
+    κ = p.κ_snow
+    ρ = p.ρ_snow
+    z_snow = p.z_snow
+    ν = 2.0*π/24/3600
+    c_i = cp_i(param_set)
+    ρc_snow = ρ*c_i # assumes no liquid
+    D1 = (2*κ/ν/ρc_snow)^0.5
+    Q1 = Q
+    α = a+ κ/D1
+    β = κ/D1
+    θ  = ν*t-(z_snow-z)/D1
+    mag = sqrt(α^2+β^2)
+    δ = atan(α/mag, β/mag)
+    
+    temp = tbar - Q1/mag*sin(θ+δ)*exp(-(z_snow-z)/D1)
+    return temp
+end
+
+
+
+anim = @animate for i ∈ 1:N
+    plot(t_profs[i].(z),z, ylim = [0,1], xlim = [250,280], label = "prescribed")
+    t = time_data[i]
+    plot!(analytic.(Ref(snow_parameters), Ref(-9.0), Ref(0.0), Ref(mean(T_ave)),z,Ref(t)),z, label = "analytic")
+end
+gif(anim, "snow.gif", fps = 6)
 
 #end

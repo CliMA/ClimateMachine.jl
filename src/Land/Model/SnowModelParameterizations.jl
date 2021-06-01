@@ -1,10 +1,15 @@
-module SnowModel
+module SnowModelParameterizations
 
 using DocStringExtensions
 using UnPack
 using CLIMAParameters
-using CLIMAParameters.Planet: cp_l, cp_i, T_0, LH_f0
+using CLIMAParameters.Planet: cp_l, cp_i, T_0, LH_f0, T_freeze
 
+export T_snow_ave,
+    volumetric_internal_energy,
+    compute_profile_coefficients,
+    get_temperature_profile
+    
 #define local parameter values
 #volumetric liquid fraction of water in excess of the residual water in snow. could be a constant or a function of snow density
 #θ_r = 0.08
@@ -53,14 +58,14 @@ function liquid_fraction(
     _c_l = FT(cp_l(param_set))
     _T_fr = FT(T_freeze(param_set))
     _T_ref = FT(T_0(param_set))
-    _LH_f0 = FO(LH_f0(param_set))
+    _LH_f0 = FT(LH_f0(param_set))
  
-    ρe_int_l0 =  ρ_snow*(_c_i(_T_fr-_T_ref)-_LH_f0)
-    ρe_int_l1 =  ρ_snow*_c_l(_T_fr-_T_ref)
+    ρe_int_l0 =  ρ_snow*(_c_i*(_T_fr-_T_ref)-_LH_f0)
+    ρe_int_l1 =  ρ_snow*_c_l*(_T_fr-_T_ref)
 
     if ρe_int < ρe_int_l0
         l = FT(0)
-    elseif ρe_int_l0 < ρe_int < ρe_int_l1
+    elseif ρe_int < ρe_int_l1
         l = (ρe_int/ρ_snow+_LH_f0-_c_i*(_T_fr-_T_ref))/((_c_l-_c_i)*(_T_fr-_T_ref)+_LH_f0)
     else
         l = FT(1)
@@ -80,14 +85,42 @@ Computes the average snow pack temperature given volumetric internal energy of s
 
 """
 function T_snow_ave(
-           ρe_int::FT,
-           l::FT,
-           param_set::AbstractParameterSet
+    ρe_int::FT,
+    l::FT,
+    ρ_snow::FT,
+    param_set::AbstractParameterSet
 ) where {FT}
     _T_ref = FT(T_0(param_set))
-    _LH_f0 = FO(LH_f0(param_set))
-    T_snow_ave = (ρe_int+(1-l)*_LH_f0)/ρc_snow + _T_ref
+    _LH_f0 = FT(LH_f0(param_set))
+    ρc_snow = volumetric_heat_capacity(l, ρ_snow, param_set)
+    T_snow_ave = (ρe_int+ρ_snow*(FT(1)-l)*_LH_f0)/ρc_snow + _T_ref
     return T_snow_ave
+end
+
+
+"""
+    function volumetric_internal_energy(
+        T::FT,
+        ρ_snow::FT,
+        l::FT,
+        param_set::AbstractParameterSet
+    ) where {FT}
+
+Computes the bulk snow volumetric internal energy given bulk temperature `T`,
+snow density `ρ_snow`, and volumetric liquid fraction `l`.
+
+"""
+function volumetric_internal_energy(
+    T::FT,
+    ρ_snow::FT,
+    l::FT,
+    param_set::AbstractParameterSet
+) where {FT}
+    ρc_snow = volumetric_heat_capacity(l, ρ_snow, param_set)
+    _T_ref = FT(T_0(param_set))
+    _LH_f0 = FT(LH_f0(param_set))
+    ρe_int = ρc_snow*(T-_T_ref) - ρ_snow*(FT(1)-l)*_LH_f0
+    return ρe_int
 end
 
 """
@@ -99,16 +132,22 @@ function compute_profile_coefficients(
     z_snow::FT,
     ρ_snow::FT,
     κ_snow::FT,
-    T_snow_ave::FT,
+    ρe_int::FT,
     param_set::AbstractParameterSet,
 ) where {FT}
     _c_i = FT(cp_i(param_set))
     _c_l = FT(cp_l(param_set))
-    c_snow = _c_i*(FT(1.0)-l) + l*_c_i
-    d = (2*κ_snow*24/(ρ_snow*c_snow))
-    h = max(0,z_snow-d)
-    T_surf = T_snow_ave+(Q_surf*(h^2-z^2)-Q2*h^2)/(2*z_snow*κ_snow)
-    T_bott = T_surf*(h-z_snow)/(h+z_snow) +(2*z_snow*T_snow_ave*κ_snow+Q_bott*h*z_snow)/((h+z_snow)*κ_snow)
+    l = liquid_fraction(ρe_int, ρ_snow, param_set)
+    T_snow = T_snow_ave(ρe_int, l, ρ_snow, param_set)
+    ρc_snow = volumetric_heat_capacity(l, ρ_snow, param_set)
+    ν = FT(2.0*π/24/3600)
+    d = (FT(2)*κ_snow/(ρc_snow*ν))^FT(0.5)
+    h = max(FT(0),z_snow-d)
+    T_h = T_snow - FT(0.5)/κ_snow/z_snow*(h^FT(2)*Q_bott-(z_snow-h)^FT(2)*Q_surf)
+    T_surf = T_h-(z_snow-h)/κ_snow*Q_surf
+    T_bott = T_h+h/κ_snow*Q_bott
+#    T_surf = T_snow_ave+(Q_surf*(h^2-z^2)-Q2*h^2)/(2*z_snow*κ_snow)
+#    T_bott = T_surf*(h-z_snow)/(h+z_snow) +(2*z_snow*T_snow_ave*κ_snow+Q_bott*h*z_snow)/((h+z_snow)*κ_snow)
 
     return T_surf, T_bott, h, T_h
 end
@@ -119,11 +158,11 @@ function get_temperature_profile(
     z_snow::FT,
     ρ_snow::FT,
     κ_snow::FT,
-    T_snow_ave::FT,
+    ρe_int::FT,
     param_set::AbstractParameterSet,
 ) where {FT}
-    args = (Q_surf, Q_bott, z_snow, ρ_snow, κ_snow, T_snow_ave, param_set)
-    T_surf, T_bott, h, T_h = compute_profile_coefficients(args)
+    args = (Q_surf, Q_bott, z_snow, ρ_snow, κ_snow, ρe_int, param_set)
+    T_surf, T_bott, h, T_h = compute_profile_coefficients(args...)
     function T_profile(z::FT)
         if z< h
             T = T_bott+z/h*(T_h-T_bott)
