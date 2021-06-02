@@ -52,6 +52,7 @@ physics = Physics(
         PressureDivergence(),
     ),
     sources     = (
+        FluctuationGravity(),
     ),
     parameters  = parameters,
 )
