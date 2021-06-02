@@ -198,9 +198,9 @@ end
 boundary_conditions(model::DryAtmosModel) = model.boundary_conditions
 
 function boundary_state!(
-    ::NumericalFluxFirstOrder,
+    nmf::NumericalFluxFirstOrder,
     bctype,
-    ::DryAtmosModel,
+    model::DryAtmosModel,
     state⁺,
     aux⁺,
     n,
@@ -208,11 +208,62 @@ function boundary_state!(
     aux⁻,
     _...,
 )
-    state⁺.ρ = state⁻.ρ
-    state⁺.ρu -= 2 * dot(state⁻.ρu, n) .* SVector(n)
-    state⁺.ρe = state⁻.ρe
-    aux⁺.Φ = aux⁻.Φ
+    #  flux =  (flux_first_order(state⁺) + flux_first_order(state⁻)) / 2 + dissipation(state⁺, state⁻) 
+    # if dissipation = rusanov then dissipation(state⁺, state⁻) = c/2 * (state⁺ - state⁻)
+    # if dissipation = roe then 
+    
+    # state⁺.ρu = - state⁻.ρu #  no slip boundary conditions
+    # dot(state⁺.ρu, n) * n = -dot(state⁻.ρu, n) * n # for free slip
+
+    # physics = model.physics
+    # eos = model.physics.eos
+    # calc_boundary_state(nmf, bctype, model)
+
+    state⁺.ρ = state⁻.ρ   # if no penetration then this is no flux on the boundary
+    state⁺.ρq = state⁻.ρq # if no penetration then this is no flux on the boundary
+    state⁺.ρe = state⁻.ρe # if pressure⁺ = pressure⁻ & no penetration then this is no flux boundary condition
+    aux⁺.Φ = aux⁻.Φ       # 
+
+    # state⁺.ρu -= 2 * dot(state⁻.ρu, n) .* SVector(n) # (I - 2* n n') is a reflection operator
+    # first subtract off the normal component, then go further to enact the reflection principle
+    state⁺.ρu =  ( state⁻.ρu - dot(state⁻.ρu, n) .* SVector(n) ) - dot(state⁻.ρu, n) .* SVector(n)
+
 end
+
+#=
+function boundary_state!(
+    nmf::NumericalFluxFirstOrder,
+    ::Val{6},
+    model::DryAtmosModel,
+    state⁺,
+    aux⁺,
+    n,
+    state⁻,
+    aux⁻,
+    _...,
+)
+    #  flux =  (flux_first_order(state⁺) + flux_first_order(state⁻)) / 2 + dissipation(state⁺, state⁻) 
+    # if dissipation = rusanov then dissipation(state⁺, state⁻) = c/2 * (state⁺ - state⁻)
+    # if dissipation = roe then 
+    
+    # state⁺.ρu = - state⁻.ρu #  no slip boundary conditions
+    # dot(state⁺.ρu, n) * n = -dot(state⁻.ρu, n) * n # for free slip
+
+    # physics = model.physics
+    # eos = model.physics.eos
+    # calc_boundary_state(nmf, bctype, model)
+
+    state⁺.ρ = state⁻.ρ   # if no penetration then this is no flux on the boundary
+    state⁺.ρq = state⁻.ρq # if no penetration then this is no flux on the boundary
+    state⁺.ρe = state⁻.ρe # if pressure⁺ = pressure⁻ & no penetration then this is no flux boundary condition
+    aux⁺.Φ = aux⁻.Φ       # 
+
+    # state⁺.ρu -= 2 * dot(state⁻.ρu, n) .* SVector(n) # (I - 2* n n') is a reflection operator
+    # first subtract off the normal component, then go further to enact the reflection principle
+    state⁺.ρu =  ( state⁻.ρu - dot(state⁻.ρu, n) .* SVector(n) ) - dot(state⁻.ρu, n) .* SVector(n)
+
+end
+=#
 
 function boundary_state!(
     nf::NumericalFluxSecondOrder,

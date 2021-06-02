@@ -52,8 +52,11 @@ grid = DiscretizedDomain(
 # Define boundary conditions (west east are the ones that are enforced for a sphere)
 ########
 # smart defaults / explicit? (probably here explicit for clarity)
+# Everything is a special case of Flux?
+sst = ...
 ρu_bcs = (bottom = FreeSlip(), top = FreeSlip()) 
 ρe_bcs = (bottom = NoFlux(), top = NoFlux())
+
 ρq_bcs = (
     bottom = Flux(
         flux = (p, state, aux, t) -> p.Q,
