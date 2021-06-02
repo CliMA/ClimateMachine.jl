@@ -45,10 +45,14 @@ end
     ρ  = state.ρ
     ρu = state.ρu
     ρe = state.ρe
+    q_tot = state.ρq / state.ρ
+    q_liq = 0 # zero for now
+    q_ice = 0 # zero for now
     Φ  = aux.Φ
     γ  = calc_γ(eos, state, params)
 
-    return (γ - 1) * (ρe - dot(ρu, ρu) / 2ρ - ρ * Φ)
+    e_latent = (q_tot - q_liq) * params.e_int_v0 - q_ice * (params.e_int_v0 + params.e_int_i0)
+    return (γ - 1) * (ρe - dot(ρu, ρu) / 2ρ - ρ * Φ - ρ * e_latent)
 end
 
 @inline function calc_linear_pressure(eos::DryIdealGas{(:ρ, :ρu, :ρe)}, state, aux, params)
@@ -63,10 +67,15 @@ end
 @inline function calc_linear_pressure(eos::MoistIdealGas{(:ρ, :ρu, :ρe)}, state, aux, params)
     ρ  = state.ρ
     ρe = state.ρe
+    q_tot = state.ρq / state.ρ
+    q_liq = 0 # zero for now
+    q_ice = 0 # zero for now
+
     Φ  = aux.Φ
     γ  = calc_γ(eos, state, params)
 
-    return (γ - 1) * (ρe - ρ * Φ) 
+    e_latent = (q_tot - q_liq) * params.e_int_v0 - q_ice * (params.e_int_v0 + params.e_int_i0)
+    return (γ - 1) * (ρe - ρ * Φ - ρ * e_latent)
 end
 
 @inline function calc_sound_speed(::BarotropicFluid{(:ρ, :ρu)}, state, aux, params)
