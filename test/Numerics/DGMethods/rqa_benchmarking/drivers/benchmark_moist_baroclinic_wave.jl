@@ -1,4 +1,3 @@
-using CLIMAParameters: molmass_ratio
 #!/usr/bin/env julia --project
 include("../interface/utilities/boilerplate.jl")
 include("../interface/numerics/timestepper_abstractions.jl")
@@ -16,8 +15,11 @@ parameters = (
     cv_d     = get_planet_parameter(:cv_d),
     cv_v     = get_planet_parameter(:cv_v),
     cv_l     = get_planet_parameter(:cv_l),
+    cv_i     = get_planet_parameter(:cv_i),
+    cp_d     = get_planet_parameter(:cp_d),
     cp_v     = get_planet_parameter(:cp_v),
     cp_l     = get_planet_parameter(:cp_l),
+    cp_i     = get_planet_parameter(:cp_i),
     molmass_ratio = get_planet_parameter(:molmass_dryair)/get_planet_parameter(:molmass_water),
     γ        = get_planet_parameter(:cp_d)/get_planet_parameter(:cv_d),
     pₒ       = get_planet_parameter(:MSLP),
@@ -200,7 +202,7 @@ callbacks = (
   CFL(),
   VTKState(
     iteration = Int(floor(6*3600/Δt)), 
-    filepath = "/central/scratch/bischtob/wip_moist_baroclinic_wave/"),
+    filepath = "/central/scratch/jiahe/rqa_bwtest/wip_moist_baroclinic_wave/"),
   TMARCallback(),
 )
 
