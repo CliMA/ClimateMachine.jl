@@ -11,11 +11,20 @@ using LinearAlgebra
 using ClimateMachine.VariableTemplates
 using Polynomials
 
+using MPI
+using ClimateMachine
+using ClimateMachine.DGMethods: init_ode_state
+using ClimateMachine.DGMethods.NumericalFluxes
+using ClimateMachine.Mesh.Grids
+using ClimateMachine.Mesh.Filters
+using ClimateMachine.Mesh.Topologies:
+    StackedCubedSphereTopology, cubedshellwarp, grid1d
+
 const lonshift = 60
 
 rcParams!(PyPlot.PyDict(PyPlot.matplotlib."rcParams"))
 
-bw_diagnostic_vars(FT) = @vars(p::FT, lat::FT, lon::FT, T::FT)
+bw_diagnostic_vars(FT) = @vars(p::FT, lat::FT, lon::FT, T::FT, ω::SVector{3, FT}, ωk::FT)
 function bw_nodal_diagnostics!(atmos, diag::Vars, state::Vars, aux::Vars, coord)
   FT = eltype(state)
   _MSLP::FT = MSLP(param_set)
@@ -34,10 +43,67 @@ function bw_nodal_diagnostics!(atmos, diag::Vars, state::Vars, aux::Vars, coord)
   lat = 180 / π * asin(z / r)
   lon = 180 / π * atan(y, x)
   T = p / (_R_d * ρ)
+  k = coord / r
+
+
   diag.p = p / 100
   diag.lat = lat
   diag.lon = lon
   diag.T = T
+  diag.ωk = k' * diag.ω / 1e-5
+end
+
+function bw_spherical_coordinates!(atmos, diag::Vars, state::Vars, aux::Vars, coord)
+  x, y, z = coord
+  r = norm(coord)
+  lat = 180 / π * asin(z / r)
+  lon = 180 / π * atan(y, x)
+
+  diag.lat = lat
+  diag.lon = lon
+end
+
+function compute_vorticity(N, K, state_prognostic)
+
+  ClimateMachine.init()
+  mpicomm = MPI.COMM_WORLD
+  FT = Float64
+  Nq = N + 1
+  _planet_radius::FT = planet_radius(param_set)
+  domain_height = FT(30e3)
+  vert_range = grid1d(
+      _planet_radius,
+      FT(_planet_radius + domain_height),
+      nelem = K[2],
+  )
+  topology = StackedCubedSphereTopology(mpicomm, K[1], vert_range)
+
+  grid = DiscontinuousSpectralElementGrid(
+      topology,
+      FloatType = FT,
+      DeviceArray = Array,
+      polynomialorder = N,
+      meshwarp = cubedshellwarp,
+  )
+
+  vort_model = VorticityModel()
+  vort_dg = DGModel(
+      vort_model,
+      grid,
+      RusanovNumericalFlux(),
+      #CentralNumericalFluxFirstOrder(),
+      CentralNumericalFluxSecondOrder(),
+      CentralNumericalFluxGradient(),
+  )
+  ω = init_ode_state(vort_dg, FT(0))
+
+  vort_dg.state_auxiliary.data .= @view state_prognostic[:, 1:4, :]
+  vort_dg(ω, ω, nothing, FT(0))
+
+  #filter = ExponentialFilter(grid, 0, 20)
+  #Filters.apply!(ω, :, grid, filter)
+
+  ω
 end
 
 function bw_plots()
@@ -49,6 +115,10 @@ function interpolate_to_pressure_surface(state_diagnostic, aux, N, K, Nqi; psurf
 
   T850 = Array{FT}(undef, Nqi ^ 2, 6 * K[1] ^ 2)
   T850 .= NaN
+  
+  ωk850 = Array{FT}(undef, Nqi ^ 2, 6 * K[1] ^ 2)
+  ωk850 .= NaN
+
   for eh in 1:6*K[1]^2
     for i in 1:Nqi
       for j in 1:Nqi
@@ -56,10 +126,12 @@ function interpolate_to_pressure_surface(state_diagnostic, aux, N, K, Nqi; psurf
           e = ev + (eh - 1) * K[2]
           pe = MVector{Nq, FT}(undef)
           Te = MVector{Nq, FT}(undef)
+          ωke = MVector{Nq, FT}(undef)
           for k in 1:Nq
             ijk = i + Nqi * (j - 1 + Nqi * (k - 1))
             pe[k] = state_diagnostic[ijk, 1, e]
             Te[k] = state_diagnostic[ijk, 4, e]
+            ωke[k] = state_diagnostic[ijk, end, e]
           end
           pmin, pmax = extrema(pe)
           ξ, _ = lglpoints(FT, N)
@@ -74,14 +146,16 @@ function interpolate_to_pressure_surface(state_diagnostic, aux, N, K, Nqi; psurf
             @assert length(r) == 1
             I = interpolationmatrix(ξ, r)
             Tr = I * Te
+            ωkr = I * ωke
             ij = i + Nqi * (j - 1)
             T850[ij, eh] = Tr[1]
+            ωk850[ij, eh] = ωkr[1]
           end
         end
       end
     end
   end
-  return T850
+  return T850, ωk850
 end
 
 function bw_plot_surface_pressure(datadir)
@@ -94,7 +168,7 @@ function bw_plot_surface_pressure(datadir)
 
     ioff()
     #fig = figure(figsize=(27, 10))
-    fig, axs = subplots(2, 2, figsize=(27, 14))
+    fig, axs = subplots(3, 2, figsize=(27, 20))
 
     for datafile in files
       data = load(joinpath(root, datafile))
@@ -114,23 +188,50 @@ function bw_plot_surface_pressure(datadir)
       state_auxiliary = data["state_auxiliary"]
       model = data["model"]
 
+      ω = compute_vorticity(N, K, state_prognostic)
+
       Nq = N + 1
-      Nqi = 2 * Nq
-      
-      state_prognostic = interpolate_horz(state_prognostic, vgeo, dim, N, K; Nqi)
-      state_auxiliary = interpolate_horz(state_auxiliary, vgeo, dim, N, K; Nqi)
+      Nqi = Nq
+      #Nqi = 2 * Nq
+
+      #state_prognostic = interpolate_horz(state_prognostic, vgeo, dim, N, K; Nqi)
+      #state_auxiliary = interpolate_horz(state_auxiliary, vgeo, dim, N, K; Nqi)
+      #vgeo = interpolate_horz(vgeo, vgeo, dim, N, K; Nqi)
+      #ω = interpolate_horz(ω, vgeo, dim, N, K; Nqi)
+
+      state_diagnostic = create_diagnostic_state(bw_diagnostic_vars, state_prognostic)
+
+      state_diagnostic[:, 5:7, :] .= ω
+
+      nodal_diagnostics!(state_diagnostic,
+                         bw_nodal_diagnostics!,
+                         bw_diagnostic_vars,
+                         model,
+                         state_prognostic,
+                         state_auxiliary,
+                         vgeo)
+
+      state_diagnostic = interpolate_horz(state_diagnostic, vgeo, dim, N, K; Nqi)
       vgeo = interpolate_horz(vgeo, vgeo, dim, N, K; Nqi)
 
+      nodal_diagnostics!(state_diagnostic,
+                         bw_spherical_coordinates!,
+                         bw_diagnostic_vars,
+                         model,
+                         state_prognostic,
+                         state_auxiliary,
+                         vgeo)
+      #state_diagnostic[:, 3, :] .= -180 .+ mod.(180 .+ state_diagnostic[:, 3, :], 360)
 
-      state_diagnostic = nodal_diagnostics(bw_nodal_diagnostics!, bw_diagnostic_vars,
-                                           model, state_prognostic, state_auxiliary, vgeo)
 
-      T850 = interpolate_to_pressure_surface(state_diagnostic, state_auxiliary, N, K, Nqi)
+      T850, ωk850 = interpolate_to_pressure_surface(state_diagnostic, state_auxiliary, N, K, Nqi)
       T850 = T850[:]
+      ωk850 = ωk850[:]
 
       p_surf = @view state_diagnostic[1:Nqi^2, 1, 1:K[2]:end][:]
       lat = @view state_diagnostic[1:Nqi^2, 2, 1:K[2]:end][:]
       lon = @view state_diagnostic[1:Nqi^2, 3, 1:K[2]:end][:]
+      #ωk850 = @view state_diagnostic[1:Nqi^2, end, 1:K[2]:end][:]
       @show extrema(lon)
       @show extrema(lat)
       @show extrema(p_surf)
@@ -140,6 +241,7 @@ function bw_plot_surface_pressure(datadir)
       lon = lon[mask]
       lat = lat[mask]
       T850 = T850[mask]
+      ωk850 = ωk850[mask]
       p_surf = p_surf[mask]
 
       if day == 8
@@ -176,6 +278,21 @@ function bw_plot_surface_pressure(datadir)
       cbar = colorbar(cset,
                       orientation="horizontal",
                       ax = axs[2, dayi],
+                      ticks=levels[2:end-1],
+                      shrink=shrinkcb)
+     
+      cmap = ColorMap("seismic").copy()
+      @show extrema(ωk850)
+      levels = vcat([-10], [-5 + 5i for i in 0:6], [30])
+      norm = matplotlib.colors.TwoSlopeNorm(vmin=-10, vcenter=0, vmax=30)
+      axs[3, dayi].tricontour(lon, lat, ωk850; levels, colors=("k",))
+      cset = axs[3, dayi].tricontourf(lon, lat, ωk850; levels, cmap, norm, extend="neither")
+      axs[3, dayi].set_title("850 hPa Vorticity", loc="left")
+      axs[3, dayi].set_title("Day $day", loc="center")
+      axs[3, dayi].set_title("1e-5/s", loc="right")
+      cbar = colorbar(cset,
+                      orientation="horizontal",
+                      ax = axs[3, dayi],
                       ticks=levels[2:end-1],
                       shrink=shrinkcb)
 

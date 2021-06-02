@@ -36,6 +36,16 @@ function flux_first_order!(
 end
 flux_second_order!(::VorticityModel, _...) = nothing
 source!(::VorticityModel, _...) = nothing
+function wavespeed(
+    lm::VorticityModel,
+    nM,
+    state::Vars,
+    aux::Vars,
+    t::Real,
+    direction,
+)
+  return abs(nM' * aux.ρu / aux.ρ)
+end
 
 boundary_conditions(::VorticityModel) = ntuple(i -> nothing, 6)
 boundary_state!(nf, ::Nothing, ::VorticityModel, _...) = nothing

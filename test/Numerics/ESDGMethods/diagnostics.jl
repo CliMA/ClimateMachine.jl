@@ -188,8 +188,7 @@ end
     end
 end
 
-function nodal_diagnostics(diagnostic_fun!, diagnostic_vars,
-                           model, state_prognostic, state_auxiliary, vgeo)
+function create_diagnostic_state(diagnostic_vars, state_prognostic)
   FT = eltype(state_prognostic)
   diagnostic_vars = diagnostic_vars(FT)
   num_state_diagnostic = varsize(diagnostic_vars)
@@ -197,6 +196,15 @@ function nodal_diagnostics(diagnostic_fun!, diagnostic_vars,
   Ne = size(state_prognostic, 3)
   state_diagnostic = similar(state_prognostic,
                              (Np, num_state_diagnostic, Ne))
+end
+
+function nodal_diagnostics!(state_diagnostic, diagnostic_fun!, diagnostic_vars,
+                           model, state_prognostic, state_auxiliary, vgeo)
+  FT = eltype(state_prognostic)
+  diagnostic_vars = diagnostic_vars(FT)
+  num_state_diagnostic = varsize(diagnostic_vars)
+  Np = size(state_prognostic, 1)
+  Ne = size(state_prognostic, 3)
 
   num_state_prognostic = number_states(model, Prognostic())
   num_state_auxiliary = number_states(model, Auxiliary())
@@ -209,6 +217,7 @@ function nodal_diagnostics(diagnostic_fun!, diagnostic_vars,
     for ijk in 1:Np
        local_state_prognostic .= state_prognostic[ijk, :, e]
        local_state_auxiliary .= state_auxiliary[ijk, :, e]
+       local_state_diagnostic .= state_diagnostic[ijk, :, e]
        local_coord = SVector{3, FT}(vgeo[ijk, _x1:_x3, e])
        diagnostic_fun!(
            model,
@@ -226,8 +235,6 @@ function nodal_diagnostics(diagnostic_fun!, diagnostic_vars,
        state_diagnostic[ijk, :, e] .= local_state_diagnostic
     end
   end
-  
-  state_diagnostic
 end
 
 function rcParams!(rcParams)
