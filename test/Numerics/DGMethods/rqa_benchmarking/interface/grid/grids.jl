@@ -5,10 +5,11 @@ abstract type AbstractDiscretizedDomain end
 """
     DiscretizedDomain
 """
-struct DiscretizedDomain{𝒜, ℬ, 𝒞} <: AbstractDiscretizedDomain
+struct DiscretizedDomain{𝒜, ℬ, 𝒞, 𝒪} <: AbstractDiscretizedDomain
     domain::𝒜
     resolution::ℬ
     numerical::𝒞
+    orography::𝒪
 end
 
 function DiscretizedDomain(
@@ -21,8 +22,8 @@ function DiscretizedDomain(
     array = ClimateMachine.array_type(),
     topology = StackedBrickTopology,
     brick_builder = uniform_brick_builder,
+    orography = nothing
 )
-
     grid = DiscontinuousSpectralElementGrid(
         domain,
         elements = elements,
@@ -36,7 +37,7 @@ function DiscretizedDomain(
     return DiscretizedDomain(
         domain,
         (; elements, polynomial_order, overintegration_order),
-        grid,
+        grid, orography
     )
 end
 
@@ -47,7 +48,8 @@ function DiscretizedDomain(
     overintegration_order = nothing,
     FT = Float64,
     mpicomm = MPI.COMM_WORLD,
-    array = ClimateMachine.array_type()
+    array = ClimateMachine.array_type(),
+    orography = nothing,
 )
     new_polynomial_order = convention(polynomial_order, Val(2))
     new_polynomial_order = new_polynomial_order .+ convention(overintegration_order, Val(2))
@@ -64,7 +66,7 @@ function DiscretizedDomain(
     return DiscretizedDomain(
         domain,
         (; elements, polynomial_order, overintegration_order),
-        grid,
+        grid, orography,
     )
 end
 
@@ -175,6 +177,7 @@ function DiscontinuousSpectralElementGrid(
     boundary = (5,6),
     FT = Float64,
     array = Array,
+    orography=nothing
 )
     Rrange = grid1d(
         domain.radius, 
@@ -196,7 +199,7 @@ function DiscontinuousSpectralElementGrid(
           polynomialorder.horizontal, 
           polynomialorder.vertical
        ),
-        meshwarp = equiangular_cubed_sphere_warp,
+        meshwarp = equiangular_cubed_sphere_topo_warp,
     )
     return grid
 end
