@@ -58,16 +58,19 @@ sst = ...
 ρe_bcs = (bottom = NoFlux(), top = NoFlux())
 
 ρq_bcs = (
-    bottom = Flux(
+    bottom = BoundaryFlux(
         flux = (p, state, aux, t) -> p.Q,
         params = (Q = 1e-3,), # positive means removing heat from system
     ),
-    top = Flux(
+    top = BoundaryFlux(
         flux = (p, state, aux, t) -> p.Q,
         params = (Q = 1e-3,), # positive means removing heat from system
     ),
 )
 BC = (ρq = ρq_bcs, ρu = ρu_bcs, ρe = ρe_bcs)
+
+BC = MoistHeldSuarez(parameters = )
+BC = Default()
 
 ########
 # Set up model physics
