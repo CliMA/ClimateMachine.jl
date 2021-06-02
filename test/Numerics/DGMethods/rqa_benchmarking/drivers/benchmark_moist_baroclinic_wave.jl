@@ -1,3 +1,4 @@
+using CLIMAParameters: molmass_ratio
 #!/usr/bin/env julia --project
 include("../interface/utilities/boilerplate.jl")
 include("../interface/numerics/timestepper_abstractions.jl")
@@ -17,6 +18,7 @@ parameters = (
     cv_l     = get_planet_parameter(:cv_l),
     cp_v     = get_planet_parameter(:cp_v),
     cp_l     = get_planet_parameter(:cp_l),
+    molmass_ratio = get_planet_parameter(:molmass_dryair)/get_planet_parameter(:molmass_water),
     γ        = get_planet_parameter(:cp_d)/get_planet_parameter(:cv_d),
     pₒ       = get_planet_parameter(:MSLP),
     pₜᵣ      = get_planet_parameter(:press_triple),
