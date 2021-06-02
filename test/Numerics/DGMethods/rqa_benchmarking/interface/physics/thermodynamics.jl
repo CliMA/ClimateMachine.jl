@@ -122,7 +122,7 @@ end
     return sqrt(γ * p / ρ)
 end
 
-@inline function calc_ref_sound_speed(::DryIdealGas, aux, params)
+@inline function calc_ref_sound_speed(eos::DryIdealGas, state, aux, params)
     p = aux.ref_state.p
     ρ = aux.ref_state.ρ
     γ = calc_γ(eos, state, params)
@@ -130,7 +130,7 @@ end
     return sqrt(γ * p / ρ)
 end
 
-@inline function calc_ref_sound_speed(::MoistIdealGas, aux, params)
+@inline function calc_ref_sound_speed(eos::MoistIdealGas, state, aux, params)
     p = aux.ref_state.p
     ρ = aux.ref_state.ρ
     γ = calc_γ(eos, state, params)

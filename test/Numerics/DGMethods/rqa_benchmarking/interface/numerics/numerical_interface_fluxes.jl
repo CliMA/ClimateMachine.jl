@@ -408,8 +408,8 @@ function numerical_flux_first_order!(
     eos = model.physics.eos
     parameters = model.physics.parameters
     
-    c⁻ = calc_ref_sound_speed(eos, aux⁻, parameters)
-    c⁺ = calc_ref_sound_speed(eos, aux⁺, parameters)
+    c⁻ = calc_ref_sound_speed(eos, state⁻, aux⁻, parameters)
+    c⁺ = calc_ref_sound_speed(eos, state⁺, aux⁺, parameters)
     c = max(c⁻, c⁺)
 
     # - states
