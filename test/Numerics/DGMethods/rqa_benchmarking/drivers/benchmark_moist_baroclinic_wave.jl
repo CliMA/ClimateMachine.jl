@@ -38,7 +38,7 @@ parameters = (
     p_w      = 3.4e4,
     q₀       = 0.018,
     qₜ       = 1e-12,
-    τ_precip = 28.409,
+    τ_precip = 22.72,
 )
 
 ########
@@ -50,8 +50,8 @@ domain = SphericalShell(
 )
 grid = DiscretizedDomain(
     domain;
-    elements = (vertical = 8, horizontal = 16),
-    polynomial_order = (vertical = 2, horizontal = 2),
+    elements = (vertical = 10, horizontal = 30),
+    polynomial_order = (vertical = 2, horizontal = 3),
     overintegration_order = (vertical = 0, horizontal = 0),
    )
 

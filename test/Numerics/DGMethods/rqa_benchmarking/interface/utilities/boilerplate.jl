@@ -44,7 +44,7 @@ include("../utilities/sphere_utils.jl")
 include("../grid/domains.jl")
 include("../grid/grids.jl")
 # numerics
-include("../models.jl")
+include("../models/models.jl")
 include("../numerics/filters.jl")
 # physics
 include("../grid/orientations.jl")
