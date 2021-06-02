@@ -1929,10 +1929,10 @@ given the cubed sphere coordinates X, Y, δ, faceid
 function compute_lat_long(X, Y, δ, faceid)
     if faceid == 1
         λ = atan(X)                     # longitude
-        ϕ = atan(cos(λ) * Y)            # latitude
+        ϕ = -atan(cos(λ) * Y)            # latitude
     elseif faceid == 2
         λ = atan(X) + π / 2
-        ϕ = atan(Y * cos(atan(X)))
+        ϕ = -atan(Y * cos(atan(X)))
     elseif faceid == 3
         λ = atan(X) + π
         ϕ = atan(Y * cos(atan(X)))
@@ -1940,11 +1940,11 @@ function compute_lat_long(X, Y, δ, faceid)
         λ = atan(X) + (3 / 2) * π
         ϕ = atan(Y * cos(atan(X)))
     elseif faceid == 5
-        λ = atan(X, -Y) + π
+        λ = atan(X, -Y) #+ π
         ϕ = atan(1 / sqrt(δ - 1)) 
     elseif faceid == 6
         λ = atan(X, Y)
-        ϕ = atan(1 / sqrt(δ - 1))
+        ϕ = atan(1 / sqrt(δ - 1)) - π
     end
     return λ, ϕ
 end
