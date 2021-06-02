@@ -191,7 +191,7 @@ end
 end
 
 @inline function calc_γ(eos::AbstractEquationOfState, state, params)
-    cp = calc_cv(eos, state, params)
+    cp = calc_cp(eos, state, params)
     cv = calc_cv(eos, state, params)
     γ  = cp/cv
 
