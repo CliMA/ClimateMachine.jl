@@ -22,6 +22,7 @@ export AbstractTopology,
     cubed_sphere_warp,
     cubed_sphere_unwarp,
     equiangular_cubed_sphere_warp,
+    equiangular_cubed_sphere_topo_warp,
     equiangular_cubed_sphere_unwarp,
     equidistant_cubed_sphere_warp,
     equidistant_cubed_sphere_unwarp
@@ -1303,6 +1304,10 @@ EquiangularCubedSphere type
 equiangular_cubed_sphere_warp(a, b, c, R = max(abs(a), abs(b), abs(c))) =
     cubed_sphere_warp(EquiangularCubedSphere(), a, b, c, R)
 
+equiangular_cubed_sphere_topo_warp(a, b, c, R = max(abs(a), abs(b), abs(c))) =
+    cubed_sphere_topo_warp(EquiangularCubedSphere(), a, b, c, R;
+                      topography = DCMIPMountain())
+
 """
     cubed_sphere_unwarp(x1, x2, x3)
 
@@ -1936,12 +1941,37 @@ function compute_lat_long(X, Y, δ, faceid)
         ϕ = atan(Y * cos(atan(X)))
     elseif faceid == 5
         λ = atan(X, -Y) + π
-        ϕ = atan(1 / sqrt(δ - 1))
+        ϕ = atan(1 / sqrt(δ - 1)) 
     elseif faceid == 6
         λ = atan(X, Y)
-        ϕ = -atan(1 / sqrt(δ - 1))
+        ϕ = atan(1 / sqrt(δ - 1))
     end
     return λ, ϕ
+end
+
+function compute_lat_long2(X,Y,δ,faceid)
+    # Let λ == longitude, 
+    # Let ϕ == latitude, 
+    if faceid == 1
+        λ = atan(X)
+        ϕ = atan(Y/sec(λ)) # latitude (via colatitude)
+    elseif faceid == 2
+        λ = atan(-1/X) - π/2
+        ϕ = atan(Y/csc(λ))
+    elseif faceid == 3
+        λ = atan(X) - π
+        ϕ = atan(-Y/sec(λ))
+    elseif faceid == 4
+        λ = atan(-1/X) - 3π/2
+        ϕ = atan(-Y/csc(λ))
+    elseif faceid == 5
+        λ = atan(-X/Y)
+        ϕ = acot(-Y/cos(λ))
+    elseif faceid == 6
+        λ = atan(X/Y)
+        ϕ = acot(-Y/cos(λ))
+    end
+    return λ, π/2 - ϕ
 end
 
 
@@ -1957,8 +1987,6 @@ function compute_analytical_topography(
     λ,
     ϕ,
     sR,
-    r_inner,
-    r_outer,
 )
     return sR
 end
@@ -1976,30 +2004,45 @@ struct NoTopography <: AnalyticalTopography end
 Topography description based on standard DCMIP experiments.
 """
 struct DCMIPMountain <: AnalyticalTopography end
+#function compute_analytical_topography(
+#    ::DCMIPMountain,
+#    λ,
+#    ϕ,
+#    sR,
+#)
+#    @show("In here")
+#    #User specified warp parameters
+#    R_m = π * 3 / 4
+#    h0 = 0.05
+#    ζ_m = π / 16
+#    φ_m = 0
+#    λ_m = π * 3 / 2
+#    r_m = acos(sin(φ_m) * sin(ϕ) + cos(φ_m) * cos(ϕ) * cos(λ - λ_m))
+#    # Define mesh decay profile
+#    Δ = 1.0 # (r_outer - abs(sR)) / (r_outer - r_inner)
+#    if r_m < R_m
+#        zs =
+#            0.5 *
+#            h0 *
+#            (1 + cos(π * r_m / R_m)) *
+#            cos(π * r_m / ζ_m) *
+#            cos(π * r_m / ζ_m)
+#    else
+#        zs = 0.0
+#    end
+#    mR = sign(sR) * (abs(sR) + zs * Δ)
+#    return mR
+#end
+
 function compute_analytical_topography(
     ::DCMIPMountain,
     λ,
     ϕ,
     sR,
-    r_inner,
-    r_outer,
-)
-    #User specified warp parameters
-    R_m = π * 3 / 4
-    h0 = 2000
-    ζ_m = π / 16
-    φ_m = 0
-    λ_m = π * 3 / 2
-    r_m = acos(sin(φ_m) * sin(ϕ) + cos(φ_m) * cos(ϕ) * cos(λ - λ_m))
-    # Define mesh decay profile
-    Δ = (r_outer - abs(sR)) / (r_outer - r_inner)
-    if r_m < R_m
-        zs =
-            0.5 *
-            h0 *
-            (1 + cos(π * r_m / R_m)) *
-            cos(π * r_m / ζ_m) *
-            cos(π * r_m / ζ_m)
+)       
+    Δ = 1.0
+    if abs(ϕ) < 2π
+        zs = 0.1*sin(ϕ)
     else
         zs = 0.0
     end
@@ -2020,12 +2063,11 @@ compute_analytical_topography function. Defaults to smooth cubed sphere unless o
 via the AnalyticalTopography type.
 """
 function cubed_sphere_topo_warp(
+    ::EquiangularCubedSphere,
     a,
     b,
     c,
     R = max(abs(a), abs(b), abs(c));
-    r_inner = _planet_radius,
-    r_outer = _planet_radius + domain_height,
     topography::AnalyticalTopography = NoTopography(),
 )
 
@@ -2038,8 +2080,6 @@ function cubed_sphere_topo_warp(
             λ,
             ϕ,
             sR,
-            r_inner,
-            r_outer,
         )
         x1 = mR / sqrt(δ)
         x2, x3 = X * x1, Y * x1
