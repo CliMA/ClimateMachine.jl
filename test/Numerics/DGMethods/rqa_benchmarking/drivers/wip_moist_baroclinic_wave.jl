@@ -12,22 +12,23 @@ parameters = (
     κ        = get_planet_parameter(:kappa_d),
     R_d      = get_planet_parameter(:R_d),
     R_v      = get_planet_parameter(:R_v),
-    cv_d     = get_planet_parameter(:cv_d),
-    cv_v     = get_planet_parameter(:cv_v),
-    cv_l     = get_planet_parameter(:cv_l),
-    cv_i     = get_planet_parameter(:cv_i),
-    cp_d     = get_planet_parameter(:cp_d),
-    cp_v     = get_planet_parameter(:cp_v),
-    cp_l     = get_planet_parameter(:cp_l),
-    cp_i     = get_planet_parameter(:cp_i),
+    cp_d = get_planet_parameter(:cp_d),
+    cp_v = get_planet_parameter(:cp_v),
+    cp_l = get_planet_parameter(:cp_l),
+    cp_i = get_planet_parameter(:cp_i),
+    cv_d = get_planet_parameter(:cv_d),
+    cv_v = get_planet_parameter(:cv_v),
+    cv_l = get_planet_parameter(:cv_l),
+    cv_i = get_planet_parameter(:cv_i),
+    γ    = get_planet_parameter(:cp_d)/get_planet_parameter(:cv_d),
     molmass_ratio = get_planet_parameter(:molmass_dryair)/get_planet_parameter(:molmass_water),
-    γ        = get_planet_parameter(:cp_d)/get_planet_parameter(:cv_d),
     pₒ       = get_planet_parameter(:MSLP),
     pₜᵣ      = get_planet_parameter(:press_triple),
     Tₜᵣ      = get_planet_parameter(:T_triple),
     T_0      = 0.0, #get_planet_parameter(:T_0),
     LH_v0    = get_planet_parameter(:LH_v0),
     e_int_v0 = get_planet_parameter(:e_int_v0),
+    e_int_i0 = get_planet_parameter(:e_int_i0),
     H        = 30e3,
     k        = 3.0,
     Γ        = 0.005,
@@ -42,7 +43,8 @@ parameters = (
     p_w      = 3.4e4,
     q₀       = 0.018,
     qₜ       = 1e-12,
-    τ_precip = 22.72,
+    τ_precip = 28.409,
+    Mᵥ       = 0.608,
 )
 
 ########
@@ -54,8 +56,8 @@ domain = SphericalShell(
 )
 grid = DiscretizedDomain(
     domain;
-    elements = (vertical = 10, horizontal = 30),
-    polynomial_order = (vertical = 2, horizontal = 3),
+    elements = (vertical = 8, horizontal = 16),
+    polynomial_order = (vertical = 2, horizontal = 2),
     overintegration_order = (vertical = 0, horizontal = 0),
    )
 
@@ -109,11 +111,16 @@ uˡᵒⁿ(𝒫,λ,ϕ,r)   = u(𝒫,ϕ,r) + δu(𝒫,λ,ϕ,r)
 uˡᵃᵗ(𝒫,λ,ϕ,r)   = v(𝒫,ϕ,r) + δv(𝒫,λ,ϕ,r)
 uʳᵃᵈ(𝒫,λ,ϕ,r)   = w(𝒫,ϕ,r) + δw(𝒫,λ,ϕ,r)
 
-e_int(𝒫,λ,ϕ,r)  = (𝒫.R_d / 𝒫.κ - 𝒫.R_d) * Tᵥ(𝒫,ϕ,r)
+# cv_m and R_m for moist experiment
+cv_m(𝒫,ϕ,r)  = 𝒫.cv_d + (𝒫.cv_v - 𝒫.cv_d) * q(𝒫,ϕ,r)
+R_m(𝒫,ϕ,r) = 𝒫.R_d * (1 + (𝒫.molmass_ratio - 1) * q(𝒫,ϕ,r))
+
+T(𝒫,ϕ,r) = Tᵥ(𝒫,ϕ,r) / (1 + 𝒫.Mᵥ * q(𝒫,ϕ,r)) 
+e_int(𝒫,λ,ϕ,r)  = cv_m(𝒫,ϕ,r) * T(𝒫,ϕ,r) + q(𝒫,ϕ,r) * 𝒫.e_int_v0
 e_kin(𝒫,λ,ϕ,r)  = 0.5 * ( uˡᵒⁿ(𝒫,λ,ϕ,r)^2 + uˡᵃᵗ(𝒫,λ,ϕ,r)^2 + uʳᵃᵈ(𝒫,λ,ϕ,r)^2 )
 e_pot(𝒫,λ,ϕ,r)  = 𝒫.g * r
 
-ρ₀(𝒫,λ,ϕ,r)    = p(𝒫,ϕ,r) / 𝒫.R_d / Tᵥ(𝒫,ϕ,r)
+ρ₀(𝒫,λ,ϕ,r)    = p(𝒫,ϕ,r) / R_m(𝒫,ϕ,r) / T(𝒫,ϕ,r)
 ρuˡᵒⁿ(𝒫,λ,ϕ,r) = ρ₀(𝒫,λ,ϕ,r) * uˡᵒⁿ(𝒫,λ,ϕ,r)
 ρuˡᵃᵗ(𝒫,λ,ϕ,r) = ρ₀(𝒫,λ,ϕ,r) * uˡᵃᵗ(𝒫,λ,ϕ,r)
 ρuʳᵃᵈ(𝒫,λ,ϕ,r) = ρ₀(𝒫,λ,ϕ,r) * uʳᵃᵈ(𝒫,λ,ϕ,r)
@@ -139,7 +146,7 @@ ref_state = DryReferenceState(
 physics = Physics(
     orientation = SphericalOrientation(),
     ref_state   = ref_state,
-    eos         = DryIdealGas{(:ρ, :ρu, :ρe)}(),
+    eos         = MoistIdealGas{(:ρ, :ρu, :ρe)}(),
     lhs         = (
         NonlinearAdvection{(:ρ, :ρu, :ρe)}(),
         PressureDivergence(),
@@ -155,7 +162,7 @@ physics = Physics(
 linear_physics = Physics(
     orientation = physics.orientation,
     ref_state   = physics.ref_state,
-    eos         = physics.eos,
+    eos         = MoistIdealGas{(:ρ, :ρu, :ρe)}(), #physics.eos,
     lhs         = (
         LinearAdvection{(:ρ, :ρu, :ρe)}(),
         LinearPressureDivergence(),
@@ -192,18 +199,17 @@ linear_model = DryAtmosModel(
 # Set up time steppers (could be done automatically in simulation)
 ########
 dx = min_node_distance(grid.numerical)
-cfl = 5 # 13 for 10 days, 7.5 for 200+ days
+cfl = 0.5 #5 # 13 for 10 days, 7.5 for 200+ days
 Δt = cfl * dx / 330.0
 start_time = 0
-end_time = 30 * 24 * 3600
+end_time = Δt #30 * 24 * 3600
 method = IMEX() 
 callbacks = (
   Info(),
   CFL(),
   VTKState(
     iteration = Int(floor(6*3600/Δt)), 
-   # filepath = "/central/scratch/bischtob/wip_moist_baroclinic_wave/"),
-    filepath = "./out/"),  
+    filepath = "./moist_baroclinic_wave/"),
   TMARCallback(),
 )
 

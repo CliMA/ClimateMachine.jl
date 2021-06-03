@@ -10,8 +10,16 @@ parameters = (
     κ    = get_planet_parameter(:kappa_d),
     g    = get_planet_parameter(:grav),
     cp_d = get_planet_parameter(:cp_d),
+    cp_v = get_planet_parameter(:cp_v),
+    cp_l = get_planet_parameter(:cp_l),
+    cp_i = get_planet_parameter(:cp_i),
     cv_d = get_planet_parameter(:cv_d),
-    γ    = get_planet_parameter(:cp_d)/get_planet_parameter(:cv_d),
+    cv_v = get_planet_parameter(:cv_v),
+    cv_l = get_planet_parameter(:cv_l),
+    cv_i = get_planet_parameter(:cv_i),
+    e_int_v0 = get_planet_parameter(:e_int_v0),
+    e_int_i0 = get_planet_parameter(:e_int_i0),
+    molmass_ratio = get_planet_parameter(:molmass_dryair)/get_planet_parameter(:molmass_water),
     T_0  = 0.0,
     xc   = 5000,
     yc   = 1000,
@@ -22,6 +30,7 @@ parameters = (
     zmax = 10000,
     θₐ   = 2.0,
     cₛ   = 340,
+    q₀   = 1e-3,
 )
 
 
@@ -42,7 +51,7 @@ grid = DiscretizedDomain(
 ########
 # Set up model physics
 ########
-eos = DryIdealGas{(:ρ, :ρu, :ρe)}()
+eos = MoistIdealGas{(:ρ, :ρu, :ρe)}()
 physics = Physics(
     orientation = FlatOrientation(),
     ref_state   = NoReferenceState(),
@@ -63,16 +72,21 @@ physics = Physics(
 r(p, x, z)          = sqrt((x - p.xc)^2 + (z - p.zc)^2)
 Δθ(p, x, y, z)      = (r(p, x, z) < p.rc) ? ( p.θₐ * (1.0 - r(p, x, z) / p.rc) ) : 0
 θ₀(p, x, y, z)      = 300.0 + Δθ(p, x, y, z)
+Δq(p, x, y, z)      = (r(p, x, z) < p.rc) ? ( p.q₀ * (1.0 - r(p, x, z) / p.rc) ) : 0
+q(p, x, y, z)       = 0.0 + Δq(p, x, y, z)
 π_exner(p, x, y, z) = 1.0 - p.g / (p.cp_d * θ₀(p, x, y, z) ) * z  
 
 ρ₀(p, x, y, z)  = p.pₒ / (p.R_d * θ₀(p, x, y, z)) * (π_exner(p, x, y, z))^(p.cv_d / p.R_d)
 ρu⃗₀(p, x, y, z) = @SVector [0, 0, 0]
 
+cv_m(p, x, y, z)  = p.cv_d + (p.cv_v - p.cv_d) * q(p, x, y, z)
+
 e_pot(p, x, y, z) = p.g * z
-e_int(p, x, y, z) = p.cv_d * θ₀(p, x, y, z) * π_exner(p, x, y, z)
+e_int(p, x, y, z) = cv_m(p, x, y, z) * θ₀(p, x, y, z) * π_exner(p, x, y, z) + q(p, x, y, z) * p.e_int_v0
 e_kin(p, x, y, z) = 0.0
+
 ρe(p, x, y, z) = ρ₀(p, x, y, z) * (e_kin(p, x, y, z) + e_int(p, x, y, z) + e_pot(p, x, y, z))
-ρq(p, x, y, z) = 0
+ρq(p, x, y, z) = ρ₀(p, x, y, z) * q(p, x, y, z)
 
 # ########
 # # Set up boundary conditions
@@ -101,11 +115,12 @@ model = DryAtmosModel(
 ########
 Δt          = min_node_distance(grid.numerical) / parameters.cₛ * 0.25
 start_time  = 0
-end_time    = 4000.0
+end_time    = 6000.0
 callbacks   = (
     Info(),
     StateCheck(10),
-    VTKState(iteration = Int(floor(10.0/Δt)), filepath = "./out_esdg/"),
+    TMARCallback(),
+    VTKState(iteration = Int(floor(10.0/Δt)), filepath = "./out_esdg/moist_bubble/"),
 )
 
 

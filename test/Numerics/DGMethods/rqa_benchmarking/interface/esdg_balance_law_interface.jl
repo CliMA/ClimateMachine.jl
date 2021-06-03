@@ -14,6 +14,8 @@ import ClimateMachine.BalanceLaws:
     # boundary conditions
     boundary_conditions,
     boundary_state!
+import ClimateMachine.NumericalFluxes:
+    numerical_boundary_flux_first_order!
 
 struct DryReferenceState{TP}
     temperature_profile::TP
@@ -197,31 +199,88 @@ end
 """
 boundary_conditions(model::DryAtmosModel) = model.boundary_conditions
 
-function boundary_state!(
-    ::NumericalFluxFirstOrder,
+function numerical_boundary_flux_first_order!(
+    numerical_flux::NumericalFluxFirstOrder,
     bctype,
-    ::DryAtmosModel,
-    state⁺,
-    aux⁺,
-    n,
-    state⁻,
-    aux⁻,
-    _...,
-)
+    balance_law::DryAtmosModel,
+    fluxᵀn::Vars{S},
+    n̂::SVector,
+    state⁻::Vars{S},
+    aux⁻::Vars{A},
+    state⁺::Vars{S},
+    aux⁺::Vars{A},
+    t,
+    direction,
+    state1⁻::Vars{S},
+    aux1⁻::Vars{A},
+) where {S, A}
     state⁺.ρ = state⁻.ρ
-    state⁺.ρu -= 2 * dot(state⁻.ρu, n) .* SVector(n)
     state⁺.ρe = state⁻.ρe
-    aux⁺.Φ = aux⁻.Φ
+    state⁺.ρq = state⁻.ρq
+
+    ρu⁻ = state⁻.ρu
+    # project and reflect
+    state⁺.ρu = ρu⁻ - n̂ ⋅ ρu⁻ .* SVector(n̂) - n̂ ⋅ ρu⁻ .* SVector(n̂)
+
+    numerical_flux_first_order!(
+        numerical_flux,
+        balance_law,
+        fluxᵀn,
+        n̂,
+        state⁻,
+        aux⁻,
+        state⁺,
+        aux⁺,
+        t,
+        direction,
+    )
 end
 
-function boundary_state!(
-    nf::NumericalFluxSecondOrder,
-    bc,
-    lm::DryAtmosModel,
-    args...,
-)
-    nothing
+# function boundary_state!(
+#     nmf::NumericalFluxFirstOrder,
+#     bctype,
+#     model::DryAtmosModel,
+#     state⁺,
+#     aux⁺,
+#     n,
+#     state⁻,
+#     aux⁻,
+#     _...,
+# )
+#     #  flux =  (flux_first_order(state⁺) + flux_first_order(state⁻)) / 2 + dissipation(state⁺, state⁻) 
+#     # if dissipation = rusanov then dissipation(state⁺, state⁻) = c/2 * (state⁺ - state⁻)
+#     # if dissipation = roe then 
+    
+#     # state⁺.ρu = - state⁻.ρu #  no slip boundary conditions
+#     # dot(state⁺.ρu, n) * n = -dot(state⁻.ρu, n) * n # for free slip
+
+#     # physics = model.physics
+#     # eos = model.physics.eos
+#     # calc_boundary_state(nmf, bctype, model)
+
+#     state⁺.ρ = state⁻.ρ   # if no penetration then this is no flux on the boundary
+#     state⁺.ρq = state⁻.ρq # if no penetration then this is no flux on the boundary
+#     state⁺.ρe = state⁻.ρe # if pressure⁺ = pressure⁻ & no penetration then this is no flux boundary condition
+#     aux⁺.Φ = aux⁻.Φ       # 
+
+#     # state⁺.ρu -= 2 * dot(state⁻.ρu, n) .* SVector(n) # (I - 2* n n') is a reflection operator
+#     # first subtract off the normal component, then go further to enact the reflection principle
+#     state⁺.ρu =  ( state⁻.ρu - dot(state⁻.ρu, n) .* SVector(n) ) - dot(state⁻.ρu, n) .* SVector(n)
+
+# end
+
+function numerical_boundary_flux_second_order!(_...) 
+    return nothing
 end
+
+# function boundary_state!(
+#     nf::NumericalFluxSecondOrder,
+#     bc,
+#     lm::DryAtmosModel,
+#     args...,
+# )
+#     nothing
+# end
 
 """
     Utils

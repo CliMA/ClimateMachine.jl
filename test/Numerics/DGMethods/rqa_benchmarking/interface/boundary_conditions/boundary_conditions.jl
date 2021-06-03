@@ -86,3 +86,70 @@ struct TemperatureFlux{T} <: TemperatureBC
         new{T}(flux)
     end
 end
+
+# Smart defaults
+#=
+
+"""
+    FluidBC(momentum    = Impenetrable(NoSlip())
+            temperature = Insulating())
+The standard boundary condition for CNSEModel. The default options imply a "no flux" boundary condition.
+"""
+Base.@kwdef struct FluidBC{ℳ, ℰ, 𝒬} <: BoundaryCondition
+    momentum::ℳ = FreeSlip()
+    temperature::𝒯 = NoFlux()
+    moisture::𝒬
+end
+
+function check_bc(bcs, label)
+    bctype = FluidBC
+
+    bc_ρu = check_bc(bcs, Val(:ρu), label)
+    bc_ρθ = check_bc(bcs, Val(:ρθ), label)
+
+    return bctype(bc_ρu, bc_ρθ)
+end
+
+function check_bc(bcs, ::Val{:ρe}, label)
+    if haskey(bcs, :ρe)
+        if haskey(bcs[:ρe], label)
+            return bcs[:ρe][label]
+        end
+    end
+
+    return NoFlux()
+end
+
+function check_bc(bcs, ::Val{:ρq}, label)
+    if haskey(bcs, :ρq)
+        if haskey(bcs[:ρq], label)
+            return bcs[:ρq][label]
+        end
+    end
+
+    return NoFlux()
+end
+
+function check_bc(bcs, ::Val{:ρu}, label)
+    if haskey(bcs, :ρu)
+        if haskey(bcs[:ρu], label)
+            return bcs[:ρu][label]
+        end
+    end
+
+    return FreeSlip()
+end
+
+function get_boundary_conditions(
+    model::SpatialModel{BL},
+) where {BL <: AbstractFluid3D}
+    bcs = model.boundary_conditions
+
+    west_east = (check_bc(bcs, :west), check_bc(bcs, :east))
+    south_north = (check_bc(bcs, :south), check_bc(bcs, :north))
+    bottom_top = (check_bc(bcs, :bottom), check_bc(bcs, :top))
+
+    return (west_east..., south_north..., bottom_top...)
+end
+
+=#
