@@ -38,6 +38,7 @@ grid = DiscretizedDomain(
 # Define timestepping parameters
 ########
 Δt = min_node_distance(grid.numerical)^2 / parameters.κ * 0.1
+# Δt = 0.1
 start_time = 0
 end_time = 20.0Δt
 method = SSPRK22Heuns
@@ -65,7 +66,6 @@ physics = FluidPhysics(;
 ρθ_bcs =
     (bottom = TemperatureFlux((state, aux, t) -> (parameters.Qᵇ)), 
      top = TemperatureFlux((state, aux, t) -> (parameters.Qᵗ)))
-BC = 
 
 ########
 # Define initial conditions

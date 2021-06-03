@@ -31,7 +31,7 @@ function grabvelocities(Q, grid::DiscontinuousSpectralElementGrid, rep::Abstract
     n_ijk, _, n_e = size(Q)
     uᴿ = copy(Q[:,2:4,:])
     v⃗ =  VectorField(data = (Q[:,2,:] ./ Q[:,1,:], Q[:,3,:] ./ Q[:,1,:] , Q[:,4,:] ./ Q[:,1,:]), grid = grid)
-    Threads.@threads for ijk in 1:n_ijk, e in 1:n_e, s in 1:3
+    for ijk in 1:n_ijk, e in 1:n_e, s in 1:3
         uᴿ[ijk,s,e] = v⃗(rep)[ijk,e, verbose = false][s]
     end
     return uᴿ
