@@ -202,7 +202,8 @@ callbacks = (
   CFL(),
   VTKState(
     iteration = Int(floor(6*3600/Δt)), 
-    filepath = "/central/scratch/jiahe/rqa_bwtest/wip_moist_baroclinic_wave/"),
+   # filepath = "/central/scratch/bischtob/wip_moist_baroclinic_wave/"),
+    filepath = "./out/"),  
   TMARCallback(),
 )
 
