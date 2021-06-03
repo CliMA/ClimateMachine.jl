@@ -432,5 +432,5 @@ function numerical_flux_first_order!(
     fluxᵀn.ρ  -= c * Δρ  * 0.5
     fluxᵀn.ρu -= c * Δρu * 0.5
     fluxᵀn.ρe -= c * Δρe * 0.5
-    #fluxᵀn.ρq -= c * Δρq * 0.5
+    fluxᵀn.ρq -= c * Δρq * 0.5
 end
