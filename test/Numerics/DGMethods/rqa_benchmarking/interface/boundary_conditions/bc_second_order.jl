@@ -1,5 +1,6 @@
 """
     calc_boundary_state!(::NumericalFluxSecondOrder, ::Impenetrable{FreeSlip}, ::ModelSetup)
+
 apply free slip boundary condition for velocity
 apply zero numerical flux in the normal direction
 """
