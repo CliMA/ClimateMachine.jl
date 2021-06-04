@@ -162,7 +162,7 @@ physics = Physics(
 linear_physics = Physics(
     orientation = physics.orientation,
     ref_state   = physics.ref_state,
-    eos         = MoistIdealGas{(:ρ, :ρu, :ρe)}(), #physics.eos,
+    eos         = physics.eos,
     lhs         = (
         LinearAdvection{(:ρ, :ρu, :ρe)}(),
         LinearPressureDivergence(),
@@ -199,10 +199,10 @@ linear_model = DryAtmosModel(
 # Set up time steppers (could be done automatically in simulation)
 ########
 dx = min_node_distance(grid.numerical)
-cfl = 0.5 #5 # 13 for 10 days, 7.5 for 200+ days
+cfl = 5 # 13 for 10 days, 7.5 for 200+ days
 Δt = cfl * dx / 330.0
 start_time = 0
-end_time = Δt #30 * 24 * 3600
+end_time = 30 * 24 * 3600
 method = IMEX() 
 callbacks = (
   Info(),

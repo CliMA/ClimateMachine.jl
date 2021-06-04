@@ -45,14 +45,15 @@ end
     ρ  = state.ρ
     ρu = state.ρu
     ρe = state.ρe
-    q_tot = state.ρq / state.ρ
-    q_liq = 0 # zero for now
-    q_ice = 0 # zero for now
+    ρ_q_tot = state.ρq
+    ρ_q_liq = 0 # zero for now
+    ρ_q_ice = 0 # zero for now
     Φ  = aux.Φ
     γ  = calc_γ(eos, state, params)
 
-    e_latent = (q_tot - q_liq) * params.e_int_v0 - q_ice * (params.e_int_v0 + params.e_int_i0)
-    return (γ - 1) * (ρe - dot(ρu, ρu) / 2ρ - ρ * Φ - ρ * e_latent)
+    ρ_e_latent = (ρ_q_tot - ρ_q_liq) * params.e_int_v0 - ρ_q_ice * (params.e_int_v0 + params.e_int_i0)
+    
+    return (γ - 1) * (ρe - dot(ρu, ρu) / 2ρ - ρ * Φ - ρ_e_latent)
 end
 
 @inline function calc_linear_pressure(eos::DryIdealGas{(:ρ, :ρu, :ρe)}, state, aux, params)
@@ -60,8 +61,6 @@ end
     ρe = state.ρe
     Φ  = aux.Φ
     γ  = calc_γ(eos, state, params)
-
-    # println((ρ, ρe))
 
     return (γ - 1) * (ρe - ρ * Φ) 
 end
@@ -73,13 +72,11 @@ end
     ρ_q_liq = 0 # zero for now
     ρ_q_ice = 0 # zero for now
 
-    # println((ρ, state.ρq, q_tot))
-
     Φ  = aux.Φ
-    γ  = params.cp_d / params.cv_d 
-    # γ = calc_γ(DryIdealGas{(:ρ, :ρu, :ρe)}(), state, aux, params)
+    γ = calc_γ(DryIdealGas{(:ρ, :ρu, :ρe)}(), state, params)
 
     ρ_e_latent = (ρ_q_tot - ρ_q_liq) * params.e_int_v0 - ρ_q_ice * (params.e_int_v0 + params.e_int_i0)
+    
     return (γ - 1) * (ρe - ρ * Φ - ρ_e_latent)
 end
 
@@ -138,8 +135,7 @@ end
 @inline function calc_ref_sound_speed(eos::MoistIdealGas, state, aux, params)
     p = aux.ref_state.p
     ρ = aux.ref_state.ρ
-    γ  = params.cp_d / params.cv_d 
-    # γ = calc_γ(DryIdealGas{(:ρ, :ρu, :ρe)}(), state, params)
+    γ = calc_γ(DryIdealGas{(:ρ, :ρu, :ρe)}(), state, params)
 
     return sqrt(γ * p / ρ)
 end
