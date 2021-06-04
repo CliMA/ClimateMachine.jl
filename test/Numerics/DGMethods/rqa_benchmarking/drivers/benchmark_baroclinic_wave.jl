@@ -15,6 +15,7 @@ parameters = (
     γ    = get_planet_parameter(:cp_d)/get_planet_parameter(:cv_d),
     pₒ   = get_planet_parameter(:MSLP),
     cv_d = get_planet_parameter(:cv_d),
+    cp_d = get_planet_parameter(:cp_d),
     T_0  = 0.0,
     H    = 30e3,
     k    = 3.0,
@@ -133,6 +134,7 @@ physics = Physics(
     ),
     sources     = (
         DeepShellCoriolis(),
+        FluctuationGravity(),
     ),
     parameters = parameters,
 )
@@ -206,7 +208,7 @@ linear_physics = Physics(
         LinearAdvection{(:ρ, :ρu, :ρe)}(),
         LinearPressureDivergence(),
     ),
-    sources     = (),
+    sources     = (FluctuationGravity(),),
     parameters = parameters,
 )
 

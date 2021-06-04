@@ -15,7 +15,8 @@ import ClimateMachine.BalanceLaws:
     boundary_conditions,
     boundary_state!
 import ClimateMachine.NumericalFluxes:
-    numerical_boundary_flux_first_order!
+    numerical_boundary_flux_first_order!,
+    numerical_boundary_flux_second_order!
 
 struct DryReferenceState{TP}
     temperature_profile::TP
@@ -234,6 +235,12 @@ function numerical_boundary_flux_first_order!(
         t,
         direction,
     )
+    
+    # the following lines of code shouldn't do anything
+    fluxᵀn.ρ  = 0.0
+    fluxᵀn.ρq = 0.0
+    fluxᵀn.ρe = 0.0
+    
 end
 
 # function boundary_state!(
