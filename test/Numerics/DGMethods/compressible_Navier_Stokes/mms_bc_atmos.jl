@@ -19,7 +19,7 @@ using ClimateMachine.Atmos
 using ClimateMachine.BalanceLaws
 using ClimateMachine.Orientations
 using ClimateMachine.VariableTemplates
-using ClimateMachine.Thermodynamics
+using Thermodynamics
 using ClimateMachine.TurbulenceClosures
 using ClimateMachine.VTK
 
@@ -42,7 +42,7 @@ end
 
 include("mms_solution_generated.jl")
 
-import ClimateMachine.Thermodynamics: total_specific_enthalpy
+import Thermodynamics: total_specific_enthalpy
 using ClimateMachine.Atmos
 
 total_specific_enthalpy(ts::PhaseDry{FT}, e_tot::FT) where {FT <: Real} =

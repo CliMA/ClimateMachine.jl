@@ -61,17 +61,17 @@ The moisture models rely on the
   convenience functions to create a `struct` that stores
   air properties needed to uniquely define air thermodynamic state.
 For the `DryModel` it is the
-  [PhaseDry](https://clima.github.io/ClimateMachine.jl/latest/APIs/Common/Thermodynamics/#ClimateMachine.Thermodynamics.PhaseDry)
+  [PhaseDry](https://clima.github.io/Thermodynamics.jl/dev/API/#Thermodynamics.PhaseDry)
   `struct` that has three fields:
   parameter set used by the `Atmos.jl` model, internal energy and air density.
 For the `EquilMoist` model it is the
-  [PhaseEquil](https://clima.github.io/ClimateMachine.jl/latest/APIs/Common/Thermodynamics/#ClimateMachine.Thermodynamics.PhaseEquil)
+  [PhaseEquil](https://clima.github.io/Thermodynamics.jl/dev/API/#Thermodynamics.PhaseEquil)
   `struct` that has five fields:
   parameter set used by the `Atmos.jl` model, internal energy, air density,
   total water specific humidity and temperature at which all water phases
   are in equilibrium.
 For the `NonEquilMoist` model it is the
-  [PhaseNonEquil](https://clima.github.io/ClimateMachine.jl/latest/APIs/Common/Thermodynamics/#ClimateMachine.Thermodynamics.PhaseNonEquil)
+  [PhaseNonEquil](https://clima.github.io/Thermodynamics.jl/dev/API/#Thermodynamics.PhaseNonEquil)
   `struct` that has four fields:
   parameter set used by the `Atmos.jl` model, internal energy,
   air density and phase partition `struct`.

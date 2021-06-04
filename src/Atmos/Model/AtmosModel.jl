@@ -44,14 +44,14 @@ import ..Orientations:
     projection_tangential
 
 using ..VariableTemplates
-using ..Thermodynamics
-using ..TemperatureProfiles
+using Thermodynamics
+using Thermodynamics.TemperatureProfiles
 
 using ..TurbulenceClosures
 import ..TurbulenceClosures: turbulence_tensors
 using ..TurbulenceConvection
 
-import ..Thermodynamics: internal_energy, soundspeed_air
+import Thermodynamics: internal_energy, soundspeed_air
 using ..MPIStateArrays: MPIStateArray
 using ..Mesh.Grids:
     VerticalDirection,

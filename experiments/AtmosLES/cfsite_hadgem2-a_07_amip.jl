@@ -24,7 +24,7 @@ using ClimateMachine.Diagnostics
 using ClimateMachine.Mesh.Filters
 using ClimateMachine.Mesh.Grids
 using ClimateMachine.Orientations
-using ClimateMachine.Thermodynamics
+using Thermodynamics
 using ClimateMachine.BalanceLaws
 using ClimateMachine.TurbulenceClosures
 using ClimateMachine.ODESolvers

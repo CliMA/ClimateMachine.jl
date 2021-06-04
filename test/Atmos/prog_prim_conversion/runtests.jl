@@ -12,12 +12,12 @@ const ArrayType = ClimateMachine.array_type()
 
 const clima_dir = dirname(dirname(pathof(ClimateMachine)))
 
-include(joinpath(clima_dir, "test", "Common", "Thermodynamics", "profiles.jl"))
 using ClimateMachine.BalanceLaws
 using ClimateMachine.ConfigTypes
 using ClimateMachine.VariableTemplates
-using ClimateMachine.Thermodynamics
-using ClimateMachine.TemperatureProfiles
+using Thermodynamics
+using Thermodynamics.TemperatureProfiles
+using Thermodynamics.TestedProfiles
 using ClimateMachine.Atmos
 using ClimateMachine.BalanceLaws:
     prognostic_to_primitive!, primitive_to_prognostic!
@@ -107,7 +107,7 @@ end
         prog = Vars{vs_prog}(prog_arr)
         prim = Vars{vs_prim}(prim_arr)
         aux = Vars{vs_aux}(aux_arr)
-        for nt in PhaseDryProfiles(param_set, ArrayType)
+        for nt in TestedProfiles.PhaseDryProfiles(param_set, ArrayType)
             assign!(aux, bl, nt, Auxiliary())
 
             # Test prognostic_to_primitive! identity
@@ -156,7 +156,7 @@ end
         aux = Vars{vs_aux}(aux_arr)
         err_max_fwd = 0
         err_max_bwd = 0
-        for nt in PhaseEquilProfiles(param_set, ArrayType)
+        for nt in TestedProfiles.PhaseEquilProfiles(param_set, ArrayType)
             assign!(aux, bl, nt, Auxiliary())
 
             # Test prognostic_to_primitive! identity
@@ -214,7 +214,7 @@ end
         prog = Vars{vs_prog}(prog_arr)
         prim = Vars{vs_prim}(prim_arr)
         aux = Vars{vs_aux}(aux_arr)
-        for nt in PhaseEquilProfiles(param_set, ArrayType)
+        for nt in TestedProfiles.PhaseEquilProfiles(param_set, ArrayType)
             assign!(aux, bl, nt, Auxiliary())
 
             # Test prognostic_to_primitive! identity
@@ -255,7 +255,7 @@ end
     prog = Vars{vs_prog}(prog_arr)
     prim = Vars{vs_prim}(prim_arr)
     aux = Vars{vs_aux}(aux_arr)
-    for nt in PhaseDryProfiles(param_set, ArrayType)
+    for nt in TestedProfiles.PhaseDryProfiles(param_set, ArrayType)
         assign!(aux, bl, nt, Auxiliary())
 
         # Test prognostic_to_primitive! identity

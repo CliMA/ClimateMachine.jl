@@ -12,9 +12,9 @@ using ClimateMachine.MPIStateArrays
 using ClimateMachine.ODESolvers
 using ClimateMachine.Orientations
 using ClimateMachine.SystemSolvers
-using ClimateMachine.Thermodynamics
+using Thermodynamics
 using ClimateMachine.TurbulenceClosures
-using ClimateMachine.TemperatureProfiles
+using Thermodynamics.TemperatureProfiles
 using ClimateMachine.VariableTemplates
 using ClimateMachine.VTK
 

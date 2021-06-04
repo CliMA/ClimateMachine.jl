@@ -5,7 +5,7 @@ using ClimateMachine.ConfigTypes
 using ClimateMachine.DGMethods
 using ClimateMachine.DGMethods.FVReconstructions: FVLinear
 using ClimateMachine.DGMethods.NumericalFluxes
-using ClimateMachine.TemperatureProfiles
+using Thermodynamics.TemperatureProfiles
 using ClimateMachine.GenericCallbacks
 using ClimateMachine.Mesh.Geometry
 using ClimateMachine.Mesh.Grids
@@ -13,7 +13,7 @@ using ClimateMachine.Mesh.Topologies
 using ClimateMachine.MPIStateArrays
 using ClimateMachine.ODESolvers
 using ClimateMachine.Orientations
-using ClimateMachine.Thermodynamics
+using Thermodynamics
 using ClimateMachine.TurbulenceClosures
 using ClimateMachine.VariableTemplates
 

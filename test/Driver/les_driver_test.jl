@@ -5,7 +5,7 @@ using ClimateMachine
 using ClimateMachine.Atmos
 using ClimateMachine.Orientations
 using ClimateMachine.Mesh.Grids
-using ClimateMachine.Thermodynamics
+using Thermodynamics
 using ClimateMachine.VariableTemplates
 
 using CLIMAParameters

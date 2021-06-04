@@ -2,7 +2,7 @@ using ..Atmos
 using ..Atmos: AbstractMoistureModel, PrecipitationModel, recover_thermo_state
 using ..Mesh.Topologies
 using ..Mesh.Grids
-using ..Thermodynamics
+using Thermodynamics
 using ..TurbulenceClosures
 using LinearAlgebra
 

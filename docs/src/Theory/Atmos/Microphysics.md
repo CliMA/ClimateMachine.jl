@@ -837,7 +837,7 @@ Finally, the contribution from accretion between rain and snow
 using Plots
 
 using ClimateMachine.Microphysics
-using ClimateMachine.Thermodynamics
+using Thermodynamics
 
 using CLIMAParameters
 using CLIMAParameters.Planet: R_d, planet_radius, grav, MSLP, molmass_ratio

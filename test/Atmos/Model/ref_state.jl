@@ -2,7 +2,7 @@ include("get_atmos_ref_states.jl")
 using JLD2
 using Pkg.Artifacts
 using ArtifactWrappers
-using ClimateMachine.Thermodynamics
+using Thermodynamics
 const TD = Thermodynamics
 
 @testset "Hydrostatic reference states - regression test" begin

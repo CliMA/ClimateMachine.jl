@@ -16,8 +16,8 @@ using ClimateMachine.TurbulenceClosures
 using ClimateMachine.SystemSolvers: ManyColumnLU
 using ClimateMachine.Mesh.Filters
 using ClimateMachine.Mesh.Grids
-using ClimateMachine.TemperatureProfiles
-using ClimateMachine.Thermodynamics:
+using Thermodynamics.TemperatureProfiles
+using Thermodynamics:
     air_density,
     air_temperature,
     total_energy,

@@ -26,10 +26,10 @@ using ClimateMachine.Diagnostics
 using ClimateMachine.GenericCallbacks
 using ClimateMachine.Mesh.Grids
 using ClimateMachine.Mesh.Filters
-using ClimateMachine.TemperatureProfiles
+using Thermodynamics.TemperatureProfiles
 using ClimateMachine.SystemSolvers
 using ClimateMachine.ODESolvers
-using ClimateMachine.Thermodynamics
+using Thermodynamics
 using ClimateMachine.TurbulenceClosures
 using ClimateMachine.VariableTemplates
 using ClimateMachine.BalanceLaws
