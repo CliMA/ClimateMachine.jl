@@ -163,7 +163,7 @@ function calc_linear_pressure(eos::DryIdealGas{(:ρ, :ρu, :ρe)}, state, aux, p
     γ  = calc_γ(eos, state, params)
     # full : (ρe - dot(ρu, ρu) / 2ρ - ρ * Φ)
 
-    return (γ - 1) * (ρe - ρ * Φ - dot(ρu, ρuᵣ) / ρᵣ + ρ * dot(ρuᵣ, ρuᵣ) / (ρᵣ^2) ) 
+    return (γ - 1) * (ρe - ρ * Φ - dot(ρu, ρuᵣ) / ρᵣ + ρ * dot(ρuᵣ, ρuᵣ) / (2 * ρᵣ^2) ) 
 end
 =#
 function numerical_volume_conservative_flux_first_order!(
@@ -246,7 +246,7 @@ function numerical_volume_conservative_flux_first_order!(
 
     F.ρ   = ρᵣ_avg * u_avg + ρ_avg * uᵣ_avg
     F.ρu  = p_avg * I + ρᵣ_avg .* (uᵣ_avg .* u_avg' + u_avg .* uᵣ_avg') 
-    F.ρu += ρ_avg .* uᵣ_avg .* uᵣ_avg' 
+    F.ρu += (ρ_avg .* uᵣ_avg) .* uᵣ_avg' 
     F.ρe  = (ρᵣ_avg * eᵣ_avg + pᵣ_avg) * u_avg
     F.ρe += (ρᵣ_avg * e_avg + ρ_avg * eᵣ_avg + p_avg) * uᵣ_avg
     F.ρq  = ρᵣ_avg * qᵣ_avg * u_avg + (ρᵣ_avg * q_avg + ρ_avg * qᵣ_avg)* uᵣ_avg
