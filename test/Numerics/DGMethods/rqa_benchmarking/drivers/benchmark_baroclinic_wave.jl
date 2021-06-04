@@ -116,14 +116,17 @@ end
 ρqᶜᵃʳᵗ(𝒫, x...) = 0.0
 
 ########
-# Set up model physics
+# Create Reference
 ########
 
 FT = Float64
 
 ref_state = DryReferenceState(DecayingTemperatureProfile{FT}(parameters, FT(290), FT(220), FT(8e3)))
 
-# total energy
+########
+# Set up model
+########
+
 physics = Physics(
     orientation = SphericalOrientation(),
     ref_state   = ref_state,
@@ -138,38 +141,7 @@ physics = Physics(
     ),
     parameters = parameters,
 )
-#=
-physics = EulerModel(
-    orientation = SphericalOrientation(),
-    eos = TotalEnergy(),
-    sources = (
-        DeepShellCoriolis(),
-        FluctationGravity(),
-    )
-    parameters = parameters,
-)
 
-physics = Physics(
-    orientation = SphericalOrientation(),
-    ref_state   = ref_state,
-    eos         = DryIdealGas{(:ρ, :ρu, :ρe)}(),
-    lhs         = (
-        ProductRuleAdvectionPressure(),
-        KGVolumeFlux(),
-        SplitFormNonlinearAdvectionPressure(),
-
-    ),
-    sources     = (
-        DeepShellCoriolis(),
-        Gravity(), # or KGVolumeGravity(), SplitFormGravity()
-    ),
-    parameters = parameters,
-)
-=#
-# linear_model = linearize(model, ref_states = ())
-########
-# Set up model
-########
 model = DryAtmosModel(
     physics = physics,
     boundary_conditions = (5, 6),
@@ -180,24 +152,7 @@ model = DryAtmosModel(
 )
 
 ########
-# Set up time steppers (could be done automatically in simulation)
-########
-# determine the time step construction
-# element_size = (domain_height / numelem_vert)
-# acoustic_speed = soundspeed_air(param_set, FT(330))
-dx = min_node_distance(grid.numerical)
-cfl = 13.5 # 13 for 10 days, 7.5 for 200+ days
-Δt = cfl * dx / 330.0
-start_time = 0
-end_time = 10 * 24 * 3600
-method = IMEX() 
-callbacks = (
-  Info(),
-  CFL(),
-)
-
-########
-# Set up simulation
+# Set up Linear Model
 ########
 
 linear_physics = Physics(
@@ -220,6 +175,24 @@ linear_model = DryAtmosModel(
         flux = RefanovFlux(),
     ),
 
+)
+
+
+########
+# Set up time steppers (could be done automatically in simulation)
+########
+# determine the time step construction
+# element_size = (domain_height / numelem_vert)
+# acoustic_speed = soundspeed_air(param_set, FT(330))
+dx = min_node_distance(grid.numerical)
+cfl = 13.5 # 13 for 10 days, 7.5 for 200+ days
+Δt = cfl * dx / 330.0
+start_time = 0
+end_time = 10 * 24 * 3600
+method = IMEX() 
+callbacks = (
+  Info(),
+  CFL(),
 )
 
 simulation = Simulation(
