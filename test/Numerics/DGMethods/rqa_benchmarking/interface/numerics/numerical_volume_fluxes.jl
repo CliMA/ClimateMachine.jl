@@ -12,6 +12,7 @@ import ClimateMachine.BalanceLaws:
 struct CentralVolumeFlux <: NumericalFluxFirstOrder end
 struct KGVolumeFlux <: NumericalFluxFirstOrder end
 struct LinearKGVolumeFlux <: NumericalFluxFirstOrder end
+struct VeryLinearKGVolumeFlux <: NumericalFluxFirstOrder end
 
 function numerical_volume_fluctuation_flux_first_order!(
     ::NumericalFluxFirstOrder,
