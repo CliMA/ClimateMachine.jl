@@ -16,6 +16,7 @@ import ClimateMachine.BalanceLaws:
     boundary_state!
 import ClimateMachine.NumericalFluxes:
     numerical_boundary_flux_first_order!
+    #numerical_boundary_flux_second_order!
 
 struct DryReferenceState{TP}
     temperature_profile::TP
@@ -197,11 +198,109 @@ end
 """
     Boundary conditions
 """
+struct BottomBC <: AbstractBoundaryCondition end
+struct TopBC <: AbstractBoundaryCondition end
+
 boundary_conditions(model::DryAtmosModel) = model.boundary_conditions
+#boundary_conditions(model::DryAtmosModel) = (BottomBC(), TopBC())
 
 function numerical_boundary_flux_first_order!(
     numerical_flux::NumericalFluxFirstOrder,
     bctype,
+    balance_law::DryAtmosModel,
+    fluxᵀn::Vars{S},
+    n̂::SVector,
+    state⁻::Vars{S},
+    aux⁻::Vars{A},
+    state⁺::Vars{S},
+    aux⁺::Vars{A},
+    t,
+    direction,
+    state1⁻::Vars{S},
+    aux1⁻::Vars{A},
+) where {S, A}
+  return nothing
+end
+
+function numerical_boundary_flux_first_order!(
+    numerical_flux::NumericalFluxFirstOrder,
+    bctype::BottomBC,
+    model::DryAtmosModel,
+    fluxᵀn::Vars{S},
+    n̂::SVector,
+    state⁻::Vars{S},
+    aux⁻::Vars{A},
+    state⁺::Vars{S},
+    aux⁺::Vars{A},
+    t,
+    direction,
+    state1⁻::Vars{S},
+    aux1⁻::Vars{A},
+) where {S, A}
+    state⁺.ρ = state⁻.ρ
+    state⁺.ρe = state⁻.ρe
+    state⁺.ρq = state⁻.ρq
+
+    ρu⁻ = state⁻.ρu
+    
+    # project and reflect
+    state⁺.ρu = ρu⁻ - n̂ ⋅ ρu⁻ .* SVector(n̂) - n̂ ⋅ ρu⁻ .* SVector(n̂)
+    numerical_flux_first_order!(
+      numerical_flux,
+      model,
+      fluxᵀn,
+      n̂,
+      state⁻,
+      aux⁻,
+      state⁺,
+      aux⁺,
+      t,
+      direction,
+    )
+    
+    ρ = state⁻.ρ
+    ρu = state⁻.ρu
+    ρe = state⁻.ρe
+    ρq = state⁻.ρq
+    eos = model.physics.eos
+    parameters = model.physics.parameters
+    cp_d = model.physics.parameters.cp_d
+    LH_v0 = model.physics.parameters.LH_v0
+
+    u = ρu / ρ
+    q = ρq / ρ
+    speed_tangential = norm((I - n̂ ⊗ n̂) * u)
+
+    # obtain drag coefficients
+    #Cₕ = bc.drag_coefficient_temperature(state, aux)
+    #Cₑ = bc.drag_coefficient_moisture(state, aux)
+    Cₕ = 0.044
+    Cₑ = 0.044 
+
+    # obtain surface fields
+    #T_sfc, q_tot_sfc = bc.surface_fields(atmos, state, aux, t)
+    T_sfc = 300.0
+    q_tot_sfc = 0.02  
+
+    # surface cooling due to wind via transport of dry energy (sensible heat flux)
+    cp = calc_cp(eos, state⁻, parameters)
+    T = calc_air_temperature(eos, state⁻, aux⁻, parameters)
+    H = ρ * Cₕ * speed_tangential * cp * (T - T_sfc)
+
+    # surface cooling due to wind via transport of moisture (latent energy flux)
+    E = ρ * Cₑ * speed_tangential * LH_v0 * (q - q_tot_sfc)
+    #println(E)
+    #println(H)
+
+    #fluxᵀn.ρ  -= E / LH_v0 
+    #fluxᵀn.ρu -= E / LH_v0 .* u
+    fluxᵀn.ρe -= E + H
+    fluxᵀn.ρq -= E / LH_v0
+end
+
+function numerical_boundary_flux_first_order!(
+    numerical_flux::NumericalFluxFirstOrder,
+    bctype::TopBC,
     balance_law::DryAtmosModel,
     fluxᵀn::Vars{S},
     n̂::SVector,
@@ -219,23 +318,22 @@ function numerical_boundary_flux_first_order!(
     state⁺.ρq = state⁻.ρq
 
     ρu⁻ = state⁻.ρu
+    
     # project and reflect
     state⁺.ρu = ρu⁻ - n̂ ⋅ ρu⁻ .* SVector(n̂) - n̂ ⋅ ρu⁻ .* SVector(n̂)
-
     numerical_flux_first_order!(
-        numerical_flux,
-        balance_law,
-        fluxᵀn,
-        n̂,
-        state⁻,
-        aux⁻,
-        state⁺,
-        aux⁺,
-        t,
-        direction,
+      numerical_flux,
+      balance_law,
+      fluxᵀn,
+      n̂,
+      state⁻,
+      aux⁻,
+      state⁺,
+      aux⁺,
+      t,
+      direction,
     )
 end
-
 # function boundary_state!(
 #     nmf::NumericalFluxFirstOrder,
 #     bctype,
@@ -269,18 +367,18 @@ end
 
 # end
 
-function numerical_boundary_flux_second_order!(_...) 
-    return nothing
-end
+#function numerical_boundary_flux_second_order!(_...) 
+#    return nothing
+#end
 
-# function boundary_state!(
-#     nf::NumericalFluxSecondOrder,
-#     bc,
-#     lm::DryAtmosModel,
-#     args...,
-# )
-#     nothing
-# end
+function boundary_state!(
+    nf::NumericalFluxSecondOrder,
+    bc,
+    lm::DryAtmosModel,
+    args...,
+)
+    nothing
+end
 
 """
     Utils

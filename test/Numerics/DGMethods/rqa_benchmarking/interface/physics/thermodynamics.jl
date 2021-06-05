@@ -140,6 +140,44 @@ end
     return sqrt(γ * p / ρ)
 end
 
+@inline function calc_air_temperature(eos::DryIdealGas{(:ρ, :ρu, :ρe)}, state, aux, params)
+  ρ = state.ρ
+  ρu = state.ρu
+  ρe = state.ρe
+  q_tot = state.ρq / ρ
+  q_liq = 0.0 # zero for now
+  q_ice = 0.0 # zero for now
+  Φ = aux.Φ
+
+  T_0 = params.T_0
+  cv_d = params.cv_d
+
+  e_int = (ρe - ρu' * ρu / 2ρ - ρ * Φ) / ρ
+  T = T_0 + e_int / cv_d
+
+  return T
+end
+
+@inline function calc_air_temperature(eos::MoistIdealGas{(:ρ, :ρu, :ρe)}, state, aux, params)
+  ρ = state.ρ
+  ρu = state.ρu
+  ρe = state.ρe
+  q_tot = state.ρq / ρ
+  q_liq = 0.0 # zero for now
+  q_ice = 0.0 # zero for now
+  Φ = aux.Φ
+
+  T_0 = params.T_0
+  e_int_v0 = params.e_int_v0
+  e_int_i0 = 0.0 #params.e_int_i0
+  cv_m = calc_cv(eos, state, aux, params)
+  
+  e_int = (ρe - ρu' * ρu / 2ρ - ρ * Φ) / ρ
+  T = T_0 + (e_int - (q_tot - q_liq) * e_int_v0 + q_ice * (e_int_v0 + e_int_i0)) / cv_m
+
+  return T
+end
+
 @inline function calc_total_specific_enthalpy(eos::DryIdealGas, state, aux, params)
     ρ  = state.ρ
     ρe = state.ρe

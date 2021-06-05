@@ -42,7 +42,7 @@ parameters = (
     p_w      = 3.4e4,
     q₀       = 0.018,
     qₜ       = 1e-12,
-    τ_precip = 22.72,
+    τ_precip = 100.0,
 )
 
 ########
@@ -54,8 +54,8 @@ domain = SphericalShell(
 )
 grid = DiscretizedDomain(
     domain;
-    elements = (vertical = 10, horizontal = 30),
-    polynomial_order = (vertical = 2, horizontal = 3),
+    elements = (vertical = 10, horizontal = 32),
+    polynomial_order = (vertical = 2, horizontal = 2),
     overintegration_order = (vertical = 0, horizontal = 0),
    )
 
@@ -171,7 +171,7 @@ linear_physics = Physics(
 ########
 model = DryAtmosModel(
     physics = physics,
-    boundary_conditions = (5, 6),
+    boundary_conditions = (BottomBC(), TopBC()),
     initial_conditions = (ρ = ρ₀ᶜᵃʳᵗ, ρu = ρu⃗₀ᶜᵃʳᵗ, ρe = ρeᶜᵃʳᵗ, ρq = ρqᶜᵃʳᵗ),
     numerics = (
       flux = LMARSNumericalFlux(),
@@ -180,7 +180,7 @@ model = DryAtmosModel(
 
 linear_model = DryAtmosModel(
     physics = linear_physics,
-    boundary_conditions = (5, 6),
+    boundary_conditions = (TopBC(), TopBC()),
     initial_conditions = (ρ = ρ₀ᶜᵃʳᵗ, ρu = ρu⃗₀ᶜᵃʳᵗ, ρe = ρeᶜᵃʳᵗ, ρq = ρqᶜᵃʳᵗ),
     numerics = (
         flux = RefanovFlux(),
@@ -202,8 +202,8 @@ callbacks = (
   CFL(),
   VTKState(
     iteration = Int(floor(6*3600/Δt)), 
-   # filepath = "/central/scratch/bischtob/wip_moist_baroclinic_wave/"),
-    filepath = "./out/"),  
+    filepath = "/central/scratch/bischtob/wip_moist_baroclinic_wave/"),
+    #filepath = "./out/"),  
   TMARCallback(),
 )
 
