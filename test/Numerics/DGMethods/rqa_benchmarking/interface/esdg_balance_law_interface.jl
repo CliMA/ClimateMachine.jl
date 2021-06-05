@@ -155,9 +155,9 @@ function init_state_auxiliary!(
     ρe = p / (γ - 1) + dot(ρu, ρu) / 2ρ + ρ * Φ
     ρq = FT(0)
 
-    state_auxiliary.ref_state.T = T
-    state_auxiliary.ref_state.p = p
-    state_auxiliary.ref_state.ρ = ρ
+    state_auxiliary.ref_state.T  = T
+    state_auxiliary.ref_state.p  = p
+    state_auxiliary.ref_state.ρ  = ρ
     state_auxiliary.ref_state.ρu = ρu
     state_auxiliary.ref_state.ρe = ρe
     state_auxiliary.ref_state.ρq = ρq    
@@ -292,10 +292,14 @@ function numerical_boundary_flux_first_order!(
     #println(E)
     #println(H)
 
-    #fluxᵀn.ρ  -= E / LH_v0 
-    #fluxᵀn.ρu -= E / LH_v0 .* u
-    fluxᵀn.ρe -= E + H
-    fluxᵀn.ρq -= E / LH_v0
+    # fluxᵀn.ρ  += E / LH_v0 
+    # fluxᵀn.ρu += E / LH_v0 .* u
+    fluxᵀn.ρ = 0.0
+    fluxᵀn.ρe = E + H
+    fluxᵀn.ρq = E / LH_v0
+
+    # fluxᵀn.ρe = -(E + H)
+    # fluxᵀn.ρq = -(E / LH_v0)
 end
 
 function numerical_boundary_flux_first_order!(
