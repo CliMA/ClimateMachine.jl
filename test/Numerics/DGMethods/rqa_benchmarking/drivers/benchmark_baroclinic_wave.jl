@@ -15,6 +15,7 @@ parameters = (
     γ    = get_planet_parameter(:cp_d)/get_planet_parameter(:cv_d),
     pₒ   = get_planet_parameter(:MSLP),
     cv_d = get_planet_parameter(:cv_d),
+    cp_d = get_planet_parameter(:cp_d),
     T_0  = 0.0,
     H    = 30e3,
     k    = 3.0,
@@ -115,14 +116,17 @@ end
 ρqᶜᵃʳᵗ(𝒫, x...) = 0.0
 
 ########
-# Set up model physics
+# Create Reference
 ########
 
 FT = Float64
 
 ref_state = DryReferenceState(DecayingTemperatureProfile{FT}(parameters, FT(290), FT(220), FT(8e3)))
 
-# total energy
+########
+# Set up model
+########
+
 physics = Physics(
     orientation = SphericalOrientation(),
     ref_state   = ref_state,
@@ -133,41 +137,11 @@ physics = Physics(
     ),
     sources     = (
         DeepShellCoriolis(),
+        FluctuationGravity(),
     ),
-    parameters = parameters,
-)
-#=
-physics = EulerModel(
-    orientation = SphericalOrientation(),
-    eos = TotalEnergy(),
-    sources = (
-        DeepShellCoriolis(),
-        FluctationGravity(),
-    )
     parameters = parameters,
 )
 
-physics = Physics(
-    orientation = SphericalOrientation(),
-    ref_state   = ref_state,
-    eos         = DryIdealGas{(:ρ, :ρu, :ρe)}(),
-    lhs         = (
-        ProductRuleAdvectionPressure(),
-        KGVolumeFlux(),
-        SplitFormNonlinearAdvectionPressure(),
-
-    ),
-    sources     = (
-        DeepShellCoriolis(),
-        Gravity(), # or KGVolumeGravity(), SplitFormGravity()
-    ),
-    parameters = parameters,
-)
-=#
-# linear_model = linearize(model, ref_states = ())
-########
-# Set up model
-########
 model = DryAtmosModel(
     physics = physics,
     boundary_conditions = (5, 6),
@@ -176,6 +150,33 @@ model = DryAtmosModel(
         flux = RefanovFlux(),
     ),
 )
+
+########
+# Set up Linear Model
+########
+
+linear_physics = Physics(
+    orientation = physics.orientation,
+    ref_state   = physics.ref_state,
+    eos         = physics.eos,
+    lhs         = (
+        LinearAdvection{(:ρ, :ρu, :ρe)}(),
+        LinearPressureDivergence(),
+    ),
+    sources     = (FluctuationGravity(),),
+    parameters = parameters,
+)
+
+linear_model = DryAtmosModel(
+    physics = linear_physics,
+    boundary_conditions = (5, 6),
+    initial_conditions = (ρ = ρ₀ᶜᵃʳᵗ, ρu = ρu⃗₀ᶜᵃʳᵗ, ρe = ρeᶜᵃʳᵗ, ρq = ρqᶜᵃʳᵗ),
+    numerics = (
+        flux = RefanovFlux(),
+    ),
+
+)
+
 
 ########
 # Set up time steppers (could be done automatically in simulation)
@@ -192,32 +193,6 @@ method = IMEX()
 callbacks = (
   Info(),
   CFL(),
-)
-
-########
-# Set up simulation
-########
-
-linear_physics = Physics(
-    orientation = physics.orientation,
-    ref_state   = physics.ref_state,
-    eos         = physics.eos,
-    lhs         = (
-        LinearAdvection{(:ρ, :ρu, :ρe)}(),
-        LinearPressureDivergence(),
-    ),
-    sources     = (),
-    parameters = parameters,
-)
-
-linear_model = DryAtmosModel(
-    physics = linear_physics,
-    boundary_conditions = (5, 6),
-    initial_conditions = (ρ = ρ₀ᶜᵃʳᵗ, ρu = ρu⃗₀ᶜᵃʳᵗ, ρe = ρeᶜᵃʳᵗ, ρq = ρqᶜᵃʳᵗ),
-    numerics = (
-        flux = RefanovFlux(),
-    ),
-
 )
 
 simulation = Simulation(

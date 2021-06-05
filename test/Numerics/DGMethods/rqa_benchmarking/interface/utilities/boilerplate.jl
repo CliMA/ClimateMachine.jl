@@ -34,6 +34,9 @@ using CLIMAParameters#: AbstractEarthParameterSet
 struct PlanetParameterSet <: AbstractEarthParameterSet end
 get_planet_parameter(p::Symbol) = getproperty(CLIMAParameters.Planet, p)(PlanetParameterSet())
 
+# 
+import ClimateMachine.BalanceLaws: init_state_auxiliary!
+
 const total_energy = true
 # const fluctuation_gravity = true
 
