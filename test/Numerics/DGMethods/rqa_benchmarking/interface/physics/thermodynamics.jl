@@ -166,11 +166,11 @@ end
   q_liq = 0.0 # zero for now
   q_ice = 0.0 # zero for now
   Φ = aux.Φ
-
   T_0 = params.T_0
   e_int_v0 = params.e_int_v0
-  e_int_i0 = 0.0 #params.e_int_i0
-  cv_m = calc_cv(eos, state, aux, params)
+  e_int_i0 = params.e_int_i0
+
+  cv_m = calc_cv(eos, state, params)
   
   e_int = (ρe - ρu' * ρu / 2ρ - ρ * Φ) / ρ
   T = T_0 + (e_int - (q_tot - q_liq) * e_int_v0 + q_ice * (e_int_v0 + e_int_i0)) / cv_m

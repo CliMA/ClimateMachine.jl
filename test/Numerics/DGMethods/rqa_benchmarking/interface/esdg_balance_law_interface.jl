@@ -198,11 +198,12 @@ end
 """
     Boundary conditions
 """
-struct BottomBC <: AbstractBoundaryCondition end
-struct TopBC <: AbstractBoundaryCondition end
+struct DefaultBC <: AbstractBoundaryCondition end
+struct SurfaceFlux{𝒯} <: AbstractBoundaryCondition 
+  T::𝒯
+end
 
 boundary_conditions(model::DryAtmosModel) = model.boundary_conditions
-#boundary_conditions(model::DryAtmosModel) = (BottomBC(), TopBC())
 
 function numerical_boundary_flux_first_order!(
     numerical_flux::NumericalFluxFirstOrder,
@@ -224,7 +225,7 @@ end
 
 function numerical_boundary_flux_first_order!(
     numerical_flux::NumericalFluxFirstOrder,
-    bctype::BottomBC,
+    bctype::SurfaceFlux,
     model::DryAtmosModel,
     fluxᵀn::Vars{S},
     n̂::SVector,
@@ -274,37 +275,40 @@ function numerical_boundary_flux_first_order!(
     # obtain drag coefficients
     #Cₕ = bc.drag_coefficient_temperature(state, aux)
     #Cₑ = bc.drag_coefficient_moisture(state, aux)
-    Cₕ = 0.044
-    Cₑ = 0.044 
+    Cₕ = 0.0044
+    Cₑ = 0.0044 
 
     # obtain surface fields
-    #T_sfc, q_tot_sfc = bc.surface_fields(atmos, state, aux, t)
-    T_sfc = 300.0
-    q_tot_sfc = 0.02  
+    T_sfc = bctype.T(parameters, aux⁻.x, aux⁻.y, aux⁻.z)
 
+    # saturation specific humidity
+    pₜᵣ      = get_planet_parameter(:press_triple) 
+    R_v      = get_planet_parameter(:R_v)
+    Tₜᵣ      = get_planet_parameter(:T_triple)
+    T_0      = get_planet_parameter(:T_0)
+    cp_v     = get_planet_parameter(:cp_v)
+    cp_l     = get_planet_parameter(:cp_l)
+    Δcp = cp_v - cp_l
+    pᵥₛ = pₜᵣ * (T_sfc / Tₜᵣ)^(Δcp / R_v) * exp((LH_v0 - Δcp * T_0) / R_v * (1 / Tₜᵣ - 1 / T_sfc))
+    q_tot_sfc = pᵥₛ / (ρ * R_v * T_sfc)
+       
     # surface cooling due to wind via transport of dry energy (sensible heat flux)
     cp = calc_cp(eos, state⁻, parameters)
     T = calc_air_temperature(eos, state⁻, aux⁻, parameters)
     H = ρ * Cₕ * speed_tangential * cp * (T - T_sfc)
 
     # surface cooling due to wind via transport of moisture (latent energy flux)
-    E = ρ * Cₑ * speed_tangential * LH_v0 * (q - q_tot_sfc)
-    #println(E)
-    #println(H)
+    E = 0.1 * ρ * Cₑ * speed_tangential * LH_v0 * (q - q_tot_sfc)
 
-    # fluxᵀn.ρ  += E / LH_v0 
-    # fluxᵀn.ρu += E / LH_v0 .* u
-    fluxᵀn.ρ = 0.0
+    #fluxᵀn.ρ = -E / LH_v0 
+    #fluxᵀn.ρu += E / LH_v0 .* u
     fluxᵀn.ρe = E + H
     fluxᵀn.ρq = E / LH_v0
-
-    # fluxᵀn.ρe = -(E + H)
-    # fluxᵀn.ρq = -(E / LH_v0)
 end
 
 function numerical_boundary_flux_first_order!(
     numerical_flux::NumericalFluxFirstOrder,
-    bctype::TopBC,
+    bctype::DefaultBC,
     balance_law::DryAtmosModel,
     fluxᵀn::Vars{S},
     n̂::SVector,

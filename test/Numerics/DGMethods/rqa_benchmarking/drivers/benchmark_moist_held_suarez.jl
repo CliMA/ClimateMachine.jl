@@ -32,8 +32,8 @@ parameters = (
     H        = 30e3,
     k        = 3.0,
     Γ        = 0.005,
-    T_E      = 310.0,
-    T_P      = 240.0,
+    T_E      = 300,
+    T_P      = 271.0,
     b        = 2.0,
     z_t      = 15e3,
     λ_c      = π / 9,
@@ -43,7 +43,13 @@ parameters = (
     p_w      = 3.4e4,
     q₀       = 0.018,
     qₜ       = 1e-12,
+    ΔT       = 29.0,
+    Tₘᵢₙ     = 271.0,
+    Δϕ       = 26π/180.0,
+    day = 86400,
+    T_ref = 255,
     τ_precip = 100.0,
+    p0 = 1e5,
 )
 
 ########
@@ -91,7 +97,7 @@ cond(𝒫,λ,ϕ)  = (0 < d(𝒫,λ,ϕ) < d_0(𝒫)) * (d(𝒫,λ,ϕ) != 𝒫.a *
 I_T(𝒫,ϕ,r)   = (cos(ϕ) * r / 𝒫.a)^𝒫.k - 𝒫.k / (𝒫.k + 2) * (cos(ϕ) * r / 𝒫.a)^(𝒫.k + 2)
 Tᵥ(𝒫,ϕ,r)    = (τ_1(𝒫,r) - τ_2(𝒫,r) * I_T(𝒫,ϕ,r))^(-1) * (𝒫.a/r)^2
 p(𝒫,ϕ,r)     = 𝒫.pₒ * exp(-𝒫.g / 𝒫.R_d * (τ_int_1(𝒫,r) - τ_int_2(𝒫,r) * I_T(𝒫,ϕ,r)))
-q(𝒫,ϕ,r)     = (p(𝒫,ϕ,r) > 𝒫.p_w) ? 𝒫.q₀ * exp(-(ϕ / 𝒫.ϕ_w)^4) * exp(-((p(𝒫,ϕ,r) - 𝒫.pₒ) / 𝒫.p_w)^2) : 𝒫.qₜ
+q(𝒫,ϕ,r)     = 0.0
 
 # base-state velocity variables
 U(𝒫,ϕ,r)  = 𝒫.g * 𝒫.k / 𝒫.a * τ_int_2(𝒫,r) * Tᵥ(𝒫,ϕ,r) * ((cos(ϕ) * r / 𝒫.a)^(𝒫.k - 1) - (cos(ϕ) * r / 𝒫.a)^(𝒫.k + 1))
@@ -130,6 +136,107 @@ e_pot(𝒫,λ,ϕ,r)  = 𝒫.g * r
 ρqᶜᵃʳᵗ(𝒫, x...) = ρq(𝒫, lon(x...), lat(x...), rad(x...))
 
 ########
+# Set up lower boundary condition
+########
+T_sfc(𝒫,  x...) = 𝒫.ΔT * exp(-lat(x...)^2 / 2 / 𝒫.Δϕ^2) + 𝒫.Tₘᵢₙ
+FixedSST = SurfaceFlux(T_sfc)
+
+#####
+# Held-Suarez Forcing
+#####
+struct HeldSuarezForcing{S} <: AbstractPhysicsComponent
+    parameters::S
+end
+
+FT = Float64
+day = 86400
+held_suarez_parameters = (;
+    k_a = FT(1 / (40 * day)),
+    k_f = FT(1 / day),
+    k_s = FT(1 / (4 * day)),
+    ΔT_y = FT(65),
+    Δθ_z = FT(10),
+    T_equator = FT(294),
+    T_min = FT(200),
+    σ_b = FT(7 / 10),
+    R_d  = parameters.R_d,
+    day  = parameters.day,
+    grav = parameters.g,
+    cp_d = parameters.cp_d,
+    cv_d = parameters.cv_d,
+    MSLP = parameters.p0,  
+)
+
+######
+# Modified Held-Suarez Forcing
+######
+function calc_force!(
+    source,
+    hsf::HeldSuarezForcing,
+    state,
+    aux,
+)
+    FT = eltype(state)
+    
+    _R_d  = hsf.parameters.R_d
+    _day  = hsf.parameters.day
+    _grav = hsf.parameters.grav
+    _cp_d = hsf.parameters.cp_d
+    _cv_d = hsf.parameters.cv_d
+    _p0   = hsf.parameters.MSLP  
+
+    # Parameters
+    T_ref = FT(255)
+
+    # Extract the state
+    ρ = state.ρ
+    ρu = state.ρu
+    ρe = state.ρe
+    Φ = aux.Φ
+    
+    x = aux.x
+    y = aux.y
+    z = aux.z
+    coord = @SVector[x,y,z]
+
+    p = pressure(ρ, ρu, ρe, Φ)
+    T = p / (ρ * _R_d)
+
+    # Held-Suarez parameters
+    k_a  = hsf.parameters.k_a
+    k_f  = hsf.parameters.k_f
+    k_s  = hsf.parameters.k_s
+    ΔT_y = hsf.parameters.ΔT_y
+    Δθ_z = hsf.parameters.Δθ_z
+    T_equator = hsf.parameters.T_equator
+    T_min = hsf.parameters.T_min
+    σ_b = hsf.parameters.σ_b
+
+    # Held-Suarez forcing
+    φ = @inbounds asin(coord[3] / norm(coord, 2))
+
+    #TODO: replace _p0 with dynamic surfce pressure in Δσ calculations to account
+    #for topography, but leave unchanged for calculations of σ involved in T_equil
+    σ = p / _p0
+    exner_p = σ^(_R_d / _cp_d)
+    Δσ = (σ - σ_b) / (1 - σ_b)
+    height_factor = max(0, Δσ)
+    T_equil = (T_equator - ΔT_y * sin(φ)^2 - Δθ_z * log(σ) * cos(φ)^2) * exner_p
+    T_equil = max(T_min, T_equil)
+    k_T = k_a + (k_s - k_a) * height_factor * cos(φ)^4
+    k_v = k_f * height_factor
+
+    # horizontal projection
+    k = coord / norm(coord)
+    P = I - k * k'
+
+    # Apply Held-Suarez forcing
+    source.ρu -= k_v * P * ρu
+    source.ρe -= k_T * ρ * _cv_d * (T - T_equil)
+    return nothing
+end
+
+########
 # Set up model physics
 ########
 FT = Float64
@@ -140,7 +247,7 @@ ref_state = DryReferenceState(
 physics = Physics(
     orientation = SphericalOrientation(),
     ref_state   = ref_state,
-    eos         = MoistIdealGas{(:ρ, :ρu, :ρe)}(),
+    eos         = DryIdealGas{(:ρ, :ρu, :ρe)}(),
     lhs         = (
         NonlinearAdvection{(:ρ, :ρu, :ρe)}(),
         PressureDivergence(),
@@ -148,7 +255,8 @@ physics = Physics(
     sources     = (
         DeepShellCoriolis(),
         FluctuationGravity(),
-        ZeroMomentMicrophysics(),
+        #ZeroMomentMicrophysics(),
+        #HeldSuarezForcing(held_suarez_parameters),
     ),
     parameters = parameters,
 )
@@ -172,7 +280,7 @@ linear_physics = Physics(
 ########
 model = DryAtmosModel(
     physics = physics,
-    boundary_conditions = (Default(), Default()),
+    boundary_conditions = (FixedSST, DefaultBC()),
     initial_conditions = (ρ = ρ₀ᶜᵃʳᵗ, ρu = ρu⃗₀ᶜᵃʳᵗ, ρe = ρeᶜᵃʳᵗ, ρq = ρqᶜᵃʳᵗ),
     numerics = (
       flux = LMARSNumericalFlux(),
@@ -181,7 +289,7 @@ model = DryAtmosModel(
 
 linear_model = DryAtmosModel(
     physics = linear_physics,
-    boundary_conditions = (Default(), Default()),
+    boundary_conditions = (DefaultBC(), DefaultBC()),
     initial_conditions = (ρ = ρ₀ᶜᵃʳᵗ, ρu = ρu⃗₀ᶜᵃʳᵗ, ρe = ρeᶜᵃʳᵗ, ρq = ρqᶜᵃʳᵗ),
     numerics = (
         flux = RefanovFlux(),
@@ -196,14 +304,14 @@ dx = min_node_distance(grid.numerical)
 cfl = 5 # 13 for 10 days, 7.5 for 200+ days
 Δt = cfl * dx / 330.0
 start_time = 0
-end_time = 30 * 24 * 3600
+end_time = 1200 * 24 * 3600
 method = IMEX() 
 callbacks = (
   Info(),
   CFL(),
   VTKState(
-    iteration = Int(floor(6*3600/Δt)), 
-    filepath = "/central/scratch/bischtob/wip_moist_baroclinic_wave/"),
+    iteration = Int(floor(24*3600/Δt)), 
+    filepath = "/central/scratch/bischtob/benchmark_moist_held_suarez/"),
     #filepath = "./out/"),  
   TMARCallback(),
 )
