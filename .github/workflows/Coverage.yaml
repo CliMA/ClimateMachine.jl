@@ -16,7 +16,7 @@ jobs:
     - name: Set up Julia
       uses: julia-actions/setup-julia@latest
       with:
-        version: 1.5.4
+        version: 1.6.0
    
     - name: Test with coverage
       run: |

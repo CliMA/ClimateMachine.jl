@@ -49,7 +49,7 @@ jobs:
       uses: julia-actions/setup-julia@latest
       if: steps.filter.outputs.run_test == 'true'
       with:
-        version: 1.5.4
+        version: 1.6.0
 
     # https://discourse.julialang.org/t/recommendation-cache-julia-artifacts-in-ci-services/35484
     - name: Cache artifacts

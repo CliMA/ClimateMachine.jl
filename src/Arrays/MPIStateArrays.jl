@@ -3,6 +3,7 @@ module MPIStateArrays
 using CUDA
 using DoubleFloats
 using KernelAbstractions
+using CUDAKernels
 using LazyArrays
 using LinearAlgebra
 using MPI

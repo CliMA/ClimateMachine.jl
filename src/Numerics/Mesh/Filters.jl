@@ -3,6 +3,7 @@ module Filters
 using SpecialFunctions
 using LinearAlgebra, GaussQuadrature, KernelAbstractions
 using KernelAbstractions.Extras: @unroll
+using CUDAKernels
 using StaticArrays
 using ..Grids
 using ..Grids: Direction, EveryDirection, HorizontalDirection, VerticalDirection

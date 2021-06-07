@@ -37,7 +37,7 @@ jobs:
     - name: Set up Julia
       uses: julia-actions/setup-julia@latest
       with:
-        version: 1.5.4
+        version: 1.6.0
 
     # https://discourse.julialang.org/t/recommendation-cache-julia-artifacts-in-ci-services/35484
     - name: Cache artifacts

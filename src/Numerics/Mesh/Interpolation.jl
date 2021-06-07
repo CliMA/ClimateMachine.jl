@@ -7,6 +7,7 @@ using MPI
 using OrderedCollections
 using StaticArrays
 using KernelAbstractions
+using CUDAKernels
 
 using ClimateMachine
 using ClimateMachine.Mesh.Topologies

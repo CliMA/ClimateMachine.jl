@@ -17,6 +17,7 @@ using LinearAlgebra
 using LazyArrays
 using StaticArrays
 using KernelAbstractions
+using CUDAKernels
 
 const weighted_norm = false
 

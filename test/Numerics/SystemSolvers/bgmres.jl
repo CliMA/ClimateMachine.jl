@@ -9,6 +9,7 @@ using ClimateMachine.MPIStateArrays
 using CUDA
 using Random
 using KernelAbstractions
+using CUDAKernels
 
 import ClimateMachine.MPIStateArrays: array_device
 
