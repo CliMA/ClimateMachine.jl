@@ -24,6 +24,48 @@ const lonshift = 60
 
 rcParams!(PyPlot.PyDict(PyPlot.matplotlib."rcParams"))
 
+#struct FullAtmosModel <: BalanceLaw end
+#vars_state(::FullAtmosModel, ::Prognostic, FT) = @vars(ρ::FT, ρu::SVector{3, FT}, ρe::FT)
+#vars_state(::FullAtmosModel, ::Auxiliary, FT) = @vars(coord::SVector{3, FT}, Φ::FT, ∇Φ::SVector{3, FT})
+
+function bw_plots(datadir="esdg_output")
+  #bw_panel(datadir)
+  bw_timeseries(datadir)
+end
+
+function bw_timeseries(datadir)
+  times = Dict()
+  pmin = Dict()
+  vmax = Dict()
+
+  for (root, dir, files) in walkdir(datadir)
+    files = filter(s->endswith(s, "jld2"), files)
+    nfiles = length(files)
+    nfiles == 0 && continue
+
+    any(occursin.("timeseries", files)) || continue
+    datafile = filter(x -> occursin("timeseries", x), files)[1]
+    
+    data = load(joinpath(root, datafile))
+    N = data["N"]
+    K = data["K"]
+
+    times[N] = data["times"]
+    pmin[N] = data["pmin"]
+    vmax[N] = data["vmax"]
+  end
+
+  @pgf begin
+    ppmin3 = Plot({}, Coordinates(times[3], pmin[3]))
+    axis = Axis(ppmin3)
+    pgfsave("pmin.pdf", axis)
+  
+    pvmax3 = Plot({}, Coordinates(times[3], vmax[3]))
+    axis = Axis(pvmax3)
+    pgfsave("vmax.pdf", axis)
+  end
+end
+
 bw_diagnostic_vars(FT) = @vars(p::FT, lat::FT, lon::FT, T::FT, ω::SVector{3, FT}, ωk::FT)
 function bw_nodal_diagnostics!(atmos, diag::Vars, state::Vars, aux::Vars, coord)
   FT = eltype(state)
@@ -64,7 +106,6 @@ function bw_spherical_coordinates!(atmos, diag::Vars, state::Vars, aux::Vars, co
 end
 
 function compute_vorticity(N, K, state_prognostic)
-
   ClimateMachine.init()
   mpicomm = MPI.COMM_WORLD
   FT = Float64
@@ -106,8 +147,6 @@ function compute_vorticity(N, K, state_prognostic)
   ω
 end
 
-function bw_plots()
-end
 
 function interpolate_to_pressure_surface(state_diagnostic, aux, N, K, Nqi; psurf=850)
   FT = eltype(aux)
@@ -158,7 +197,7 @@ function interpolate_to_pressure_surface(state_diagnostic, aux, N, K, Nqi; psurf
   return T850, ωk850
 end
 
-function bw_plot_surface_pressure(datadir)
+function bw_panel(datadir)
   for (root, dir, files) in walkdir(datadir)
     files = filter(s->endswith(s, "jld2"), files)
     nfiles = length(files)
@@ -186,7 +225,8 @@ function bw_plot_surface_pressure(datadir)
       vgeo = data["vgeo"]
       state_prognostic = data["state_prognostic"]
       state_auxiliary = data["state_auxiliary"]
-      model = data["model"]
+
+      #model = FullAtmosModel()
 
       ω = compute_vorticity(N, K, state_prognostic)
 

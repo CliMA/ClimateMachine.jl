@@ -41,6 +41,7 @@ function main()
 
     timeend = 15 * 24 * 3600
     outputtime = 24 * 3600
+    tsoutputtime = 5 * 60
 
     FT = Float64
     result = run(
@@ -49,6 +50,7 @@ function main()
         K,
         timeend,
         outputtime,
+        tsoutputtime,
         ArrayType,
         FT,
     )
@@ -60,6 +62,7 @@ function run(
     K,
     timeend,
     outputtime,
+    tsoutputtime,
     ArrayType,
     FT,
 )
@@ -241,7 +244,8 @@ function run(
     k1 = Array(view(esdg.state_auxiliary.data, :, 2, :)) ./ _grav
     k2 = Array(view(esdg.state_auxiliary.data, :, 3, :)) ./ _grav
     k3 = Array(view(esdg.state_auxiliary.data, :, 4, :)) ./ _grav
-    cb_vel_p = EveryXSimulationSteps(1000) do
+
+    cb_vel_p = EveryXSimulationSteps(floor(tsoutputtime / dt)) do
             γ = FT(gamma(param_set))
             simtime = gettime(odesolver)
             push!(times, simtime)
@@ -335,13 +339,7 @@ function run(
         adjustfinalstep = false,
         callbacks = callbacks,
     )
-    open(joinpath(outdir, "timeseries.txt"), "w") do f
-      msg = ""
-      for i in 1:length(times)
-        msg *= @sprintf("%.16e %.16e %.16e\n", times[i], pmin[i], vmax[i])
-      end
-      write(f, msg)
-    end
+    @save(joinpath(outdir, "timeseries.jld2"), times, pmin, vmax, N, K)
 
     # final statistics
     engf = norm(Q)
