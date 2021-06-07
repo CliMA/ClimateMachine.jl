@@ -24,6 +24,10 @@ Base.@kwdef struct TMARCallback{ℱ} <: AbstractCallback
     filterstates::ℱ = 6:6
 end
 
+Base.@kwdef struct ReferenceStateUpdate{ℱ} <: AbstractCallback 
+    recompute::ℱ = 20
+end
+
 function create_callbacks(simulation::Simulation, odesolver)
     callbacks = simulation.callbacks
 
@@ -235,3 +239,44 @@ function create_callback(filter::TMARCallback, simulation::Simulation, odesolver
         end
     return tmar_filter
 end
+
+# helper function 
+#=
+function update_ref_state!(
+    m::AtmosModel,
+    state::Vars,
+    aux::Vars,
+    t::Real,
+)
+  param_set = m.param_set
+  ρ = state.ρ
+  ρu = state.ρu
+  ρe = state.ρe
+  aux.ref_state.ρ = ρ
+  aux.ref_state.ρu = ρu
+  aux.ref_state.ρe = ρe
+  Φ = aux.orientation.Φ 
+  e_int = (ρe - ρu' * ρu / 2ρ - ρ * Φ) / ρ
+  T = air_temperature(param_set, e_int)
+  aux.ref_state.T = T
+  aux.ref_state.p = air_pressure(param_set, T, ρ)
+end
+
+function create_callback(update_ref::ReferenceStateUpdate, simulation::Simulation, odesolver)
+    Q = simulation.state
+    grid = simulation.grid.numerical
+    step =  update_ref.recompute
+    balance_law = solver_config.dg.balance_law
+    # Q, dg, balance_law, odesolver
+    relinearize = EveryXSimulationSteps(step) do       
+        t = gettime(odesolver)
+        
+        update_auxiliary_state!(update_ref_state!, dg, balance_law, Q, t)
+
+        α = odesolver.dt * odesolver.RKA_implicit[2, 2]
+        update_backward_Euler_solver!(odesolver.besolver!, Q, α)
+        nothing
+    end
+    return relinearize
+end
+=#
