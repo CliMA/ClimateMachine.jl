@@ -14,8 +14,8 @@ using ClimateMachine.Mesh.Grids
 using ClimateMachine.Mesh.Topologies
 using ClimateMachine.ODESolvers
 using ClimateMachine.Orientations
-using ClimateMachine.TemperatureProfiles
-using ClimateMachine.Thermodynamics
+using Thermodynamics.TemperatureProfiles
+using Thermodynamics
 using ClimateMachine.TurbulenceClosures
 using ClimateMachine.VariableTemplates
 using ClimateMachine.VTK

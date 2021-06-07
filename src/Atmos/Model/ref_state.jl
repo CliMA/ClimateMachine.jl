@@ -1,6 +1,6 @@
 ### Reference state
 using DocStringExtensions
-using ..TemperatureProfiles
+using Thermodynamics.TemperatureProfiles
 export ReferenceState, NoReferenceState, HydrostaticState
 const TD = Thermodynamics
 using CLIMAParameters.Planet: R_d, MSLP, cp_d, grav, T_surf_ref, T_min_ref

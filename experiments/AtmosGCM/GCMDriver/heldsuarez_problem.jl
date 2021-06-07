@@ -10,7 +10,7 @@
 # 9, 1263–1292, 2016.
 
 # Override default CLIMAParameters for consistency with literature on this case
-using ClimateMachine.Thermodynamics
+using Thermodynamics
 
 using CLIMAParameters.Planet
 

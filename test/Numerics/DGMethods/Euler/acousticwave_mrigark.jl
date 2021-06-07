@@ -19,9 +19,9 @@ using ClimateMachine.SystemSolvers
 using ClimateMachine.VTK: writevtk, writepvtu
 using ClimateMachine.GenericCallbacks:
     EveryXWallTimeSeconds, EveryXSimulationSteps
-using ClimateMachine.Thermodynamics:
+using Thermodynamics:
     air_density, soundspeed_air, internal_energy, PhaseDry_pT, PhasePartition
-using ClimateMachine.TemperatureProfiles: IsothermalProfile
+using Thermodynamics.TemperatureProfiles: IsothermalProfile
 using ClimateMachine.Atmos:
     AtmosPhysics,
     AtmosModel,

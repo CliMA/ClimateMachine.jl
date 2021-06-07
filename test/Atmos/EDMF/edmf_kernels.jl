@@ -33,7 +33,7 @@ import ClimateMachine.TurbulenceConvection:
     turbconv_boundary_state!,
     turbconv_normal_boundary_flux_second_order!
 
-using ClimateMachine.Thermodynamics: air_pressure, air_density
+using Thermodynamics: air_pressure, air_density
 
 
 include(joinpath("helper_funcs", "nondimensional_exchange_functions.jl"))

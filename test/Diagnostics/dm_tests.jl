@@ -16,7 +16,7 @@ using ClimateMachine.Diagnostics
 using ClimateMachine.DiagnosticsMachine
 using ClimateMachine.GenericCallbacks
 using ClimateMachine.MPIStateArrays
-using ClimateMachine.Thermodynamics
+using Thermodynamics
 
 using CLIMAParameters
 using CLIMAParameters.Planet: grav, MSLP

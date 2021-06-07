@@ -947,6 +947,12 @@ git-tree-sha1 = "9250ef9b01b66667380cf3275b3f7488d0e25faf"
 uuid = "b718987f-49a8-5099-9789-dcd902bef87d"
 version = "1.0.1"
 
+[[Thermodynamics]]
+deps = ["CLIMAParameters", "DocStringExtensions", "KernelAbstractions", "Random", "RootSolvers"]
+git-tree-sha1 = "81462a8bad7d2fdf7e30136e42bfec92dd2439c5"
+uuid = "b60c26fb-14c3-4610-9d3e-2d17fe7ff00c"
+version = "0.3.2"
+
 [[ThreadingUtilities]]
 deps = ["VectorizationBase"]
 git-tree-sha1 = "e3032c97b183e6e2baf4d2cc4fe60c4292a4a707"

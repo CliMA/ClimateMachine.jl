@@ -36,7 +36,7 @@ using ..Mesh.Grids
 using ..Mesh.Interpolation
 using ..Mesh.Topologies
 using ..MPIStateArrays
-using ..Thermodynamics
+using Thermodynamics
 using ..TurbulenceClosures
 using ..VariableTemplates
 using ..Writers

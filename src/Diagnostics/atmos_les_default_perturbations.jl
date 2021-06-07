@@ -6,7 +6,7 @@
 using ..Atmos
 using ..Mesh.Topologies
 using ..Mesh.Grids
-using ..Thermodynamics
+using Thermodynamics
 
 """
     setup_atmos_default_perturbations(

@@ -72,8 +72,8 @@ using ClimateMachine.ConfigTypes
 using ClimateMachine.Diagnostics
 using ClimateMachine.GenericCallbacks
 using ClimateMachine.ODESolvers
-using ClimateMachine.TemperatureProfiles
-using ClimateMachine.Thermodynamics
+using Thermodynamics.TemperatureProfiles
+using Thermodynamics
 using ClimateMachine.TurbulenceClosures
 using ClimateMachine.VariableTemplates
 
@@ -96,7 +96,7 @@ const param_set = EarthParameterSet();
 
 # ## [Initial Conditions](@id init-rtb)
 # This example demonstrates the use of functions defined
-# in the [`Thermodynamics`](@ref ClimateMachine.Thermodynamics) package to
+# in the [`Thermodynamics`](@ref Thermodynamics) package to
 # generate the appropriate initial state for our problem.
 
 #md # !!! note

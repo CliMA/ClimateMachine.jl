@@ -13,8 +13,8 @@ using ClimateMachine.SystemSolvers: ManyColumnLU
 using ClimateMachine.Mesh.Filters
 using ClimateMachine.Mesh.Grids
 using ClimateMachine.Mesh.Interpolation
-using ClimateMachine.TemperatureProfiles
-using ClimateMachine.Thermodynamics: total_energy, air_density
+using Thermodynamics.TemperatureProfiles
+using Thermodynamics: total_energy, air_density
 using ClimateMachine.VariableTemplates
 
 using Distributions: Uniform

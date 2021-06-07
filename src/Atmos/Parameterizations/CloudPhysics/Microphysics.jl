@@ -13,7 +13,7 @@ module Microphysics
 
 using SpecialFunctions
 
-using ClimateMachine.Thermodynamics
+using Thermodynamics
 
 using CLIMAParameters
 using CLIMAParameters.Planet: ρ_cloud_liq, R_v, grav, T_freeze

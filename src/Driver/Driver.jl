@@ -27,7 +27,7 @@ using ..DGMethods.FVReconstructions
 using ..Mesh.Grids
 using ..Mesh.Topologies
 using ..Mesh.Filters
-using ..Thermodynamics
+using Thermodynamics
 using ..MPIStateArrays
 using ..ODESolvers
 using ..TicToc

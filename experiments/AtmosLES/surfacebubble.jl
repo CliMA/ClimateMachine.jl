@@ -11,7 +11,7 @@ using ClimateMachine.Diagnostics
 using ClimateMachine.Mesh.Filters
 using ClimateMachine.ODESolvers
 using ClimateMachine.StdDiagnostics
-using ClimateMachine.Thermodynamics
+using Thermodynamics
 using ClimateMachine.TurbulenceClosures
 using ClimateMachine.VariableTemplates
 
