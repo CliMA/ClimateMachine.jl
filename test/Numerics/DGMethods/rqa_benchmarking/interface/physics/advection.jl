@@ -78,6 +78,7 @@ end
     qᵣ = ρqᵣ / ρᵣ
     eᵣ = ρeᵣ / ρᵣ
 
+    # can be simplified, but written this way to look like the VeryLinearKGVolumeFlux
     flux.ρ   = ρᵣ * u + ρ * uᵣ # this is just ρu
     flux.ρu  = p * I + ρᵣ .* (uᵣ .* u' + u .* uᵣ') 
     flux.ρu += (ρ .* uᵣ) .* uᵣ' 
