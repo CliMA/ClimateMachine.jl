@@ -29,6 +29,10 @@ using ClimateMachine.GenericCallbacks:
 using ClimateMachine.Thermodynamics: soundspeed_air
 using ClimateMachine.VariableTemplates: flattenednames
 
+# to be removed: needed for updating ref state
+import ClimateMachine.ODESolvers: update_backward_Euler_solver!
+import ClimateMachine.DGMethods: update_auxiliary_state!
+
 # to be removed
 using CLIMAParameters#: AbstractEarthParameterSet
 struct PlanetParameterSet <: AbstractEarthParameterSet end

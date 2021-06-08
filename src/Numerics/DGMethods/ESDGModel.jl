@@ -356,7 +356,7 @@ Then for the scheme to be entropy stable it is requires that the numerical flux
 when the equality is satisfied the scheme is called entropy conservative. For
 balance laws without a nonconservative term, `ψj` is the entropy potential.
 """
-struct VESDGModel{BL, SA, VNFFO, SNFFO, DIR} <: SpaceDiscretization
+struct VESDGModel{BL, SA, VNFFO, SNFFO, DIR, CFC} <: SpaceDiscretization
     "definition of the physics being considered, primary dispatch type"
     balance_law::BL
     "all the grid related information (connectivity, metric terms, etc.)"
@@ -369,6 +369,7 @@ struct VESDGModel{BL, SA, VNFFO, SNFFO, DIR} <: SpaceDiscretization
     "first order, two-point flux to be used for surface integrals"
     surface_numerical_flux_first_order::SNFFO
     direction::DIR
+    check_for_crashes::CFC
 end
 
 """
@@ -395,6 +396,7 @@ function VESDGModel(
     volume_numerical_flux_first_order = EntropyConservative(),
     surface_numerical_flux_first_order = EntropyConservative(),
     direction = VerticalDirection(),
+    check_for_crashes = false,
 )
 
     VESDGModel(
@@ -404,6 +406,7 @@ function VESDGModel(
         volume_numerical_flux_first_order,
         surface_numerical_flux_first_order,
         VerticalDirection(),
+        check_for_crashes,
     )
 end
 

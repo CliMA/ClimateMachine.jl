@@ -144,7 +144,7 @@ physics = Physics(
 
 model = DryAtmosModel(
     physics = physics,
-    boundary_conditions = (5, 6),
+    boundary_conditions = (DefaultBC(), DefaultBC()),
     initial_conditions = (ρ = ρ₀ᶜᵃʳᵗ, ρu = ρu⃗₀ᶜᵃʳᵗ, ρe = ρeᶜᵃʳᵗ, ρq = ρqᶜᵃʳᵗ),
     numerics = (
         flux = RefanovFlux(),
@@ -169,14 +169,13 @@ linear_physics = Physics(
 
 linear_model = DryAtmosModel(
     physics = linear_physics,
-    boundary_conditions = (5, 6),
+    boundary_conditions = (DefaultBC(), DefaultBC()),
     initial_conditions = (ρ = ρ₀ᶜᵃʳᵗ, ρu = ρu⃗₀ᶜᵃʳᵗ, ρe = ρeᶜᵃʳᵗ, ρq = ρqᶜᵃʳᵗ),
     numerics = (
         flux = RefanovFlux(),
     ),
 
 )
-
 
 ########
 # Set up time steppers (could be done automatically in simulation)
@@ -193,6 +192,7 @@ method = IMEX()
 callbacks = (
   Info(),
   CFL(),
+  ReferenceStateUpdate(),
 )
 
 simulation = Simulation(
@@ -204,3 +204,8 @@ simulation = Simulation(
 );
 
 evolve!(simulation)
+
+##
+# α = odesolver.dt * odesolver.RKA_implicit[1, 1]
+# odesolver = construct_odesolver(simulation.timestepper.method, simulation.rhs, simulation.state, simulation.timestepper.timestep, t0 = simulation.time.start) 
+          

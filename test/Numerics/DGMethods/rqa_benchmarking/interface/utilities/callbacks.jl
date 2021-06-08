@@ -241,42 +241,42 @@ function create_callback(filter::TMARCallback, simulation::Simulation, odesolver
 end
 
 # helper function 
-#=
+
 function update_ref_state!(
-    m::AtmosModel,
+    m::DryAtmosModel,
     state::Vars,
     aux::Vars,
     t::Real,
 )
-  param_set = m.param_set
-  ρ = state.ρ
-  ρu = state.ρu
-  ρe = state.ρe
-  aux.ref_state.ρ = ρ
-  aux.ref_state.ρu = ρu
-  aux.ref_state.ρe = ρe
-  Φ = aux.orientation.Φ 
-  e_int = (ρe - ρu' * ρu / 2ρ - ρ * Φ) / ρ
-  T = air_temperature(param_set, e_int)
-  aux.ref_state.T = T
-  aux.ref_state.p = air_pressure(param_set, T, ρ)
+    eos = model.physics.eos
+    parameters = model.physics.parameters
+    ρ = state.ρ
+    ρu = state.ρu
+    ρe = state.ρe
+    aux.ref_state.ρ = ρ
+    # aux.ref_state.ρu = ρu
+    aux.ref_state.ρe = ρe
+
+    aux.ref_state.p = calc_pressure(eos, state, aux, parameters)
 end
 
 function create_callback(update_ref::ReferenceStateUpdate, simulation::Simulation, odesolver)
     Q = simulation.state
     grid = simulation.grid.numerical
     step =  update_ref.recompute
-    balance_law = solver_config.dg.balance_law
-    # Q, dg, balance_law, odesolver
+    dg = simulation.rhs[2].model
+    balance_law = dg.balance_law
+
     relinearize = EveryXSimulationSteps(step) do       
         t = gettime(odesolver)
         
         update_auxiliary_state!(update_ref_state!, dg, balance_law, Q, t)
 
         α = odesolver.dt * odesolver.RKA_implicit[2, 2]
-        update_backward_Euler_solver!(odesolver.besolver!, Q, α)
+        # stupid hack
+        be_solver = odesolver.implicit_solvers[odesolver.RKA_implicit[2, 2]][1]
+        update_backward_Euler_solver!(be_solver, Q, α)
         nothing
     end
     return relinearize
 end
-=#
