@@ -33,27 +33,34 @@ end
 
 @inline function calc_pressure(eos::DryIdealGas{(:ρ, :ρu, :ρe)}, state, aux, params)
     ρ  = state.ρ
-    ρu = state.ρu
-    ρe = state.ρe
-    Φ  = aux.Φ
-    γ  = calc_γ(eos, state, params)
+    # ρu = state.ρu
+    # ρe = state.ρe
+    # Φ  = aux.Φ
+    # γ  = calc_γ(eos, state, params)
+    R_d = params.R_d
 
-    return (γ - 1) * (ρe - dot(ρu, ρu) / 2ρ - ρ * Φ)
+    T = calc_air_temperature(eos, state, aux, params)
+
+    return ρ * R_d * T
 end
 
 @inline function calc_pressure(eos::MoistIdealGas{(:ρ, :ρu, :ρe)}, state, aux, params)
     ρ  = state.ρ
-    ρu = state.ρu
-    ρe = state.ρe
-    ρ_q_tot = state.ρq
-    ρ_q_liq = 0 # zero for now
-    ρ_q_ice = 0 # zero for now
-    Φ  = aux.Φ
-    γ  = calc_γ(eos, state, params)
+    # ρu = state.ρu
+    # ρe = state.ρe
+    # ρ_q_tot = state.ρq
+    # ρ_q_liq = 0 # zero for now
+    # ρ_q_ice = 0 # zero for now
+    # Φ  = aux.Φ
+    # γ  = calc_γ(eos, state, params)
 
-    ρ_e_latent = (ρ_q_tot - ρ_q_liq) * params.e_int_v0 - ρ_q_ice * (params.e_int_v0 + params.e_int_i0)
+    # ρ_e_latent = (ρ_q_tot - ρ_q_liq) * params.e_int_v0 - ρ_q_ice * (params.e_int_v0 + params.e_int_i0)
     
-    return (γ - 1) * (ρe - dot(ρu, ρu) / 2ρ - ρ * Φ - ρ_e_latent)
+    # return (γ - 1) * (ρe - dot(ρu, ρu) / 2ρ - ρ * Φ - ρ_e_latent)
+    R_m = calc_R(eos, state, aux, params)
+    T = calc_air_temperature(eos, state, aux, params)
+    
+    return ρ * R_m * T 
 end
 
 @inline function calc_linear_pressure(eos::DryIdealGas{(:ρ, :ρu, :ρe)}, state, aux, params)
@@ -62,7 +69,10 @@ end
     Φ  = aux.Φ
     γ  = calc_γ(eos, state, params)
 
-    return (γ - 1) * (ρe - ρ * Φ) 
+    cv_d = params.cv_d
+    T_0  = params.T_0
+
+    return (γ - 1) * (ρe - ρ * Φ + ρ * cv_d * T_0) 
 end
 
 @inline function calc_linear_pressure(eos::MoistIdealGas{(:ρ, :ρu, :ρe)}, state, aux, params)
@@ -71,13 +81,16 @@ end
     ρ_q_tot = state.ρq 
     ρ_q_liq = 0 # zero for now
     ρ_q_ice = 0 # zero for now
+    Φ    = aux.Φ
 
-    Φ  = aux.Φ
-    γ = calc_γ(DryIdealGas{(:ρ, :ρu, :ρe)}(), state, params)
+    T_0  = params.T_0 
+    γ    = calc_γ(DryIdealGas{(:ρ, :ρu, :ρe)}(), state, params)
+    cv_m = calc_cv(eos, state, params)
+
 
     ρ_e_latent = (ρ_q_tot - ρ_q_liq) * params.e_int_v0 - ρ_q_ice * (params.e_int_v0 + params.e_int_i0)
     
-    return (γ - 1) * (ρe - ρ * Φ - ρ_e_latent)
+    return (γ - 1) * (ρe - ρ * Φ - ρ_e_latent + ρ * cv_m * T_0)
 end
 
 @inline function calc_sound_speed(::BarotropicFluid{(:ρ, :ρu)}, state, aux, params)
@@ -144,9 +157,6 @@ end
   ρ = state.ρ
   ρu = state.ρu
   ρe = state.ρe
-  q_tot = state.ρq / ρ
-  q_liq = 0.0 # zero for now
-  q_ice = 0.0 # zero for now
   Φ = aux.Φ
 
   T_0 = params.T_0
@@ -245,4 +255,27 @@ end
     γ  = cp/cv
 
     return γ
+end
+
+@inline function calc_saturation_vapor_pressure(T, params)
+    pₜᵣ   = params.press_triple
+    R_v   = params.R_v
+    Tₜᵣ   = params.T_triple
+    T_0   = params.T_0
+    cp_v  = params.cp_v
+    cp_l  = params.cp_l
+    LH_v0 = params.LH_v0
+    
+    Δcp = cp_v - cp_l
+    pᵥₛ = pₜᵣ * (T / Tₜᵣ)^(Δcp / R_v) * exp((LH_v0 - Δcp * T_0) / R_v * (1 / Tₜᵣ - 1 / T))
+
+    return pᵥₛ
+end
+
+@inline function calc_saturation_specific_humidity(ρ, T, params)
+    R_v = params.R_v
+    pᵥₛ = calc_saturation_vapor_pressure(T, params)
+    qt  = pᵥₛ / (ρ * R_v * T_sfc)
+    
+    return qt
 end
