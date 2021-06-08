@@ -250,5 +250,4 @@ function numerical_volume_conservative_flux_first_order!(
     F.ρe  = (ρᵣ_avg * eᵣ_avg + pᵣ_avg) * u_avg
     F.ρe += (ρᵣ_avg * e_avg + ρ_avg * eᵣ_avg + p_avg) * uᵣ_avg
     F.ρq  = ρᵣ_avg * qᵣ_avg * u_avg + (ρᵣ_avg * q_avg + ρ_avg * qᵣ_avg)* uᵣ_avg
-
 end

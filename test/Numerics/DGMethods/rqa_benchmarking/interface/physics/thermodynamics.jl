@@ -24,8 +24,8 @@ end
 @inline function calc_pressure(eos::MoistIdealGas{(:ρ, :ρu, :ρθ)}, state, aux, params)
     # TODO: θ = T (p/pₒ)^(R/cₚ) is not conserved when there is phase transition, latent heat source needed
     ρθ  = state.ρθ
-    R   = calc_R(eos, state, params)
     pₒ  = params.pₒ
+    R   = calc_gas_constant(eos, state, params)
     γ   = calc_γ(eos, state, params)
 
     return pₒ * (R / pₒ * ρθ)^γ
@@ -33,10 +33,6 @@ end
 
 @inline function calc_pressure(eos::DryIdealGas{(:ρ, :ρu, :ρe)}, state, aux, params)
     ρ  = state.ρ
-    # ρu = state.ρu
-    # ρe = state.ρe
-    # Φ  = aux.Φ
-    # γ  = calc_γ(eos, state, params)
     R_d = params.R_d
 
     T = calc_air_temperature(eos, state, aux, params)
@@ -46,19 +42,8 @@ end
 
 @inline function calc_pressure(eos::MoistIdealGas{(:ρ, :ρu, :ρe)}, state, aux, params)
     ρ  = state.ρ
-    # ρu = state.ρu
-    # ρe = state.ρe
-    # ρ_q_tot = state.ρq
-    # ρ_q_liq = 0 # zero for now
-    # ρ_q_ice = 0 # zero for now
-    # Φ  = aux.Φ
-    # γ  = calc_γ(eos, state, params)
-
-    # ρ_e_latent = (ρ_q_tot - ρ_q_liq) * params.e_int_v0 - ρ_q_ice * (params.e_int_v0 + params.e_int_i0)
-    
-    # return (γ - 1) * (ρe - dot(ρu, ρu) / 2ρ - ρ * Φ - ρ_e_latent)
-    R_m = calc_R(eos, state, aux, params)
-    T = calc_air_temperature(eos, state, aux, params)
+    R_m = calc_gas_constant(eos, state, aux, params)
+    T = calc_air_temperature(eos, state, params)
     
     return ρ * R_m * T 
 end
@@ -236,9 +221,9 @@ end
     return cv_m
 end
 
-@inline calc_R(::DryIdealGas, state, params) = params.R_d
+@inline calc_gas_constant(::DryIdealGas, state, params) = params.R_d
 
-@inline function calc_R(::MoistIdealGas, state, params)
+@inline function calc_gas_constant(::MoistIdealGas, state, params)
     R_d = params.R_d
     molmass_ratio = params.molmass_ratio
     q_tot = state.ρq / state.ρ

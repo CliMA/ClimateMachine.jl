@@ -1,18 +1,16 @@
 abstract type AbstractBoundaryCondition end
 
-struct FreeSlip <: AbstractBoundaryCondition end
+struct DefaultBC <: AbstractBoundaryCondition end
 
-struct Impenetrable{𝒯} <: AbstractBoundaryCondition end
-
-Base.@kwdef struct BulkFormulaTemperature{𝒯} <: AbstractBoundaryCondition 
+Base.@kwdef struct BulkFormulaTemperature{𝒯,𝒰,𝒱} <: AbstractBoundaryCondition 
   drag_coef_temperature::𝒯
-  drag_coef_moisture::𝒯
-  temperature::𝒯
+  drag_coef_moisture::𝒰
+  surface_temperature::𝒱
 end
 
 function numerical_boundary_flux_first_order!(
     numerical_flux::NumericalFluxFirstOrder,
-    ::Impenetrable{FreeSlip},
+    ::DefaultBC,
     balance_law::DryAtmosModel,
     fluxᵀn::Vars{S},
     n̂::SVector,
@@ -94,8 +92,8 @@ function numerical_boundary_flux_first_order!(
 
     # obtain surface fields
     ϕ = lat(aux⁻.x, aux⁻.y, aux⁻.z)
-    Cₕ = bctype.drag_coefficient_temperature(parameters, ϕ)
-    Cₑ = bctype.drag_coefficient_moisture(parameters, ϕ)
+    Cₕ = bctype.drag_coef_temperature(parameters, ϕ)
+    Cₑ = bctype.drag_coef_moisture(parameters, ϕ)
     T_sfc = bctype.temperature(parameters, ϕ)
 
     u = ρu / ρ

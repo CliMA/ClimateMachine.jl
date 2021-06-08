@@ -46,10 +46,12 @@ parameters = (
     ΔT       = 29.0,
     Tₘᵢₙ     = 271.0,
     Δϕ       = 26π/180.0,
-    day = 86400,
-    T_ref = 255,
+    day      = 86400,
+    T_ref    = 255,
     τ_precip = 100.0,
-    p0 = 1e5,
+    p0       = 1e5,
+    Cₑ       = 0.0044, 
+    Cₗ       = 0.0044,
 )
 
 ########
@@ -64,7 +66,7 @@ grid = DiscretizedDomain(
     elements = (vertical = 10, horizontal = 32),
     polynomial_order = (vertical = 2, horizontal = 2),
     overintegration_order = (vertical = 0, horizontal = 0),
-   )
+)
 
 ########
 # Set up inital condition
@@ -138,11 +140,11 @@ e_pot(𝒫,λ,ϕ,r)  = 𝒫.g * r
 ########
 # Set up lower boundary condition
 ########
-T_sfc(𝒫,  ϕ) = 𝒫.ΔT * exp(-ϕ^2 / 2 / 𝒫.Δϕ^2) + 𝒫.Tₘᵢₙ
+T_sfc(𝒫, ϕ) = 𝒫.ΔT * exp(-ϕ^2 / 2 / 𝒫.Δϕ^2) + 𝒫.Tₘᵢₙ
 FixedSST = BulkFormulaTemperature(
     drag_coef_temperature = (params, ϕ) -> params.Cₑ,
     drag_coef_moisture = (params, ϕ) -> params.Cₗ,
-    T_sfc
+    surface_temperature = T_sfc,
 )
 
 #####
@@ -284,7 +286,7 @@ linear_physics = Physics(
 ########
 model = DryAtmosModel(
     physics = physics,
-    boundary_conditions = (Impenetrable{FreeSlip}, Impenetrable{FreeSlip}),
+    boundary_conditions = (DefaultBC(), DefaultBC()),
     initial_conditions = (ρ = ρ₀ᶜᵃʳᵗ, ρu = ρu⃗₀ᶜᵃʳᵗ, ρe = ρeᶜᵃʳᵗ, ρq = ρqᶜᵃʳᵗ),
     numerics = (
       flux = LMARSNumericalFlux(),
@@ -293,7 +295,7 @@ model = DryAtmosModel(
 
 linear_model = DryAtmosModel(
     physics = linear_physics,
-    boundary_conditions = (Impenetrable{FreeSlip}, Impenetrable{FreeSlip}),
+    boundary_conditions = (DefaultBC(), DefaultBC()),
     initial_conditions = (ρ = ρ₀ᶜᵃʳᵗ, ρu = ρu⃗₀ᶜᵃʳᵗ, ρe = ρeᶜᵃʳᵗ, ρq = ρqᶜᵃʳᵗ),
     numerics = (
         flux = RefanovFlux(),
@@ -315,8 +317,8 @@ callbacks = (
   CFL(),
   VTKState(
     iteration = Int(floor(24*3600/Δt)), 
-    filepath = "/central/scratch/bischtob/benchmark_moist_held_suarez/"),
-    #filepath = "./out/"),  
+    #filepath = "/central/scratch/bischtob/benchmark_moist_held_suarez/"),
+    filepath = "./out/"),  
   TMARCallback(),
 )
 

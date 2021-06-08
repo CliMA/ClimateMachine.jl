@@ -175,6 +175,7 @@ end
 )
     physics = model.physics
     lhs = model.physics.lhs
+    
     ntuple(Val(length(lhs))) do s
         Base.@_inline_meta
         calc_component!(flux, lhs[s], state, aux, physics)

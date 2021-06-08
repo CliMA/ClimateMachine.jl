@@ -38,7 +38,7 @@ using CLIMAParameters#: AbstractEarthParameterSet
 struct PlanetParameterSet <: AbstractEarthParameterSet end
 get_planet_parameter(p::Symbol) = getproperty(CLIMAParameters.Planet, p)(PlanetParameterSet())
 
-# const total_energy = true
+const total_energy = true
 # const fluctuation_gravity = true
 
 # utils
@@ -50,6 +50,15 @@ include("../grid/grids.jl")
 # numerics
 include("../models/models.jl")
 include("../numerics/filters.jl")
+# interface 
+#include("../balance_law_interface.jl")
+include("../esdg_balance_law_interface.jl")
+include("../boundary_conditions/wip_bcs.jl")
+include("../numerics/numerical_volume_fluxes.jl")
+include("../numerics/numerical_interface_fluxes.jl")
+include("../numerics/timestepper_abstractions.jl")
+include("../simulations.jl")
+include("../utilities/callbacks.jl")
 # physics
 include("../grid/orientations.jl")
 include("../physics/physics.jl")
@@ -61,20 +70,5 @@ include("../physics/gravity.jl")
 include("../physics/diffusion.jl")
 include("../physics/microphysics.jl")
 include("../physics/temperature_profiles.jl")
-
-# boundary conditions
-# include("../boundary_conditions/boundary_conditions.jl")
-# include("../boundary_conditions/bc_first_order.jl")
-# include("../boundary_conditions/bc_second_order.jl")
-# include("../boundary_conditions/bc_gradient.jl")
-include("../boundary_conditions/wip_bcs.jl")
-# interface 
-#include("../balance_law_interface.jl")
-include("../esdg_balance_law_interface.jl")
-include("../numerics/numerical_volume_fluxes.jl")
-include("../numerics/numerical_interface_fluxes.jl")
-include("../numerics/timestepper_abstractions.jl")
-include("../simulations.jl")
-include("../utilities/callbacks.jl")
 
 ClimateMachine.init()
