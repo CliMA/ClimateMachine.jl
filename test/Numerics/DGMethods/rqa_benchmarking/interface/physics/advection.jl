@@ -78,12 +78,12 @@ end
     qᵣ = ρqᵣ / ρᵣ
     eᵣ = ρeᵣ / ρᵣ
 
-    flux.ρ   = ρᵣ * u + ρ * uᵣ
+    flux.ρ   = ρᵣ * u + ρ * uᵣ # this is just ρu
     flux.ρu  = p * I + ρᵣ .* (uᵣ .* u' + u .* uᵣ') 
     flux.ρu += (ρ .* uᵣ) .* uᵣ' 
     flux.ρe  = (ρᵣ * eᵣ + pᵣ) * u
     flux.ρe += (ρᵣ * e + ρ * eᵣ + p) * uᵣ
-    flux.ρq  = ρᵣ * qᵣ * u + (ρᵣ * q + ρ * qᵣ)* uᵣ
+    flux.ρq  = ρᵣ * qᵣ * u + (ρᵣ * q + ρ * qᵣ) * uᵣ
 
     nothing
 end
