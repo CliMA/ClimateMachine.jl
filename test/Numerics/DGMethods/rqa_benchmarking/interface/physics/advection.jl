@@ -42,9 +42,49 @@ end
     ρᵣ  = aux.ref_state.ρ
     pᵣ  = aux.ref_state.p
     ρeᵣ = aux.ref_state.ρe
-
+    # shouldnt this have linearized pressure?
     flux.ρ  += ρu
     flux.ρe += (ρeᵣ + pᵣ) * ρu / ρᵣ 
+
+    nothing
+end
+
+@inline function calc_component!(flux, ::VeryLinearAdvection{(:ρ, :ρu, :ρe)}, state, aux, physics)
+    # states
+    ρ   = state.ρ
+    ρu  = state.ρu
+    ρe  = state.ρe
+    ρq  = state.ρq
+
+    # thermodynamics
+    eos = physics.eos
+    parameters = physics.parameters
+    p = calc_linear_pressure(eos, state, aux, parameters)
+
+    # Reference states
+    ρᵣ  = aux.ref_state.ρ
+    ρuᵣ = aux.ref_state.ρu
+    ρeᵣ = aux.ref_state.ρe
+    ρqᵣ = aux.ref_state.ρq
+    pᵣ  = aux.ref_state.p
+
+    # derived states
+    u = ρu / ρᵣ - ρ * ρuᵣ / (ρᵣ^2)
+    q = ρq / ρᵣ - ρ * ρqᵣ / (ρᵣ^2)
+    e = ρe / ρᵣ - ρ * ρeᵣ / (ρᵣ^2)
+
+    # derived reference states
+    uᵣ = ρuᵣ / ρᵣ
+    qᵣ = ρqᵣ / ρᵣ
+    eᵣ = ρeᵣ / ρᵣ
+
+    # can be simplified, but written this way to look like the VeryLinearKGVolumeFlux
+    flux.ρ   = ρᵣ * u + ρ * uᵣ # this is just ρu
+    flux.ρu  = p * I + ρᵣ .* (uᵣ .* u' + u .* uᵣ') 
+    flux.ρu += (ρ .* uᵣ) .* uᵣ' 
+    flux.ρe  = (ρᵣ * eᵣ + pᵣ) * u
+    flux.ρe += (ρᵣ * e + ρ * eᵣ + p) * uᵣ
+    flux.ρq  = ρᵣ * qᵣ * u + (ρᵣ * q + ρ * qᵣ) * uᵣ
 
     nothing
 end
