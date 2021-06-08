@@ -16,7 +16,6 @@ import ClimateMachine.BalanceLaws:
     boundary_state!
 import ClimateMachine.NumericalFluxes:
     numerical_boundary_flux_first_order!
-    numerical_boundary_flux_second_order!
 
 struct DryReferenceState{TP}
     temperature_profile::TP
@@ -200,7 +199,7 @@ end
 """
 boundary_conditions(model::DryAtmosModel) = model.boundary_conditions
 
-function boundary_state!(...)
+function boundary_state!(_...)
     nothing
 end
 

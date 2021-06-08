@@ -1,5 +1,6 @@
 struct NonlinearAdvection{𝒯} <: AbstractTerm end
 struct LinearAdvection{𝒯} <: AbstractTerm end
+struct VeryLinearAdvection{𝒯} <: AbstractTerm end
 
 @inline calc_component!(flux, ::Nothing, _...) = nothing
 @inline calc_component!(flux, ::AbstractTerm, _...) = nothing

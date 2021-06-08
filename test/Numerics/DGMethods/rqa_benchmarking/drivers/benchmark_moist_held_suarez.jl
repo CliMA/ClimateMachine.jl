@@ -138,8 +138,12 @@ e_pot(𝒫,λ,ϕ,r)  = 𝒫.g * r
 ########
 # Set up lower boundary condition
 ########
-T_sfc(𝒫,  x...) = 𝒫.ΔT * exp(-lat(x...)^2 / 2 / 𝒫.Δϕ^2) + 𝒫.Tₘᵢₙ
-FixedSST = SurfaceFlux(T_sfc)
+T_sfc(𝒫,  ϕ) = 𝒫.ΔT * exp(-ϕ^2 / 2 / 𝒫.Δϕ^2) + 𝒫.Tₘᵢₙ
+FixedSST = BulkFormulaTemperature(
+    drag_coef_temperature = (params, ϕ) -> params.Cₑ,
+    drag_coef_moisture = (params, ϕ) -> params.Cₗ,
+    T_sfc
+)
 
 #####
 # Held-Suarez Forcing
@@ -280,7 +284,7 @@ linear_physics = Physics(
 ########
 model = DryAtmosModel(
     physics = physics,
-    boundary_conditions = (FixedSST, DefaultBC()),
+    boundary_conditions = (Impenetrable{FreeSlip}, Impenetrable{FreeSlip}),
     initial_conditions = (ρ = ρ₀ᶜᵃʳᵗ, ρu = ρu⃗₀ᶜᵃʳᵗ, ρe = ρeᶜᵃʳᵗ, ρq = ρqᶜᵃʳᵗ),
     numerics = (
       flux = LMARSNumericalFlux(),
@@ -289,7 +293,7 @@ model = DryAtmosModel(
 
 linear_model = DryAtmosModel(
     physics = linear_physics,
-    boundary_conditions = (DefaultBC(), DefaultBC()),
+    boundary_conditions = (Impenetrable{FreeSlip}, Impenetrable{FreeSlip}),
     initial_conditions = (ρ = ρ₀ᶜᵃʳᵗ, ρu = ρu⃗₀ᶜᵃʳᵗ, ρe = ρeᶜᵃʳᵗ, ρq = ρqᶜᵃʳᵗ),
     numerics = (
         flux = RefanovFlux(),

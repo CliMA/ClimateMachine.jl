@@ -1,10 +1,13 @@
+abstract type AbstractBoundaryCondition end
+
 struct FreeSlip <: AbstractBoundaryCondition end
 
 struct Impenetrable{𝒯} <: AbstractBoundaryCondition end
 
-struct BulkFormulaTemperature{𝒯} <: AbstractBoundaryCondition 
-  drag_coefficient_temperatureT::𝒯
-  drag_coefficient_moisture::𝒯
+Base.@kwdef struct BulkFormulaTemperature{𝒯} <: AbstractBoundaryCondition 
+  drag_coef_temperature::𝒯
+  drag_coef_moisture::𝒯
+  temperature::𝒯
 end
 
 function numerical_boundary_flux_first_order!(
@@ -65,7 +68,7 @@ function numerical_boundary_flux_first_order!(
     numerical_boundary_flux_first_order!(
         numerical_flux,
         bctype::Impenetrable{FreeSlip},
-        model
+        model,
         fluxᵀn,
         n̂,
         state⁻,
@@ -75,7 +78,7 @@ function numerical_boundary_flux_first_order!(
         t,
         direction,
         state1⁻,
-        aux1⁻,    
+        aux1⁻,
     )
     
     # Apply drag law using the tangential velocity as energy flux
@@ -90,9 +93,10 @@ function numerical_boundary_flux_first_order!(
     LH_v0 = model.physics.parameters.LH_v0
 
     # obtain surface fields
-    Cₕ = bctype.drag_coefficient_temperature(state⁻, aux⁻)
-    Cₑ = bctype.drag_coefficient_moisture(state⁻, aux⁻)
-    T_sfc = bctype.temperature(parameters, aux⁻.x, aux⁻.y, aux⁻.z)
+    ϕ = lat(aux⁻.x, aux⁻.y, aux⁻.z)
+    Cₕ = bctype.drag_coefficient_temperature(parameters, ϕ)
+    Cₑ = bctype.drag_coefficient_moisture(parameters, ϕ)
+    T_sfc = bctype.temperature(parameters, ϕ)
 
     u = ρu / ρ
     q = ρq / ρ
