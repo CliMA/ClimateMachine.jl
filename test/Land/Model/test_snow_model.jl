@@ -4,6 +4,8 @@ using StaticArrays
 using Test
 using Statistics
 using DelimitedFiles
+using Plots
+using CLIMAParameters.Planet: cp_i, LH_f0
 
 using CLIMAParameters
 struct EarthParameterSet <: AbstractEarthParameterSet end
@@ -40,6 +42,7 @@ using ClimateMachine.ArtifactWrappers
 
     snow_parameters = SnowParameters{FT,FT,FT,FT}(0.05,100,1.0)
 Q_surf = (t) -> eltype(t)(-9.0*sin(2.0*π/3600/24*t))
+Q_
 #Q_bott = (t) -> eltype(t)(-1.0*sin(2.0*π/3600/24*t))
 forcing = PrescribedForcing(FT;Q_surf = Q_surf)
 Tave_0 = FT(263.0)
