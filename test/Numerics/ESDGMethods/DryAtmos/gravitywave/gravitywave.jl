@@ -5,8 +5,8 @@ CLIMAParameters.Planet.MSLP(::EarthParameterSet) = 1e5
 
 Base.@kwdef struct GravityWave{FT} <: AbstractDryAtmosProblem
   T_ref::FT = 250
-  #ΔT::FT = 0.0001
-  ΔT::FT = 0.01
+  ΔT::FT = 0.0001
+  #ΔT::FT = 0.01
   H::FT = 10e3
   u_0::FT = 20
   f::FT = 0
@@ -22,7 +22,7 @@ function vars_state(::DryAtmosModel, ::GravityWave, ::Auxiliary, FT)
   @vars begin
     ρ_exact::FT
     ρu_exact::SVector{3, FT}
-    ρe_exact::FT
+    ρθ_exact::FT
   end
 end
 
@@ -121,6 +121,8 @@ function init_state_prognostic!(bl::DryAtmosModel,
    
     ρ = ρ_s * exp(-δ * z) + δρ
     T = T_ref + δT
+
+    p = ρ * _R_d * T
     
     #ρ = aux.ref_state.ρ + δρ
     #T = aux.ref_state.T + δT
@@ -133,5 +135,5 @@ function init_state_prognostic!(bl::DryAtmosModel,
 
     state.ρ = ρ
     state.ρu = ρ * u
-    state.ρe = ρe_tot
+    state.ρθ = thetadensity(p)
 end

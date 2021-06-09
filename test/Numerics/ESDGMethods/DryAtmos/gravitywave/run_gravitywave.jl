@@ -38,7 +38,7 @@ function main()
 
     outdir = joinpath("esdg_output", "gravitywave")
 
-    for surfaceflux in (MatrixFlux,)
+    for surfaceflux in (EntropyConservative,)
       outdir = joinpath(outdir, "$surfaceflux")
       mkpath(outdir)
 
@@ -90,7 +90,7 @@ function main()
               linf_rates,
         )
 
-        @show N, l2_errors
+        @show N, l2_errors, l2_rates
       end
       @save(joinpath(outdir, "gw_convergence_$surfaceflux.jld2"),
             convergence_data,

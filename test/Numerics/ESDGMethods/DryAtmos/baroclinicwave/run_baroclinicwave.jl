@@ -24,6 +24,7 @@ using JLD2
 using CUDA
 
 include("baroclinicwave.jl")
+include("../../diagnostics.jl")
 
 const output_vtk = false
 const output_jld = true
@@ -67,7 +68,7 @@ function run(
     FT,
 )
 
-    outdir = joinpath("esdg_output",
+    outdir = joinpath("esdg_theta_output",
                       "baroclinicwave",
                       "$N",
                       "$(K[1])x$(K[2])")
@@ -104,7 +105,8 @@ function run(
         model,
         grid,
         volume_numerical_flux_first_order = EntropyConservative(),
-        surface_numerical_flux_first_order = MatrixFlux(),
+        surface_numerical_flux_first_order = EntropyConservativeWithPenalty(),
+        #surface_numerical_flux_first_order = RusanovNumericalFlux(),
     )
 
     linearmodel = DryAtmosAcousticGravityLinearModel(model)
@@ -129,6 +131,9 @@ function run(
     dt = cfl * dx / acoustic_speed
 
     Q = init_ode_state(esdg, FT(0))
+
+    η = similar(Q, vars = @vars(η::FT), nstate=1)
+    ∫η0 = entropy_integral(esdg, η, Q)
 
     #odesolver = LSRK144NiegemannDiehlBusch(esdg, Q; dt = dt, t0 = 0)
 
@@ -172,11 +177,13 @@ function run(
 
     # Set up the information callback
     starttime = Ref(now())
-    cbinfo = EveryXWallTimeSeconds(60, mpicomm) do (s = false)
+    cbinfo = EveryXWallTimeSeconds(10, mpicomm) do (s = false)
         if s
             starttime[] = now()
         else
             energy = norm(Q)
+            ∫η = entropy_integral(esdg, η, Q)
+            dη = (∫η - ∫η0) / abs(∫η0)
             runtime = Dates.format(
                 convert(DateTime, now() - starttime[]),
                 dateformat"HH:MM:SS",
@@ -185,7 +192,9 @@ function run(
                               simtime = %.16e
                               runtime = %s
                               norm(Q) = %.16e
-                              """ gettime(odesolver) runtime energy
+                              ∫η                 = %.16e
+                              (∫η - ∫η0) / |∫η0| = %.16e 
+                              """ gettime(odesolver) runtime energy ∫η dη
         end
     end
     cbcfl = EveryXSimulationSteps(100) do
@@ -273,7 +282,8 @@ function run(
             psurf = @view p[1:Nq^2, 1:K[2]:end]
             push!(pmin, minimum(psurf))
     end
-    callbacks = (cbinfo, cbcfl, cb_vel_p)
+    #callbacks = (cbinfo, cbcfl, cb_vel_p)
+    callbacks = (cbinfo, cbcfl)
 
     if output_vtk
         # vorticity stuff

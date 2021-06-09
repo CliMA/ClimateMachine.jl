@@ -125,7 +125,7 @@ function init_state_prognostic!(bl::DryAtmosModel,
     ## Assign state variables
     state.ρ = ρ
     state.ρu = ρ * u_cart
-    state.ρe = ρ * (e_int + e_kin + e_pot)
+    state.ρθ = thetadensity(p)
     nothing
 end
 

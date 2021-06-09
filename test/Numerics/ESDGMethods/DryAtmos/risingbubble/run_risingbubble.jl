@@ -37,10 +37,10 @@ function main()
     mpicomm = MPI.COMM_WORLD
     N = 4
     K = (10, 10)
-    timeend = 1000
+    timeend = 100
 
-    for relaxation in (true,)
-      for surfaceflux in (EntropyConservative, MatrixFlux)
+    for relaxation in (false,)
+      for surfaceflux in (EntropyConservative,)
         result = run(
             mpicomm,
             N,
@@ -106,7 +106,7 @@ function run(
 
     # determine the time step
     dx = min_node_distance(grid)
-    cfl = FT(1.5)
+    cfl = FT(0.01)
     dt = cfl * dx / 330
 
     Q = init_ode_state(esdg, FT(0))
@@ -125,7 +125,8 @@ function run(
     if relaxation
       odesolver = RLSRK144NiegemannDiehlBusch(esdg, η_int, η_prod, Q; dt = dt, t0 = 0)
     else
-      odesolver = LSRK144NiegemannDiehlBusch(esdg, Q; dt = dt, t0 = 0)
+      #odesolver = LSRK144NiegemannDiehlBusch(esdg, Q; dt = dt, t0 = 0)
+      odesolver = LSRK54CarpenterKennedy(esdg, Q; dt = dt, t0 = 0)
     end
 
     eng0 = norm(Q)
@@ -168,7 +169,7 @@ function run(
     callbacks = (cbinfo,)
 
     relax = relaxation ? "lsrk" : "rlsrk"
-    outdir = joinpath("esdg_output",
+    outdir = joinpath("esdg_theta_output",
                       "risingbubble",
                       "$relax",
                       "$surfaceflux",
@@ -179,8 +180,8 @@ function run(
     output_vtk = false
     if output_vtk
         # create vtk dir
-        Nelem = Ne[1]
-        vtkdir = joinpath(outdir, vtk)
+        Nelem = K[1]
+        vtkdir = joinpath(outdir, "vtk")
         mkpath(vtkdir)
 
         vtkstep = 0
@@ -251,8 +252,8 @@ function do_output(mpicomm, vtkdir, vtkstep, esdg, Q, model, N, testname = "RTB"
     statenames = flattenednames(vars_state(model, Prognostic(), eltype(Q)))
     auxnames = flattenednames(vars_state(model, Auxiliary(), eltype(Q)))
 
-    writevtk(filename, Q, esdg, statenames, esdg.state_auxiliary, auxnames;
-             number_sample_points = 2 * (N + 1))
+    writevtk(filename, Q, esdg, statenames, esdg.state_auxiliary, auxnames)
+             #number_sample_points = 2 * (N + 1))
 
     ## Generate the pvtu file for these vtk files
     if MPI.Comm_rank(mpicomm) == 0

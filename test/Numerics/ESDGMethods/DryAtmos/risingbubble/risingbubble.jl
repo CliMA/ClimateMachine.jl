@@ -6,8 +6,9 @@ Base.@kwdef struct RisingBubble{FT} <: AbstractDryAtmosProblem
   xc::FT = 1000
   rc::FT = 250
   zc::FT = rc + 10
+  #zc::FT = 1000
   θref::FT = 300
-  δθc::FT = 1 // 2
+  δθc::FT = 3
 end
 
 function init_state_prognostic!(bl::DryAtmosModel, 
@@ -33,7 +34,8 @@ function init_state_prognostic!(bl::DryAtmosModel,
     ρ = _p0 / (_R_d * θ) * π_exner ^ (_cv_d / _R_d)
     T = θ * π_exner
 
+    #ρ = 1
     state.ρ = ρ
     state.ρu = SVector{3, FT}(0, 0, 0)
-    state.ρe = ρ * (_cv_d * T + aux.Φ)
+    state.ρθ = ρ * θ
 end

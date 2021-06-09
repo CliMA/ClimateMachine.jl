@@ -13,10 +13,12 @@ import ClimateMachine.BalanceLaws:
     reverse_integral_load_auxiliary_state!,
     reverse_integral_set_auxiliary_state!
 
-@inline function linearized_pressure(ρ, ρe, Φ)
-    FT = eltype(ρ)
+@inline function linearized_pressure(ρθ, ρθ_ref)
+    FT = eltype(ρθ)
     γ = FT(gamma(param_set))
-    (γ - 1) * (ρe - ρ * Φ)
+    _MSLP::FT = MSLP(param_set)
+    _R_d::FT = R_d(param_set)
+    (_R_d * ρθ_ref) ^ (γ - 1) / _MSLP ^ (γ - 1) * _R_d * ρθ
 end
 
 abstract type DryAtmosLinearModel <: BalanceLaw end
@@ -25,7 +27,7 @@ function vars_state(lm::DryAtmosLinearModel, ::Prognostic, FT)
     @vars begin
         ρ::FT
         ρu::SVector{3, FT}
-        ρe::FT
+        ρθ::FT
     end
 end
 vars_state(lm::DryAtmosLinearModel, st::Auxiliary, FT) =
@@ -138,9 +140,9 @@ function flux_first_order!(
     ref = aux.ref_state
 
     flux.ρ = state.ρu
-    pL = linearized_pressure(state.ρ, state.ρe, aux.Φ)
+    pL = linearized_pressure(state.ρθ, aux.ref_state.ρθ)
     flux.ρu += pL * I
-    flux.ρe = ((ref.ρe + ref.p) / ref.ρ) * state.ρu
+    flux.ρθ = (ref.ρθ / ref.ρ) * state.ρu
     nothing
 end
 function source!(

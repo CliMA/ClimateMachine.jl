@@ -77,7 +77,7 @@ function boundary_state!(
 )
     state⁺.ρ = state⁻.ρ
     state⁺.ρu -= 2 * dot(state⁻.ρu, n) .* SVector(n)
-    state⁺.ρe = state⁻.ρe
+    state⁺.ρθ = state⁻.ρθ
     aux⁺.Φ = aux⁻.Φ
 end
 
@@ -130,6 +130,7 @@ function init_state_auxiliary!(
 ) where {dim}
     FT = eltype(state_auxiliary)
     _grav = FT(grav(param_set))
+    #_grav = FT(0)
     @inbounds r = geom.coord[dim]
     state_auxiliary.Φ = _grav * r
     state_auxiliary.∇Φ = dim == 2 ? 
@@ -169,7 +170,7 @@ struct DryReferenceState{TP}
   temperature_profile::TP
 end
 vars_state(::DryAtmosModel, ::DryReferenceState, ::Auxiliary, FT) =
-  @vars(T::FT, p::FT, ρ::FT, ρe::FT)
+  @vars(T::FT, p::FT, ρ::FT, ρθ::FT)
 vars_state(::DryAtmosModel, ::NoReferenceState, ::Auxiliary, FT) =
   @vars()
 
@@ -192,7 +193,7 @@ function init_state_auxiliary!(
     state_auxiliary.ref_state.T = T
     state_auxiliary.ref_state.p = p
     state_auxiliary.ref_state.ρ = ρ
-    state_auxiliary.ref_state.ρe = totalenergy(ρ, ρu, p, Φ)
+    state_auxiliary.ref_state.ρθ = thetadensity(p)
 end
 
 @inline function flux_first_order!(
@@ -206,15 +207,15 @@ end
     ρ = state.ρ
     ρinv = 1 / ρ
     ρu = state.ρu
-    ρe = state.ρe
+    ρθ = state.ρθ
     u = ρinv * ρu
     Φ = aux.Φ
     
-    p = pressure(ρ, ρu, ρe, Φ)
+    p = pressure(ρθ)
 
     flux.ρ = ρ * u
     flux.ρu = p * I + ρ * u .* u'
-    flux.ρe = u * (state.ρe + p)
+    flux.ρθ = u * ρθ
 end
 
 function wavespeed(::DryAtmosModel,
@@ -225,9 +226,9 @@ function wavespeed(::DryAtmosModel,
                    direction)
   ρ = state.ρ
   ρu = state.ρu
-  ρe = state.ρe
+  ρθ = state.ρθ
   Φ = aux.Φ
-  p = pressure(ρ, ρu, ρe, Φ)
+  p = pressure(ρθ)
 
   u = ρu / ρ
   uN = abs(dot(nM, u))
@@ -235,27 +236,24 @@ function wavespeed(::DryAtmosModel,
 end
 
 """
-    pressure(ρ, ρu, ρe, Φ)
+    pressure(ρθ)
 
-Compute the pressure given density `ρ`, momentum `ρu`, total energy `ρe`, and
-gravitational potential `Φ`.
 """
-function pressure(ρ, ρu, ρe, Φ)
-    FT = eltype(ρ)
+function pressure(ρθ)
+    FT = eltype(ρθ)
     γ = FT(gamma(param_set))
-    (γ - 1) * (ρe - dot(ρu, ρu) / 2ρ - ρ * Φ)
+    _MSLP::FT = MSLP(param_set)
+    _R_d::FT = R_d(param_set)
+    (_R_d * ρθ) ^ γ / _MSLP ^ (γ - 1)
+    #return ρθ ^ γ
 end
 
-"""
-    totalenergy(ρ, ρu, p, Φ)
-
-Compute the total energy given density `ρ`, momentum `ρu`, pressure `p`, and
-gravitational potential `Φ`.
-"""
-function totalenergy(ρ, ρu, p, Φ)
-    FT = eltype(ρ)
+function thetadensity(p)
+    FT = eltype(p)
     γ = FT(gamma(param_set))
-    return p / (γ - 1) + dot(ρu, ρu) / 2ρ + ρ * Φ
+    _MSLP::FT = MSLP(param_set)
+    _R_d::FT = R_d(param_set)
+    ρθ  = (p * _MSLP ^ (γ - 1)) ^ (1 / γ) / _R_d
 end
 
 """
@@ -279,7 +277,7 @@ function vars_state(::DryAtmosModel, ::Prognostic, FT)
     @vars begin
         ρ::FT
         ρu::SVector{3, FT}
-        ρe::FT
+        ρθ::FT
     end
 end
 
@@ -310,8 +308,7 @@ function vars_state(::DryAtmosModel, ::Entropy, FT)
     @vars begin
         ρ::FT
         ρu::SVector{3, FT}
-        ρe::FT
-        Φ::FT
+        ρθ::FT
     end
 end
 
@@ -331,20 +328,17 @@ function state_to_entropy_variables!(
     state::Vars,
     aux::Vars,
 )
-    ρ, ρu, ρe, Φ = state.ρ, state.ρu, state.ρe, aux.Φ
+    ρ, ρu, ρθ, Φ = state.ρ, state.ρu, state.ρθ, aux.Φ
 
     FT = eltype(state)
     γ = FT(gamma(param_set))
 
-    p = pressure(ρ, ρu, ρe, Φ)
-    s = log(p / ρ^γ)
-    b = ρ / 2p
+    p = pressure(ρθ)
     u = ρu / ρ
 
-    entropy.ρ = (γ - s) / (γ - 1) - (dot(u, u) - 2Φ) * b
-    entropy.ρu = 2b * u
-    entropy.ρe = -2b
-    entropy.Φ = 2ρ * b
+    entropy.ρ = -dot(u, u)
+    entropy.ρu = u
+    entropy.ρθ = γ / (γ - 1) * p / ρθ
 end
 
 """
@@ -363,34 +357,33 @@ function entropy_variables_to_state!(
     aux::Vars,
     entropy::Vars,
 )
-    FT = eltype(state)
-    β = entropy
-    γ = FT(gamma(param_set))
-
-    b = -β.ρe / 2
-    ρ = β.Φ / (2b)
-    ρu = ρ * β.ρu / (2b)
-
-    p = ρ / (2b)
-    s = log(p / ρ^γ)
-    Φ = dot(ρu, ρu) / (2 * ρ^2) - ((γ - s) / (γ - 1) - β.ρ) / (2b)
-
-    ρe = p / (γ - 1) + dot(ρu, ρu) / (2ρ) + ρ * Φ
-
-    state.ρ = ρ
-    state.ρu = ρu
-    state.ρe = ρe
-    aux.Φ = Φ
+  error("non invertible")
 end
 
 function state_to_entropy(::DryAtmosModel, state::Vars, aux::Vars)
     FT = eltype(state)
-    ρ, ρu, ρe, Φ = state.ρ, state.ρu, state.ρe, aux.Φ
-    p = pressure(ρ, ρu, ρe, Φ)
+    ρ, ρu, ρθ, Φ = state.ρ, state.ρu, state.ρθ, aux.Φ
+    p = pressure(ρθ)
     γ = FT(gamma(param_set))
-    s = log(p / ρ^γ)
-    η = -ρ * s / (γ - 1)
+    η = p / (γ - 1) + dot(ρu, ρu) / 2ρ + ρ * Φ
     return η
+end
+
+function γave(a, b)
+    FT = eltype(a)
+    γ = FT(gamma(param_set))
+    f = (b - a) / (b + a)
+    v = f ^ 2
+    if v < 1e-4
+      F = @evalpoly(v,
+                    one(f), (γ - 2) / 3,
+                    -(γ + 1) * (γ - 2) * (γ - 3) / 45,
+                    (γ + 1) * (γ - 2) * (γ - 3) * (2γ * (γ - 2) - 9) / 945)
+      ave(a, b) * F
+    else
+      (γ - 1) / γ * (a ^ γ - b ^ γ) / (a ^ (γ - 1) - b ^ (γ - 1))
+    end
+    #return (γ - 1) / γ * (a ^ γ - b ^ γ) / (a ^ (γ - 1) - b ^ (γ - 1)  + 1e-14)
 end
 
 function numerical_volume_conservative_flux_first_order!(
@@ -403,36 +396,27 @@ function numerical_volume_conservative_flux_first_order!(
     aux_2::Vars,
 )
     FT = eltype(F)
-    ρ_1, ρu_1, ρe_1 = state_1.ρ, state_1.ρu, state_1.ρe
-    ρ_2, ρu_2, ρe_2 = state_2.ρ, state_2.ρu, state_2.ρe
-    Φ_1, Φ_2 = aux_1.Φ, aux_2.Φ
+    ρ_1, ρu_1, ρθ_1 = state_1.ρ, state_1.ρu, state_1.ρθ
+    ρ_2, ρu_2, ρθ_2 = state_2.ρ, state_2.ρu, state_2.ρθ
+
     u_1 = ρu_1 / ρ_1
     u_2 = ρu_2 / ρ_2
-    p_1 = pressure(ρ_1, ρu_1, ρe_1, Φ_1)
-    p_2 = pressure(ρ_2, ρu_2, ρe_2, Φ_2)
-    b_1 = ρ_1 / 2p_1
-    b_2 = ρ_2 / 2p_2
+    p_1 = pressure(ρθ_1)
+    p_2 = pressure(ρθ_2)
 
     ρ_avg = ave(ρ_1, ρ_2)
     u_avg = ave(u_1, u_2)
-    b_avg = ave(b_1, b_2)
-    Φ_avg = ave(Φ_1, Φ_2)
+    p_avg = ave(p_1, p_2)
+    ρθ_avg = γave(ρθ_1, ρθ_2)
+    #ρθ_avg = ave(ρθ_1, ρθ_2)
 
-    usq_avg = ave(dot(u_1, u_1), dot(u_2, u_2))
-
-    ρ_log = logave(ρ_1, ρ_2)
-    b_log = logave(b_1, b_2)
-    α = b_avg * ρ_log / 2b_1
-
-    γ = FT(gamma(param_set))
-
-    Fρ = u_avg * ρ_log
-    Fρu = u_avg * Fρ' + ρ_avg / 2b_avg * I
-    Fρe = (1 / (2 * (γ - 1) * b_log) - usq_avg / 2 + Φ_avg) * Fρ + Fρu * u_avg
+    Fρ = u_avg * ρ_avg
+    Fρu = u_avg * Fρ' + p_avg * I
+    Fρθ = u_avg * ρθ_avg
 
     F.ρ += Fρ
     F.ρu += Fρu
-    F.ρe += Fρe
+    F.ρθ += Fρθ
 end
 
 function numerical_volume_fluctuation_flux_first_order!(
@@ -445,17 +429,13 @@ function numerical_volume_fluctuation_flux_first_order!(
     aux_2::Vars,
 )
     FT = eltype(D)
-    ρ_1, ρu_1, ρe_1 = state_1.ρ, state_1.ρu, state_1.ρe
-    ρ_2, ρu_2, ρe_2 = state_2.ρ, state_2.ρu, state_2.ρe
     Φ_1, Φ_2 = aux_1.Φ, aux_2.Φ
-    p_1 = pressure(ρ_1, ρu_1, ρe_1, Φ_1)
-    p_2 = pressure(ρ_2, ρu_2, ρe_2, Φ_2)
-    b_1 = ρ_1 / 2p_1
-    b_2 = ρ_2 / 2p_2
+    ρ_1, ρu_1, ρθ_1 = state_1.ρ, state_1.ρu, state_1.ρθ
+    ρ_2, ρu_2, ρθ_2 = state_2.ρ, state_2.ρu, state_2.ρθ
 
-    ρ_log = logave(ρ_1, ρ_2)
-    b_avg = ave(b_1, b_2)
-    α = b_avg * ρ_log / 2b_1
+    ρ_avg = ave(ρ_1, ρ_2)
+    #α = b_avg * ρ_log / 2b_1
+    α = ρ_avg / 2
 
     D.ρu -= α * (Φ_1 - Φ_2) * I
 end
@@ -542,143 +522,143 @@ function numerical_flux_first_order!(
     fluxᵀn .+= penalty / 2
 end
 
-Base.@kwdef struct MatrixFlux{FT} <: NumericalFluxFirstOrder
-  Mcut::FT = 0
-  low_mach::Bool = false
-  kinetic_energy_preserving::Bool = false
-end
-
-function numerical_flux_first_order!(
-    numerical_flux::MatrixFlux,
-    balance_law::BalanceLaw,
-    fluxᵀn::Vars{S},
-    normal_vector::SVector,
-    state_prognostic⁻::Vars{S},
-    state_auxiliary⁻::Vars{A},
-    state_prognostic⁺::Vars{S},
-    state_auxiliary⁺::Vars{A},
-    t,
-    direction,
-) where {S, A}
-
-    FT = eltype(fluxᵀn)
-    numerical_flux_first_order!(
-        EntropyConservative(),
-        balance_law,
-        fluxᵀn,
-        normal_vector,
-        state_prognostic⁻,
-        state_auxiliary⁻,
-        state_prognostic⁺,
-        state_auxiliary⁺,
-        t,
-        direction,
-    )
-    fluxᵀn = parent(fluxᵀn)
-    
-    γ = FT(gamma(param_set))
-    
-    low_mach = numerical_flux.low_mach
-    Mcut = numerical_flux.Mcut
-    kinetic_energy_preserving = numerical_flux.kinetic_energy_preserving
-
-    ω = FT(π) / 3
-    δ = FT(π) / 5
-    random_unit_vector = SVector(sin(ω) * cos(δ), cos(ω) * cos(δ), sin(δ))
-    # tangent space basis
-    τ1 = random_unit_vector × normal_vector
-    τ2 = τ1 × normal_vector
-
-    ρ⁻ = state_prognostic⁻.ρ
-    ρu⁻ = state_prognostic⁻.ρu
-    ρe⁻ = state_prognostic⁻.ρe
-   
-    Φ⁻ = state_auxiliary⁻.Φ
-    u⁻ = ρu⁻ / ρ⁻
-    p⁻ = pressure(ρ⁻, ρu⁻, ρe⁻, Φ⁻)
-    β⁻ = ρ⁻ / 2p⁻
-    
-    Φ⁺ = state_auxiliary⁺.Φ
-    ρ⁺ = state_prognostic⁺.ρ
-    ρu⁺ = state_prognostic⁺.ρu
-    ρe⁺ = state_prognostic⁺.ρe
-    
-    u⁺ = ρu⁺ / ρ⁺
-    p⁺ = pressure(ρ⁺, ρu⁺, ρe⁺, Φ⁺)
-    β⁺ = ρ⁺ / 2p⁺
-
-    ρ_log = logave(ρ⁻, ρ⁺)
-    β_log = logave(β⁻, β⁺)
-    Φ_avg = ave(Φ⁻, Φ⁺)
-    u_avg = ave.(u⁻, u⁺)
-    p_avg = ave(ρ⁻, ρ⁺) / 2ave(β⁻, β⁺)
-    u²_bar = 2 * sum(u_avg .^ 2) - sum(ave(u⁻ .^ 2, u⁺ .^ 2))
-
-    h_bar = γ / (2 * β_log * (γ - 1)) + u²_bar / 2 + Φ_avg
-    c_bar = sqrt(γ * p_avg / ρ_log)
-
-    umc = u_avg - c_bar * normal_vector
-    upc = u_avg + c_bar * normal_vector
-    u_avgᵀn = u_avg' * normal_vector
-    R = hcat(
-      SVector(1, umc[1], umc[2], umc[3], h_bar - c_bar * u_avgᵀn),
-      SVector(1, u_avg[1], u_avg[2], u_avg[3], u²_bar / 2 + Φ_avg),
-      SVector(0, τ1[1], τ1[2], τ1[3], τ1' * u_avg),
-      SVector(0, τ2[1], τ2[2], τ2[3], τ2' * u_avg),
-      SVector(1, upc[1], upc[2], upc[3], h_bar + c_bar * u_avgᵀn),
-    )
-
-    if low_mach
-      M = abs(u_avg' * normal_vector) / c_bar
-      c_bar *= max(min(M, FT(1)), Mcut)
-    end
-
-    if kinetic_energy_preserving
-      λl = abs(u_avgᵀn) + c_bar
-      λr = λl
-    else
-      λl = abs(u_avgᵀn - c_bar)
-      λr = abs(u_avgᵀn + c_bar)
-    end
-
-    Λ = SDiagonal(
-      λl,
-      abs(u_avgᵀn),
-      abs(u_avgᵀn),
-      abs(u_avgᵀn),
-      λr,
-    )
-    #Ξ = sqrt(abs((p⁺ - p⁻) / (p⁺ + p⁻)))
-    #Λ = Ξ * abs(u_avgᵀn + c_bar) * I + (1 - Ξ) * ΛM
-
-    T = SDiagonal(
-      ρ_log / 2γ,
-      ρ_log * (γ - 1) / γ,
-      p_avg,
-      p_avg,
-      ρ_log / 2γ,
-    )
-
-    entropy⁻ = similar(parent(state_prognostic⁻), Size(6))
-    state_to_entropy_variables!(
-      balance_law,
-      Vars{vars_state(balance_law, Entropy(), FT)}(entropy⁻),
-      state_prognostic⁻,
-      state_auxiliary⁻,
-    )
-    
-    entropy⁺ = similar(parent(state_prognostic⁺), Size(6))
-    state_to_entropy_variables!(
-      balance_law,
-      Vars{vars_state(balance_law, Entropy(), FT)}(entropy⁺),
-      state_prognostic⁺,
-      state_auxiliary⁺,
-    )
-
-    Δentropy = parent(entropy⁺) - parent(entropy⁻)
-
-    fluxᵀn .-= R * Λ * T * R' * Δentropy[SOneTo(5)] / 2
-end
+#Base.@kwdef struct MatrixFlux{FT} <: NumericalFluxFirstOrder
+#  Mcut::FT = 0
+#  low_mach::Bool = false
+#  kinetic_energy_preserving::Bool = false
+#end
+#
+#function numerical_flux_first_order!(
+#    numerical_flux::MatrixFlux,
+#    balance_law::BalanceLaw,
+#    fluxᵀn::Vars{S},
+#    normal_vector::SVector,
+#    state_prognostic⁻::Vars{S},
+#    state_auxiliary⁻::Vars{A},
+#    state_prognostic⁺::Vars{S},
+#    state_auxiliary⁺::Vars{A},
+#    t,
+#    direction,
+#) where {S, A}
+#
+#    FT = eltype(fluxᵀn)
+#    numerical_flux_first_order!(
+#        EntropyConservative(),
+#        balance_law,
+#        fluxᵀn,
+#        normal_vector,
+#        state_prognostic⁻,
+#        state_auxiliary⁻,
+#        state_prognostic⁺,
+#        state_auxiliary⁺,
+#        t,
+#        direction,
+#    )
+#    fluxᵀn = parent(fluxᵀn)
+#    
+#    γ = FT(gamma(param_set))
+#    
+#    low_mach = numerical_flux.low_mach
+#    Mcut = numerical_flux.Mcut
+#    kinetic_energy_preserving = numerical_flux.kinetic_energy_preserving
+#
+#    ω = FT(π) / 3
+#    δ = FT(π) / 5
+#    random_unit_vector = SVector(sin(ω) * cos(δ), cos(ω) * cos(δ), sin(δ))
+#    # tangent space basis
+#    τ1 = random_unit_vector × normal_vector
+#    τ2 = τ1 × normal_vector
+#
+#    ρ⁻ = state_prognostic⁻.ρ
+#    ρu⁻ = state_prognostic⁻.ρu
+#    ρe⁻ = state_prognostic⁻.ρe
+#   
+#    Φ⁻ = state_auxiliary⁻.Φ
+#    u⁻ = ρu⁻ / ρ⁻
+#    p⁻ = pressure(ρ⁻, ρu⁻, ρe⁻, Φ⁻)
+#    β⁻ = ρ⁻ / 2p⁻
+#    
+#    Φ⁺ = state_auxiliary⁺.Φ
+#    ρ⁺ = state_prognostic⁺.ρ
+#    ρu⁺ = state_prognostic⁺.ρu
+#    ρe⁺ = state_prognostic⁺.ρe
+#    
+#    u⁺ = ρu⁺ / ρ⁺
+#    p⁺ = pressure(ρ⁺, ρu⁺, ρe⁺, Φ⁺)
+#    β⁺ = ρ⁺ / 2p⁺
+#
+#    ρ_log = logave(ρ⁻, ρ⁺)
+#    β_log = logave(β⁻, β⁺)
+#    Φ_avg = ave(Φ⁻, Φ⁺)
+#    u_avg = ave.(u⁻, u⁺)
+#    p_avg = ave(ρ⁻, ρ⁺) / 2ave(β⁻, β⁺)
+#    u²_bar = 2 * sum(u_avg .^ 2) - sum(ave(u⁻ .^ 2, u⁺ .^ 2))
+#
+#    h_bar = γ / (2 * β_log * (γ - 1)) + u²_bar / 2 + Φ_avg
+#    c_bar = sqrt(γ * p_avg / ρ_log)
+#
+#    umc = u_avg - c_bar * normal_vector
+#    upc = u_avg + c_bar * normal_vector
+#    u_avgᵀn = u_avg' * normal_vector
+#    R = hcat(
+#      SVector(1, umc[1], umc[2], umc[3], h_bar - c_bar * u_avgᵀn),
+#      SVector(1, u_avg[1], u_avg[2], u_avg[3], u²_bar / 2 + Φ_avg),
+#      SVector(0, τ1[1], τ1[2], τ1[3], τ1' * u_avg),
+#      SVector(0, τ2[1], τ2[2], τ2[3], τ2' * u_avg),
+#      SVector(1, upc[1], upc[2], upc[3], h_bar + c_bar * u_avgᵀn),
+#    )
+#
+#    if low_mach
+#      M = abs(u_avg' * normal_vector) / c_bar
+#      c_bar *= max(min(M, FT(1)), Mcut)
+#    end
+#
+#    if kinetic_energy_preserving
+#      λl = abs(u_avgᵀn) + c_bar
+#      λr = λl
+#    else
+#      λl = abs(u_avgᵀn - c_bar)
+#      λr = abs(u_avgᵀn + c_bar)
+#    end
+#
+#    Λ = SDiagonal(
+#      λl,
+#      abs(u_avgᵀn),
+#      abs(u_avgᵀn),
+#      abs(u_avgᵀn),
+#      λr,
+#    )
+#    #Ξ = sqrt(abs((p⁺ - p⁻) / (p⁺ + p⁻)))
+#    #Λ = Ξ * abs(u_avgᵀn + c_bar) * I + (1 - Ξ) * ΛM
+#
+#    T = SDiagonal(
+#      ρ_log / 2γ,
+#      ρ_log * (γ - 1) / γ,
+#      p_avg,
+#      p_avg,
+#      ρ_log / 2γ,
+#    )
+#
+#    entropy⁻ = similar(parent(state_prognostic⁻), Size(6))
+#    state_to_entropy_variables!(
+#      balance_law,
+#      Vars{vars_state(balance_law, Entropy(), FT)}(entropy⁻),
+#      state_prognostic⁻,
+#      state_auxiliary⁻,
+#    )
+#    
+#    entropy⁺ = similar(parent(state_prognostic⁺), Size(6))
+#    state_to_entropy_variables!(
+#      balance_law,
+#      Vars{vars_state(balance_law, Entropy(), FT)}(entropy⁺),
+#      state_prognostic⁺,
+#      state_auxiliary⁺,
+#    )
+#
+#    Δentropy = parent(entropy⁺) - parent(entropy⁻)
+#
+#    fluxᵀn .-= R * Λ * T * R' * Δentropy[SOneTo(5)] / 2
+#end
 
 function vertical_unit_vector(m::DryAtmosModel, aux::Vars)
   FT = eltype(aux)
@@ -718,9 +698,9 @@ function nondiffusive_courant(
 )
     ρ = state.ρ
     ρu = state.ρu
-    ρe = state.ρe
+    ρθ = state.ρθ
     Φ = aux.Φ
-    p = pressure(ρ, ρu, ρe, Φ)
+    p = pressure(ρθ)
 
     k̂ = vertical_unit_vector(m, aux)
     normu = norm_u(state, k̂, direction)
