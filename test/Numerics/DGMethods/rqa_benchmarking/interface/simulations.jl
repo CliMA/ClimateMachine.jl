@@ -74,7 +74,7 @@ function Simulation(model::Tuple; grid, timestepper, time, callbacks)
                     item.model,
                     grid.numerical,
                     surface_numerical_flux_first_order = item.model.numerics.flux,
-                    volume_numerical_flux_first_order = VeryLinearKGVolumeFlux(),
+                    volume_numerical_flux_first_order = LinearKGVolumeFlux(),
                 ))
             elseif item.model isa ModelSetup
                 tmp = Implicit(DGModel(

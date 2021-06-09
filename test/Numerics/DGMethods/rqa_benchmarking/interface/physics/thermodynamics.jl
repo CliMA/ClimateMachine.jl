@@ -41,7 +41,7 @@ end
     return (γ - 1) * (ρe - ρ * Φ + ρ * cv_d * T_0) 
 end
 
-@inline function calc_very_linear_pressure(eos::DryIdealGas{(:ρ, :ρu, :ρe)}, state, aux, params)
+@inline function calc_very_linear_pressure(eos::DryIdealGas, state, aux, params)
     ρ  = state.ρ
     ρu = state.ρu
     ρe = state.ρe
