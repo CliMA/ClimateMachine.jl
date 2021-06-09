@@ -149,7 +149,7 @@ using ClimateMachine.ArtifactWrappers
     
     
     anim = @animate for i ∈ 1:N
-        plot(t_profs[i].(z),z, ylim = [0,1], xlim = [250,280], label = "prescribed")
+        plot(t_profs[i].(z),z, ylim = [0,1], xlim = [240,280], label = "prescribed")
         t = time_data[i]
         plot!(analytic.(Ref(snow_parameters), Ref(-9.0), Ref(0.0), Ref(mean(T_ave)),z,Ref(t)),z, label = "analytic")
     end
@@ -164,7 +164,9 @@ end
     ClimateMachine.init()
     FT = Float64
 
-    data = readdlm("/Users/katherinedeck/Downloads/ERAwyo_2017_hourly.csv",',')
+   """ data = readdlm("/Users/katherinedeck/Downloads/ERAwyo_2017_hourly.csv",',')"""
+    data = readdlm("/Users/shuangma/Downloads/ERAwyo_2017_hourly.csv",',')
+
     Qsurf = data[:, data[1,:] .== "Qsurf"][2:end,1] ./ 3600 ./ 24 # per second
     Tsurf = FT.(data[:, data[1,:] .== "surtsn(K)"][2:end,:])
     # 1:168 is first week of data, just model this for now. 
@@ -267,11 +269,10 @@ end
     t_profs = get_temperature_profile.(Q_surf.(time_data, Ref(Qsurf_spline)), Ref(0.0), Ref(snow_parameters.z_snow), Ref(snow_parameters.ρ_snow), Ref(snow_parameters.κ_snow), ρe_int, Ref(param_set))
 
     anim = @animate for i ∈ 1:N
-        plot(t_profs[i].(z),z, ylim = [0,1], xlim = [0,500], label = "prescribed")
+        plot(t_profs[i].(z),z, ylim = [0,1], xlim = [240,280], label = "Snow model v1")
         t = time_data[i]
-        scatter!([Tsurf[Int64.(time_data[i]/3600)+1]], [1.0], label = "model")
+        scatter!([Tsurf[Int64.(time_data[i]/3600)+1]], [1.0], label = "ERA5 Tsurf")
     end
     gif(anim, "snow2.gif", fps = 6)
     
 end
-
