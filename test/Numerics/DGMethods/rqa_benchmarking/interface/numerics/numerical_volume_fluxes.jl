@@ -193,7 +193,7 @@ function numerical_volume_conservative_flux_first_order!(
     pᵣ_1  = aux_1.ref_state.p
 
     # calculate pressure perturbation
-    p_1 = calc_linear_pressure(eos, state_1, aux_1, parameters)
+    p_1 = calc_very_linear_pressure(eos, state_1, aux_1, parameters)
 
     # calculate u_1, q_1, e_1, and reference states
     u_1  = ρu_1 / ρᵣ_1 - ρ_1 * ρuᵣ_1 / (ρᵣ_1^2)
@@ -219,7 +219,7 @@ function numerical_volume_conservative_flux_first_order!(
     pᵣ_2  = aux_2.ref_state.p
 
     # calculate pressure perturbation
-    p_2 = calc_linear_pressure(eos, state_2, aux_2, parameters)
+    p_2 = calc_very_linear_pressure(eos, state_2, aux_2, parameters)
 
     # calculate u_2, q_2, e_2, and reference states
     u_2  = ρu_2 / ρᵣ_2 - ρ_2 * ρuᵣ_2 / (ρᵣ_2^2)

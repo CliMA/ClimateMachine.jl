@@ -1,5 +1,6 @@
 struct NonlinearAdvection{𝒯} <: AbstractTerm end
 struct LinearAdvection{𝒯} <: AbstractTerm end
+struct VeryLinearAdvection{𝒯} <: AbstractTerm end
 
 @inline calc_component!(flux, ::Nothing, _...) = nothing
 @inline calc_component!(flux, ::AbstractTerm, _...) = nothing
@@ -42,7 +43,7 @@ end
     ρᵣ  = aux.ref_state.ρ
     pᵣ  = aux.ref_state.p
     ρeᵣ = aux.ref_state.ρe
-    # shouldnt this have linearized pressure?
+
     flux.ρ  += ρu
     flux.ρe += (ρeᵣ + pᵣ) * ρu / ρᵣ 
 
@@ -59,7 +60,7 @@ end
     # thermodynamics
     eos = physics.eos
     parameters = physics.parameters
-    p = calc_linear_pressure(eos, state, aux, parameters)
+    p = calc_very_linear_pressure(eos, state, aux, parameters)
 
     # Reference states
     ρᵣ  = aux.ref_state.ρ
@@ -79,12 +80,17 @@ end
     eᵣ = ρeᵣ / ρᵣ
 
     # can be simplified, but written this way to look like the VeryLinearKGVolumeFlux
-    flux.ρ   = ρᵣ * u + ρ * uᵣ # this is just ρu
-    flux.ρu  = p * I + ρᵣ .* (uᵣ .* u' + u .* uᵣ') 
-    flux.ρu += (ρ .* uᵣ) .* uᵣ' 
-    flux.ρe  = (ρᵣ * eᵣ + pᵣ) * u
-    flux.ρe += (ρᵣ * e + ρ * eᵣ + p) * uᵣ
-    flux.ρq  = ρᵣ * qᵣ * u + (ρᵣ * q + ρ * qᵣ) * uᵣ
+    
+    flux.ρ   += ρᵣ * u + ρ * uᵣ # this is just ρu
+    flux.ρu  += p * I + ρᵣ .* (uᵣ .* u' + u .* uᵣ') 
+    flux.ρu  += (ρ .* uᵣ) .* uᵣ' 
+    flux.ρe  += (ρᵣ * eᵣ + pᵣ) * u
+    flux.ρe  += (ρᵣ * e + ρ * eᵣ + p) * uᵣ
+    flux.ρq  += ρᵣ * qᵣ * u + (ρᵣ * q + ρ * qᵣ) * uᵣ
+
+    # flux.ρ  += ρu
+    # flux.ρu += p * I
+    # flux.ρe += (ρeᵣ + pᵣ) * ρu / ρᵣ 
 
     nothing
 end

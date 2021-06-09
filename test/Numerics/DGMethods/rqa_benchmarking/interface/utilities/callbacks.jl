@@ -254,7 +254,7 @@ function update_ref_state!(
     ρu = state.ρu
     ρe = state.ρe
     aux.ref_state.ρ = ρ
-    # aux.ref_state.ρu = ρu
+    aux.ref_state.ρu = ρu # @SVector[0.0,0.0,0.0]
     aux.ref_state.ρe = ρe
 
     aux.ref_state.p = calc_pressure(eos, state, aux, parameters)
@@ -273,7 +273,7 @@ function create_callback(update_ref::ReferenceStateUpdate, simulation::Simulatio
         update_auxiliary_state!(update_ref_state!, dg, balance_law, Q, t)
 
         α = odesolver.dt * odesolver.RKA_implicit[2, 2]
-        # stupid hack
+        # hack
         be_solver = odesolver.implicit_solvers[odesolver.RKA_implicit[2, 2]][1]
         update_backward_Euler_solver!(be_solver, Q, α)
         nothing
