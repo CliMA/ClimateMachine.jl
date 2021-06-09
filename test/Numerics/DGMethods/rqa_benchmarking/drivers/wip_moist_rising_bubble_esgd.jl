@@ -20,7 +20,7 @@ parameters = (
     e_int_v0 = get_planet_parameter(:e_int_v0),
     e_int_i0 = get_planet_parameter(:e_int_i0),
     molmass_ratio = get_planet_parameter(:molmass_dryair)/get_planet_parameter(:molmass_water),
-    T_0  = 0.0,
+    T_0  = get_planet_parameter(:T_0), # 0.0, #
     xc   = 5000,
     yc   = 1000,
     zc   = 2000,
@@ -82,7 +82,7 @@ q(p, x, y, z)       = 0.0 + Δq(p, x, y, z)
 cv_m(p, x, y, z)  = p.cv_d + (p.cv_v - p.cv_d) * q(p, x, y, z)
 
 e_pot(p, x, y, z) = p.g * z
-e_int(p, x, y, z) = cv_m(p, x, y, z) * θ₀(p, x, y, z) * π_exner(p, x, y, z) + q(p, x, y, z) * p.e_int_v0
+e_int(p, x, y, z) = cv_m(p, x, y, z) * (θ₀(p, x, y, z) * π_exner(p, x, y, z) - p.T_0) + q(p, x, y, z) * p.e_int_v0
 e_kin(p, x, y, z) = 0.0
 
 ρe(p, x, y, z) = ρ₀(p, x, y, z) * (e_kin(p, x, y, z) + e_int(p, x, y, z) + e_pot(p, x, y, z))
@@ -101,7 +101,7 @@ e_kin(p, x, y, z) = 0.0
 ########
 model = DryAtmosModel(
     physics = physics,
-    boundary_conditions = (0,0,1,1,2,3),
+    boundary_conditions = (0,0,1,1,DefaultBC(),DefaultBC()),
     initial_conditions = (ρ = ρ₀, ρu = ρu⃗₀, ρe = ρe, ρq = ρq),
     numerics = (
         # flux = RoeNumericalFlux(),
