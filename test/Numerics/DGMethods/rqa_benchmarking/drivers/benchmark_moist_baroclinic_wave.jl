@@ -140,7 +140,7 @@ ref_state = DryReferenceState(
 physics = Physics(
     orientation = SphericalOrientation(),
     ref_state   = ref_state,
-    eos         = MoistIdealGas{(:ρ, :ρu, :ρe)}(),
+    eos         = MoistIdealGas(),
     lhs         = (
         NonlinearAdvection{(:ρ, :ρu, :ρe)}(),
         PressureDivergence(),
@@ -172,7 +172,7 @@ linear_physics = Physics(
 ########
 model = DryAtmosModel(
     physics = physics,
-    boundary_conditions = (Default(), Default()),
+    boundary_conditions = (DefaultBC(), DefaultBC()),
     initial_conditions = (ρ = ρ₀ᶜᵃʳᵗ, ρu = ρu⃗₀ᶜᵃʳᵗ, ρe = ρeᶜᵃʳᵗ, ρq = ρqᶜᵃʳᵗ),
     numerics = (
       flux = LMARSNumericalFlux(),
@@ -181,7 +181,7 @@ model = DryAtmosModel(
 
 linear_model = DryAtmosModel(
     physics = linear_physics,
-    boundary_conditions = (Default(), Default()),
+    boundary_conditions = (DefaultBC(), DefaultBC()),
     initial_conditions = (ρ = ρ₀ᶜᵃʳᵗ, ρu = ρu⃗₀ᶜᵃʳᵗ, ρe = ρeᶜᵃʳᵗ, ρq = ρqᶜᵃʳᵗ),
     numerics = (
         flux = RefanovFlux(),
@@ -203,8 +203,8 @@ callbacks = (
   CFL(),
   VTKState(
     iteration = Int(floor(6*3600/Δt)), 
-    filepath = "/central/scratch/bischtob/wip_moist_baroclinic_wave/"),
-    #filepath = "./out/"),  
+    #filepath = "/central/scratch/bischtob/wip_moist_baroclinic_wave/"),
+    filepath = "./out/"),  
   TMARCallback(),
 )
 
