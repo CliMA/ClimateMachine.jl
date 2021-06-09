@@ -140,7 +140,7 @@ ref_state = DryReferenceState(
 physics = Physics(
     orientation = SphericalOrientation(),
     ref_state   = ref_state,
-    eos         = DryIdealGas{(:ρ, :ρu, :ρe)}(),
+    eos         = MoistIdealGas(),
     lhs         = (
         NonlinearAdvection{(:ρ, :ρu, :ρe)}(),
         PressureDivergence(),

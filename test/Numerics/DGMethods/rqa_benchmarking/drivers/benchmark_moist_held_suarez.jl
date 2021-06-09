@@ -176,11 +176,12 @@ held_suarez_parameters = (;
 ######
 # Modified Held-Suarez Forcing
 ######
-function calc_force!(
+function calc_component!(
     source,
     hsf::HeldSuarezForcing,
     state,
     aux,
+    physics,
 )
     FT = eltype(state)
     
@@ -205,7 +206,7 @@ function calc_force!(
     z = aux.z
     coord = @SVector[x,y,z]
 
-    p = pressure(ρ, ρu, ρe, Φ)
+    p = calc_pressure(physics.eos, state, aux, physics.parameters)
     T = p / (ρ * _R_d)
 
     # Held-Suarez parameters
@@ -253,7 +254,7 @@ ref_state = DryReferenceState(
 physics = Physics(
     orientation = SphericalOrientation(),
     ref_state   = ref_state,
-    eos         = MoistIdealGas{(:ρ, :ρu, :ρe)}(),
+    eos         = MoistIdealGas(),
     lhs         = (
         NonlinearAdvection{(:ρ, :ρu, :ρe)}(),
         PressureDivergence(),
@@ -261,8 +262,8 @@ physics = Physics(
     sources     = (
         DeepShellCoriolis(),
         FluctuationGravity(),
-        #ZeroMomentMicrophysics(),
-        #HeldSuarezForcing(held_suarez_parameters),
+        ZeroMomentMicrophysics(),
+        HeldSuarezForcing(held_suarez_parameters),
     ),
     parameters = parameters,
 )
@@ -288,19 +289,14 @@ model = DryAtmosModel(
     physics = physics,
     boundary_conditions = (DefaultBC(), DefaultBC()),
     initial_conditions = (ρ = ρ₀ᶜᵃʳᵗ, ρu = ρu⃗₀ᶜᵃʳᵗ, ρe = ρeᶜᵃʳᵗ, ρq = ρqᶜᵃʳᵗ),
-    numerics = (
-      flux = LMARSNumericalFlux(),
-    ),
+    numerics = (flux = LMARSNumericalFlux(),),
 )
 
 linear_model = DryAtmosModel(
     physics = linear_physics,
     boundary_conditions = (DefaultBC(), DefaultBC()),
-    initial_conditions = (ρ = ρ₀ᶜᵃʳᵗ, ρu = ρu⃗₀ᶜᵃʳᵗ, ρe = ρeᶜᵃʳᵗ, ρq = ρqᶜᵃʳᵗ),
-    numerics = (
-        flux = RefanovFlux(),
-    ),
-
+    initial_conditions = model.initial_conditions,
+    numerics = (flux = RefanovFlux(),),
 )
 
 ########
