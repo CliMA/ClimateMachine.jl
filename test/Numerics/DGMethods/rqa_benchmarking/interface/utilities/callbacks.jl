@@ -243,7 +243,7 @@ end
 # helper function 
 
 function update_ref_state!(
-    m::DryAtmosModel,
+    model::DryAtmosModel,
     state::Vars,
     aux::Vars,
     t::Real,
