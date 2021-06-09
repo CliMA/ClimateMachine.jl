@@ -42,8 +42,8 @@ end
 
 @inline function calc_pressure(eos::MoistIdealGas{(:ρ, :ρu, :ρe)}, state, aux, params)
     ρ  = state.ρ
-    R_m = calc_gas_constant(eos, state, aux, params)
-    T = calc_air_temperature(eos, state, params)
+    R_m = calc_gas_constant(eos, state, params)
+    T = calc_air_temperature(eos, state, aux, params)
     
     return ρ * R_m * T 
 end
@@ -76,6 +76,7 @@ end
     ρ_e_latent = (ρ_q_tot - ρ_q_liq) * params.e_int_v0 - ρ_q_ice * (params.e_int_v0 + params.e_int_i0)
     
     return (γ - 1) * (ρe - ρ * Φ - ρ_e_latent + ρ * cv_m * T_0)
+    # return (γ - 1) * (ρe - ρ * Φ - ρ_e_latent)
 end
 
 @inline function calc_sound_speed(::BarotropicFluid{(:ρ, :ρu)}, state, aux, params)

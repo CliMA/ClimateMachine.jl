@@ -12,7 +12,7 @@ parameters = (
     cp_d = get_planet_parameter(:cp_d),
     cv_d = get_planet_parameter(:cv_d),
     γ    = get_planet_parameter(:cp_d)/get_planet_parameter(:cv_d),
-    T_0  = 0.0,
+    T_0  = get_planet_parameter(:T_0), #0.0,
     xc   = 5000,
     yc   = 1000,
     zc   = 2000,
@@ -69,7 +69,7 @@ r(p, x, z)          = sqrt((x - p.xc)^2 + (z - p.zc)^2)
 ρu⃗₀(p, x, y, z) = @SVector [0, 0, 0]
 
 e_pot(p, x, y, z) = p.g * z
-e_int(p, x, y, z) = p.cv_d * θ₀(p, x, y, z) * π_exner(p, x, y, z)
+e_int(p, x, y, z) = p.cv_d * (θ₀(p, x, y, z) * π_exner(p, x, y, z) - p.T_0 )
 e_kin(p, x, y, z) = 0.0
 ρe(p, x, y, z) = ρ₀(p, x, y, z) * (e_kin(p, x, y, z) + e_int(p, x, y, z) + e_pot(p, x, y, z))
 ρq(p, x, y, z) = 0
@@ -87,7 +87,7 @@ e_kin(p, x, y, z) = 0.0
 ########
 model = DryAtmosModel(
     physics = physics,
-    boundary_conditions = (0,0,1,1,2,3),
+    boundary_conditions = (0,0,1,1,DefaultBC(),DefaultBC()),
     initial_conditions = (ρ = ρ₀, ρu = ρu⃗₀, ρe = ρe, ρq = ρq),
     numerics = (
         # flux = RoeNumericalFlux(),
@@ -105,7 +105,7 @@ end_time    = 4000.0
 callbacks   = (
     Info(),
     StateCheck(10),
-    VTKState(iteration = Int(floor(10.0/Δt)), filepath = "./out_esdg/"),
+    VTKState(iteration = Int(floor(10.0/Δt)), filepath = "./out_esdg/dry_bubble/"),
 )
 
 
