@@ -12,7 +12,7 @@ using ClimateMachine.GenericCallbacks:
     EveryXWallTimeSeconds, EveryXSimulationSteps
 using ClimateMachine.VTK: writevtk, writepvtu
 using ClimateMachine.VariableTemplates: flattenednames
-import ClimateMachine.ODESolvers: LSRK144NiegemannDiehlBusch, solve!, gettime, getsteps
+using ClimateMachine.ODESolvers
 using StaticArrays: @SVector
 using LazyArrays
 using JLD2
@@ -55,10 +55,12 @@ function main()
 
         l2_errors = zeros(FT, numlevels)
         linf_errors = zeros(FT, numlevels)
+        l2_errors_state = zeros(FT, numlevels, 5)
+        linf_errors_state = zeros(FT, numlevels, 5)
         for l in 1:numlevels
           timeend = problem.timeend
           FT = Float64
-          l2_err, linf_err = run(
+          l2_err, l2_err_state, linf_err, linf_err_state = run(
               mpicomm,
               N,
               (Kx[l], Ky[l]),
@@ -74,9 +76,14 @@ function main()
           @show l, l2_err, linf_err
           l2_errors[l] = l2_err
           linf_errors[l] = linf_err
+          l2_errors_state[l, :] .= l2_err_state
+          linf_errors_state[l, :] .= linf_err_state
         end
         l2_rates = log2.(l2_errors[1:numlevels-1] ./ l2_errors[2:numlevels])
         linf_rates = log2.(linf_errors[1:numlevels-1] ./ linf_errors[2:numlevels])
+        
+        l2_rates_state = log2.(l2_errors_state[1:numlevels-1, :] ./ l2_errors_state[2:numlevels, :])
+        linf_rates_state = log2.(linf_errors_state[1:numlevels-1, :] ./ linf_errors_state[2:numlevels, :])
     
         avg_dx = problem.L ./ Kx ./ N
         avg_dy = problem.H ./ Ky ./ N
@@ -88,9 +95,23 @@ function main()
               l2_rates,
               linf_errors,
               linf_rates,
+              l2_errors_state,
+              l2_rates_state,
+              linf_errors_state,
+              linf_rates_state,
         )
 
-        @show N, l2_errors, l2_rates
+        @show N
+        @show l2_rates
+        @show l2_rates_state[:, 1]
+        @show l2_rates_state[:, 2]
+        @show l2_rates_state[:, 3]
+        @show l2_rates_state[:, 5]
+        @show linf_rates
+        @show linf_rates_state[:, 1]
+        @show linf_rates_state[:, 2]
+        @show linf_rates_state[:, 3]
+        @show linf_rates_state[:, 5]
       end
       @save(joinpath(outdir, "gw_convergence_$surfaceflux.jld2"),
             convergence_data,
@@ -147,10 +168,11 @@ function run(
 
     # determine the time step
     dx = min_node_distance(grid)
-    cfl = FT(0.5)
+    cfl = FT(0.1)
     dt = cfl * dx / 330
     Q = init_ode_state(esdg, FT(0))
-    odesolver = LSRK144NiegemannDiehlBusch(esdg, Q; dt = dt, t0 = 0)
+    #odesolver = LSRK144NiegemannDiehlBusch(esdg, Q; dt = dt, t0 = 0)
+    odesolver = LSRK54CarpenterKennedy(esdg, Q; dt = dt, t0 = 0)
 
     eng0 = norm(Q)
     @info @sprintf """Starting
@@ -209,8 +231,16 @@ function run(
     solve!(Q, odesolver; callbacks = callbacks, timeend = timeend)
 
     Qexact = init_ode_state(esdg, FT(timeend))
+
     l2_err = norm(Q - Qexact)
+    l2_err_state = norm(Q - Qexact, dims = (1, 3))[:]
+    
+    Q = Array(Q.data)
+    Qexact = Array(Qexact.data)
+    nstate = size(Q, 2)
     linf_err = maximum(abs.(Q - Qexact))
+    linf_err_state = [@views maximum(abs.(Q[:, s, :] - Qexact[:, s, :])) for s in 1:nstate]
+
 
     stepsdir = joinpath(outdir, "$N", "$(K[1])x$(K[2])", "steps")
     mkpath(stepsdir)
@@ -244,7 +274,7 @@ function run(
     norm(Q) - norm(Q₀) = %.16e
     norm(Q - Qexact)   = %.16e
     """ engf engf / eng0 engf - eng0 l2_err
-    l2_err, linf_err
+    l2_err, l2_err_state, linf_err, linf_err_state
 end
 
 function do_output(mpicomm, vtkdir, vtkstep, esdg, Q, Qexact, model, testname = "RTB")
