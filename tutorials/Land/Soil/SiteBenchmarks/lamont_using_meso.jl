@@ -11,7 +11,7 @@ using DelimitedFiles
 using Plots
 using Dates
 using NCDatasets
-
+using JLD2, FileIO
 using CLIMAParameters
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
@@ -296,7 +296,7 @@ soil_param_functions = SoilParamFunctions(FT; porosity = (aux)->ν(aux.z), water
 
 ### Read in flux data
 cutoff = DateTime(2016,03,20,0,30,0)
-cutoff1 = DateTime(2016,03,31,0,30,0)
+cutoff1 = DateTime(2016,03,29,0,30,0)
 cutoff2 = DateTime(2016,06,01,0,30,0)
 filepath = "data/lamont/arms_flux/sgparmbeatmC1.c1.20160101.003000.nc"
 ds = Dataset(filepath)
@@ -331,11 +331,11 @@ bottom_flux = (aux, t) -> aux.soil.water.K * eltype(aux)(-1)
 surface_flux = (aux, t) -> incident(t)
 surface_zero_flux = (aux, t) -> eltype(aux)(0)
 N_poly = 1;
-nelem_vert = 30;
+nelem_vert = 20;
 
 # Specify the domain boundaries.
 zmax = FT(0);
-zmin = FT(-1.5);
+zmin = FT(-1.0);
 Δ = FT((zmax-zmin)/nelem_vert/2)
 bc = LandDomainBC(
     bottom_bc = LandComponentBC(
@@ -349,7 +349,7 @@ bc = LandDomainBC(
     )
 )
 
-depths = [5, 10,20,35,75] .* (-0.01) # m
+depths = [5, 10,20,50,75] .* (-0.01) # m
 #data = readdlm("./data/lamont/swat_swc_depth.txt",'\t',String)
 data = readdlm("./data/lamont/stamps_swc_depth.txt",'\t',String)
 ts = DateTime.(data[:,1], "yyyymmdd")
@@ -476,10 +476,19 @@ end;
 
 # # Run the integration
 ClimateMachine.invoke!(solver_config; user_callbacks = (callback,));
+filename = joinpath(@__DIR__, "data/lamont/meso_output_fixed_ic.jld2")
+save(filename,"dons", dons_arr)
+
+
+#=
+#tfile = joinpath(@__DIR__, "data/lamont/t_meso.csv")
+#open(tfile, "w") do io
+#    writedlm(io, time_data)
+#end
 
 # Get z-coordinate
-z = get_z(solver_config.dg.grid; rm_dupes = true);
-N = length(dons_arr)
+#z = get_z(solver_config.dg.grid; rm_dupes = true);
+#N = length(dons_arr)
 
 mask = z .== depths[1]
 l1 = [dons_arr[k]["soil.water.ϑ_l"][mask][1] for k in 1:N]
@@ -536,3 +545,4 @@ scatter!(ts[keep], soil_data[keep,5], ms = 2, color = "blue", label = "")
 #scatter!(scan_date[scan_keep], scan_swc[:,5], ms = 2, color = "green", label = "")
 #plot!(ylim = [0.05,0.45])
 savefig("./data/lamont/layer5_meso.png")
+=#

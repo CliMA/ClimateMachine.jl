@@ -11,6 +11,7 @@ using DelimitedFiles
 using Plots
 using Dates
 using NCDatasets
+using JLD2, FileIO
 
 using CLIMAParameters
 struct EarthParameterSet <: AbstractEarthParameterSet end
@@ -46,12 +47,13 @@ include(joinpath(clima_dir, "docs", "plothelpers.jl"));
 soil_heat_model = PrescribedTemperatureModel();
 
 #Based off of soil classes reported by SWAT
-
+# Depths: 5, 10 - SiL, 20- C, 50, 75/100 - CL
+# Boundaries = 15/ 35
 function ν(z::F) where {F}
     if z > F(-0.2)
         #silt loam
         ν = F(0.45)
-    elseif z > F(-0.3)
+    elseif z > F(-0.4)
         #clay - I adjusted this up because the data gives a value > clay's porosity for SWC
         ν = F(0.43)
     else
@@ -64,7 +66,7 @@ function vgn(z::F) where {F}
     if z > F(-0.2)
         #silt loam
         n = F(1.4)
-    elseif z > F(-0.3)
+    elseif z > F(-0.4)
         #clay
         n = F(1.09)
     else
@@ -77,7 +79,7 @@ function vgα(z::F) where {F}
     if z > F(-0.2)
         #silt loam
         α = F(2)
-    elseif z > F(-0.3)
+    elseif z > F(-0.4)
         #clay
         α = F(0.8)
     else
@@ -91,7 +93,7 @@ function ks(z::F) where {F}
     if z > F(-0.2)
         #silt loam
         k = F(0.45/3600/100)
-    elseif z > F(-0.3)
+    elseif z > F(-0.4)
         #clay
         k = F(0.2/3600/100)
     else
@@ -106,7 +108,7 @@ function θr(z::F) where {F}
     if z > F(-0.2)
         #silt loam
         k = F(0.067)
-    elseif z > F(-0.3)
+    elseif z > F(-0.4)
         #clay
         k = F(0.068)
     else
@@ -118,7 +120,7 @@ end
 
 
 # POLARIS
-#= 
+#=
 soil_depths = FT.([2.5,10,22.5,45,80,150]./(100))
 paramvalues = FT.(readdlm("./data/lamont/polaris_mean/polaris_mean_results.csv", ','))
 function ks(z::F) where {F}
@@ -217,10 +219,8 @@ function ν(z::F) where {F}
     end
     return k
 end
-    
-
-
-
+  =#  
+#=
 function mymap(z::F,  depths::Array{F,1},values::Array{F,1}) where {F}
     N = length(depths)
     v = F(0)
@@ -324,18 +324,24 @@ bc = LandDomainBC(
     )
 )
 
-depths = [5, 10,20,35,75] .* (-0.01) # m
+depths = [5, 10,20,50,75] .* (-0.01) # m
 #data = readdlm("./data/lamont/swat_swc_depth.txt",'\t',String)
 data = readdlm("./data/lamont/stamps_swc_depth.txt",'\t',String)
 ts = DateTime.(data[:,1], "yyyymmdd")
 soil_data = tryparse.(Float64, data[:, 2:end-1])
 keep = ((ts .<= cutoff2) .+ (ts .>= cutoff1)) .==2
-swc = FT.(soil_data[keep,:][1,:])*0.01
-swc[3] = FT(0.37)
-swc[4] = FT(0.34)
-swc[5] = FT(0.34)
+swc = FT.(soil_data[keep,:][1,:])*0.01#*0.8
+swc[5] = FT(0.15) # adjust this up to be above residual for POLARIS
+#swc[1] = FT(0.19)
+#swc[1] = FT(0.25)
+#swc[3] = FT(0.39)
+#swc[4] = FT(0.34)
+#swc[3] = FT(0.37)
+#swc[4] = FT(0.34)
+#swc[5] = FT(0.34)
 θ = Spline1D(reverse(depths), reverse(swc), k=2)
-
+#z = -1:0.01:0
+#plot(θ.(z), z, label = "Estimated profile")
 ϑ_l0 = aux -> θ(aux.z)
 
 
@@ -384,12 +390,12 @@ driver_config = ClimateMachine.SingleStackConfiguration(
 # Choose the initial and final times, as well as a timestep.
 t0 = FT(0)
 timeend = FT(60 *60 * 24*61)+t0
-dt = FT(25);
+dt = FT(5);
 
 # Create the solver configuration.
 solver_config =
     ClimateMachine.SolverConfiguration(t0, timeend, driver_config, ode_dt = dt);
-
+#=
     dg = solver_config.dg
     Q = solver_config.Q
 
@@ -433,7 +439,7 @@ solver_config =
     )
 
     solver_config.solver = ode_solver
-
+=#
 # Determine how often you want output.
 n_outputs = 90;
 
@@ -453,9 +459,23 @@ end;
 
 # # Run the integration
 ClimateMachine.invoke!(solver_config; user_callbacks = (callback,));
-
-# Get z-coordinate
 z = get_z(solver_config.dg.grid; rm_dupes = true);
+filename = joinpath(@__DIR__, "data/lamont/stamp_output_fixed_ic_sp2.jld2")
+save(filename,"dons", dons_arr)
+
+#=
+zfile = joinpath(@__DIR__, "data/lamont/z_orig_ic.csv")
+open(zfile, "w") do io
+    writedlm(io, z)
+end
+tfile = joinpath(@__DIR__, "data/lamont/t.csv")
+open(tfile, "w") do io
+    writedlm(io, time_data)
+end
+
+
+
+
 N = length(dons_arr)
 
 mask = z .== depths[1]
@@ -513,3 +533,4 @@ scatter!(ts[keep], soil_data[keep,5], ms = 2, color = "blue", label = "")
 #scatter!(scan_date[scan_keep], scan_swc[:,5], ms = 2, color = "green", label = "")
 #plot!(ylim = [0.05,0.45])
 
+=#

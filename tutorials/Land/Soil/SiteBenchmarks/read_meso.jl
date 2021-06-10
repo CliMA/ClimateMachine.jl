@@ -4,6 +4,7 @@ file = "/Users/katherinedeck/Desktop/ok_data/MesoSoilv1_3/Sheet1-Table 1.csv"
 
 data = readdlm(file, ',')
 stations = ["MEF","BLAC","BREC","REDR"]
+# @s = 11, 63, 14, 79
 depths =[5,10,25,45,60,75]
 di = 1
 st_flag = [data[k,1] ∈  stations for k in 1:753]

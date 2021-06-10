@@ -86,3 +86,48 @@ swc = num ./ denom
 open("data/lamont/stamps_swc_depth.txt", "w") do io
     writedlm(io, hcat(south[:,1], string.(swc)))
 end
+
+output_dir = @__DIR__
+
+plot(31:1:122,swc[31:end,1], label = "Aggregated", title = "SWC (%), 5cm")
+plot!(31:1:122,east_data[31:end,1], label = "East")
+plot!(31:1:122,south_data[31:end,1], label = "South")
+plot!(31:1:122,west_data[31:end,1], label = "West")
+plot!(xticks = ([31, 61, 92, 122], ["2016-4-1", "2016-5-1", "2016-6-1", "2016-7-1"]))
+savefig(joinpath(output_dir, "data/lamont/arms_stamps/layer1.png"))
+
+plot(31:1:122,swc[31:end,2], label = "Aggregated", title = "SWC (%), 10cm")
+plot!(31:1:122,east_data[31:end,2], label = "East")
+plot!(31:1:122,south_data[31:end,2], label = "South")
+plot!(31:1:122,west_data[31:end,2], label = "West")
+plot!(xticks = ([31, 61, 92, 122], ["2016-4-1", "2016-5-1", "2016-6-1", "2016-7-1"]))
+savefig(joinpath(output_dir, "data/lamont/arms_stamps/layer2.png"))
+
+
+plot(31:1:122,swc[31:end,3], label = "Aggregated", title = "SWC (%), 20cm")
+plot!(31:1:122,east_data[31:end,3], label = "East")
+plot!(31:1:122,south_data[31:end,3], label = "South")
+plot!(31:1:122,west_data[31:end,3], label = "West")
+plot!(xticks = ([31, 61, 92, 122], ["2016-4-1", "2016-5-1", "2016-6-1", "2016-7-1"]))
+savefig(joinpath(output_dir, "data/lamont/arms_stamps/layer3.png"))
+
+plot(31:1:122,swc[31:end,4], label = "Aggregated", title = "SWC (%), 50cm")
+plot!(31:1:122,east_data[31:end,4], label = "East")
+plot!(31:1:122,south_data[31:end,4], label = "South")
+plot!(31:1:122,west_data[31:end,4], label = "West")
+plot!(xticks = ([31, 61, 92, 122], ["2016-4-1", "2016-5-1", "2016-6-1", "2016-7-1"]))
+savefig(joinpath(output_dir, "data/lamont/arms_stamps/layer4.png"))
+
+plot(31:1:122,swc[31:end,5], label = "Aggregated", title = "SWC (%), 75cm")
+plot!(31:1:122,east_data[31:end,5], label = "East")
+plot!(31:1:122,south_data[31:end,5], label = "South")
+plot!(31:1:122,west_data[31:end,5], label = "West")
+plot!(xticks = ([31, 61, 92, 122], ["2016-4-1", "2016-5-1", "2016-6-1", "2016-7-1"]))
+savefig(joinpath(output_dir, "data/lamont/arms_stamps/layer5.png"))
+
+plot(31:1:122,swc[31:end,6], label = "Aggregated", title = "SWC (%), 100cm")
+plot!(31:1:122,east_data[31:end,6], label = "East")
+plot!(31:1:122,south_data[31:end,6], label = "South")
+plot!(31:1:122,west_data[31:end,6], label = "West")
+plot!(xticks = ([31, 61, 92, 122], ["2016-4-1", "2016-5-1", "2016-6-1", "2016-7-1"]))
+savefig(joinpath(output_dir, "data/lamont/arms_stamps/layer6.png"))
