@@ -165,7 +165,7 @@ end
     FT = Float64
 
     data = readdlm("/Users/katherinedeck/Downloads/ERAwyo_2017_hourly.csv",',')
-    """data = readdlm("/Users/shuangma/Downloads/ERAwyo_2017_hourly.csv",',')"""
+    #data = readdlm("/Users/shuangma/Downloads/ERAwyo_2017_hourly.csv",',')
 
     Qsurf = data[:, data[1,:] .== "Qsurf"][2:end,1] ./ 3600 ./ 24 # per second
     Qsurf = -Qsurf
@@ -286,13 +286,13 @@ end
 
     RMSEv = round(sqrt(mean((tsurf_pw - tsurf_era5).^2)),digits = 2) 
     
-    snowscatter = plot(tsurf_pw, tsurf_era5, seriestype = :scatter, 
+    snowscatter = plot(tsurf_pw, tsurf_era5, seriestype = :scatter, reg = true,
     title = "snow surface temperature",
     legend = false,
     ylim = [220,280],xlim=[220,280],
     xlab = "Tsurf Piecewise model", ylab = "Tsurf ERA5")
     annotate!(260,270,text(string("RMSE = ", RMSEv), :left, 12))
-
+    Plots.abline!(1, 1, line=:dash)
     savefig(snowscatter,"snow_scatter.png")
 
 end 
