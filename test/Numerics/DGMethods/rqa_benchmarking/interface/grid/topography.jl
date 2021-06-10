@@ -1,21 +1,14 @@
-export AbstractTopography,
-    NoTopography,
-    DCMIPTopography,
-    EarthTopography,
-    cubed_sphere_topo_warp,
-    compute_long_lat,
-    topography_warp,
-    compute_topography,
-    equiangular_cubed_sphere_topo_warp,
+using Dierckx
+using NCDatasets
 
 const data_land_topo = NCDataset("/Users/asridhar/Research/Codes/ClimateMachine.jl/topodata.nc");
-long = (data_land_topo["X"][:] .+ 180) .* π/180; # Longitude in degrees [-180 to 180; +180 shift]
-lat = data_land_topo["Y"][:] .* π/180; # Latitude in degrees [-90 to 90]
-lat = reverse(lat)
+Λ = (data_land_topo["X"][:]) .* π/180; # Longitude in degrees [-180 to 180; +180 shift]
+Φ = data_land_topo["Y"][:] .* π/180; # Latitude in degrees [-90 to 90]
+Φ = reverse(Φ)
 elev = data_land_topo["topo"][:]; # Elevation in meters [0 to Everest] No Bathmetry
 elev = reverse(elev,dims=2)
 skip_var = 3;
-const get_elevation = Spline2D(long[1:skip_var:end],lat[1:skip_var:end],elev[1:skip_var:end,1:skip_var:end], kx = 4, ky=4)
+const get_elevation = Spline2D(Λ[1:skip_var:end],Φ[1:skip_var:end],elev[1:skip_var:end,1:skip_var:end], kx = 4, ky=4)
 
 equiangular_cubed_sphere_topo_warp(a, b, c, R = max(abs(a), abs(b), abs(c))) =
     cubed_sphere_topo_warp(EquiangularCubedSphere(), a, b, c, R; 
@@ -76,7 +69,7 @@ function compute_topography(
 )
     #User specified warp parameters
     R_m = π * 3 / 4
-    h0 = 0.05
+    h0 = 0.02
     ζ_m = π / 16
     φ_m = 0
     λ_m = π * 3 / 2
@@ -130,79 +123,8 @@ function compute_topography(
         zs = lst.topo_spline(λ,ϕ)
     end
     mR = sign(sR) * (abs(sR) + zs * Δ)
-    return mR, mask
+    return mR
 end
-
-#function cubed_sphere_topo_warp(
-#    ::EquiangularCubedSphere,
-#    a,
-#    b,
-#    c,
-#    R = max(abs(a), abs(b), abs(c));
-#    domain = nothing,
-#    topography::AbstractTopography = NoTopography(),
-#)
-#    function f(sR, ξ, η, faceid, (a,b,c))
-#        X, Y = tan(π * ξ / 4), tan(π * η / 4)
-#        δ = 1 + X^2 + Y^2
-#        #λ, ϕ = compute_long_lat(X, Y, δ, faceid)
-#        ϕ = asin(c/R)
-#        t = b/a 
-#        λ = -0
-#        function get_λ(a,b,c)
-#        end
-#        if a >= -0 && b >= -0  # Quadrant 1
-#            λ += atan(t)
-#        elseif a < -0 && b >= -0 # Quadrant 2
-#            λ += atan(-t)+π/2
-#        elseif a < -0 && b < -0 # Quadrant 3
-#            λ += atan(t)+π
-#        elseif a >= -0 && b < -0 # Quadrant 4
-#            λ += atan(-t) + 3π/2
-#        end
-#        mR = compute_topography(
-#            topography,
-#            λ,
-#            ϕ,
-#            sR,
-#            (X,Y,δ,faceid),
-#        )
-#        x1 = mR / sqrt(δ)
-#        x2, x3 = X * x1, Y * x1
-#        x1, x2, x3
-#    end
-#    fdim = argmax(abs.((a, b, c)))
-#    if fdim == 1 && a < 0
-#        faceid = 1
-#        # (-R, *, *) : Face I from Ronchi, Iacono, Paolucci (1996)
-#        x1, x2, x3 = f(-R, b / a, c / a, faceid, (a,b,c))
-#    elseif fdim == 2 && b < 0
-#        faceid = 2
-#        # ( *,-R, *) : Face II from Ronchi, Iacono, Paolucci (1996)
-#        x2, x1, x3 = f(-R, a / b, c / b, faceid, (a,b,c))
-#    elseif fdim == 1 && a > 0
-#        faceid = 3
-#        # ( R, *, *) : Face III from Ronchi, Iacono, Paolucci (1996)
-#        x1, x2, x3 = f(R, b / a, c / a, faceid, (a,b,c))
-#    elseif fdim == 2 && b > 0
-#        faceid = 4
-#        # ( *, R, *) : Face IV from Ronchi, Iacono, Paolucci (1996)
-#        x2, x1, x3 = f(R, a / b, c / b, faceid, (a,b,c))
-#    elseif fdim == 3 && c > 0
-#        faceid = 5
-#        # ( *, *, R) : Face V from Ronchi, Iacono, Paolucci (1996)
-#        x3, x2, x1 = f(R, b / c, a / c, faceid, (a,b,c))
-#    elseif fdim == 3 && c < 0
-#        faceid = 6
-#        # ( *, *,-R) : Face VI from Ronchi, Iacono, Paolucci (1996)
-#        x3, x2, x1 = f(-R, b / c, a / c, faceid, (a,b,c))
-#    else
-#        error("invalid case for cubed_sphere_warp(::EquiangularCubedSphere): $a, $b, $c")
-#    end
-#    
-#    return x1, x2, x3
-#
-#end
 
 function cubed_sphere_topo_warp(
     ::EquiangularCubedSphere,
@@ -224,17 +146,7 @@ function cubed_sphere_topo_warp(
        X, Y = tan(π * ξ / 4), tan(π * η / 4)
        δ = 1 + X^2 + Y^2
        ϕ = asin(c/R)
-       t = abs(b/a) 
-       λ = -0
-       if a >= -0 && b >= -0  # Quadrant 1
-           λ += atan(t)
-       elseif a < -0 && b >= -0 # Quadrant 2
-           λ += π - atan(t)
-       elseif a < -0 && b < -0 # Quadrant 3
-           λ += π + atan(t)
-       elseif a >= -0 && b < -0 # Quadrant 4
-           λ += 2π - atan(t) 
-       end
+       λ = atan(b,a)
        mR = compute_topography(
            topography,
            λ,
@@ -246,6 +158,7 @@ function cubed_sphere_topo_warp(
        x2, x3 = X * x1, Y * x1
        x1, x2, x3
    end
+
     fdim = argmax(abs.((a, b, c)))
     if fdim == 1 && a < 0
         faceid = 1
@@ -275,6 +188,8 @@ function cubed_sphere_topo_warp(
         error("invalid case for cubed_sphere_warp(::EquiangularCubedSphere): $a, $b, $c")
     end
     a,b,c = x1,x2,x3
+    @show((a,b,c))
+    
     if fdim == 1 && a < 0
         faceid = 1
         # (-R, *, *) : Face I from Ronchi, Iacono, Paolucci (1996)
@@ -304,33 +219,3 @@ function cubed_sphere_topo_warp(
     end
     return x1, x2, x3
 end
-
-### Helper Functions for Topography Calculations
-"""
-    compute_long_lat(X,Y,δ,faceid)
-Helper function to allow computation of latitute and longitude coordinates
-given the cubed sphere coordinates X, Y, δ, faceid
-"""
-function compute_long_lat(X, Y, δ, faceid)
-    if faceid == 1
-        λ = atan(X)                     # longitude
-        ϕ = -atan(cos(λ) * Y)            # latitude
-    elseif faceid == 2
-        λ = atan(X) + π / 2
-        ϕ = -atan(Y * cos(atan(X)))
-    elseif faceid == 3
-        λ = atan(X) + π
-        ϕ = atan(Y * cos(atan(X)))
-    elseif faceid == 4
-        λ = atan(X) + (3 / 2) * π
-        ϕ = atan(Y * cos(atan(X)))
-    elseif faceid == 5
-        λ = atan(X, -Y) 
-        ϕ = atan(1 / sqrt(δ - 1)) 
-    elseif faceid == 6
-        λ = atan(X, Y)
-        ϕ = atan(1 / sqrt(δ - 1))
-    end
-    return λ, ϕ
-end
-

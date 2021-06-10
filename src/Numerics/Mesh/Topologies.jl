@@ -10,19 +10,12 @@ export AbstractTopology,
     StackedBrickTopology,
     CubedShellTopology,
     StackedCubedSphereTopology,
-    AnalyticalTopography,
-    NoTopography,
-    DCMIPMountain,
     EquidistantCubedSphere,
     EquiangularCubedSphere,
     isstacked,
-    cubed_sphere_topo_warp,
-    compute_long_lat,
-    compute_analytical_topography,
     cubed_sphere_warp,
     cubed_sphere_unwarp,
     equiangular_cubed_sphere_warp,
-    equiangular_cubed_sphere_topo_warp,
     equiangular_cubed_sphere_unwarp,
     equidistant_cubed_sphere_warp,
     equidistant_cubed_sphere_unwarp
@@ -1304,10 +1297,6 @@ EquiangularCubedSphere type
 equiangular_cubed_sphere_warp(a, b, c, R = max(abs(a), abs(b), abs(c))) =
     cubed_sphere_warp(EquiangularCubedSphere(), a, b, c, R)
 
-equiangular_cubed_sphere_topo_warp(a, b, c, R = max(abs(a), abs(b), abs(c))) =
-    cubed_sphere_topo_warp(EquiangularCubedSphere(), a, b, c, R;
-                      topography = DCMIPMountain())
-
 """
     cubed_sphere_unwarp(x1, x2, x3)
 
@@ -1919,202 +1908,5 @@ function basic_topology_info(topology::AbstractTopology)
     )
 end
 
-
-### Helper Functions for Topography Calculations
-"""
-    compute_long_lat(X,Y,δ,faceid)
-Helper function to allow computation of latitute and longitude coordinates
-given the cubed sphere coordinates X, Y, δ, faceid
-"""
-function compute_long_lat(X, Y, δ, faceid)
-    if faceid == 1
-        λ = atan(X)                     # longitude
-        ϕ = -atan(cos(λ) * Y)            # latitude
-    elseif faceid == 2
-        λ = atan(X) + π / 2
-        ϕ = -atan(Y * cos(atan(X)))
-    elseif faceid == 3
-        λ = atan(X) + π
-        ϕ = atan(Y * cos(atan(X)))
-    elseif faceid == 4
-        λ = atan(X) + (3 / 2) * π
-        ϕ = atan(Y * cos(atan(X)))
-    elseif faceid == 5
-        λ = atan(X, -Y) + π
-        ϕ = atan(1 / sqrt(δ - 1)) 
-    elseif faceid == 6
-        λ = atan(X, Y) + π
-        ϕ = atan(1 / sqrt(δ - 1)) - π
-    end
-    return λ, ϕ
-end
-
-function compute_long_lat2(X,Y,δ,faceid)
-    # Let λ == longitude, 
-    # Let ϕ == latitude, 
-    if faceid == 1
-        λ = atan(X)
-        ϕ = atan(Y/sec(λ)) # latitude (via colatitude)
-    elseif faceid == 2
-        λ = atan(-1/X) - π/2
-        ϕ = atan(Y/csc(λ))
-    elseif faceid == 3
-        λ = atan(X) - π
-        ϕ = atan(-Y/sec(λ))
-    elseif faceid == 4
-        λ = atan(-1/X) - 3π/2
-        ϕ = atan(-Y/csc(λ))
-    elseif faceid == 5
-        λ = atan(-X/Y)
-        ϕ = acot(-Y/cos(λ))
-    elseif faceid == 6
-        λ = atan(X/Y)
-        ϕ = acot(-Y/cos(λ))
-    end
-    return λ, π/2 - ϕ
-end
-
-
-"""
-    AnalyticalTopography
-Abstract type to allow dispatch over different analytical topography prescriptions
-in experiments.
-"""
-abstract type AnalyticalTopography end
-
-function compute_analytical_topography(
-    ::AnalyticalTopography,
-    λ,
-    ϕ,
-    sR,
-)
-    return sR
-end
-
-"""
-    NoTopography <: AnalyticalTopography
-Allows definition of fallback methods in case cubed_sphere_topo_warp is used with
-no prescribed topography function.
-"""
-struct NoTopography <: AnalyticalTopography end
-
-### DCMIP Mountain
-"""
-    DCMIPMountain <: AnalyticalTopography
-Topography description based on standard DCMIP experiments.
-"""
-struct DCMIPMountain <: AnalyticalTopography end
-function compute_analytical_topography(
-    ::DCMIPMountain,
-    λ,
-    ϕ,
-    sR,
-)
-    #User specified warp parameters
-    R_m = π * 3 / 4
-    h0 = 0.05
-    ζ_m = π / 16
-    φ_m = 0
-    λ_m = π * 3 / 2
-    r_m = acos(sin(φ_m) * sin(ϕ) + cos(φ_m) * cos(ϕ) * cos(λ - λ_m))
-    # Define mesh decay profile
-    Δ = 1.0 # (r_outer - abs(sR)) / (r_outer - r_inner)
-    if r_m < R_m
-        zs =
-            0.5 *
-            h0 *
-            (1 + cos(π * r_m / R_m)) *
-            cos(π * r_m / ζ_m) *
-            cos(π * r_m / ζ_m)
-    else
-        zs = 0.0
-    end
-    mR = sign(sR) * (abs(sR) + zs * Δ)
-    return mR
-end
-
-#function compute_analytical_topography(
-#    ::DCMIPMountain,
-#    λ,
-#    ϕ,
-#    sR,
-#)       
-#    Δ = 1.0
-#    if abs(λ) < 2π
-#        zs = 0.1*cos(λ)
-#    else
-#        zs = 0.0
-#    end
-#    mR = sign(sR) * (abs(sR) + zs * Δ)
-#    return mR
-#end
-
-"""
-    cubed_sphere_topo_warp(a, b, c, R = max(abs(a), abs(b), abs(c));
-                       r_inner = _planet_radius,
-                       r_outer = _planet_radius + domain_height,
-                       topography = NoTopography())
-
-Given points `(a, b, c)` on the surface of a cube, warp the points out to a
-spherical shell of radius `R` based on the equiangular gnomonic grid proposed by
-[Ronchi1996](@cite). Assumes a user specified modified radius using the
-compute_analytical_topography function. Defaults to smooth cubed sphere unless otherwise specified
-via the AnalyticalTopography type.
-"""
-function cubed_sphere_topo_warp(
-    ::EquiangularCubedSphere,
-    a,
-    b,
-    c,
-    R = max(abs(a), abs(b), abs(c));
-    topography::AnalyticalTopography = NoTopography(),
-)
-
-    function f(sR, ξ, η, faceid)
-        X, Y = tan(π * ξ / 4), tan(π * η / 4)
-        δ = 1 + X^2 + Y^2
-        λ, ϕ = compute_long_lat(X, Y, δ, faceid)
-        mR = compute_analytical_topography(
-            topography,
-            λ,
-            ϕ,
-            sR,
-        )
-        x1 = mR / sqrt(δ)
-        x2, x3 = X * x1, Y * x1
-        x1, x2, x3
-    end
-    fdim = argmax(abs.((a, b, c)))
-
-    if fdim == 1 && a < 0
-        faceid = 1
-        # (-R, *, *) : Face I from Ronchi, Iacono, Paolucci (1996)
-        x1, x2, x3 = f(-R, b / a, c / a, faceid)
-    elseif fdim == 2 && b < 0
-        faceid = 2
-        # ( *,-R, *) : Face II from Ronchi, Iacono, Paolucci (1996)
-        x2, x1, x3 = f(-R, a / b, c / b, faceid)
-    elseif fdim == 1 && a > 0
-        faceid = 3
-        # ( R, *, *) : Face III from Ronchi, Iacono, Paolucci (1996)
-        x1, x2, x3 = f(R, b / a, c / a, faceid)
-    elseif fdim == 2 && b > 0
-        faceid = 4
-        # ( *, R, *) : Face IV from Ronchi, Iacono, Paolucci (1996)
-        x2, x1, x3 = f(R, a / b, c / b, faceid)
-    elseif fdim == 3 && c > 0
-        faceid = 5
-        # ( *, *, R) : Face V from Ronchi, Iacono, Paolucci (1996)
-        x3, x2, x1 = f(R, b / c, a / c, faceid)
-    elseif fdim == 3 && c < 0
-        faceid = 6
-        # ( *, *,-R) : Face VI from Ronchi, Iacono, Paolucci (1996)
-        x3, x2, x1 = f(-R, b / c, a / c, faceid)
-    else
-        error("invalid case for cubed_sphere_warp(::EquiangularCubedSphere): $a, $b, $c")
-    end
-
-    return x1, x2, x3
-end
 
 end

@@ -199,7 +199,9 @@ function DiscontinuousSpectralElementGrid(
           polynomialorder.horizontal, 
           polynomialorder.vertical
        ),
-        meshwarp = equiangular_cubed_sphere_topo_warp,
+        meshwarp = topography_warp(cubed_sphere_topo_warp,
+                                  domain, 
+                                  domain.topography),
     )
     return grid
 end
