@@ -122,38 +122,6 @@ FT = Float64
 
 ref_state = DryReferenceState(DecayingTemperatureProfile{FT}(param_set, FT(290), FT(220), FT(8e3)))
 
-# # Non-total energy
-# eos     = DryEuler(γ = 1 / (1 - parameters.κ))
-# physics = Physics(
-#     orientation = SphericalOrientation(),
-#     ref_state   = ref_state,
-#     eos         = eos,
-#     lhs         = (
-#         ESDGNonLinearAdvection(eos = eos),
-#         PressureDivergence(eos = eos),
-#     ),
-#     sources     = sources = (
-#         DeepShellCoriolis{FT}(Ω = parameters.Ω),
-#         ThinShellGravityFromPotential(),
-#         TotalEnergyGravityFromPotential(),
-#     ),
-
-# )
-# linear_eos = linearize(physics.eos)
-# linear_physics = Physics(
-#     orientation = physics.orientation,
-#     ref_state   = physics.ref_state,
-#     eos         = linear_eos,
-#     lhs         = (
-#         ESDGLinearAdvection(),
-#         PressureDivergence(eos = linear_eos),
-#     ),
-#     sources     = (
-#         ThinShellGravityFromPotential(),
-#         TotalEnergyGravityFromPotential(),
-#     ),
-# )
-
 #####
 # Held-Suarez Forcing
 #####
@@ -305,9 +273,6 @@ linear_model = DryAtmosLinearModel(
 ########
 # Set up time steppers (could be done automatically in simulation)
 ########
-# determine the time step construction
-# element_size = (domain_height / numelem_vert)
-# acoustic_speed = soundspeed_air(param_set, FT(330))
 dx = min_node_distance(grid.numerical)
 cfl = 3
 Δt = cfl * dx / 330.0

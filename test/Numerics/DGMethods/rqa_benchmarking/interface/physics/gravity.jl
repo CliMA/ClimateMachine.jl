@@ -15,8 +15,6 @@ struct FluctuationGravity <: AbstractGravity end
     nothing
 end
 
-@inline calc_component!(source, ::FluctuationGravity, _...) = nothing
-
 @inline function calc_component!(source, ::Buoyancy{(:ρ, :ρu, :ρθ)}, state, aux, physics)
     ρθ = state.ρθ
     α = physics.parameters.α 
@@ -32,6 +30,7 @@ end
 
 # FluctuationGravity Components
 @inline calc_fluctuation_component!(source, _...) = nothing
+@inline calc_component!(source, ::FluctuationGravity, _...) = nothing
 
 @inline function calc_fluctuation_component!(source, ::FluctuationGravity, state_1, state_2, aux_1, aux_2)
         ρ_1, ρ_2 = state_1.ρ, state_2.ρ

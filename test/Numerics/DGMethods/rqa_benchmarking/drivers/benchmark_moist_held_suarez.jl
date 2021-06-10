@@ -25,7 +25,7 @@ parameters = (
     pₒ       = get_planet_parameter(:MSLP),
     pₜᵣ      = get_planet_parameter(:press_triple),
     Tₜᵣ      = get_planet_parameter(:T_triple),
-    T_0      = 0.0, #get_planet_parameter(:T_0),
+    T_0      = get_planet_parameter(:T_0),
     LH_v0    = get_planet_parameter(:LH_v0),
     e_int_v0 = get_planet_parameter(:e_int_v0),
     e_int_i0 = get_planet_parameter(:e_int_i0),
@@ -52,6 +52,7 @@ parameters = (
     p0       = 1e5,
     Cₑ       = 0.0044, 
     Cₗ       = 0.0044,
+    Mᵥ       = 0.608,
 )
 
 ########
@@ -118,11 +119,16 @@ uˡᵒⁿ(𝒫,λ,ϕ,r)   = u(𝒫,ϕ,r) + δu(𝒫,λ,ϕ,r)
 uˡᵃᵗ(𝒫,λ,ϕ,r)   = v(𝒫,ϕ,r) + δv(𝒫,λ,ϕ,r)
 uʳᵃᵈ(𝒫,λ,ϕ,r)   = w(𝒫,ϕ,r) + δw(𝒫,λ,ϕ,r)
 
-e_int(𝒫,λ,ϕ,r)  = (𝒫.R_d / 𝒫.κ - 𝒫.R_d) * Tᵥ(𝒫,ϕ,r)
+# cv_m and R_m for moist experiment
+cv_m(𝒫,ϕ,r)  = 𝒫.cv_d + (𝒫.cv_v - 𝒫.cv_d) * q(𝒫,ϕ,r)
+R_m(𝒫,ϕ,r) = 𝒫.R_d * (1 + (𝒫.molmass_ratio - 1) * q(𝒫,ϕ,r))
+
+T(𝒫,ϕ,r) = Tᵥ(𝒫,ϕ,r) / (1 + 𝒫.Mᵥ * q(𝒫,ϕ,r)) 
+e_int(𝒫,λ,ϕ,r)  = cv_m(𝒫,ϕ,r) * (T(𝒫,ϕ,r) - 𝒫.T_0) + q(𝒫,ϕ,r) * 𝒫.e_int_v0
 e_kin(𝒫,λ,ϕ,r)  = 0.5 * ( uˡᵒⁿ(𝒫,λ,ϕ,r)^2 + uˡᵃᵗ(𝒫,λ,ϕ,r)^2 + uʳᵃᵈ(𝒫,λ,ϕ,r)^2 )
 e_pot(𝒫,λ,ϕ,r)  = 𝒫.g * r
 
-ρ₀(𝒫,λ,ϕ,r)    = p(𝒫,ϕ,r) / 𝒫.R_d / Tᵥ(𝒫,ϕ,r)
+ρ₀(𝒫,λ,ϕ,r)    = p(𝒫,ϕ,r) / R_m(𝒫,ϕ,r) / T(𝒫,ϕ,r)
 ρuˡᵒⁿ(𝒫,λ,ϕ,r) = ρ₀(𝒫,λ,ϕ,r) * uˡᵒⁿ(𝒫,λ,ϕ,r)
 ρuˡᵃᵗ(𝒫,λ,ϕ,r) = ρ₀(𝒫,λ,ϕ,r) * uˡᵃᵗ(𝒫,λ,ϕ,r)
 ρuʳᵃᵈ(𝒫,λ,ϕ,r) = ρ₀(𝒫,λ,ϕ,r) * uʳᵃᵈ(𝒫,λ,ϕ,r)
@@ -287,7 +293,7 @@ linear_physics = Physics(
 ########
 model = DryAtmosModel(
     physics = physics,
-    boundary_conditions = (DefaultBC(), DefaultBC()),
+    boundary_conditions = (DefaultBC(), FixedSST),
     initial_conditions = (ρ = ρ₀ᶜᵃʳᵗ, ρu = ρu⃗₀ᶜᵃʳᵗ, ρe = ρeᶜᵃʳᵗ, ρq = ρqᶜᵃʳᵗ),
     numerics = (flux = LMARSNumericalFlux(),),
 )
