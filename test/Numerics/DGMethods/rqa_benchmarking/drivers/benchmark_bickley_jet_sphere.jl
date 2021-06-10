@@ -21,7 +21,7 @@ parameters = (
 ########
 # Set up domain
 ########
-domain = SphericalShell(radius = 1.0, height = 0.2, topography=DCMIPTopography())
+domain = SphericalShell(radius = 1.0, height = 0.2, topography=EarthMask())
 grid = DiscretizedDomain(
     domain;
     elements = (vertical = 1, horizontal = 8),

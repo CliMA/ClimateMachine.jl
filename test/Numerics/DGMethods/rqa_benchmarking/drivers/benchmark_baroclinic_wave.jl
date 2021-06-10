@@ -34,10 +34,11 @@ parameters = (
 domain = SphericalShell(
     radius = parameters.a,
     height = parameters.H,
+    topography = PlanetEarth(),
 )
 grid = DiscretizedDomain(
     domain;
-    elements = (vertical = 5, horizontal = 6),
+    elements = (vertical = 5, horizontal = 12),
     polynomial_order = (vertical = 3, horizontal = 6),
     overintegration_order = (vertical = 0, horizontal = 0),
 )

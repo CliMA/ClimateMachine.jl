@@ -15,10 +15,13 @@ parameters = (
 ########
 # Set up domain
 ########
-domain = SphericalShell(radius = parameters.a, height = parameters.H)
+domain = SphericalShell(radius = parameters.a, 
+                        height = parameters.H, 
+                        topography=DCMIPTopography())
+
 grid = DiscretizedDomain(
     domain;
-    elements              = (vertical = 1, horizontal = 4),
+    elements              = (vertical = 1, horizontal = 8),
     polynomial_order      = (vertical = 1, horizontal = 4),
     overintegration_order = 1,
 )
@@ -65,12 +68,15 @@ model = ModelSetup(
 ########
 # Set up time steppers
 ########
-Δt          = 0.05
+Δt          = 0.01
 start_time  = 0
 end_time    = 2.0
 callbacks   = (
     Info(),
     StateCheck(10),
+    VTKState(
+        iteration = Int(floor(1/Δt)), 
+        filepath = "./out/"),
 )
 
 ########

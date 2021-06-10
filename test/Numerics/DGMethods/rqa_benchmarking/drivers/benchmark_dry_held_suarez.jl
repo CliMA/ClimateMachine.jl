@@ -34,8 +34,9 @@ parameters = (
 # Set up domain
 ########
 domain = SphericalShell(
-    radius = planet_radius(param_set), 
-    height = 30e3,
+    radius = parameters.a,
+    height = parameters.H,
+    topography = PlanetEarth(),
 )
 grid = DiscretizedDomain(
     domain;

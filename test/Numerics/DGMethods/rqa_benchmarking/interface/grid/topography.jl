@@ -7,13 +7,8 @@ const data_land_topo = NCDataset("/Users/asridhar/Research/Codes/ClimateMachine.
 Φ = reverse(Φ)
 elev = data_land_topo["topo"][:]; # Elevation in meters [0 to Everest] No Bathmetry
 elev = reverse(elev,dims=2)
-skip_var = 3;
+skip_var = 2;
 const get_elevation = Spline2D(Λ[1:skip_var:end],Φ[1:skip_var:end],elev[1:skip_var:end,1:skip_var:end], kx = 4, ky=4)
-
-equiangular_cubed_sphere_topo_warp(a, b, c, R = max(abs(a), abs(b), abs(c))) =
-    cubed_sphere_topo_warp(EquiangularCubedSphere(), a, b, c, R; 
-                           domain = nothing,
-                           topography = EarthTopography(get_elevation))
 
 function topography_warp(f, domain, topography)
     function equiangular_cubed_sphere_topo_warp(a, b, c, R=max(abs(a),abs(b),abs(c)))
@@ -69,7 +64,7 @@ function compute_topography(
 )
     #User specified warp parameters
     R_m = π * 3 / 4
-    h0 = 0.02
+    h0 = 5000
     ζ_m = π / 16
     φ_m = 0
     λ_m = π * 3 / 2
@@ -90,6 +85,63 @@ function compute_topography(
     return mR
 end
 
+
+"""
+    EarthTopography <: AbstractTopography
+"""
+struct EarthTopography <: AbstractTopography 
+    topo_spline
+end
+
+function PlanetEarth(; topo_spline = get_elevation)
+    return EarthTopography(topo_spline)
+end
+
+function compute_topography(
+    lst::EarthTopography,
+    λ,
+    ϕ,
+    sR,
+    (X,Y, δ,faceid);
+)
+    FT = eltype(sR)
+    Δ = 1 # (r_outer - abs(sR)) / (r_outer - r_inner)
+    zs = -0
+    if lst.topo_spline(λ,ϕ) > -0
+        zs = lst.topo_spline(λ,ϕ)
+        @show(zs)
+    end
+    mR = sign(sR) * (abs(sR) + zs * Δ)
+    return mR
+end
+
+"""
+    EarthMask <: AbstractTopography
+"""
+struct EarthMask <: AbstractTopography 
+    topo_spline
+end
+
+function EarthMask(; topo_spline = get_elevation)
+    return EarthMask(topo_spline)
+end
+
+function compute_topography(
+    lst::EarthMask,
+    λ,
+    ϕ,
+    sR,
+    (X,Y, δ,faceid);
+)
+    FT = eltype(sR)
+    Δ = 1 
+    zs = -0
+    if lst.topo_spline(λ,ϕ) > -0
+        zs = 0.02
+    end
+    mR = sign(sR) * (abs(sR) + zs * Δ)
+    return mR
+end
 """
     cubed_sphere_topo_warp(a, b, c, R = max(abs(a), abs(b), abs(c));
                        r_inner = _planet_radius,
@@ -102,30 +154,6 @@ spherical shell of radius `R` based on the equiangular gnomonic grid proposed by
 compute_topography function. Defaults to smooth cubed sphere unless otherwise specified
 via the AbstractTopography type.
 """
-
-"""
-    EarthTopography <: AbstractTopography
-"""
-struct EarthTopography <: AbstractTopography 
-    topo_spline
-end
-function compute_topography(
-    lst::EarthTopography,
-    λ,
-    ϕ,
-    sR,
-    (X,Y, δ,faceid);
-)
-    FT = eltype(sR)
-    Δ = 1#(r_outer - abs(sR)) / (r_outer - r_inner)
-    zs = -0
-    if lst.topo_spline(λ,ϕ) > 0.0
-        zs = lst.topo_spline(λ,ϕ)
-    end
-    mR = sign(sR) * (abs(sR) + zs * Δ)
-    return mR
-end
-
 function cubed_sphere_topo_warp(
     ::EquiangularCubedSphere,
     a,
@@ -143,7 +171,26 @@ function cubed_sphere_topo_warp(
         x1, x2, x3
     end
    function g(sR, ξ, η, faceid, (a,b,c))
-       X, Y = tan(π * ξ / 4), tan(π * η / 4)
+       #X, Y = tan(π * ξ / 4), tan(π * η / 4)
+       if faceid == 1
+           X = b/a
+           Y = c/a
+       elseif faceid == 2
+           X = a/b
+           Y = c/b
+       elseif faceid == 3
+           X = b/a
+           Y = c/a
+       elseif faceid == 4
+           X = a/b
+           Y = c/b
+       elseif faceid == 5
+           X = b/c
+           Y = a/c
+       elseif faceid == 6
+           X = b/c
+           Y = a/c
+       end
        δ = 1 + X^2 + Y^2
        ϕ = asin(c/R)
        λ = atan(b,a)
@@ -188,7 +235,6 @@ function cubed_sphere_topo_warp(
         error("invalid case for cubed_sphere_warp(::EquiangularCubedSphere): $a, $b, $c")
     end
     a,b,c = x1,x2,x3
-    @show((a,b,c))
     
     if fdim == 1 && a < 0
         faceid = 1

@@ -8,7 +8,7 @@ parameters = (
     a  = get_planet_parameter(:planet_radius), # Earth radius
     Ω  = get_planet_parameter(:Omega),         # Earth angular velocity
     g  = get_planet_parameter(:grav),          # gravity of Earth
-    H  = 1e5,                                  # atmos height
+    H  = 1e4,                                  # atmos height
     ρₒ = 1,                                    # reference density
     cₛ = 100.0,                                # sound speed
     α  = 2e-4,                                 # buoyancy scaling [K⁻¹]
@@ -20,7 +20,7 @@ parameters = (
 ########
 # Set up domain
 ########
-domain = SphericalShell(radius = parameters.a, height = parameters.H)
+domain = SphericalShell(radius = parameters.a, height = parameters.H, topography=DCMIPTopography())
 grid = DiscretizedDomain(
     domain;
     elements              = (vertical = 3, horizontal = 3),
@@ -96,6 +96,9 @@ end_time    = 86400 * 0.5 * 6
 callbacks   = (
     Info(),
     StateCheck(10),
+    VTKState(
+        iteration = Int(floor(1000/Δt)), 
+        filepath = "./out/"),
 )
 
 ########
