@@ -47,10 +47,10 @@ include("../grid/grids.jl")
 # numerics
 include("../models/models.jl")
 include("../numerics/filters.jl")
-# interface 
+# backends
 #include("../balance_law_interface.jl")
 include("../esdg_balance_law_interface.jl")
-include("../boundary_conditions/wip_bcs.jl")
+include("../boundary_conditions/boundary_conditions.jl")
 include("../numerics/numerical_volume_fluxes.jl")
 include("../numerics/numerical_interface_fluxes.jl")
 include("../numerics/timestepper_abstractions.jl")

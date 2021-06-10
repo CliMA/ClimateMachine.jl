@@ -1,155 +1,127 @@
 abstract type AbstractBoundaryCondition end
 
-"""
-    FluidBC(momentum    = Impenetrable(NoSlip())
-            temperature = Insulating())
+struct DefaultBC <: AbstractBoundaryCondition end
 
-The standard boundary condition for CNSEModel. The default options imply a "no flux" boundary condition.
-"""
-Base.@kwdef struct FluidBC{M, T} <: AbstractBoundaryCondition
-    ρu::M = Impenetrable(NoSlip())
-    ρθ::T = Insulating()
+Base.@kwdef struct BulkFormulaTemperature{𝒯,𝒰,𝒱} <: AbstractBoundaryCondition 
+  drag_coef_temperature::𝒯
+  drag_coef_moisture::𝒰
+  surface_temperature::𝒱
 end
 
-abstract type StateBC end
-abstract type MomentumBC <: StateBC end
-abstract type MomentumDragBC <: StateBC end
-abstract type TemperatureBC <: StateBC end
+function numerical_boundary_flux_first_order!(
+    numerical_flux::NumericalFluxFirstOrder,
+    ::DefaultBC,
+    balance_law::DryAtmosModel,
+    fluxᵀn::Vars{S},
+    n̂::SVector,
+    state⁻::Vars{S},
+    aux⁻::Vars{A},
+    state⁺::Vars{S},
+    aux⁺::Vars{A},
+    t,
+    direction,
+    state1⁻::Vars{S},
+    aux1⁻::Vars{A},
+) where {S, A}
+    state⁺.ρ = state⁻.ρ
+    state⁺.ρe = state⁻.ρe
+    state⁺.ρq = state⁻.ρq
 
-(bc::StateBC)(state, aux, t) = bc.flux(bc.params, state, aux, t)
-
-"""
-    Impenetrable(drag::MomentumDragBC) :: MomentumBC
-
-Defines an impenetrable wall model for momentum. This implies:
-  - no flow in the direction normal to the boundary, and
-  - flow parallel to the boundary is subject to the `drag` condition.
-"""
-struct Impenetrable{D <: MomentumDragBC} <: MomentumBC
-    drag::D
+    ρu⁻ = state⁻.ρu
+    
+    # project and reflect for impenetrable condition, but 
+    # leave tangential component untouched
+    state⁺.ρu = ρu⁻ - n̂ ⋅ ρu⁻ .* SVector(n̂) - n̂ ⋅ ρu⁻ .* SVector(n̂)
+    numerical_flux_first_order!(
+      numerical_flux,
+      balance_law,
+      fluxᵀn,
+      n̂,
+      state⁻,
+      aux⁻,
+      state⁺,
+      aux⁺,
+      t,
+      direction,
+    )
 end
 
-"""
-    Penetrable(drag::MomentumDragBC) :: MomentumBC
+function numerical_boundary_flux_first_order!(
+    numerical_flux::NumericalFluxFirstOrder,
+    bctype::BulkFormulaTemperature,
+    model::DryAtmosModel,
+    fluxᵀn::Vars{S},
+    n̂::SVector,
+    state⁻::Vars{S},
+    aux⁻::Vars{A},
+    state⁺::Vars{S},
+    aux⁺::Vars{A},
+    t,
+    direction,
+    state1⁻::Vars{S},
+    aux1⁻::Vars{A},
+) where {S, A}
+    # Impenetrable free-slip condition to reflect and project momentum 
+    # at the boundary
+    numerical_boundary_flux_first_order!(
+        numerical_flux,
+        bctype::Impenetrable{FreeSlip},
+        model,
+        fluxᵀn,
+        n̂,
+        state⁻,
+        aux⁻,
+        state⁺,
+        aux⁺,
+        t,
+        direction,
+        state1⁻,
+        aux1⁻,
+    )
+    
+    # Apply drag law using the tangential velocity as energy flux
+    # unpack
+    ρ = state⁻.ρ
+    ρu = state⁻.ρu
+    ρq = state⁻.ρq
+    eos = model.physics.eos
+    parameters = model.physics.parameters
+    LH_v0 = model.physics.parameters.LH_v0
 
-Defines an penetrable wall model for momentum. This implies:
-  - no constraint on flow in the direction normal to the boundary, and
-  - flow parallel to the boundary is subject to the `drag` condition.
-"""
-struct Penetrable{D <: MomentumDragBC} <: MomentumBC
-    drag::D
+    # obtain surface fields
+    ϕ = lat(aux⁻.x, aux⁻.y, aux⁻.z)
+    Cₕ = bctype.drag_coef_temperature(parameters, ϕ)
+    Cₑ = bctype.drag_coef_moisture(parameters, ϕ)
+    T_sfc = bctype.temperature(parameters, ϕ)
+
+    u = ρu / ρ
+    q = ρq / ρ
+
+    # magnitude of tangential velocity (usually called speed)
+    speed_tangential = norm((I - n̂ ⊗ n̂) * u)
+
+    # saturation specific humidity
+    #q_tot_sfc = calc_saturation_specific_humidity(eos, state⁻, aux⁻, parameters)
+    pₜᵣ      = get_planet_parameter(:press_triple) 
+    R_v      = get_planet_parameter(:R_v)
+    Tₜᵣ      = get_planet_parameter(:T_triple)
+    T_0      = get_planet_parameter(:T_0)
+    cp_v     = get_planet_parameter(:cp_v)
+    cp_l     = get_planet_parameter(:cp_l)
+    Δcp = cp_v - cp_l
+    pᵥₛ = pₜᵣ * (T_sfc / Tₜᵣ)^(Δcp / R_v) * exp((LH_v0 - Δcp * T_0) / R_v * (1 / Tₜᵣ - 1 / T_sfc))
+    q_tot_sfc = pᵥₛ / (ρ * R_v * T_sfc)
+       
+    # surface cooling due to wind via transport of dry energy (sensible heat flux)
+    cp = calc_cp(eos, state⁻, parameters)
+    T = calc_air_temperature(eos, state⁻, aux⁻, parameters)
+    H = ρ * Cₕ * speed_tangential * cp * (T - T_sfc)
+
+    # surface cooling due to wind via transport of moisture (latent energy flux)
+    E = 0.01 * ρ * Cₑ * speed_tangential * LH_v0 * (q - q_tot_sfc)
+
+    #fluxᵀn.ρ = -E / LH_v0 
+    #fluxᵀn.ρu += E / LH_v0 .* u
+    fluxᵀn.ρe = E + H
+    fluxᵀn.ρq = E / LH_v0
 end
-
-"""
-    NoSlip() :: MomentumDragBC
-
-Zero momentum at the boundary.
-"""
-struct NoSlip <: MomentumDragBC end
-
-"""
-    FreeSlip() :: MomentumDragBC
-
-No surface drag on momentum parallel to the boundary.
-"""
-struct FreeSlip <: MomentumDragBC end
-
-"""
-    MomentumFlux(stress) :: MomentumDragBC
-
-Applies the specified kinematic stress on momentum normal to the boundary.
-Prescribe the net inward kinematic stress across the boundary by `stress`,
-a function with signature `stress(problem, state, aux, t)`, returning the flux (in m²/s²).
-"""
-Base.@kwdef struct MomentumFlux{𝒯, 𝒫} <: MomentumDragBC
-    flux::𝒯 = nothing
-    params::𝒫 = nothing
-end
-
-"""
-    Insulating() :: TemperatureBC
-
-No temperature flux across the boundary
-"""
-struct Insulating <: TemperatureBC end
-
-"""
-    TemperatureFlux(flux) :: TemperatureBC
-
-Prescribe the net inward temperature flux across the boundary by `flux`,
-a function with signature `flux(problem, state, aux, t)`, returning the flux (in m⋅K/s).
-"""
-struct TemperatureFlux{T} <: TemperatureBC
-    flux::T
-
-    function TemperatureFlux(flux::T = nothing) where {T}
-        new{T}(flux)
-    end
-end
-
-# Smart defaults
-#=
-
-"""
-    FluidBC(momentum    = Impenetrable(NoSlip())
-            temperature = Insulating())
-The standard boundary condition for CNSEModel. The default options imply a "no flux" boundary condition.
-"""
-Base.@kwdef struct FluidBC{ℳ, ℰ, 𝒬} <: BoundaryCondition
-    momentum::ℳ = FreeSlip()
-    temperature::𝒯 = NoFlux()
-    moisture::𝒬
-end
-
-function check_bc(bcs, label)
-    bctype = FluidBC
-
-    bc_ρu = check_bc(bcs, Val(:ρu), label)
-    bc_ρθ = check_bc(bcs, Val(:ρθ), label)
-
-    return bctype(bc_ρu, bc_ρθ)
-end
-
-function check_bc(bcs, ::Val{:ρe}, label)
-    if haskey(bcs, :ρe)
-        if haskey(bcs[:ρe], label)
-            return bcs[:ρe][label]
-        end
-    end
-
-    return NoFlux()
-end
-
-function check_bc(bcs, ::Val{:ρq}, label)
-    if haskey(bcs, :ρq)
-        if haskey(bcs[:ρq], label)
-            return bcs[:ρq][label]
-        end
-    end
-
-    return NoFlux()
-end
-
-function check_bc(bcs, ::Val{:ρu}, label)
-    if haskey(bcs, :ρu)
-        if haskey(bcs[:ρu], label)
-            return bcs[:ρu][label]
-        end
-    end
-
-    return FreeSlip()
-end
-
-function get_boundary_conditions(
-    model::SpatialModel{BL},
-) where {BL <: AbstractFluid3D}
-    bcs = model.boundary_conditions
-
-    west_east = (check_bc(bcs, :west), check_bc(bcs, :east))
-    south_north = (check_bc(bcs, :south), check_bc(bcs, :north))
-    bottom_top = (check_bc(bcs, :bottom), check_bc(bcs, :top))
-
-    return (west_east..., south_north..., bottom_top...)
-end
-
-=#

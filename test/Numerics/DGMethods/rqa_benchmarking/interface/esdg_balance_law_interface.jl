@@ -173,8 +173,8 @@ end
     t::Real,
     direction,
 )
-    physics = model.physics
     lhs = model.physics.lhs
+    physics = model.physics
     
     ntuple(Val(length(lhs))) do s
         Base.@_inline_meta
@@ -185,9 +185,15 @@ end
 """
     RHS computations
 """
-function source!(m::DryAtmosModel, source, state_prognostic, state_auxiliary, _...)
-    sources = m.physics.sources
-    physics = m.physics
+function source!(
+    model::DryAtmosModel, 
+    source, 
+    state_prognostic, 
+    state_auxiliary, 
+    _...
+)
+    sources = model.physics.sources
+    physics = model.physics
 
     ntuple(Val(length(sources))) do s
         Base.@_inline_meta

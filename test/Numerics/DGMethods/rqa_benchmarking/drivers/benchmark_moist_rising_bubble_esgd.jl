@@ -51,7 +51,7 @@ grid = DiscretizedDomain(
 ########
 # Set up model physics
 ########
-eos = MoistIdealGas{(:ρ, :ρu, :ρe)}()
+eos = MoistIdealGas()
 physics = Physics(
     orientation = FlatOrientation(),
     ref_state   = NoReferenceState(),
@@ -88,14 +88,6 @@ e_kin(p, x, y, z) = 0.0
 ρe(p, x, y, z) = ρ₀(p, x, y, z) * (e_kin(p, x, y, z) + e_int(p, x, y, z) + e_pot(p, x, y, z))
 ρq(p, x, y, z) = ρ₀(p, x, y, z) * q(p, x, y, z)
 
-# ########
-# # Set up boundary conditions
-# ########
-# bcs = (
-#     bottom = (ρu = Impenetrable(FreeSlip()), ρe = Insulating()),
-#     top =    (ρu = Impenetrable(FreeSlip()), ρe = Insulating()),
-# )
-
 ########
 # Set up model
 ########
@@ -104,9 +96,7 @@ model = DryAtmosModel(
     boundary_conditions = (0,0,1,1,DefaultBC(),DefaultBC()),
     initial_conditions = (ρ = ρ₀, ρu = ρu⃗₀, ρe = ρe, ρq = ρq),
     numerics = (
-        # flux = RoeNumericalFlux(),
         flux = LMARSNumericalFlux(),
-        # flux = RusanovNumericalFlux(),
     ),
 )
 
@@ -122,7 +112,6 @@ callbacks   = (
     TMARCallback(),
     VTKState(iteration = Int(floor(10.0/Δt)), filepath = "./out_esdg/moist_bubble/"),
 )
-
 
 ########
 # Set up simulation

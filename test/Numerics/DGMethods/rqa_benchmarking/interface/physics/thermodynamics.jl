@@ -56,7 +56,6 @@ end
     ρ_e_latent = (ρ_q_tot - ρ_q_liq) * params.e_int_v0 - ρ_q_ice * (params.e_int_v0 + params.e_int_i0)
     
     return (γ - 1) * (ρe - ρ * Φ - ρ_e_latent + ρ * cv_m * T_0)
-    # return (γ - 1) * (ρe - ρ * Φ - ρ_e_latent)
 end
 
 @inline function calc_sound_speed(::BarotropicFluid, state, aux, params)
@@ -207,9 +206,9 @@ end
 end
 
 @inline function calc_saturation_vapor_pressure(T, params)
-    pₜᵣ   = params.press_triple
+    pₜᵣ   = params.pₜᵣ
     R_v   = params.R_v
-    Tₜᵣ   = params.T_triple
+    Tₜᵣ   = params.Tₜᵣ
     T_0   = params.T_0
     cp_v  = params.cp_v
     cp_l  = params.cp_l
