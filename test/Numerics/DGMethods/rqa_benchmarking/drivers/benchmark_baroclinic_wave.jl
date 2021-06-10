@@ -101,11 +101,8 @@ e_pot(𝒫,λ,ϕ,r)  = 𝒫.g * r
 ρuˡᵒⁿ(𝒫,λ,ϕ,r) = ρ₀(𝒫,λ,ϕ,r) * uˡᵒⁿ(𝒫,λ,ϕ,r)
 ρuˡᵃᵗ(𝒫,λ,ϕ,r) = ρ₀(𝒫,λ,ϕ,r) * uˡᵃᵗ(𝒫,λ,ϕ,r)
 ρuʳᵃᵈ(𝒫,λ,ϕ,r) = ρ₀(𝒫,λ,ϕ,r) * uʳᵃᵈ(𝒫,λ,ϕ,r)
-if total_energy
-    ρe(𝒫,λ,ϕ,r) = ρ₀(𝒫,λ,ϕ,r) * (e_int(𝒫,λ,ϕ,r) + e_kin(𝒫,λ,ϕ,r) + e_pot(𝒫,λ,ϕ,r))
-else
-    ρe(𝒫,λ,ϕ,r) = ρ₀(𝒫,λ,ϕ,r) * (e_int(𝒫,λ,ϕ,r) + e_kin(𝒫,λ,ϕ,r))
-end
+
+ρe(𝒫,λ,ϕ,r) = ρ₀(𝒫,λ,ϕ,r) * (e_int(𝒫,λ,ϕ,r) + e_kin(𝒫,λ,ϕ,r) + e_pot(𝒫,λ,ϕ,r))
 
 # Cartesian Representation (boiler plate really)
 ρ₀ᶜᵃʳᵗ(𝒫, x...)  = ρ₀(𝒫, lon(x...), lat(x...), rad(x...))
@@ -130,7 +127,7 @@ ref_state = DryReferenceState(DecayingTemperatureProfile{FT}(parameters, FT(290)
 physics = Physics(
     orientation = SphericalOrientation(),
     ref_state   = ref_state,
-    eos         = DryIdealGas{(:ρ, :ρu, :ρe)}(),
+    eos         = DryIdealGas(),
     lhs         = (
         NonlinearAdvection{(:ρ, :ρu, :ρe)}(),
         PressureDivergence(),
@@ -160,8 +157,8 @@ linear_physics = Physics(
     ref_state   = physics.ref_state,
     eos         = physics.eos,
     lhs         = (
-        LinearAdvection{(:ρ, :ρu, :ρe)}(),
-        LinearPressureDivergence(),
+        VeryLinearAdvection{(:ρ, :ρu, :ρe)}(),
+        # LinearPressureDivergence(),
     ),
     sources     = (FluctuationGravity(),),
     parameters = parameters,
@@ -184,11 +181,13 @@ linear_model = DryAtmosModel(
 # element_size = (domain_height / numelem_vert)
 # acoustic_speed = soundspeed_air(param_set, FT(330))
 dx = min_node_distance(grid.numerical)
-cfl = 13.5 # 13 for 10 days, 7.5 for 200+ days
+dxᴴ = min_node_distance(grid.numerical, HorizontalDirection())
+cfl = 20.0 # 13 for 10 days, 7.5 for 200+ days
 Δt = cfl * dx / 330.0
 start_time = 0
 end_time = 10 * 24 * 3600
 method = IMEX() 
+#   ReferenceStateUpdate(),
 callbacks = (
   Info(),
   CFL(),
@@ -203,9 +202,14 @@ simulation = Simulation(
     callbacks   = callbacks,
 );
 
-evolve!(simulation)
+evolve!(simulation, update_aux = true)
 
 ##
 # α = odesolver.dt * odesolver.RKA_implicit[1, 1]
 # odesolver = construct_odesolver(simulation.timestepper.method, simulation.rhs, simulation.state, simulation.timestepper.timestep, t0 = simulation.time.start) 
-          
+##
+#=
+be_solver = odesolver.implicit_solvers[odesolver.RKA_implicit[2, 2]][1]
+odesolver.implicit_solvers[odesolver.RKA_implicit[2, 2]][1]
+=#
+

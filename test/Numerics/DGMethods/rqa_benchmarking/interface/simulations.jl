@@ -192,7 +192,7 @@ function evolve!(simulation::Nothing)
     return nothing
 end
 
-function evolve!(simulation::Simulation{<:Tuple}; refDat = (), tmar_filter = false)
+function evolve!(simulation::Simulation{<:Tuple}; refDat = (), tmar_filter = false, update_aux = false)
     # Unpack everything we need in this routine here
     state         = simulation.state
     rhs           = simulation.rhs
@@ -212,6 +212,19 @@ function evolve!(simulation::Simulation{<:Tuple}; refDat = (), tmar_filter = fal
     end
     # Make callbacks from callbacks tuple
     cbvector = create_callbacks(simulation, odesolver)
+
+    if update_aux
+        Q = simulation.state
+        grid = simulation.grid.numerical
+        dg = simulation.rhs[2].model
+        balance_law = dg.balance_law
+        t = gettime(odesolver)
+        update_auxiliary_state!(update_ref_state!, dg, balance_law, Q, t)
+        α = odesolver.dt * odesolver.RKA_implicit[2, 2]
+        # hack
+        be_solver = odesolver.implicit_solvers[odesolver.RKA_implicit[2, 2]][1]
+        update_backward_Euler_solver!(be_solver, Q, α)
+    end
 
     # Perform evolution of simulations
     if isempty(cbvector)
