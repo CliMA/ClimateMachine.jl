@@ -232,15 +232,18 @@ function run(
 
     Qexact = init_ode_state(esdg, FT(timeend))
 
-    l2_err = norm(Q - Qexact)
-    l2_err_state = norm(Q - Qexact, dims = (1, 3))[:]
+    l2_err = norm(Q - Qexact) / norm(Qexact)
+    l2_err_state = norm(Q - Qexact, dims = (1, 3)) ./ norm(Qexact, dims = (1, 3))
+    l2_err_state = l2_err_state[:]
     
     Q = Array(Q.data)
     Qexact = Array(Qexact.data)
     nstate = size(Q, 2)
-    linf_err = maximum(abs.(Q - Qexact))
-    linf_err_state = [@views maximum(abs.(Q[:, s, :] - Qexact[:, s, :])) for s in 1:nstate]
-
+    linf_err = maximum(abs.(Q - Qexact)) / maximum(abs.(Qexact))
+    linf_err_state = [
+      @views maximum(abs.(Q[:, s, :] - Qexact[:, s, :])) / maximum(abs.(Qexact[:, s, :]))
+      for s in 1:nstate
+     ]
 
     stepsdir = joinpath(outdir, "$N", "$(K[1])x$(K[2])", "steps")
     mkpath(stepsdir)

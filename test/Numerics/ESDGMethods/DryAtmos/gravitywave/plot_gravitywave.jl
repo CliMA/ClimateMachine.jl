@@ -105,18 +105,26 @@ function gw_plot_tht_perturbation(datadir)
     state_prognostic = data["state_prognostic"]
     state_exact = data["state_exact"]
     state_auxiliary = data["state_auxiliary"]
+    vgeo = data["vgeo"]
 
-    state_diagnostic = nodal_diagnostics(gw_nodal_diagnostics!,
-                                         gw_diagnostic_vars,
-                                         model,
-                                         state_prognostic,
-                                         state_auxiliary)
+
+    state_diagnostic = create_diagnostic_state(gw_diagnostic_vars, state_prognostic)
+    nodal_diagnostics!(state_diagnostic,
+                       gw_nodal_diagnostics!,
+                       gw_diagnostic_vars,
+                       model,
+                       state_prognostic,
+                       state_auxiliary,
+                       vgeo)
     
-    state_diagnostic_exact = nodal_diagnostics(gw_nodal_diagnostics!,
-                                               gw_diagnostic_vars,
-                                               model,
-                                               state_exact,
-                                               state_auxiliary)
+    state_diagnostic_exact = create_diagnostic_state(gw_diagnostic_vars, state_prognostic)
+    nodal_diagnostics!(state_diagnostic_exact,
+                       gw_nodal_diagnostics!,
+                       gw_diagnostic_vars,
+                       model,
+                       state_exact,
+                       state_auxiliary,
+                       vgeo)
 
     @show datafile
     
@@ -177,8 +185,8 @@ function gw_plot_tht_perturbation(datadir)
     fig = @pgf GroupPlot({group_style= {group_size="1 by 2", vertical_sep="1.5cm"},
                          xmin=0,
                          xmax= 300})
-    x, w, w_exact = linedata[(3, 20, 5)]
-    p1 = Plot({dashed}, Coordinates(x, w))
+    x, w, w_exact = linedata[(3, 40, 10)]
+    p1 = Plot({color="blue"}, Coordinates(x, w))
     p2 = Plot({}, Coordinates(x, w_exact))
     push!(fig, {xlabel="x [km]",
                 ylabel="w [m/s]",
@@ -186,7 +194,7 @@ function gw_plot_tht_perturbation(datadir)
                 height="5cm"},
                p1, p2)
     x, w, w_exact = linedata[(3, 40, 10)]
-    p1 = Plot({dashed}, Coordinates(x, w))
+    p1 = Plot({color="blue"}, Coordinates(x, w))
     p2 = Plot({}, Coordinates(x, w_exact))
     push!(fig, {xlabel="x [km]",
                 ylabel="w [m/s]",
