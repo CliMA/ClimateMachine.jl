@@ -3,14 +3,17 @@ include("../interface/utilities/boilerplate.jl")
 
 ########
 # Set up parameters
+#
+# Parameters informed by DCMIP2012 Test ID 2-0-0. 
+# Table XII in DCMIP-2012_TestCaseDocumentv1.7
 ########
 parameters = (
     a  = get_planet_parameter(:planet_radius), # Earth radius
     Ω  = get_planet_parameter(:Omega),         # Earth angular velocity
     g  = get_planet_parameter(:grav),          # gravity of Earth
-    H  = 1e4,                                  # atmos height
+    H  = 1.2e4,                                  # atmos height
     ρₒ = 1,                                    # reference density
-    cₛ = 100.0,                                # sound speed
+    cₛ = 300.0,                                # sound speed
     α  = 2e-4,                                 # buoyancy scaling [K⁻¹]
     ∂θ = 0.98 / 1e5, 
     power = 1,       
@@ -20,10 +23,12 @@ parameters = (
 ########
 # Set up domain
 ########
-domain = SphericalShell(radius = parameters.a, height = parameters.H, topography=DCMIPTopography())
+domain = SphericalShell(radius = parameters.a, 
+                        height = parameters.H, 
+                        topography=DCMIPTopography())
 grid = DiscretizedDomain(
     domain;
-    elements              = (vertical = 3, horizontal = 3),
+    elements              = (vertical = 5, horizontal = 16),
     polynomial_order      = (vertical = 2, horizontal = 4),
     overintegration_order = (vertical = 1, horizontal = 1),
 )
@@ -92,12 +97,12 @@ model = ModelSetup(
 ########
 Δt          = min_node_distance(grid.numerical) / parameters.cₛ * 0.25
 start_time  = 0
-end_time    = 86400 * 0.5 * 6
+end_time    = 86400 * 1 * 6
 callbacks   = (
     Info(),
     StateCheck(10),
     VTKState(
-        iteration = Int(floor(1000/Δt)), 
+        iteration = Int(floor(3600*6/Δt)), 
         filepath = "./out/"),
 )
 

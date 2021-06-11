@@ -64,7 +64,7 @@ function compute_topography(
 )
     #User specified warp parameters
     R_m = π * 3 / 4
-    h0 = 5000
+    h0 = 2000
     ζ_m = π / 16
     φ_m = 0
     λ_m = π * 3 / 2
@@ -75,9 +75,9 @@ function compute_topography(
         zs =
             0.5 *
             h0 *
-            (1 + cos(π * r_m / R_m)) *
-            cos(π * r_m / ζ_m) *
-            cos(π * r_m / ζ_m)
+            (1 + cospi(r_m / R_m)) *
+            cospi(r_m / ζ_m) *
+            cospi(r_m / ζ_m)
     else
         zs = 0.0
     end
