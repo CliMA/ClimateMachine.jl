@@ -42,8 +42,8 @@ using ClimateMachine.ArtifactWrappers
     soil_param_functions = nothing
 
     m_soil = SoilModel(soil_param_functions, soil_water_model, soil_heat_model)
-
-    snow_parameters = SnowParameters{FT,FT,FT,FT}(0.05,100,1.0)
+    depth = FT(1.0)
+    snow_parameters = SnowParameters{FT,FT,FT,FT}(0.05,100,depth)
     Q_surf = (t) -> eltype(t)(-9.0*sin(2.0*π/3600/24*t))
     #Q_bott = (t) -> eltype(t)(-1.0*sin(2.0*π/3600/24*t))
     forcing = PrescribedForcing(FT;Q_surf = Q_surf)
@@ -100,7 +100,7 @@ using ClimateMachine.ArtifactWrappers
         driver_config,
         ode_dt = dt,
     )
-    n_outputs = 30;
+    n_outputs = 100;
     
     every_x_simulation_time = ceil(Int, (timeend-t0) / n_outputs);
     
@@ -124,8 +124,7 @@ using ClimateMachine.ArtifactWrappers
     T_ave = T_snow_ave.(ρe_int, Ref(0.0), Ref(100.0),Ref(param_set))
     coeffs = compute_profile_coefficients.(Q_surf.(time_data), Ref(0.0), Ref(snow_parameters.z_snow), Ref(snow_parameters.ρ_snow), Ref(snow_parameters.κ_snow), ρe_int, Ref(param_set))
     t_profs = get_temperature_profile.(Q_surf.(time_data), Ref(0.0), Ref(snow_parameters.z_snow), Ref(snow_parameters.ρ_snow), Ref(snow_parameters.κ_snow), ρe_int, Ref(param_set))
-    z = 0:0.01:1
-    
+    z = 0:0.01:depth    
     
     function analytic(p, Q, a, tbar,z,t)
         κ = p.κ_snow
@@ -149,9 +148,9 @@ using ClimateMachine.ArtifactWrappers
     
     
     anim = @animate for i ∈ 1:N
-        plot(t_profs[i].(z),z, ylim = [0,1.5], xlim = [240,300], label = "prescribed")
+        plot(t_profs[i].(z),z, ylim = [0,depth+0.5], xlim = [240,300], label = "our T profile")
         t = time_data[i]
-        plot!(analytic.(Ref(snow_parameters), Ref(-9.0), Ref(0.0), Ref(mean(T_ave)),z,Ref(t)),z, label = "analytic")
+        plot!(analytic.(Ref(snow_parameters), Ref(-9.0), Ref(0.0), Ref(mean(T_ave)),z,Ref(t)),z, label = "analytic profile")
     end
     gif(anim, "snow.gif", fps = 6)
     
@@ -164,19 +163,22 @@ end
     ClimateMachine.init()
     FT = Float64
 
-    data = readdlm("/Users/katherinedeck/Downloads/ERAwyo_2017_hourly.csv",',')
+    data = readdlm("/Users/katherinedeck/Downloads/ERAwyo_2017_hourly_revised.csv",',')
     #data = readdlm("/Users/shuangma/Downloads/ERAwyo_2017_hourly.csv",',')
 
     Qsurf = data[:, data[1,:] .== "Qsurf"][2:end,1] ./ 3600 ./ 24 # per second
     Qsurf = -Qsurf
     Tsurf = FT.(data[:, data[1,:] .== "surtsn(K)"][2:end,:])
-    # 1:168 is first week of data, just model this for now. 
-    ρ_snow = FT(mean(data[:, data[1,:] .== "rhosn(kgm-3)"][2:end,:][1:168]))
+    # 300:440 - no snowfall.
+    start = 300
+    range = 300:440
+    ρ_snow = FT(mean(data[:, data[1,:] .== "rhosn(kgm-3)"][2:end,:][range]))
     κ_air = FT(0.023)
     κ_ice = FT(2.29)
     κ_snow = FT(κ_air + (7.75*1e-5 *ρ_snow + 1.105e-6*ρ_snow^2)*(κ_ice-κ_air))
-    z_snow = FT(mean(data[:,data[1,:] .== "depsn(m)"][2:end,:][1:168]))
-    t = FT.(0:3600:length(Tsurf)*3600-1)
+    z_snow = FT(mean(data[:,data[1,:] .== "depsn(m)"][2:end,:][range]))
+    t0 = start*3600
+    t = FT.(0:3600:length(Tsurf)*3600-1) .- t0
     soil_water_model = PrescribedWaterModel()
     soil_heat_model = PrescribedTemperatureModel()
     soil_param_functions = nothing
@@ -235,7 +237,7 @@ end
     )
 
     t0 = FT(0)
-    timeend = FT(60 * 60 * 48*4)
+    timeend = FT((range[end]-start)*3600)
     dt = FT(60*60)
 
     solver_config = ClimateMachine.SolverConfiguration(
@@ -244,7 +246,7 @@ end
         driver_config,
         ode_dt = dt,
     )
-    n_outputs = 30;
+    n_outputs = length(range);
     
     every_x_simulation_time = ceil(Int, (timeend-t0) / n_outputs);
     
@@ -269,17 +271,12 @@ end
     coeffs = compute_profile_coefficients.(Q_surf.(time_data, Ref(Qsurf_spline)), Ref(0.0), Ref(snow_parameters.z_snow), Ref(snow_parameters.ρ_snow), Ref(snow_parameters.κ_snow), ρe_int, Ref(param_set))
     t_profs = get_temperature_profile.(Q_surf.(time_data, Ref(Qsurf_spline)), Ref(0.0), Ref(snow_parameters.z_snow), Ref(snow_parameters.ρ_snow), Ref(snow_parameters.κ_snow), ρe_int, Ref(param_set))
 
-    tsurf_pw = Array{FT,1}(undef, N)
-    tsurf_era5 = Array{FT,1}(undef, N)
+    tsurf_pw = [coeffs[k][1] for k in 1:N]
+    tsurf_era5 = Tsurf[range]
     anim = @animate for i ∈ 1:N
         plot(t_profs[i].(z),z, ylim = [0,1.5], xlim = [240,300], label = "Piecewise model")
         t = time_data[i]
-        scatter!([Tsurf[Int64.(time_data[i]/3600)+1]], [FT(snow_parameters.z_snow)], label = "ERA5 Tsurf")
-        
-        tsurf_pw[i]   = t_profs[i].(FT(snow_parameters.z_snow))
-        tsurf_era5[i] = Tsurf[Int64.(time_data[i]/3600)+1]
-        """println(tsurf_pw[i])
-        println(tsurf_era5[i])"""
+        scatter!([Tsurf[range[i]]], [FT(snow_parameters.z_snow)], label = "ERA5 Tsurf")
     end
     gif(anim, "snow2.gif", fps = 6)
 
@@ -295,5 +292,9 @@ end
     Plots.abline!(1, 1, line=:dash)
     savefig(snowscatter,"snow_scatter.png")
 
+    scatter(range, tsurf_pw, label = "piecewise model")
+    scatter!(range, tsurf_era5, label = "ERA5")
+    plot!(xlabel = "hour", ylabel = "T surf (K)")
+    savefig("snow_scatter2.png")
 end 
     
