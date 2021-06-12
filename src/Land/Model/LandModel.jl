@@ -3,6 +3,7 @@ module Land
 using DocStringExtensions
 using LinearAlgebra, StaticArrays
 using Statistics
+using Interpolations
 
 using PlantHydraulics
 
@@ -115,6 +116,26 @@ function root_extraction(
     return root_extraction
 end
 
+function vc_integral(
+            vc::LogisticSingle{FT},
+            p_dos::FT,
+            p_ups::FT,
+            h::FT,
+            E::FT,
+            Kmax::FT
+) where {FT<:AbstractFloat}
+    @assert p_ups <= 0 && p_dos <= 0;
+
+    # unpack data from VC
+    @unpack a,b = vc;
+    _krghe = Kmax * ρg_MPa(FT) * h * (a+1) / a + E;
+    _lower = b * _krghe;
+    _multi = Kmax * (a+1) / a * E;
+    _upper_dos = log(a * _krghe * exp(b*p_dos) + E);
+    _upper_ups = log(a * _krghe * exp(b*p_ups) + E);
+
+    return _multi * (_upper_ups - _upper_dos) / _lower
+end
 
 function vars_state(land::LandModel, st::Prognostic, FT)
     @vars begin
@@ -127,7 +148,7 @@ function vars_state(land::LandModel, st::Auxiliary, FT)
     @vars begin
         z::FT
         soil::vars_state(land.soil, st, FT)
-        roots_source::Array{FT,1}
+        roots_source::FT
     end
 end
 
@@ -151,7 +172,7 @@ function nodal_init_state_auxiliary!(
 )
     aux.z = geom.coord[3]
     land_init_aux!(land, land.soil, aux, geom)
-    aux.roots_source = land.initial_roots_source(aux) # an input to the model
+    aux.roots_source = 0.0 #land.initial_roots_source(aux) # an input to the model, give initial water content to yujies code get source back
 end
 
 function flux_first_order!(
@@ -234,20 +255,44 @@ function update_auxiliary_state!(
     h = Array(Q[:, h_ind, :][:])
     z_ind = varsindex(vars_state(land, Auxiliary(), FT), :z)
     z = Array(aux[:, z_ind, :][:])
-    psi_vec = mean(h - z) # need to pass 4 columns in future
+    roots_source_ind = varsindex(vars_state(land, Auxiliary(), FT), :roots_source)
 
-    # call Yujie's function - give array of psis
-    z_root = FT(-0.5)
-    z_canopy = FT(0.5)
-    soil_bounds = [FT(0), FT(-1)]
-    air_bounds = [FT(0), FT(1)]
+    # psi_vec = h - z # need to pass 4 columns in future
+    # @show(psi_vec)
 
-    plant_hs = create_grass(z_root, z_canopy, soil_bounds, air_bounds)
-    s = root_extraction(plant_hs, psi_vec) #; qsum=FT(0))
-    @show(s)
+    # itp = interpolate(A, options...)
+    # v = itp(x, y, ...)
 
-    aux.roots_source = s(aux.z)
-    vars_state(land, Auxiliary(), FT), :roots_source) = s
+    # # call Yujie's function - give array of psis
+    # z_root = FT(-0.5)
+    # z_canopy = FT(0.5)
+    # soil_bounds = [FT(0), FT(-1)] # FT(-0.2), FT(-0.6), FT(-1)]
+    # air_bounds = [FT(0), FT(1)]
+
+    # plant_hs = create_grass(z_root, z_canopy, soil_bounds, air_bounds)
+
+    # Ni = length(aux[:,roots_source_ind,1])
+    # # @show(Ni)
+    # Nj = length(aux[1,roots_source_ind,:])
+    # # @show(Nj)
+    # for i in 1:Ni
+    #     for j in 1:Nj
+    #         aux[i,roots_source_ind,j] = root_extraction(plant_hs, psi_vec) #; qsum=FT(0))
+    #     end
+    # end
+
+    # itp = interpolate(A, options...)
+    # v = itp(x, y, ...)
+
+    # soil needs be same depth at roots model
+    # do levels of different soil layers need to match? i.e. do the properties of his soil layers change?
+    # need to supply at least as many psis as there are layers in Yujie's model
+    # need to interpolate the psi vec we give to supply as many psis as there are layers in Yujie's model,
+        # need to pass psi values at the level of the tips of the roots
+    # need to interpolate the answer we get back to get a source term for all our points
+
+    # aux.roots_source = s #(aux.z)
+    # vars_state(land, Auxiliary(), FT), :roots_source) = s
     # psi_vec = dg.state_auxiliary[:,2,:] - dg.state_auxiliary[:,1,:]
     # @show(typeof(psi_vec))
     # @show(size(psi_vec))
