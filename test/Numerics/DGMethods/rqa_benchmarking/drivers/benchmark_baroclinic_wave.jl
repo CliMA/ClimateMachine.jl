@@ -41,6 +41,7 @@ grid = DiscretizedDomain(
     elements = (vertical = 5, horizontal = 6),
     polynomial_order = (vertical = 3, horizontal = 6),
     overintegration_order = (vertical = 0, horizontal = 0),
+    grid_stretching = SingleExponentialStretching(4.5),
 )
 
 ########

@@ -37,12 +37,13 @@ grid = DiscretizedDomain(
     elements = (10, 1, 10),
     polynomial_order = (4, 4, 4),
     overintegration_order = (0, 0, 0),
+    grid_stretching = SingleExponentialStretching(4.5),
 )
 
 ########
 # Set up model physics
 ########
-eos = DryIdealGas{(:ρ, :ρu, :ρe)}()
+eos = DryIdealGas()
 physics = Physics(
     orientation = FlatOrientation(),
     ref_state   = NoReferenceState(),

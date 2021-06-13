@@ -16,22 +16,23 @@ function DiscretizedDomain(
     elements = nothing,
     polynomial_order = nothing,
     overintegration_order = nothing,
+    grid_stretching = nothing,
     FT = Float64,
     mpicomm = MPI.COMM_WORLD,
     array = ClimateMachine.array_type(),
     topology = StackedBrickTopology,
-    brick_builder = uniform_brick_builder,
+    # brick_builder = uniform_brick_builder,
 )
 
     grid = DiscontinuousSpectralElementGrid(
         domain,
         elements = elements,
         polynomialorder = polynomial_order .+ overintegration_order,
+        grid_stretching = grid_stretching,
         FT = FT,
         mpicomm = mpicomm,
         array = array,
         topology = topology,
-        brick_builder = brick_builder,
     )
     return DiscretizedDomain(
         domain,
@@ -45,6 +46,7 @@ function DiscretizedDomain(
     elements = nothing,
     polynomial_order = nothing,
     overintegration_order = nothing,
+    grid_stretching = nothing,
     FT = Float64,
     mpicomm = MPI.COMM_WORLD,
     array = ClimateMachine.array_type()
@@ -57,6 +59,7 @@ function DiscretizedDomain(
         domain,
         elements = elements,
         polynomialorder = (; vertical, horizontal),
+        grid_stretching = grid_stretching,
         FT = FT,
         mpicomm = mpicomm,
         array = array,
@@ -77,12 +80,11 @@ Computes a DiscontinuousSpectralElementGrid as specified by a product domain
 # Keyword Arguments 
 -`elements`: A tuple of integers ordered by (Nx, Ny, Nz) for number of elements
 -`polynomialorder`: A tupe of integers ordered by (npx, npy, npz) for polynomial order
+-`grid_stretching`: vertical grid stretching function
 -`FT`: floattype, assumed Float64 unless otherwise specified
 -`topology`: default = StackedBrickTopology
 -`mpicomm`: default = MPI.COMM_WORLD
 -`array`: default = ClimateMachine.array_type()
--`brickbuilder`: default = uniform_brick_builder, 
-  brickrange=uniform_brick_builder(domain, elements)
 # Return 
 A DiscontinuousSpectralElementGrid object
 """
@@ -90,11 +92,11 @@ function DiscontinuousSpectralElementGrid(
     domain::ProductDomain;
     elements,
     polynomialorder,
+    grid_stretching,
     FT = Float64,
     mpicomm = MPI.COMM_WORLD,
     array = ClimateMachine.array_type(),
     topology = StackedBrickTopology,
-    brick_builder = uniform_brick_builder,
 )
 
     if elements === nothing
@@ -116,7 +118,7 @@ function DiscontinuousSpectralElementGrid(
     end
 
     dimension = ndims(domain)
-
+ 
     if (dimension < 2) || (dimension > 3)
         error_message = "SpectralElementGrid only works with dimensions 2 or 3. "
         error_message *= "The current dimension is " * string(ndims(domain))
@@ -138,7 +140,7 @@ function DiscontinuousSpectralElementGrid(
         return nothing
     end
 
-    brickrange = brick_builder(domain, elements, FT = FT)
+    brickrange = brick_builder(domain, grid_stretching, elements; FT = FT)
 
     if dimension == 2
         boundary = ((1, 2), (3, 4))
@@ -171,15 +173,17 @@ function DiscontinuousSpectralElementGrid(
     domain::SphericalShell;
     elements,
     polynomialorder,
+    grid_stretching,
     mpicomm = MPI.COMM_WORLD,
-    boundary = (5,6),
+    # boundary = (5,6),
     FT = Float64,
     array = Array,
 )
     Rrange = grid1d(
         domain.radius, 
         domain.radius + domain.height, 
-        nelem = elements.vertical
+        grid_stretching,
+        nelem = elements.vertical,
     )
 
     topl = StackedCubedSphereTopology(
@@ -204,7 +208,7 @@ end
 """
     Brick builder
 """
-function uniform_brick_builder(domain::ProductDomain, elements; FT = Float64)
+function brick_builder(domain::ProductDomain, ::Nothing, elements; FT = Float64)
     dimension = ndims(domain)
 
     tuple_ranges = []
@@ -218,6 +222,34 @@ function uniform_brick_builder(domain::ProductDomain, elements; FT = Float64)
             ),
         )
     end
+
+    brickrange = Tuple(tuple_ranges)
+    return brickrange
+end
+
+function brick_builder(domain::ProductDomain, grid_stretching::SingleExponentialStretching, elements; FT = Float64)
+    dimension = ndims(domain)
+
+    tuple_ranges = []
+    for i in 1:dimension-1
+        push!(
+            tuple_ranges,
+            range(
+                FT(domain[i].min);
+                length = elements[i] + 1,
+                stop = FT(domain[i].max),
+            ),
+        )
+    end
+    push!(
+        tuple_ranges,
+        grid1d(
+            FT(domain[dimension].min),
+            FT(domain[dimension].max),
+            grid_stretching,
+            nelem = elements[dimension],
+        ),
+    )
 
     brickrange = Tuple(tuple_ranges)
     return brickrange
