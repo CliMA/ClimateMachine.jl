@@ -630,7 +630,7 @@ Compute the Brooks and Corey function for matric potential.
 """
 function matric_potential(model::BrooksCorey{FT}, S_l::FT) where {FT}
     @unpack ψb, m = model
-    ψ_m = ψ_m = -ψb * S_l^(-m)
+    ψ_m = -ψb * S_l^(-m)
     return ψ_m
 end
 
