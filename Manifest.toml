@@ -374,6 +374,18 @@ git-tree-sha1 = "c9f380c76d8aaa1fa7ea9cf97bddbc0d5b15adc2"
 uuid = "cd3eb016-35fb-5094-929b-558a96fad6f3"
 version = "0.9.5"
 
+[[Hwloc]]
+deps = ["Hwloc_jll"]
+git-tree-sha1 = "ffdcd4272a7cc36442007bca41aa07ca3cc5fda4"
+uuid = "0e44f5e4-bd66-52a0-8798-143a42290a1d"
+version = "1.3.0"
+
+[[Hwloc_jll]]
+deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
+git-tree-sha1 = "aac91e34ef4c166e0857e3d6052a3467e5732ceb"
+uuid = "e33a78d0-f292-5ffc-b300-72abe9b543c8"
+version = "2.4.1+0"
+
 [[IOCapture]]
 deps = ["Logging"]
 git-tree-sha1 = "1868e4e7ad2f93d8de0904d89368c527b46aa6a1"
@@ -519,6 +531,12 @@ version = "2.8.1"
 [[Logging]]
 uuid = "56ddb016-857b-54e1-b83d-db4d58db5568"
 
+[[LoopVectorization]]
+deps = ["ArrayInterface", "DocStringExtensions", "IfElse", "LinearAlgebra", "OffsetArrays", "Requires", "SLEEFPirates", "ThreadingUtilities", "UnPack", "VectorizationBase"]
+git-tree-sha1 = "5684e4aafadaf668dce27f12d67df4888fa58181"
+uuid = "bdcacae8-1622-11e9-2a5c-532679323890"
+version = "0.11.2"
+
 [[MKL_jll]]
 deps = ["Artifacts", "IntelOpenMP_jll", "JLLWrappers", "LazyArtifacts", "Libdl", "Pkg"]
 git-tree-sha1 = "c253236b0ed414624b083e6b72bfe891fbd2c7af"
@@ -637,6 +655,12 @@ git-tree-sha1 = "13de2bfa3716485129b59d2fdc1c48904c2cfa15"
 uuid = "f4b8ab15-8e73-4e04-9661-b5912071d22b"
 version = "0.1.0"
 
+[[OffsetArrays]]
+deps = ["Adapt"]
+git-tree-sha1 = "b3dfef5f2be7d7eb0e782ba9146a5271ee426e90"
+uuid = "6fe1bfb0-de20-5000-8ca7-80f57d26f881"
+version = "1.6.2"
+
 [[OpenMPI_jll]]
 deps = ["Libdl", "Pkg"]
 git-tree-sha1 = "41b983e26a7ab8c9bf05f7d70c274b817d541b46"
@@ -710,9 +734,9 @@ uuid = "9abbd945-dff8-562f-b5e8-e1ebf5ef1b79"
 
 [[ProgressMeter]]
 deps = ["Distributed", "Printf"]
-git-tree-sha1 = "6e9c89cba09f6ef134b00e10625590746ba1e036"
+git-tree-sha1 = "afadeba63d90ff223a6a48d2009434ecee2ec9e8"
 uuid = "92933f4c-e287-5a05-a399-4b506db050ca"
-version = "1.5.0"
+version = "1.7.1"
 
 [[QuadGK]]
 deps = ["DataStructures", "LinearAlgebra"]
@@ -731,8 +755,8 @@ deps = ["InteractiveUtils", "Markdown", "Sockets"]
 uuid = "3fa0cd96-eef1-5676-8a61-b3b8758bbffb"
 
 [[RRTMGP]]
-deps = ["Adapt", "CLIMAParameters", "CUDA", "Compat", "Coverage", "DataDeps", "DocStringExtensions", "GaussQuadrature", "InteractiveUtils", "KernelAbstractions", "NCDatasets", "Pkg", "Profile", "ProgressMeter", "StaticArrays", "Test", "TimerOutputs"]
-git-tree-sha1 = "70269c42f6620418ec9cbd741e3dcdbf30c02f07"
+deps = ["Adapt", "CLIMAParameters", "CUDA", "Compat", "Coverage", "DataDeps", "DocStringExtensions", "GaussQuadrature", "InteractiveUtils", "KernelAbstractions", "NCDatasets", "Pkg", "Profile", "ProgressMeter", "StaticArrays", "Test", "TimerOutputs", "UnPack"]
+git-tree-sha1 = "379a0fc852b04841617eba48b4fd9e9709915998"
 repo-rev = "sk/add_lookup"
 repo-url = "https://github.com/CliMA/RRTMGP.jl.git"
 uuid = "a01a1ee8-cea4-48fc-987c-fc7878d79da1"
@@ -754,10 +778,10 @@ uuid = "731186ca-8d62-57ce-b412-fbd966d074cd"
 version = "2.11.0"
 
 [[RecursiveFactorization]]
-deps = ["LinearAlgebra"]
-git-tree-sha1 = "6761a5d1f9646affb2a369ff932841fff77934a3"
+deps = ["LinearAlgebra", "LoopVectorization"]
+git-tree-sha1 = "20f0ad1b2760da770d31be71f777740d25807631"
 uuid = "f2c3362d-daeb-58d1-803e-2bc74f2840b4"
-version = "0.1.0"
+version = "0.1.11"
 
 [[Reexport]]
 git-tree-sha1 = "57d8440b0c7d98fc4f889e478e80f268d534c9d5"
@@ -790,6 +814,12 @@ version = "0.2.0"
 
 [[SHA]]
 uuid = "ea8e919c-243c-51af-8825-aaa63cd721ce"
+
+[[SLEEFPirates]]
+deps = ["IfElse", "Libdl", "VectorizationBase"]
+git-tree-sha1 = "ab6194c92dcf38036cd9513e4ab12cd76a613da1"
+uuid = "476501e8-09a2-5ece-8869-fb82de89a1fa"
+version = "0.6.10"
 
 [[SciMLBase]]
 deps = ["ArrayInterface", "CommonSolve", "Distributed", "DocStringExtensions", "IteratorInterfaceExtensions", "LinearAlgebra", "Logging", "RecipesBase", "RecursiveArrayTools", "StaticArrays", "Statistics", "Tables", "TreeViews"]
@@ -906,6 +936,12 @@ git-tree-sha1 = "9250ef9b01b66667380cf3275b3f7488d0e25faf"
 uuid = "b718987f-49a8-5099-9789-dcd902bef87d"
 version = "1.0.1"
 
+[[ThreadingUtilities]]
+deps = ["VectorizationBase"]
+git-tree-sha1 = "e3032c97b183e6e2baf4d2cc4fe60c4292a4a707"
+uuid = "8290d209-cae3-49c0-8002-c8c24d57dab5"
+version = "0.2.5"
+
 [[TimeZones]]
 deps = ["Dates", "EzXML", "Mocking", "Pkg", "Printf", "RecipesBase", "Serialization", "Unicode"]
 git-tree-sha1 = "4ba8a9579a243400db412b50300cd61d7447e583"
@@ -952,6 +988,12 @@ version = "1.0.2"
 
 [[Unicode]]
 uuid = "4ec0a83e-493e-50e2-b9ac-8f72acf5a8f5"
+
+[[VectorizationBase]]
+deps = ["ArrayInterface", "Hwloc", "IfElse", "Libdl", "LinearAlgebra"]
+git-tree-sha1 = "486842a62c4a1bc23f7c8457d64e683a00d6d0e9"
+uuid = "3d5dd08c-fd9d-11e8-17fa-ed2836048c2f"
+version = "0.18.14"
 
 [[VersionParsing]]
 git-tree-sha1 = "80229be1f670524750d905f8fc8148e5a8c4537f"
