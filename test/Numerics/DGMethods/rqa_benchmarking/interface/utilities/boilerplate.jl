@@ -38,24 +38,15 @@ using CLIMAParameters#: AbstractEarthParameterSet
 struct PlanetParameterSet <: AbstractEarthParameterSet end
 get_planet_parameter(p::Symbol) = getproperty(CLIMAParameters.Planet, p)(PlanetParameterSet())
 
-# utils
-include("../utilities/operations.jl")
+# numerics backends
+include("../../backends/backends.jl")
+# front-end
+include("../utilities/timestepper_abstractions.jl")
 include("../utilities/sphere_utils.jl")
-# grid
-include("../grid/domains.jl")
-include("../grid/grids.jl")
-# numerics
-include("../models/models.jl")
-include("../numerics/filters.jl")
-# backends
-#include("../balance_law_interface.jl")
-include("../esdg_balance_law_interface.jl")
-include("../boundary_conditions/boundary_conditions.jl")
-include("../numerics/numerical_volume_fluxes.jl")
-include("../numerics/numerical_interface_fluxes.jl")
-include("../numerics/timestepper_abstractions.jl")
-include("../simulations.jl")
+include("../utilities/operations.jl")
 include("../utilities/callbacks.jl")
+include("../simulations.jl")
+include("../models/models.jl")
 # physics
 include("../grid/orientations.jl")
 include("../physics/physics.jl")
