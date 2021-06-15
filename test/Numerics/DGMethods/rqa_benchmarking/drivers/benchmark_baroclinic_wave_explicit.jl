@@ -15,7 +15,6 @@ parameters = (
     γ    = get_planet_parameter(:cp_d)/get_planet_parameter(:cv_d),
     pₒ   = get_planet_parameter(:MSLP),
     cv_d = get_planet_parameter(:cv_d),
-    cp_d = get_planet_parameter(:cp_d),
     T_0  = 0.0,
     H    = 30e3,
     k    = 3.0,
@@ -27,6 +26,7 @@ parameters = (
     λ_c  = π / 9,
     ϕ_c  = 2 * π / 9,
     V_p  = 1.0,
+    cₛ = 340,
 )
 
 ########
@@ -35,14 +35,13 @@ parameters = (
 domain = SphericalShell(
     radius = parameters.a,
     height = parameters.H,
+    topography = DCMIPTopography(),
 )
-@show(domain.topography)
 grid = DiscretizedDomain(
     domain;
-    elements = (vertical = 5, horizontal = 6),
+    elements = (vertical = 5, horizontal = 12),
     polynomial_order = (vertical = 3, horizontal = 6),
     overintegration_order = (vertical = 0, horizontal = 0),
-    grid_stretching = SingleExponentialStretching(4.5),
 )
 
 ########
@@ -103,8 +102,11 @@ e_pot(𝒫,λ,ϕ,r)  = 𝒫.g * r
 ρuˡᵒⁿ(𝒫,λ,ϕ,r) = ρ₀(𝒫,λ,ϕ,r) * uˡᵒⁿ(𝒫,λ,ϕ,r)
 ρuˡᵃᵗ(𝒫,λ,ϕ,r) = ρ₀(𝒫,λ,ϕ,r) * uˡᵃᵗ(𝒫,λ,ϕ,r)
 ρuʳᵃᵈ(𝒫,λ,ϕ,r) = ρ₀(𝒫,λ,ϕ,r) * uʳᵃᵈ(𝒫,λ,ϕ,r)
-
-ρe(𝒫,λ,ϕ,r) = ρ₀(𝒫,λ,ϕ,r) * (e_int(𝒫,λ,ϕ,r) + e_kin(𝒫,λ,ϕ,r) + e_pot(𝒫,λ,ϕ,r))
+if total_energy
+    ρe(𝒫,λ,ϕ,r) = ρ₀(𝒫,λ,ϕ,r) * (e_int(𝒫,λ,ϕ,r) + e_kin(𝒫,λ,ϕ,r) + e_pot(𝒫,λ,ϕ,r))
+else
+    ρe(𝒫,λ,ϕ,r) = ρ₀(𝒫,λ,ϕ,r) * (e_int(𝒫,λ,ϕ,r) + e_kin(𝒫,λ,ϕ,r))
+end
 
 # Cartesian Representation (boiler plate really)
 ρ₀ᶜᵃʳᵗ(𝒫, x...)  = ρ₀(𝒫, lon(x...), lat(x...), rad(x...))
@@ -115,65 +117,66 @@ e_pot(𝒫,λ,ϕ,r)  = 𝒫.g * r
 ρqᶜᵃʳᵗ(𝒫, x...) = 0.0
 
 ########
-# Create Reference
+# Set up model physics
 ########
 
 FT = Float64
 
 ref_state = DryReferenceState(DecayingTemperatureProfile{FT}(parameters, FT(290), FT(220), FT(8e3)))
 
-########
-# Set up model
-########
-
+# total energy
 physics = Physics(
     orientation = SphericalOrientation(),
     ref_state   = ref_state,
-    eos         = DryIdealGas(),
+    eos         = DryIdealGas{(:ρ, :ρu, :ρe)}(),
     lhs         = (
         NonlinearAdvection{(:ρ, :ρu, :ρe)}(),
         PressureDivergence(),
     ),
     sources     = (
         DeepShellCoriolis(),
-        FluctuationGravity(),
     ),
     parameters = parameters,
 )
+#=
+physics = EulerModel(
+    orientation = SphericalOrientation(),
+    eos = TotalEnergy(),
+    sources = (
+        DeepShellCoriolis(),
+        FluctationGravity(),
+    )
+    parameters = parameters,
+)
 
+physics = Physics(
+    orientation = SphericalOrientation(),
+    ref_state   = ref_state,
+    eos         = DryIdealGas{(:ρ, :ρu, :ρe)}(),
+    lhs         = (
+        ProductRuleAdvectionPressure(),
+        KGVolumeFlux(),
+        SplitFormNonlinearAdvectionPressure(),
+
+    ),
+    sources     = (
+        DeepShellCoriolis(),
+        Gravity(), # or KGVolumeGravity(), SplitFormGravity()
+    ),
+    parameters = parameters,
+)
+=#
+# linear_model = linearize(model, ref_states = ())
+########
+# Set up model
+########
 model = DryAtmosModel(
     physics = physics,
-    boundary_conditions = (DefaultBC(), DefaultBC()),
+    boundary_conditions = (5, 6),
     initial_conditions = (ρ = ρ₀ᶜᵃʳᵗ, ρu = ρu⃗₀ᶜᵃʳᵗ, ρe = ρeᶜᵃʳᵗ, ρq = ρqᶜᵃʳᵗ),
     numerics = (
         flux = RefanovFlux(),
     ),
-)
-
-########
-# Set up Linear Model
-########
-
-linear_physics = Physics(
-    orientation = physics.orientation,
-    ref_state   = physics.ref_state,
-    eos         = physics.eos,
-    lhs         = (
-        VeryLinearAdvection{(:ρ, :ρu, :ρe)}(),
-        # LinearPressureDivergence(),
-    ),
-    sources     = (FluctuationGravity(),),
-    parameters = parameters,
-)
-
-linear_model = DryAtmosModel(
-    physics = linear_physics,
-    boundary_conditions = (DefaultBC(), DefaultBC()),
-    initial_conditions = (ρ = ρ₀ᶜᵃʳᵗ, ρu = ρu⃗₀ᶜᵃʳᵗ, ρe = ρeᶜᵃʳᵗ, ρq = ρqᶜᵃʳᵗ),
-    numerics = (
-        flux = RefanovFlux(),
-    ),
-
 )
 
 ########
@@ -183,35 +186,53 @@ linear_model = DryAtmosModel(
 # element_size = (domain_height / numelem_vert)
 # acoustic_speed = soundspeed_air(param_set, FT(330))
 dx = min_node_distance(grid.numerical)
-dxᴴ = min_node_distance(grid.numerical, HorizontalDirection())
-cfl = 20.0 # 13 for 10 days, 7.5 for 200+ days
+dh = min_node_distance(grid.numerical, HorizontalDirection())
+dz = min_node_distance(grid.numerical, VerticalDirection())
+@show((dh,dz))
+cfl = 0.25 # 13 for 10 days, 7.5 for 200+ days
 Δt = cfl * dx / 330.0
 start_time = 0
 end_time = 10 * 24 * 3600
 method = IMEX() 
-#   ReferenceStateUpdate(),
 callbacks = (
   Info(),
   CFL(),
-  ReferenceStateUpdate(),
+)
+
+########
+# Set up simulation
+########
+
+linear_physics = Physics(
+    orientation = physics.orientation,
+    ref_state   = physics.ref_state,
+    eos         = physics.eos,
+    lhs         = (
+        LinearAdvection{(:ρ, :ρu, :ρe)}(),
+        LinearPressureDivergence(),
+    ),
+    sources     = (),
+    parameters = parameters,
+)
+
+linear_model = DryAtmosModel(
+    physics = linear_physics,
+    boundary_conditions = (5, 6),
+    initial_conditions = (ρ = ρ₀ᶜᵃʳᵗ, ρu = ρu⃗₀ᶜᵃʳᵗ, ρe = ρeᶜᵃʳᵗ, ρq = ρqᶜᵃʳᵗ),
+    numerics = (
+        flux = RefanovFlux(),
+    ),
+
 )
 
 simulation = Simulation(
-    (Explicit(model), Implicit(linear_model),);
+    #(Explicit(model), Implicit(linear_model),);
+    model;
     grid = grid,
-    timestepper = (method = method, timestep = Δt),
+    #timestepper = (method = method, timestep = Δt),
+    timestepper = (method = SSPRK22Heuns, timestep = Δt),
     time        = (start = start_time, finish = end_time),
     callbacks   = callbacks,
 );
 
-evolve!(simulation, update_aux = true)
-
-##
-# α = odesolver.dt * odesolver.RKA_implicit[1, 1]
-# odesolver = construct_odesolver(simulation.timestepper.method, simulation.rhs, simulation.state, simulation.timestepper.timestep, t0 = simulation.time.start) 
-##
-#=
-be_solver = odesolver.implicit_solvers[odesolver.RKA_implicit[2, 2]][1]
-odesolver.implicit_solvers[odesolver.RKA_implicit[2, 2]][1]
-=#
-
+evolve!(simulation)

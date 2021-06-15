@@ -44,6 +44,7 @@ include("../utilities/sphere_utils.jl")
 # grid
 include("../grid/domains.jl")
 include("../grid/grids.jl")
+include("../grid/topography.jl")
 # numerics
 include("../models/models.jl")
 include("../numerics/filters.jl")

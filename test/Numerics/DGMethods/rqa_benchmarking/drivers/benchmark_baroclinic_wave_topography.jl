@@ -35,6 +35,7 @@ parameters = (
 domain = SphericalShell(
     radius = parameters.a,
     height = parameters.H,
+    topography = DCMIPTopography(),
 )
 @show(domain.topography)
 grid = DiscretizedDomain(
@@ -194,6 +195,9 @@ callbacks = (
   Info(),
   CFL(),
   ReferenceStateUpdate(),
+  VTKState(
+    iteration = Int(floor(1*3600/Δt)), 
+    filepath = "./out/"),  
 )
 
 simulation = Simulation(

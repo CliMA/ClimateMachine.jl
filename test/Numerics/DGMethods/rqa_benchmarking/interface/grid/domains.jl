@@ -37,14 +37,15 @@ end
 """
     SphericalShell
 """
-struct SphericalShell{T} <: AbstractDomain
+struct SphericalShell{T, AbstractTopography} <: AbstractDomain
     radius::T
     height::T
+    topography::AbstractTopography
 end
 
-function SphericalShell(; radius, height)
+function SphericalShell(; radius, height, topography=NoTopography())
     @assert radius > 0 && height > 0
-    return SphericalShell(radius, height)
+    return SphericalShell(radius, height, topography)
 end
 
 """
