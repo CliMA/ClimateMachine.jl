@@ -21,7 +21,7 @@ using ClimateMachine.VariableTemplates
 using ClimateMachine.SingleStackUtils
 using ClimateMachine.BalanceLaws:
     BalanceLaw, Prognostic, Auxiliary, Gradient, GradientFlux, vars_state
-using ArtifactWrappers
+using ClimateMachine.ArtifactWrappers
 
 
 @testset "V Catchment Maxwell River Model" begin
