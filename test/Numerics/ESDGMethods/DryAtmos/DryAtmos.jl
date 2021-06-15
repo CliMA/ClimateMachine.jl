@@ -818,8 +818,7 @@ numerical_boundary_flux_second_order!(::Nothing, _...) = nothing
 =#
 numerical_flux_first_order!(::Nothing, ::DryAtmosModel, _...) = nothing
 numerical_flux_second_order!(::Nothing, ::DryAtmosModel, _...) = nothing
-numerical_boundary_flux_second_order!(::Nothing, a, ::DryAtmosModel, _...) =
-    nothing
+numerical_boundary_flux_second_order!(::Nothing, a, ::DryAtmosModel, _...) = nothing
 
 include("linear.jl")
 

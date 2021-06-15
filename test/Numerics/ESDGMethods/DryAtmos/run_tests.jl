@@ -155,12 +155,7 @@ function check_operators(FT, dim, mpicomm, N, ArrayType)
     num_state = number_states(model, Prognostic())
     volume = sum(β[:, 1:num_state, :] .* M .* dQ, dims = (1, 2))[:]
 
-    @test all(isapprox.(
-        surface,
-        volume;
-        atol = 10eps(FT),
-        rtol = sqrt(eps(FT)),
-    ))
+    @test all(isapprox.(surface, volume; atol = 10eps(FT), rtol = sqrt(eps(FT))))
 
     ###########################################
     # check that the volume and surface match #
