@@ -164,14 +164,15 @@ end
     ClimateMachine.init()
     FT = Float64
 
-    data = readdlm("/Users/katherinedeck/Downloads/ERAwyo_2017_hourly.csv",',')
-    #data = readdlm("/Users/shuangma/Downloads/ERAwyo_2017_hourly.csv",',')
+    #data = readdlm("/Users/katherinedeck/Downloads/ERAwyo_2017_hourly.csv",',')
+    data = readdlm("/Users/shuangma/Downloads/ERAwyo_2017_hourly.csv",',')
 
     Qsurf = data[:, data[1,:] .== "Qsurf"][2:end,1] ./ 3600 ./ 24 # per second
     Qsurf = -Qsurf
     Tsurf = FT.(data[:, data[1,:] .== "surtsn(K)"][2:end,:])
     # 1:168 is first week of data, just model this for now. 
     ρ_snow = FT(mean(data[:, data[1,:] .== "rhosn(kgm-3)"][2:end,:][1:168]))
+    snowf = FT(mean(data[:, data[1,:] .== "snfall(m)"][2:end,:][1:168]))
     κ_air = FT(0.023)
     κ_ice = FT(2.29)
     κ_snow = FT(κ_air + (7.75*1e-5 *ρ_snow + 1.105e-6*ρ_snow^2)*(κ_ice-κ_air))
@@ -271,6 +272,7 @@ end
 
     tsurf_pw = Array{FT,1}(undef, N)
     tsurf_era5 = Array{FT,1}(undef, N)
+    snowf_era5 = Array{FT,1}(undef, N)
     anim = @animate for i ∈ 1:N
         plot(t_profs[i].(z),z, ylim = [0,1.5], xlim = [240,300], label = "Piecewise model")
         t = time_data[i]
@@ -278,22 +280,25 @@ end
         
         tsurf_pw[i]   = t_profs[i].(FT(snow_parameters.z_snow))
         tsurf_era5[i] = Tsurf[Int64.(time_data[i]/3600)+1]
+        snowf_era5[i] = snowf[Int64.(time_data[i]/3600)+1]
         """println(tsurf_pw[i])
         println(tsurf_era5[i])"""
     end
     gif(anim, "snow2.gif", fps = 6)
 
 
-    RMSEv = round(sqrt(mean((tsurf_pw - tsurf_era5).^2)),digits = 2) 
-    
+    RMSEv  = round(sqrt(mean((tsurf_pw - tsurf_era5).^2)),digits = 2) 
+    titlev = "snow_scatter_rho+100"
     snowscatter = plot(tsurf_pw, tsurf_era5, seriestype = :scatter, reg = true,
-    title = "snow surface temperature",
+    title = titlev,
     legend = false,
     ylim = [220,280],xlim=[220,280],
     xlab = "Tsurf Piecewise model", ylab = "Tsurf ERA5")
     annotate!(260,270,text(string("RMSE = ", RMSEv), :left, 12))
     Plots.abline!(1, 1, line=:dash)
-    savefig(snowscatter,"snow_scatter.png")
+    savefig(snowscatter,string(titlev,".png"))
+
+    snowts = plot(1:28,tsurf_pw)
 
 end 
     
