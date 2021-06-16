@@ -20,6 +20,14 @@ Base.@kwdef struct VTKState{T, V, C, B} <: AbstractCallback
     overwrite::B = true
 end
 
+Base.@kwdef struct NetCDF{T, V, R, C, B} <: AbstractCallback
+    iteration::T = 1
+    filepath::V = "."
+    resolution::R = (2.0, 2.0, 2000.0)
+    counter::C = [0]
+    overwrite::B = true
+end
+
 Base.@kwdef struct TMARCallback{ℱ} <: AbstractCallback 
     filterstates::ℱ = 6:6
 end
@@ -230,6 +238,107 @@ function create_callback(output::VTKState, simulation::Simulation, odesolver)
 
     return cbvtk
 end
+
+
+function create_callback(output::NetCDF, simulation::Simulation, odesolver)
+    # Initialize output
+    output.overwrite &&
+        isfile(output.filepath) &&
+        rm(output.filepath; force = output.overwrite)
+    mkpath(output.filepath)
+
+    resolution = output.resolution
+    parameters = model.balance_law.physics.parameters
+    state = simulation.state
+    aux = model.state_auxiliary
+    if simulation.rhs isa Tuple
+        if simulation.rhs[1] isa AbstractRate 
+            model = simulation.rhs[1].model
+        else
+            model = simulation.rhs[1]
+        end
+    else
+        model = simulation.rhs
+    end
+
+    # get ρ, ρu, ρe, ρq, ref_state from state and and state_auxiliary
+
+    # interpolate to lat lon height
+    boundaries = [
+        Float64(-90.0) Float64(-180.0) parameters.a
+        Float64(90.0) Float64(180.0) Float64(parameters.a + parameters.H)
+    ]
+    axes = (
+            collect(range(
+                boundaries[1, 1],
+                boundaries[2, 1],
+                step = resolution[1],
+            )),
+            collect(range(
+                boundaries[1, 2],
+                boundaries[2, 2],
+                step = resolution[2],
+            )),
+            collect(range(
+                boundaries[1, 3],
+                boundaries[2, 3],
+                step = resolution[3],
+            )),
+        )
+
+    vert_range = grid1d(
+        parameters.a,
+        parameters.a + parameters.H,
+        simulation.grid.resolution.grid_stretching,
+        nelem = simulation.grid.resolution.elements.vertical,
+    )
+
+    interpol = InterpolationCubedSphere(
+        model.grid,
+        vert_range,
+        simulation.grid.resolution.elements.horizontal,
+        axes[1],
+        axes[2],
+        axes[3];
+        nr_toler = nr_toler,
+    )
+
+    dgngrp = setup_atmos_default_diagnostics(
+        simulation,
+        output.iteration,
+        driver_config.name,
+        interpol = interpol,
+    )
+
+
+
+end
+
+#=  from Diagnostics in ClimateMachine
+function setup_atmos_default_diagnostics(
+    ::AtmosGCMConfigType,
+    interval::String,
+    out_prefix::String;
+    writer = NetCDFWriter(),
+    interpol = nothing,
+)
+    # TODO: remove this
+    @assert !isnothing(interpol)
+
+    return DiagnosticsGroup(
+        "AtmosGCMDefault",
+        Diagnostics.atmos_gcm_default_init,
+        Diagnostics.atmos_gcm_default_fini,
+        Diagnostics.atmos_gcm_default_collect,
+        interval,
+        out_prefix,
+        writer,
+        interpol,
+        # VorticityBLState(),
+    )
+end
+=#
+
 
 function create_callback(filter::TMARCallback, simulation::Simulation, odesolver)
     Q = simulation.state

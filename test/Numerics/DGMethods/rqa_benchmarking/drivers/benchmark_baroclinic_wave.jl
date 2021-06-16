@@ -1,3 +1,4 @@
+using Dates: include
 #!/usr/bin/env julia --project
 include("../interface/utilities/boilerplate.jl")
 include("../interface/numerics/timestepper_abstractions.jl")
@@ -38,10 +39,10 @@ domain = SphericalShell(
 )
 grid = DiscretizedDomain(
     domain;
-    elements = (vertical = 5, horizontal = 6),
-    polynomial_order = (vertical = 3, horizontal = 6),
+    elements = (vertical = 12, horizontal = 32),
+    polynomial_order = (vertical = 2, horizontal = 2),
     overintegration_order = (vertical = 0, horizontal = 0),
-    grid_stretching = SingleExponentialStretching(4.5),
+    grid_stretching = SingleExponentialStretching(2.325),
 )
 
 ########
@@ -192,6 +193,16 @@ method = IMEX()
 callbacks = (
   Info(),
   CFL(),
+  VTKState(
+    iteration = Int(floor(24*3600/Δt)),
+    filepath = "./out_esdg/dry-bw/",
+  ),
+  NetCDF(
+    # pass simulation ?
+    iteration = Int(floor(24*3600/Δt)),
+    filepath = "./out_esdg/dry-bw-nc/",
+    resolution = (2.0, 2.0, 1000.0),    # in (degree, degree, meters)
+  ),
   ReferenceStateUpdate(),
 )
 
@@ -203,7 +214,7 @@ simulation = Simulation(
     callbacks   = callbacks,
 );
 
-evolve!(simulation, update_aux = true)
+# evolve!(simulation, update_aux = true)
 
 ##
 # α = odesolver.dt * odesolver.RKA_implicit[1, 1]

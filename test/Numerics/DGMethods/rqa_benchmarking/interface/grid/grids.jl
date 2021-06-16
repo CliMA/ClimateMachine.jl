@@ -36,7 +36,7 @@ function DiscretizedDomain(
     )
     return DiscretizedDomain(
         domain,
-        (; elements, polynomial_order, overintegration_order),
+        (; elements, polynomial_order, overintegration_order, grid_stretching),
         grid,
     )
 end
@@ -66,7 +66,7 @@ function DiscretizedDomain(
     )
     return DiscretizedDomain(
         domain,
-        (; elements, polynomial_order, overintegration_order),
+        (; elements, polynomial_order, overintegration_order, grid_stretching),
         grid,
     )
 end

@@ -68,4 +68,6 @@ include("../physics/diffusion.jl")
 include("../physics/microphysics.jl")
 include("../physics/temperature_profiles.jl")
 
+include("./gcm_diagnostics.jl")
+
 ClimateMachine.init()
