@@ -248,9 +248,6 @@ function create_callback(output::NetCDF, simulation::Simulation, odesolver)
     mkpath(output.filepath)
 
     resolution = output.resolution
-    parameters = model.balance_law.physics.parameters
-    state = simulation.state
-    aux = model.state_auxiliary
     if simulation.rhs isa Tuple
         if simulation.rhs[1] isa AbstractRate 
             model = simulation.rhs[1].model
@@ -260,8 +257,9 @@ function create_callback(output::NetCDF, simulation::Simulation, odesolver)
     else
         model = simulation.rhs
     end
-
-    # get ρ, ρu, ρe, ρq, ref_state from state and and state_auxiliary
+    parameters = model.balance_law.physics.parameters
+    state = simulation.state
+    aux = model.state_auxiliary
 
     # interpolate to lat lon height
     boundaries = [
@@ -300,45 +298,25 @@ function create_callback(output::NetCDF, simulation::Simulation, odesolver)
         axes[1],
         axes[2],
         axes[3];
-        nr_toler = nr_toler,
     )
 
     dgngrp = setup_atmos_default_diagnostics(
         simulation,
         output.iteration,
-        driver_config.name,
+        "TEST_GCM_Experiment",
+        output.filepath,
         interpol = interpol,
     )
-
-
+    
+    netcdf_write = EveryXSimulationSteps(output.iteration) do
+        # TODO: collection function in DiagnosticsGroup
+        dgngrp.collect
+    #    @warn "Entered NETCDF callback. Do nothing currently. Test" maxlog = 1
+    end
+    
+    return netcdf_write
 
 end
-
-#=  from Diagnostics in ClimateMachine
-function setup_atmos_default_diagnostics(
-    ::AtmosGCMConfigType,
-    interval::String,
-    out_prefix::String;
-    writer = NetCDFWriter(),
-    interpol = nothing,
-)
-    # TODO: remove this
-    @assert !isnothing(interpol)
-
-    return DiagnosticsGroup(
-        "AtmosGCMDefault",
-        Diagnostics.atmos_gcm_default_init,
-        Diagnostics.atmos_gcm_default_fini,
-        Diagnostics.atmos_gcm_default_collect,
-        interval,
-        out_prefix,
-        writer,
-        interpol,
-        # VorticityBLState(),
-    )
-end
-=#
-
 
 function create_callback(filter::TMARCallback, simulation::Simulation, odesolver)
     Q = simulation.state

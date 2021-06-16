@@ -22,11 +22,19 @@ using LinearAlgebra
 using Printf
 using Statistics
 
-using ..Atmos
-using ..Atmos: recover_thermo_state
-using ..DGMethods.NumericalFluxes
-using ..TurbulenceClosures: turbulence_tensors
+# using ..Atmos
+# using ..Atmos: recover_thermo_state
+# using ..DGMethods.NumericalFluxes
+# using ..TurbulenceClosures: turbulence_tensors
 
+using ClimateMachine.Diagnostics: 
+    extract_state, 
+    @traverse_dg_grid, 
+    @traverse_interpolated_grid
+   
+using ClimateMachine.Interpolation
+
+using ClimateMachine.Writers
 # mutable struct VorticityBLState <: DiagnosticsGroupParams
 #     bl::Union{Nothing, VorticityModel}
 #     dg::Union{Nothing, DGModel}
@@ -75,10 +83,59 @@ All these variables are output with `lat`, `long`, and `level` dimensions
 of an interpolated grid (`interpol` _must_ be specified) as well as a
 (unlimited) `time` dimension at the specified `interval`.
 """
+
+abstract type DiagnosticsGroupParams end
+
+"""
+    DiagnosticsGroup
+
+Holds a set of diagnostics that share a collection interval, a filename
+prefix, an output writer, an interpolation, and any extra parameters.
+"""
+mutable struct DiagnosticsGroup{DGP <: Union{Nothing, DiagnosticsGroupParams}}
+    name::String
+    init::Function
+    fini::Function
+    collect::Function
+    interval::Int
+    out_prefix::String
+    out_dir::String
+    writer::AbstractWriter
+    interpol::Union{Nothing, InterpolationTopology}
+    params::DGP
+
+    DiagnosticsGroup(
+        name,
+        init,
+        fini,
+        collect,
+        interval,
+        out_prefix,
+        out_dir,
+        writer,
+        interpol,
+        params = nothing,
+    ) = new{typeof(params)}(
+        name,
+        init,
+        fini,
+        collect,
+        interval,
+        out_prefix,
+        out_dir,
+        writer,
+        interpol,
+        params,
+    )
+end
+
+
+
 function setup_atmos_default_diagnostics(
-    simulation::Simulation,
-    interval::String,
-    out_prefix::String;
+    ::Simulation,
+    interval::Int,
+    out_prefix::String,
+    out_dir::String;
     writer = NetCDFWriter(),
     interpol = nothing,
 )
@@ -92,9 +149,9 @@ function setup_atmos_default_diagnostics(
         atmos_gcm_default_collect,
         interval,
         out_prefix,
+        out_dir,
         writer,
         interpol,
-        # VorticityBLState(),
     )
 end
 
@@ -148,15 +205,16 @@ end
 Initialize the GCM default diagnostics group, establishing the output file's
 dimensions and variables.
 """
-function atmos_gcm_default_init(simulation, interval, interpol, currtime)
+function atmos_gcm_default_init(dgngrp::DiagnosticsGroup, simulation::Simulation, currtime)
+    interpol = dgngrp.interpol
     if simulation.rhs isa Tuple
-	if simulation.rhs[1] isa AbstractRate 
-            model = simulation.rhs[1].model
-	else
-	    model = simulation.rhs[1]
-	end
+        if simulation.rhs[1] isa AbstractRate 
+                model = simulation.rhs[1].model
+        else
+            model = simulation.rhs[1]
+        end
     else
-	model = simulation.rhs
+        model = simulation.rhs
     end 
     dg = model
     grid = simulation.grid.numerical
@@ -188,7 +246,6 @@ function atmos_gcm_default_init(simulation, interval, interpol, currtime)
         # set up the variables we're going to be writing
         vars = OrderedDict()
         varnames = map(
-            s -> startswith(s, "moisture.") ? s[10:end] : s,
             flattenednames(vars_atmos_gcm_default_simple_3d(atmos, FT)),
         )
         for varname in varnames
@@ -198,30 +255,35 @@ function atmos_gcm_default_init(simulation, interval, interpol, currtime)
 
         # create the output file
         dprefix = @sprintf("%s_%s", dgngrp.out_prefix, dgngrp.name)
-        dfilename = joinpath(Settings.output_dir, dprefix)
-        noov = Settings.no_overwrite
+        # TODO: Fix pointer to output_dir here ...
+        dfilename = joinpath(dgngrp.out_dir, dprefix)
+
+        ## TODO: access Settings in Driver.jl
+        noov = false # Settings.no_overwrite
         init_data(dgngrp.writer, dfilename, noov, dims, vars)
     end
+
+    @warn "Debug: Completed NETCDF Callback Initialisation" maxlong = 1
 
     return nothing
 end
 
 """
-    atmos_gcm_default_collect(simulation, interval, interpol, currtime)
+    atmos_gcm_default_collect(dgngrp::DiagnosticsGroup, simulation::Simulation, currtime)
 
     Master function that performs a global grid traversal to compute various
-    diagnostics using the above functions.
+    diagnostics using the above functions. Modified for compatibility with RQA interface.
 """
-function atmos_gcm_default_collect(simulation, interval, interpol, currtime)
-    interpol = interpol
+function atmos_gcm_default_collect(dgngrp::DiagnosticsGroup, simulation::Simulation, currtime)
+    interpol = dgngrp.interpol
+    interval = dgngrp.interval
     if !(interpol isa InterpolationCubedSphere)
         @warn """
             Diagnostics ($dgngrp.name): currently requires `InterpolationCubedSphere`!
             """
         return nothing
     end
- #   vort_state = dgngrp.params
-# TODO: verify how comm info is passed 
+    # TODO: verify how comm info is passed 
     mpicomm = MPI.COMM_WORLD
     if simulation.rhs isa Tuple
 	if simulation.rhs[1] isa AbstractRate 
@@ -262,9 +324,6 @@ function atmos_gcm_default_collect(simulation, interval, interpol, currtime)
     @traverse_dg_grid grid_info topl_info begin
         state = extract_state(dg, state_data, ijk, e, Prognostic())
         aux = extract_state(dg, aux_data, ijk, e, Auxiliary())
-
-        # thermo = thermo_vars(atmos, view(thermo_array, ijk, :, e))
-        # compute_thermo!(atmos, state, aux, thermo)
     end
 
     # Interpolate the state, thermo, dgdiags and dyn vars to sphere (u and vorticity
@@ -273,28 +332,12 @@ function atmos_gcm_default_collect(simulation, interval, interpol, currtime)
         ArrayType{FT}(undef, interpol.Npl, number_states(atmos, Prognostic()))
     interpolate_local!(interpol, Q.realdata, istate)
 
-#     ithermo = ArrayType{FT}(undef, interpol.Npl, num_thermo(atmos, FT))
-#     interpolate_local!(interpol, ArrayType(thermo_array), ithermo)
-
-#     idyn = ArrayType{FT}(undef, interpol.Npl, size(vort.data, 2))
-#     interpolate_local!(interpol, vort.data, idyn)
-
-#     idyn_bl = ArrayType{FT}(undef, interpol.Npl, size(vort_state.dQ.data, 2))
-#     interpolate_local!(interpol, vort_state.dQ.data, idyn_bl)
-
     # TODO: get indices here without hard-coding them
     _ρu, _ρv, _ρw = 2, 3, 4
     project_cubed_sphere!(interpol, istate, (_ρu, _ρv, _ρw))
-#     _Ω₁, _Ω₂, _Ω₃ = 1, 2, 3
-#     project_cubed_sphere!(interpol, idyn, (_Ω₁, _Ω₂, _Ω₃))
-#     project_cubed_sphere!(interpol, idyn_bl, (_Ω₁, _Ω₂, _Ω₃))
-
 
     # FIXME: accumulating to rank 0 is not scalable
     all_state_data = accumulate_interpolated_data(mpicomm, interpol, istate)
-#     all_thermo_data = accumulate_interpolated_data(mpicomm, interpol, ithermo)
-#     all_dyn_data = accumulate_interpolated_data(mpicomm, interpol, idyn)
-#     all_dyn_bl_data = accumulate_interpolated_data(mpicomm, interpol, idyn_bl)
 
     if mpirank == 0
         # get dimensions for the interpolated grid
@@ -321,31 +364,24 @@ function atmos_gcm_default_collect(simulation, interval, interpol, currtime)
                 le,
                 :,
             ))
-        #     thermoi = thermo_vars(atmos, view(all_thermo_data, lo, la, le, :))
-        #     dyni = dyn_vars(view(all_dyn_data, lo, la, le, :))
-        #     dyn_bli = dyn_bl_vars(view(all_dyn_bl_data, lo, la, le, :))
             simple_3d_vars = atmos_gcm_default_simple_3d_vars(
                 atmos,
                 view(simple_3d_vars_array, lo, la, le, :),
             )
-
             atmos_gcm_default_simple_3d_vars!(
                 atmos,
                 statei,
                 simple_3d_vars,
             )
         end
-
         # assemble the diagnostics for writing
         varvals = OrderedDict()
         varnames = map(
-            # s -> startswith(s, "moisture.") ? s[10:end] : s, # Depends on atmos.moisture which rqa interface doesn't have
             flattenednames(vars_atmos_gcm_default_simple_3d(atmos, FT)),
         )
         for (vari, varname) in enumerate(varnames)
             varvals[varname] = simple_3d_vars_array[:, :, :, vari]
         end
-
         # write output
         append_data(dgngrp.writer, varvals, currtime)
     end
@@ -354,5 +390,4 @@ function atmos_gcm_default_collect(simulation, interval, interpol, currtime)
     return nothing
 end # function collect
 
-# TODO: Fix function signature to be consistent with init / collect 
-function atmos_gcm_default_fini(dgngrp::DiagnosticsGroup, currtime) end
+function atmos_gcm_default_fini(dgngrp::DiagnosticsGroup, simulation::Simulation, currtime) end

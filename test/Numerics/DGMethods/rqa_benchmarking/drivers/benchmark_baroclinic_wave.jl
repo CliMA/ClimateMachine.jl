@@ -187,19 +187,18 @@ dxᴴ = min_node_distance(grid.numerical, HorizontalDirection())
 cfl = 20.0 # 13 for 10 days, 7.5 for 200+ days
 Δt = cfl * dx / 330.0
 start_time = 0
-end_time = 10 * 24 * 3600
+end_time = 10 * Δt #* 24 * 3600
 method = IMEX() 
 #   ReferenceStateUpdate(),
 callbacks = (
   Info(),
   CFL(),
   VTKState(
-    iteration = Int(floor(24*3600/Δt)),
+    iteration = Int(1),
     filepath = "./out_esdg/dry-bw/",
   ),
   NetCDF(
-    # pass simulation ?
-    iteration = Int(floor(24*3600/Δt)),
+    iteration = Int(1),
     filepath = "./out_esdg/dry-bw-nc/",
     resolution = (2.0, 2.0, 1000.0),    # in (degree, degree, meters)
   ),
@@ -214,7 +213,7 @@ simulation = Simulation(
     callbacks   = callbacks,
 );
 
-# evolve!(simulation, update_aux = true)
+evolve!(simulation, update_aux = true)
 
 ##
 # α = odesolver.dt * odesolver.RKA_implicit[1, 1]
