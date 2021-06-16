@@ -36,7 +36,6 @@ domain = SphericalShell(
     radius = parameters.a,
     height = parameters.H,
 )
-@show(domain.topography)
 grid = DiscretizedDomain(
     domain;
     elements = (vertical = 5, horizontal = 6),

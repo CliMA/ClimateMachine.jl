@@ -37,13 +37,12 @@ domain = SphericalShell(
     height = parameters.H,
     topography = DCMIPTopography(),
 )
-@show(domain.topography)
 grid = DiscretizedDomain(
     domain;
     elements = (vertical = 5, horizontal = 6),
     polynomial_order = (vertical = 3, horizontal = 6),
     overintegration_order = (vertical = 0, horizontal = 0),
-    grid_stretching = SingleExponentialStretching(4.5),
+    #grid_stretching = SingleExponentialStretching(1),
 )
 
 ########
@@ -185,10 +184,10 @@ linear_model = DryAtmosModel(
 # acoustic_speed = soundspeed_air(param_set, FT(330))
 dx = min_node_distance(grid.numerical)
 dxᴴ = min_node_distance(grid.numerical, HorizontalDirection())
-cfl = 20.0 # 13 for 10 days, 7.5 for 200+ days
+cfl = 5 # 13 for 10 days, 7.5 for 200+ days
 Δt = cfl * dx / 330.0
 start_time = 0
-end_time = 10 * 24 * 3600
+end_time = 200 * 24 * 3600
 method = IMEX() 
 #   ReferenceStateUpdate(),
 callbacks = (
@@ -196,7 +195,7 @@ callbacks = (
   CFL(),
   ReferenceStateUpdate(),
   VTKState(
-    iteration = Int(floor(1*3600/Δt)), 
+    iteration = Int(floor(24*3600/Δt)), 
     filepath = "./out/"),  
 )
 

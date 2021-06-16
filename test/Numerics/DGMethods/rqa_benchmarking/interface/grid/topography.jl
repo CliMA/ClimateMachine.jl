@@ -5,13 +5,13 @@ using NCDatasets
 ###
 ### TODO include with Artifacts.jl 
 ###
-const data_land_topo = NCDataset("/Users/asridhar/Research/Codes/ClimateMachine.jl/topodata.nc");
+const data_land_topo = NCDataset("/groups/esm/asridhar/topodata.nc");
 Λ = (data_land_topo["X"][:]) .* π/180; # Longitude in degrees [-180 to 180; +180 shift]
 Φ = data_land_topo["Y"][:] .* π/180; # Latitude in degrees [-90 to 90]
 Φ = reverse(Φ)
 elev = data_land_topo["topo"][:]; # Elevation in meters [0 to Everest] No Bathmetry
 elev = reverse(elev,dims=2)
-skip_var = 2;
+skip_var = 4;
 const get_elevation = Spline2D(Λ[1:skip_var:end],Φ[1:skip_var:end],elev[1:skip_var:end,1:skip_var:end], kx = 4, ky=4)
 
 function topography_warp(f, domain, topography)
@@ -125,16 +125,12 @@ function compute_topography(
     radius = domain.radius,
     height = domain.height,
 )
-    planet_radius = get_planet_parameter(:planet_radius)
-    if radius != planet_radius
-        @warn "Specified domain radius ≢ Earth radius. 
-               Rescaling topography based on domain.radius and domain.height." maxlog = 1
-    end
     FT = eltype(sR)
-    Δ = 1 #(radius+height - abs(sR)) / height
+    Δ = (radius+height - abs(sR)) / height
+    Δ = sinpi(0.5*(Δ))^2
     zs = -0
     if lst.topo_spline(λ,ϕ) > -0
-        zs = lst.topo_spline(λ,ϕ) * radius / planet_radius * 10
+        zs = lst.topo_spline(λ,ϕ)
     end
     mR = sign(sR) * (abs(sR) + zs * Δ)
     return mR
