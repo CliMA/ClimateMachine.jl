@@ -47,7 +47,7 @@ include(joinpath(clima_dir, "docs", "plothelpers.jl"));
 soil_heat_model = PrescribedTemperatureModel();
 
 #Based off of soil classes reported by SWAT
-# Depths: 5, 10 - SiL, 20- C, 50, 75/100 - CL
+# Depths: 5, 10 - SiL, 20- C, 50 (30?) - CL
 # Boundaries = 15/ 35
 function ν(z::F) where {F}
     if z > F(-0.2)
