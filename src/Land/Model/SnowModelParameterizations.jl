@@ -135,8 +135,6 @@ function compute_profile_coefficients(
     ρe_int::FT,
     param_set::AbstractParameterSet,
 ) where {FT}
-    _c_i = FT(cp_i(param_set))
-    _c_l = FT(cp_l(param_set))
     l = liquid_fraction(ρe_int, ρ_snow, param_set)
     T_snow = T_snow_ave(ρe_int, l, ρ_snow, param_set)
     ρc_snow = volumetric_heat_capacity(l, ρ_snow, param_set)
@@ -146,8 +144,6 @@ function compute_profile_coefficients(
     T_h = T_snow - FT(0.5)/κ_snow/z_snow*(h^FT(2)*Q_bott-(z_snow-h)^FT(2)*Q_surf)
     T_surf = T_h-(z_snow-h)/κ_snow*Q_surf
     T_bott = T_h+h/κ_snow*Q_bott
-#    T_surf = T_snow_ave+(Q_surf*(h^2-z^2)-Q2*h^2)/(2*z_snow*κ_snow)
-#    T_bott = T_surf*(h-z_snow)/(h+z_snow) +(2*z_snow*T_snow_ave*κ_snow+Q_bott*h*z_snow)/((h+z_snow)*κ_snow)
 
     return T_surf, T_bott, h, T_h
 end

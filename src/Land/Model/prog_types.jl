@@ -1,5 +1,5 @@
 #####
-##### Prognostic Variable types
+##### Prognostic Variable types for soil model only
 #####
 
 struct VolumetricLiquidFraction <: AbstractPrognosticVariable end
