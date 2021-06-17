@@ -223,8 +223,8 @@ function create_callback(p::Progress, simulation::Simulation, odesolver)
 
     progress = ProgressMeter.Progress(
         round(Int, timeend);
-        desc = "",       # Don't print anything before the progress bar.
-        barlen = 80,     # Set the bar length to 80 characters on all terminals.
+        desc = "",   # Don't print anything before the progress bar.
+        barlen = 80, # Set the bar length to 80 characters on all terminals.
     )
 
     cbprogress = ClimateMachine.GenericCallbacks.EveryXWallTimeSeconds(
