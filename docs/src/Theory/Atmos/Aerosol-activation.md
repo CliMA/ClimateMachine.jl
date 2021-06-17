@@ -1,6 +1,6 @@
 # Aerosol Activation Parametrization
 
-The `Aerosol-activation.jl` mod mod mod module defines a parameterization of
+The `Aerosol-activation.jl` module defines a parameterization of
   the activation of multiple lognormal modes with a uniform internal mixture 
   composed of both soluble and insoluble materials.
 It uses the combination of previous studies and the Köhler theory to model the formation of cloud droplets.
