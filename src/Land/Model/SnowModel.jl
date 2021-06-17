@@ -328,7 +328,7 @@ function source(::SurfaceVolumetricEnergy, s::ForceRestore, land::LandModel, arg
     T_h = aux.snow.t_h
     d = (FT(2)*κ_snow/(ρc_snow*ν))^FT(0.5)
     Q_surf = land.snow.forcing.Q_surf(t)
-    divflux = ν*ρc_snow*(-d/κ_snow*Q_surf - (T_surf -FT(263)))
+    divflux = -ν*ρc_snow*(d/κ_snow*Q_surf + (T_surf -T_h))
                          
     return divflux
 end
