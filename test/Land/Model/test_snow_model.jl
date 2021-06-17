@@ -271,6 +271,20 @@ end
     coeffs = compute_profile_coefficients.(Q_surf.(time_data, Ref(Qsurf_spline)), Ref(0.0), Ref(snow_parameters.z_snow), Ref(snow_parameters.ρ_snow), Ref(snow_parameters.κ_snow), ρe_int, Ref(param_set))
     t_profs = get_temperature_profile.(Q_surf.(time_data, Ref(Qsurf_spline)), Ref(0.0), Ref(snow_parameters.z_snow), Ref(snow_parameters.ρ_snow), Ref(snow_parameters.κ_snow), ρe_int, Ref(param_set))
 
+"""tsurf_pw = Array{FT,1}(undef, N)
+    tsurf_era5 = Array{FT,1}(undef, N)
+    snowf_era5 = Array{FT,1}(undef, N)
+    anim = @animate for i ∈ 1:N
+        plot(t_profs[i].(z),z, ylim = [0,1.5], xlim = [240,300], label = "Piecewise model")
+        t = time_data[i]
+        scatter!([Tsurf[Int64.(time_data[i]/3600)+1]], [FT(snow_parameters.z_snow)], label = "ERA5 Tsurf")
+        
+        tsurf_pw[i]   = t_profs[i].(FT(snow_parameters.z_snow))
+        tsurf_era5[i] = Tsurf[Int64.(time_data[i]/3600)+1]
+        snowf_era5[i] = snowf[Int64.(time_data[i]/3600)+1]
+        println(tsurf_pw[i])
+        println(tsurf_era5[i])"""
+        
     tsurf_pw = [coeffs[k][1] for k in 1:N]
     tsurf_era5 = Tsurf[range]
     anim = @animate for i ∈ 1:N
@@ -281,16 +295,18 @@ end
     gif(anim, "snow2.gif", fps = 6)
 
 
-    RMSEv = round(sqrt(mean((tsurf_pw - tsurf_era5).^2)),digits = 2) 
-    
+    RMSEv  = round(sqrt(mean((tsurf_pw - tsurf_era5).^2)),digits = 2) 
+    titlev = "snow_scatter_rho+100"
     snowscatter = plot(tsurf_pw, tsurf_era5, seriestype = :scatter, reg = true,
-    title = "snow surface temperature",
+    title = titlev,
     legend = false,
     ylim = [220,280],xlim=[220,280],
     xlab = "Tsurf Piecewise model", ylab = "Tsurf ERA5")
     annotate!(260,270,text(string("RMSE = ", RMSEv), :left, 12))
     Plots.abline!(1, 1, line=:dash)
-    savefig(snowscatter,"snow_scatter.png")
+    savefig(snowscatter,string(titlev,".png"))
+
+    snowts = plot(1:28,tsurf_pw)
 
     scatter(range, tsurf_pw, label = "piecewise model")
     scatter!(range, tsurf_era5, label = "ERA5")
