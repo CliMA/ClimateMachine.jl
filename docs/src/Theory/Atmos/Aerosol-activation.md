@@ -45,9 +45,8 @@ where
 where
   - ``i`` is the aerosol type. The min is 1 and the max is ``I``.
   - ``r_{i}`` is the radius of the droplet forming on aerosol type ``i``.
-  - ``S`` is the supersaturation.
-  - ``S'`` is FILL IN.
-  - ``n_i`` is FILL IN.
+  - ``S`` and ``S'`` represent the supersaturation.
+  - ``n_i`` is the number concentration of aerosol mode i.
   - ``w`` is the condensation.
   - ``\rho_w`` is the density of water.
   - ``a`` is the geometric mean dry radius.
