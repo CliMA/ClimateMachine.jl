@@ -1,3 +1,5 @@
+using ProgressMeter
+
 abstract type AbstractCallback end
 
 struct Default <: AbstractCallback end
@@ -5,6 +7,11 @@ struct Info <: AbstractCallback end
 struct CFL <: AbstractCallback end
 struct StateCheck{T} <: AbstractCallback
     number_of_checks::T
+end
+
+Base.@kwdef struct Progress{T, B} <: AbstractCallback
+    update_seconds::T = 1  # Time in seconds between updates.
+    show_extrema::B = true # Whether or not to show extrema of `ρu[$i]/ρ`.
 end
 
 Base.@kwdef struct JLD2State{T, V, B} <: AbstractCallback
@@ -279,4 +286,96 @@ function create_callback(update_ref::ReferenceStateUpdate, simulation::Simulatio
         nothing
     end
     return relinearize
+end
+
+time_string(seconds::Real) = string(
+    @sprintf("%.3f", seconds),
+    " s (",
+    Dates.canonicalize(Dates.Second(round(Int, seconds))),
+    ")",
+)
+# Example Output While Running:
+# 50%|████████████████████████████████████████▏                                       |  ETA: 0:01:13
+#   Wall-Clock Time:     73.832 s (1 minute, 14 seconds)
+#   Simulation Time:     86624.142 s (1 day, 3 minutes, 44 seconds)
+#   Extrema of ρu[1]/ρ:  -2.7841e+01, 2.7834e+01
+#   Extrema of ρu[2]/ρ:  -2.7834e+01, 2.7836e+01
+#   Extrema of ρu[3]/ρ:  -6.7687e-01, 6.4699e-01
+#   norm(Q):             1.181694495832315e17
+#
+# Example Output After Completion:
+# 100%|████████████████████████████████████████████████████████████████████████████████| Time: 0:01:36
+function create_callback(p::Progress, simulation::Simulation, odesolver)
+    Q = simulation.state
+    timeend = simulation.time.finish
+    timestep = simulation.timestepper.timestep
+    mpicomm = MPI.COMM_WORLD
+    walltimestart = now()
+
+    if p.show_extrema
+        # This code can easily be generalized beyond just `ρu[i]/ρ`. Perhaps
+        # the boolean `show_extrema` could be replaced with a tuple of symbols
+        # representing extrema to compute? Or perhpas this tuple could be
+        # automatically generated from the balance law?
+        # TODO: Fix the extrema code to eliminate unnecesary allocations. The
+        #       following snippet would be nice, but it doesn't work on the GPU
+        #       because of `allowscalar(false)`:
+        #       extrema(
+        #           ((ijk, e),) -> Q.data[ijk, iv, e] / Q.data[ijk, iρ, e],
+        #           Iterators.product(size(Q.data, 1), size(Q.data, 3)),
+        #       )
+        #       This can wait until the code has been more widely tested...
+        show_extrema = () -> begin
+            v = ClimateMachine.MPIStateArrays.vars(Q)
+            iρ = ClimateMachine.VariableTemplates.varsindex(v, :ρ)[1]
+            map(
+                ((i, iv),) -> (
+                    "Extrema of ρu[$i]/ρ",
+                    @sprintf(
+                        "%.4e, %.4e",
+                        extrema(Array(Q.data[:, iv, :] ./ Q.data[:, iρ, :]))...,
+                    ),
+                ),
+                enumerate(ClimateMachine.VariableTemplates.varsindex(v, :ρu)),
+            )
+        end
+    else
+        show_extrema = () -> ()
+    end
+    showvalues = () -> [
+        (
+            "Wall-Clock Time",
+            time_string((Dates.now() - walltimestart) / Dates.Millisecond(1000)),
+        ),
+        (
+            "Simulation Time",
+            time_string(ClimateMachine.ODESolvers.gettime(odesolver)),
+        ),
+        show_extrema()...,
+        ("norm(Q)", norm(Q)),
+    ]
+
+    progress = ProgressMeter.Progress(
+        round(Int, timeend);
+        desc = "",       # Don't print anything before the progress bar.
+        barlen = 80,     # Set the bar length to 80 characters on all terminals.
+    )
+    cbprogress = ClimateMachine.GenericCallbacks.EveryXWallTimeSeconds(
+        p.update_seconds,
+        mpicomm,
+    ) do
+        ProgressMeter.update!(
+            progress,
+            round(Int, ClimateMachine.ODESolvers.gettime(odesolver));
+            showvalues = showvalues,
+        )
+    end
+    function cbprogress_finish()
+        ClimateMachine.ODESolvers.gettime(odesolver) >= timeend &&
+        ProgressMeter.update!(progress, round(Int, timeend))
+    end
+    # cbprogress_finish() should be run before @sprintf in invoke!(), though it
+    # does not need to be a callback that gets run on each timestep.
+
+    return (cbprogress, cbprogress_finish)
 end
