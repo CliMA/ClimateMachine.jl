@@ -45,9 +45,8 @@ where
 where
   - ``i`` is the aerosol type. The min is 1 and the max is ``I``.
   - ``r_{i}`` is the radius of the droplet forming on aerosol type ``i``.
-  - ``S`` is the supersaturation.
-  - ``S'`` is FILL IN.
-  - ``n_i`` is FILL IN.
+  - ``S`` and ``S'`` represent the supersaturation.
+  - ``n_i`` is the number concentration of aerosol mode i.
   - ``w`` is the condensation.
   - ``\rho_w`` is the density of water.
   - ``a`` is the geometric mean dry radius.
@@ -95,3 +94,17 @@ where
   - ``u_{i} \equiv \frac{\mathrm{ln}(a_{ci}/a_{mi})}{\sqrt{2} ln \sigma_{i}} = \frac{2 \mathrm{ln}(S_{mi}/S_{max})}{3\sqrt{2} ln \sigma_{i}}``
   - ``\sigma_{i}`` is the geometric standard deviation for aerosol mode ``i``.
   - ``M_{i}`` is the mass of the aerosol mode ``i``.
+
+Other notes about the parametrization:
+  - Using a lognormal aerosol size distribution to derive the parametrization that is naturally bounded at high updraft velocity.
+  - Worked with 2 broad aerosol modes rather than many more narrow ones. Each mode has an interal mixture of material and they all compete for water.
+
+Assumptions:
+  - There are no kinetic limitations on the aerosol activation process.
+  - The particles are activated if their critical supersaturation is less than the maximum supersaturation in the numerical integration.
+  - Do not consider the effects of surfactants on surface tension.
+  - The solute is sufficiently soluble so its concentration does not increase as the droplet grows.
+
+Summary of the parametrization/paper:
+  Aerosol activation plays a large role in cloud formation. More specifically, it affects the droplet number, cloud reflectivity, cloud liquid formation, and nucleation scavenging of aerosol. Since clould formation has a large influence on the climate, modeling aerosol activation can help researchers make predictions about Earth’s climate. The modeling of the activation begins with the hygroscopicity parameter which determines the ability of an object to react to moisture in the air. Then, we calculate the condensation rate, supersaturation minimum/maximum, and the dry radius of the aerosol. This will help model aerosol activation as we will be able to calculate the total number concentration and mass activated of the aerosol modes. 
+
