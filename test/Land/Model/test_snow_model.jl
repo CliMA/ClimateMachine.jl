@@ -306,7 +306,7 @@ end
 
     snowts = plot(1:28,tsurf_pw)
 
-    scatter(range, tsurf_pw, label = "piecewise model")
+    scatter(range, tsurf_pw, label = "piecewise model, EQ")
     scatter!(range, tsurf_era5, label = "ERA5")
     plot!(xlabel = "hour", ylabel = "T surf (K)")
     savefig("snow_scatter2_eq.png")
@@ -409,7 +409,7 @@ end
     end;
     
     # # Run the integration
-ClimateMachine.invoke!(solver_config; user_callbacks = (callback,));
+    ClimateMachine.invoke!(solver_config; user_callbacks = (callback,));
 
     
     N = length(dons_arr)
@@ -505,7 +505,7 @@ end
     l_0 = FT(0.0)
     ρe_int0 = volumetric_internal_energy(Tave_0, snow_parameters.ρ_snow, l_0, param_set)
 
-    Tsurf_0 = FT(265)
+    Tsurf_0 = Tsurf[1]#FT(265)
     l_0 = FT(0.0)
     ρe_surf0 = volumetric_internal_energy(Tsurf_0, snow_parameters.ρ_snow, l_0, param_set)
     ic = (aux) -> eltype(aux)(ρe_int0)
