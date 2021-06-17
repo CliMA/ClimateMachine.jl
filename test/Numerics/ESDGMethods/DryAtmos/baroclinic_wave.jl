@@ -11,8 +11,8 @@ using ClimateMachine.SystemSolvers
 using ClimateMachine.VTK: writevtk, writepvtu
 using ClimateMachine.GenericCallbacks:
     EveryXWallTimeSeconds, EveryXSimulationSteps
-using Thermodynamics: soundspeed_air
-using Thermodynamics.TemperatureProfiles
+using ClimateMachine.Thermodynamics: soundspeed_air
+using ClimateMachine.TemperatureProfiles
 using ClimateMachine.VariableTemplates: flattenednames
 
 using CLIMAParameters

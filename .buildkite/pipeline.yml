@@ -764,6 +764,18 @@ steps:
 
   - label: "cpu_land_overland_flow_vcatchment"
     key: "cpu_land_overland_flow_vcatchment"
+<<<<<<< HEAD
+=======
+    command:
+      - "mpiexec julia --color=yes --project test/Land/Model/test_overland_flow_vcatchment.jl"
+    agents:
+      config: cpu
+      queue: central
+      slurm_ntasks: 1
+
+  - label: "gpu_thermodynamics"
+    key: "gpu_thermodynamics"
+>>>>>>> 3afb9fd727a9899b5f309308ab9d0a9c708b8e92
     command:
       - "mpiexec julia --color=yes --project test/Land/Model/test_overland_flow_vcatchment.jl"
     agents:

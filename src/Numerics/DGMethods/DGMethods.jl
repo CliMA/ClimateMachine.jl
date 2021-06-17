@@ -52,6 +52,7 @@ import ..BalanceLaws:
 export DGModel,
     DGFVModel,
     ESDGModel,
+    VESDGModel,
     SpaceDiscretization,
     init_ode_state,
     restart_ode_state,
