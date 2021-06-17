@@ -18,7 +18,7 @@ prognostic_vars(surface:: SingleLayerSnowModel) = (SnowWaterEquivalent(),
                                                          )
 prognostic_vars(surface:: FRSingleLayerSnowModel) = (SnowWaterEquivalent(),
                                                      SnowVolumetricInternalEnergy(),
-                                                     SnowSurfaceTemperature(),
+                                                     SurfaceVolumetricEnergy(),
                                                          )
 
 prognostic_vars(land::LandModel) = (
@@ -36,4 +36,4 @@ get_prog_state(state, ::VolumetricInternalEnergy) = (state.soil.heat, :ρe_int)
 get_prog_state(state, ::SurfaceWaterHeight) = (state.surface, :height)
 get_prog_state(state, ::SnowWaterEquivalent) = (state.snow, :swe)
 get_prog_state(state, ::SnowVolumetricInternalEnergy) = (state.snow, :ρe_int)
-get_prog_state(state, ::SnowSurfaceTemperature) = (state.snow, :tsurf)
+get_prog_state(state, ::SurfaceVolumetricEnergy) = (state.snow, :ρe_surf)

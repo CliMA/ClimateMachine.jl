@@ -8,7 +8,9 @@ using CLIMAParameters.Planet: cp_l, cp_i, T_0, LH_f0, T_freeze
 export T_snow_ave,
     volumetric_internal_energy,
     compute_profile_coefficients,
-    get_temperature_profile
+    get_temperature_profile,
+    liquid_fraction,
+    volumetric_heat_capacity
     
 #define local parameter values
 #volumetric liquid fraction of water in excess of the residual water in snow. could be a constant or a function of snow density
