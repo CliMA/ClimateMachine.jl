@@ -26,7 +26,8 @@ using ClimateMachine.VTK
 # to be removed
 using ClimateMachine.GenericCallbacks:
     EveryXWallTimeSeconds, EveryXSimulationSteps
-using ClimateMachine.Thermodynamics: soundspeed_air
+
+using ClimateMachine.Thermodynamics: air_density, air_temperature, soundspeed_air, gas_constant_air, PhasePartition, PhaseEquil_pθq, total_energy
 using ClimateMachine.VariableTemplates: flattenednames
 
 # to be removed: needed for updating ref state
@@ -36,6 +37,7 @@ import ClimateMachine.DGMethods: update_auxiliary_state!
 # to be removed
 using CLIMAParameters#: AbstractEarthParameterSet
 struct PlanetParameterSet <: AbstractEarthParameterSet end
+const param_set = PlanetParameterSet()
 get_planet_parameter(p::Symbol) = getproperty(CLIMAParameters.Planet, p)(PlanetParameterSet())
 
 # utils

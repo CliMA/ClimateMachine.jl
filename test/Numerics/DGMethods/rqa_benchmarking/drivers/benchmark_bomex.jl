@@ -21,14 +21,18 @@ parameters = (
     e_int_i0 = get_planet_parameter(:e_int_i0),
     molmass_ratio = get_planet_parameter(:molmass_dryair)/get_planet_parameter(:molmass_water),
     T_0  = get_planet_parameter(:T_0), # 0.0, #
-    xc   = 5000,
-    yc   = 1000,
-    zc   = 2000,
-    rc   = 2000,
-    xmax = 10000,
-    ymax = 500,
-    zmax = 10000,
-    θₐ   = 2.0,
+    xmax = 1500,
+    ymax = 1500,
+    zmax = 3000,
+    qg = 22.45e-3,
+    P_sfc = 1.015e5,
+    θ_liq_sfc = 299.1,
+    T_sfc = 300.4,
+    z₁ = 520,
+    z₂ = 1480,
+    z₃ = 2000,
+    z₄ = 3000,
+    zᵥ = 700,
     cₛ   = 340,
     q₀   = 1e-3,
 )
@@ -69,23 +73,78 @@ physics = Physics(
 ########
 # Set up inital condition
 ########
-r(p, x, z)          = sqrt((x - p.xc)^2 + (z - p.zc)^2)
-Δθ(p, x, y, z)      = (r(p, x, z) < p.rc) ? ( p.θₐ * (1.0 - r(p, x, z) / p.rc) ) : 0
-θ₀(p, x, y, z)      = 300.0 + Δθ(p, x, y, z)
-Δq(p, x, y, z)      = (r(p, x, z) < p.rc) ? ( p.q₀ * (1.0 - r(p, x, z) / p.rc) ) : 0
-q(p, x, y, z)       = 0.0 + Δq(p, x, y, z)
-π_exner(p, x, y, z) = 1.0 - p.g / (p.cp_d * θ₀(p, x, y, z) ) * z  
 
-ρ₀(p, x, y, z)  = p.pₒ / (p.R_d * θ₀(p, x, y, z)) * (π_exner(p, x, y, z))^(p.cv_d / p.R_d)
-ρu⃗₀(p, x, y, z) = @SVector [0, 0, 0]
+function θ₀(p,x,y,z)
+    θ_liq = -0
+    if -0 <= z <= p.z₁
+        # Well mixed layer
+        θ_liq = 298.7
+    elseif z > p.z₁ && z <= p.z₂
+        # Conditionally unstable layer
+        θ_liq = 298.7 + (z - p.z₁) * (302.4 - 298.7) / (p.z₂ - p.z₁)
+    elseif z > p.z₂&& z <= p.z₃
+        # Absolutely stable inversion
+        θ_liq = 302.4 + (z - p.z₂) * (308.2 - 302.4) / (p.z₃ - p.z₂)
+    else
+        θ_liq = 308.2 + (z - p.z₃) * (311.85 - 308.2) / (p.z₄ - p.z₃)
+    end
+    return θ_liq 
+end
 
-cv_m(p, x, y, z)  = p.cv_d + (p.cv_v - p.cv_d) * q(p, x, y, z)
+###
+### Velocity Piecewise Functions
+###
+function u(p,x,y,z)
+   u₀ = -0
+   if z <= p.zᵥ
+       u₀ = -8.75
+   else
+       u₀ = -8.75 + (z - p.zᵥ) * (-4.61 + 8.75) / (p.z₄ - p.zᵥ)
+   end
+   return u₀ 
+end
+v(p,x,y,z) = -0
+w(p,x,y,z) = -0
 
+###
+### Moisture Piecewise Functions
+###
+function q(p,x,y,z)
+    q_tot = -0
+    if -0 <= z <= p.z₁
+        # Well mixed layer
+        q_tot = 17.0 + (z / p.z₁) * (16.3 - 17.0)
+    elseif z > p.z₁ && z <= p.z₂
+        # Conditionally unstable layer
+        q_tot = 16.3 + (z - p.z₁) * (10.7 - 16.3) / (p.z₂ - p.z₁)
+    elseif z > p.z₂ && z <= p.z₃
+        # Absolutely stable inversion
+        q_tot = 10.7 + (z - p.z₂) * (4.2 - 10.7) / (p.z₃ - p.z₂)
+    else
+        q_tot = 4.2 + (z - p.z₃) * (3.0 - 4.2) / (p.z₄ - p.z₃)
+    end
+    return q_tot / 1000
+end
+
+###
+### Pressure Function
+###
+function pres(p,x,y,z)
+    q_pt_sfc = PhasePartition(p.qg)
+    return p.P_sfc * exp(-z/(gas_constant_air(param_set, q_pt_sfc) * p.T_sfc / p.g))
+end
+
+TS(p,x,y,z) = PhaseEquil_pθq(param_set, pres(p,x,y,z), θ₀(p,x,y,z), q(p,x,y,z))
+T(p,x,y,z) = air_temperature(TS(p,x,y,z))
+ρ₀(p,x,y,z) = air_density(TS(p,x,y,z))
+
+u⃗₀(p, x, y, z) = @SVector [u(p,x,y,z), 0, 0]
+ρu⃗₀(p, x, y, z) = ρ₀(p,x,y,z) * u⃗₀(p,x,y,z)
 e_pot(p, x, y, z) = p.g * z
-e_int(p, x, y, z) = cv_m(p, x, y, z) * (θ₀(p, x, y, z) * π_exner(p, x, y, z) - p.T_0) + q(p, x, y, z) * p.e_int_v0
-e_kin(p, x, y, z) = 0.0
+e_kin(p, x, y, z) = u(p,x,y,z)^2/2
+e_tot(p, x, y, z) = total_energy(e_kin(p,x,y,z), e_pot(p,x,y,z), TS(p,x,y,z))
 
-ρe(p, x, y, z) = ρ₀(p, x, y, z) * (e_kin(p, x, y, z) + e_int(p, x, y, z) + e_pot(p, x, y, z))
+ρe(p, x, y, z) = ρ₀(p, x, y, z) * e_tot(p,x,y,z)
 ρq(p, x, y, z) = ρ₀(p, x, y, z) * q(p, x, y, z)
 
 ########
@@ -110,7 +169,7 @@ callbacks   = (
     Info(),
     StateCheck(10),
     TMARCallback(),
-    VTKState(iteration = Int(floor(10.0/Δt)), filepath = "./out_esdg/moist_bubble/"),
+    VTKState(iteration = Int(floor(10.0/Δt)), filepath = "./out_esdg/bomex/"),
 )
 
 ########
