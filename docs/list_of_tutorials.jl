@@ -3,7 +3,7 @@
 ####
 
 generate_tutorials = false
-#    parse(Bool, get(ENV, "CLIMATEMACHINE_DOCS_GENERATE_TUTORIALS", "true"))
+    # parse(Bool, get(ENV, "CLIMATEMACHINE_DOCS_GENERATE_TUTORIALS", "true"))
 
 tutorials = []
 
