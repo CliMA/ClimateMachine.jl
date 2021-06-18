@@ -364,3 +364,114 @@ end
     @test snow_melt(prs, sno_prs, q_sno, ρ, T) ≈ 0
 
 end
+
+@testset "Hygroscopicity" begin
+#=
+    Test conditions:
+        B = v, phi, epsilon, M_w, rho_a, M_a, rho_w 
+        v = number of ions the salt dissociates into within water → 3
+        phi = osmotic coefficient → 1
+        epsilon = mass fraction of soluble material → ????
+        M_w = molecular weight of water → 18.01528 g/mol
+        Rho_a = density of the aerosol material → 1.77 g/cm^3
+        M_a = molecular weight of aerosol material → 132
+        Rho_w = density of water → 1 g/cm^3
+
+    Test for different values of the variables
+=#
+
+@testset "Mean Hygroscopicity" begin
+#=
+    Test conditions:
+        B = v, phi, epsilon, M_w, rho_a, M_a, rho_w 
+        v = number of ions the salt dissociates into within water → 3
+        phi = osmotic coefficient → 1
+        epsilon = mass fraction of soluble material → ????
+        M_w = molecular weight of water → 18.01528 g/mol
+        Rho_a = density of the aerosol material → 1.77 g/cm^3
+        M_a = molecular weight of aerosol material → 132
+        Rho_w = density of water → 1 g/cm^3
+
+    Test for different values of the variables
+=#
+
+@testset "Max Supersaturation" begin
+#=
+    Maximum Saturation:
+        S_mi → dependant on a_mi
+        a_mi = 0.05e-6 m
+        f_1 = dependant on sigma_i
+        sigma_i = 2	
+        Zeta = dependant on A, alpha, V, and G
+        A = surface tension effects in the kohler equilibrium equation
+        Alpha = coefficient in supersaturation balance equation
+        V = updraft velocity → 0.5 m/s
+        G = diffusion of heat and moisture to the particles (part 1)
+        Eta = dependant on alpha, V, G, p_w, gamma, and N_i
+        Alpha = coefficient in supersaturation balance equation
+        V = updraft velocity → 0.5 m/s
+        G = diffusion of heat and moisture to the particles (part 1)
+        rho_w = density of water → 1 g/cm^3
+        Gamma = coefficient in supersaturation balance equation
+        N_i = 100 cm^-3
+        G = diffusion of heat and moisture to the particles (part 1)
+
+    Test for different values of the variables
+=#
+
+@testset "Mean Hygroscopicity" begin
+#=
+    Test conditions:
+        B = v, phi, epsilon, M_w, rho_a, M_a, rho_w 
+        v = number of ions the salt dissociates into within water → 3
+        phi = osmotic coefficient → 1
+        epsilon = mass fraction of soluble material → ????
+        M_w = molecular weight of water → 18.01528 g/mol
+        Rho_a = density of the aerosol material → 1.77 g/cm^3
+        M_a = molecular weight of aerosol material → 132
+        Rho_w = density of water → 1 g/cm^3
+
+    Test for different values of the variables
+=#
+
+@testset "Dry Radius" begin
+#=
+    Test conditions:
+        a_mi = 0.05e-6 m
+        S_mi → dependant on a_mi
+        a_mi = 0.05e-6 m
+        S_max = get value from previous equation
+
+    Test for different values of the variables
+=#
+
+@testset "Total Number" begin
+#=
+    Test conditions:
+        N_i = 100 cm^-3
+        u_i = 
+            a_ci = previous equation
+            a_mi = 0.05e-6 m
+            sigma_i = 2
+            S_mi → dependant on a_mi
+            a_mi = 0.05e-6 m
+            S_max = get value from previous equation
+
+    Test for different values of the variables
+=#
+
+@testset "Total Mass" begin
+#=
+    Test conditions:
+        M_i = SET URSELF
+        u_i = 
+            a_ci = previous equation
+            a_mi = 0.05e-6 m
+            sigma_i = 2
+            S_mi → dependant on a_mi
+            a_mi = 0.05e-6 m
+            S_max = get value from previous equation
+
+
+    Test for different values of the variables
+=#
