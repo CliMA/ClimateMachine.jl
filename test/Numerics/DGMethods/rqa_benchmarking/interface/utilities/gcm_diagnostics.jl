@@ -21,28 +21,52 @@ import CUDA
 using LinearAlgebra
 using Printf
 using Statistics
-
-# using ..Atmos
-# using ..Atmos: recover_thermo_state
-# using ..DGMethods.NumericalFluxes
-# using ..TurbulenceClosures: turbulence_tensors
+using OrderedCollections
 
 using ClimateMachine.Diagnostics: 
     extract_state, 
     @traverse_dg_grid, 
-    @traverse_interpolated_grid
-   
+    @traverse_interpolated_grid,
+    DiagnosticVariable,
+    var_attrib
+
 using ClimateMachine.Interpolation
 
 using ClimateMachine.Writers
-# mutable struct VorticityBLState <: DiagnosticsGroupParams
-#     bl::Union{Nothing, VorticityModel}
-#     dg::Union{Nothing, DGModel}
-#     state::Union{Nothing, MPIStateArray}
-#     dQ::Union{Nothing, MPIStateArray}
 
-#     VorticityBLState() = new(nothing, nothing, nothing, nothing)
-# end
+
+### 
+### Define Global RQAVars (RQA Specific - Following current Diagnostics but perhaps change this ??? TODO)
+###
+const RQAVars = OrderedDict{String,DiagnosticVariable}()
+
+function init_diag_vars()
+    RQAVars["u"] = DiagnosticVariable(
+        "u",
+        var_attrib("m s^-1", "zonal wind", "eastward_wind"),
+    )
+    RQAVars["v"] = DiagnosticVariable(
+        "v",
+        var_attrib("m s^-1", "meridional wind", "northward_wind"),
+    )
+    RQAVars["w"] = DiagnosticVariable(
+        "w",
+        var_attrib("m s^-1", "vertical wind", "upward_air_velocity"),
+    )
+    RQAVars["rho"] = DiagnosticVariable(
+        "rho",
+        var_attrib("kg m^-3", "air density", "air_density"),
+    )
+    RQAVars["q"] = DiagnosticVariable(
+        "q",
+        var_attrib("kg kg^-1", "specific total moisture", "specific_total_moisture"),
+    )
+    RQAVars["e"] = DiagnosticVariable(
+        "e",
+        var_attrib("kg m^2 s^2", "specific total energy", "specific_total_energy"),
+    )
+end
+
 
 """
     setup_atmos_default_diagnostics(
@@ -161,20 +185,9 @@ function vars_atmos_gcm_default_simple_3d(::DryAtmosModel, FT)
         u::FT
         v::FT
         w::FT
-        ρ::FT
-        # temp::FT
-        # pres::FT
+        rho::FT
         q::FT
       	e::FT
-        # thd::FT                 # θ_dry
-        # et::FT                  # e_tot
-        # ei::FT                  # e_int
-        # ht::FT
-        # hi::FT
-        # vort::FT                # Ω₃
-        # vort2::FT               # Ω_bl₃
-
-        # moisture::vars_atmos_gcm_default_simple_3d(moisture_model(atmos), FT)
     end
 end
 
@@ -192,7 +205,7 @@ function atmos_gcm_default_simple_3d_vars!(
     vars.u = state_prognostic.ρu[1] / state_prognostic.ρ
     vars.v = state_prognostic.ρu[2] / state_prognostic.ρ
     vars.w = state_prognostic.ρu[3] / state_prognostic.ρ
-    vars.ρ = state_prognostic.ρ
+    vars.rho = state_prognostic.ρ
     vars.q = state_prognostic.ρq / state_prognostic.ρ
     vars.e = state_prognostic.ρe / state_prognostic.ρ
 
@@ -206,6 +219,7 @@ Initialize the GCM default diagnostics group, establishing the output file's
 dimensions and variables.
 """
 function atmos_gcm_default_init(dgngrp::DiagnosticsGroup, simulation::Simulation, currtime)
+    @warn "Entered NetCDF init" maxlog = 1
     interpol = dgngrp.interpol
     if simulation.rhs isa Tuple
         if simulation.rhs[1] isa AbstractRate 
@@ -219,6 +233,7 @@ function atmos_gcm_default_init(dgngrp::DiagnosticsGroup, simulation::Simulation
     dg = model
     grid = simulation.grid.numerical
     atmos = dg.balance_law
+    
     FT = eltype(simulation.state)
 
     # TODO: make mpicomm an input arg
@@ -244,12 +259,12 @@ function atmos_gcm_default_init(dgngrp::DiagnosticsGroup, simulation::Simulation
         )
 
         # set up the variables we're going to be writing
+        init_diag_vars()
         vars = OrderedDict()
-        varnames = map(
-            flattenednames(vars_atmos_gcm_default_simple_3d(atmos, FT)),
-        )
+        varnames = flattenednames(vars_atmos_gcm_default_simple_3d(atmos, FT))
+        @show(varnames, RQAVars)
         for varname in varnames
-            var = Variables[varname]
+            var = RQAVars[varname] 
             vars[varname] = (tuple(collect(keys(dims))...), FT, var.attrib)
         end
 
@@ -263,7 +278,7 @@ function atmos_gcm_default_init(dgngrp::DiagnosticsGroup, simulation::Simulation
         init_data(dgngrp.writer, dfilename, noov, dims, vars)
     end
 
-    @warn "Debug: Completed NETCDF Callback Initialisation" maxlong = 1
+    @warn "Debug: Completed NETCDF Callback Initialisation" maxlog = 1
 
     return nothing
 end
@@ -277,6 +292,7 @@ end
 function atmos_gcm_default_collect(dgngrp::DiagnosticsGroup, simulation::Simulation, currtime)
     interpol = dgngrp.interpol
     interval = dgngrp.interval
+    @warn "Entered collect function" maxlog = 1
     if !(interpol isa InterpolationCubedSphere)
         @warn """
             Diagnostics ($dgngrp.name): currently requires `InterpolationCubedSphere`!
@@ -376,18 +392,20 @@ function atmos_gcm_default_collect(dgngrp::DiagnosticsGroup, simulation::Simulat
         end
         # assemble the diagnostics for writing
         varvals = OrderedDict()
-        varnames = map(
-            flattenednames(vars_atmos_gcm_default_simple_3d(atmos, FT)),
-        )
+        varnames = flattenednames(vars_atmos_gcm_default_simple_3d(atmos, FT))
         for (vari, varname) in enumerate(varnames)
             varvals[varname] = simple_3d_vars_array[:, :, :, vari]
         end
         # write output
         append_data(dgngrp.writer, varvals, currtime)
     end
+    
+    @warn "Debug: executed collect operation" maxlog = 1
 
     MPI.Barrier(mpicomm)
     return nothing
 end # function collect
 
-function atmos_gcm_default_fini(dgngrp::DiagnosticsGroup, simulation::Simulation, currtime) end
+function atmos_gcm_default_fini(dgngrp::DiagnosticsGroup, simulation::Simulation, currtime) 
+    @warn "Finishing NETCDF callback operation" maxlog = 1
+end

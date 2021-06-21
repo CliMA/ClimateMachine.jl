@@ -193,10 +193,10 @@ method = IMEX()
 callbacks = (
   Info(),
   CFL(),
-  VTKState(
-    iteration = Int(1),
-    filepath = "./out_esdg/dry-bw/",
-  ),
+#  VTKState(
+#    iteration = Int(1),
+#    filepath = "./out_esdg/dry-bw/",
+#  ),
   NetCDF(
     iteration = Int(1),
     filepath = "./out_esdg/dry-bw-nc/",

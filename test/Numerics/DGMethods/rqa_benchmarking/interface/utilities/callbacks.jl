@@ -239,8 +239,10 @@ function create_callback(output::VTKState, simulation::Simulation, odesolver)
     return cbvtk
 end
 
-
 function create_callback(output::NetCDF, simulation::Simulation, odesolver)
+
+    @warn "Creating NetCDF Callback" maxlog = 1
+
     # Initialize output
     output.overwrite &&
         isfile(output.filepath) &&
@@ -307,11 +309,13 @@ function create_callback(output::NetCDF, simulation::Simulation, odesolver)
         output.filepath,
         interpol = interpol,
     )
+
     
-    netcdf_write = EveryXSimulationSteps(output.iteration) do
+    netcdf_write = EveryXSimulationSteps(output.iteration) do (init = false)
         # TODO: collection function in DiagnosticsGroup
-        dgngrp.collect
-    #    @warn "Entered NETCDF callback. Do nothing currently. Test" maxlog = 1
+        dgngrp.init(dgngrp, simulation, odesolver.t)
+        dgngrp.collect(dgngrp, simulation, odesolver.t)
+        @warn "Entered NETCDF callback post collect. Do nothing currently. Test" maxlog = 1
     end
     
     return netcdf_write
