@@ -7,8 +7,6 @@ using Dierckx
 using DelimitedFiles
 using Plots
 using Dates
-using NCDatasets
-using JLD2, FileIO
 
 using CLIMAParameters
 struct EarthParameterSet <: AbstractEarthParameterSet end
@@ -396,35 +394,36 @@ end;
 
 # # Run the integration
 ClimateMachine.invoke!(solver_config; user_callbacks = (callback,));
+dons = dict_of_nodal_states(solver_config, state_types; interp = true)
+push!(dons_arr, dons)
+push!(time_data, gettime(solver_config.solver))
 z = get_z(solver_config.dg.grid; rm_dupes = true);
 
+data = readdlm("./tutorials/Land/Soil/SiteBenchmarks/data/huang_sv62.csv", ',')
+plot(dons_arr[1]["soil.water.ϑ_l"],z, label = "initial", color = "black", aspect_ratio = 0.8)
+plot!(dons_arr[9]["soil.water.ϑ_l"], z, label = "8min", color = "orange")
+scatter!(data[2:end, 1], data[2:end, 2], label = "", color = "orange")
+plot!(dons_arr[17]["soil.water.ϑ_l"], z, label = "16min", color = "red")
+scatter!(data[2:end, 3], data[2:end, 4], label = "", color = "red")
+plot!(dons_arr[25]["soil.water.ϑ_l"], z, label = "24min", color = "teal")
+scatter!(data[2:end, 5], data[2:end, 6], label = "", color = "teal")
+plot!(dons_arr[33]["soil.water.ϑ_l"], z, label = "32min", color = "blue")
+scatter!(data[2:end, 7], data[2:end, 8], label = "", color = "blue")
+plot!(dons_arr[41]["soil.water.ϑ_l"], z, label = "40min", color = "purple")
+scatter!(data[2:end, 9], data[2:end, 10], label = "", color = "purple")
+plot!(dons_arr[61]["soil.water.ϑ_l"], z, label = "60min", color = "green")
+scatter!(data[2:end, 11], data[2:end, 12], label = "", color = "green")
+plot!(legend = :bottomright)
 
- plot(dons_arr[1]["soil.water.ϑ_l"],z, label = "initial")
- plot!(dons_arr[9]["soil.water.ϑ_l"], z, label = "8min")
+plot!(xlim = [0,0.5])
 
- plot!(dons_arr[17]["soil.water.ϑ_l"], z, label = "16min")
+plot!(xlim = [0,0.6])
 
- plot!(dons_arr[25]["soil.water.ϑ_l"], z, label = "24min")
+plot!(ylim = [-1.1,0], yticks = [-1.1,-1,-0.9,-0.8,-0.7,-0.6,-0.5,-0.4,-0.3,-0.2,-0.1])
 
- plot!(dons_arr[33]["soil.water.ϑ_l"], z, label = "32min")
+plot!(ylabel = "Depth (m)")
 
- plot!(dons_arr[41]["soil.water.ϑ_l"], z, label = "40min")
+plot!(xlabel  = "Volumeteric Water Content")
 
- plot!(dons_arr[60]["soil.water.ϑ_l"], z, label = "59min")
-
- plot!(legend = :bottomright)
-
- plot!(xlim = [0,0.5])
-
- plot!(xlim = [0,0.6])
-
- plot!(ylim = [-1.1,0])
-
- plot!(ylabel = "Depth (m)")
-
- plot!(xlabet  = "Volumeteric Water Content")
-
- plot!(xlabel  = "Volumeteric Water Content")
-
-plot!(title = "SV62; infiltration")
+#plot!(title = "SV62; infiltration")
 savefig("./sv62.png")
