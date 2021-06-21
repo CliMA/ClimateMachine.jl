@@ -5,6 +5,18 @@ The `Aerosol-activation.jl` module defines a parameterization of
   composed of both soluble and insoluble materials.
 It uses the combination of previous studies and the Köhler theory to model the formation of cloud droplets.
 
+Aerosol activation is when cloud particles form on the aerosol particles existing in the air.
+
+Assumptions:
+  - There are no kinetic limitations on the aerosol activation process.
+  - The particles are activated if their critical supersaturation is less than the maximum supersaturation in the numerical integration.
+  - Do not consider the effects of surfactants on surface tension.
+  - The solute is sufficiently soluble so its concentration does not increase as the droplet grows.
+
+Other notes about the parametrization:
+  - Using a lognormal aerosol size distribution to derive the parametrization that is naturally bounded at high updraft velocity.
+  - Worked with 2 broad aerosol modes rather than many more narrow ones. Each mode has an interal mixture of material and they all compete for water.
+
 The following are equations used for the parametrization.
 
 1: Hydgroscopicity Parameter
@@ -95,16 +107,7 @@ where
   - ``\sigma_{i}`` is the geometric standard deviation for aerosol mode ``i``.
   - ``M_{i}`` is the mass of the aerosol mode ``i``.
 
-Other notes about the parametrization:
-  - Using a lognormal aerosol size distribution to derive the parametrization that is naturally bounded at high updraft velocity.
-  - Worked with 2 broad aerosol modes rather than many more narrow ones. Each mode has an interal mixture of material and they all compete for water.
 
-Assumptions:
-  - There are no kinetic limitations on the aerosol activation process.
-  - The particles are activated if their critical supersaturation is less than the maximum supersaturation in the numerical integration.
-  - Do not consider the effects of surfactants on surface tension.
-  - The solute is sufficiently soluble so its concentration does not increase as the droplet grows.
 
-Summary of the parametrization/paper:
-  Aerosol activation plays a large role in cloud formation. More specifically, it affects the droplet number, cloud reflectivity, cloud liquid formation, and nucleation scavenging of aerosol. Since clould formation has a large influence on the climate, modeling aerosol activation can help researchers make predictions about Earth’s climate. The modeling of the activation begins with the hygroscopicity parameter which determines the ability of an object to react to moisture in the air. Then, we calculate the condensation rate, supersaturation minimum/maximum, and the dry radius of the aerosol. This will help model aerosol activation as we will be able to calculate the total number concentration and mass activated of the aerosol modes. 
+
 
