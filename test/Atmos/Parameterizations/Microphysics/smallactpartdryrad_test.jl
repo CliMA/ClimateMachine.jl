@@ -1,4 +1,4 @@
-@testset "Dry_radius_of_smallest_activated_particle" begin
+@testset "smallactpartdryrad_test" begin
 # Parameter inputs:
 a_mi = 5*(10^(-8)) # particle mode radius (m)
 tau = 1 # time of activation (s)                                                  

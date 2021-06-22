@@ -5,7 +5,7 @@
     tau = 1 # time of activation (s)                                                  
     M_w = 0.01801528 # Molecular weight of water (kg/mol)
     rho_w = 1000 # Density of water (kg/m^3)
-    R = 8.31446261815324 # Gas constant (kg)
+    R = 8.31446261815324 # Gas constant (kg*m^2/s^2*K*mol)
     T = 273.15 # Temperature (K)
     B_i_bar = 1 # calculated in earlier function 
     alpha = 1 # Coefficient in superaturation balance equation       
