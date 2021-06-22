@@ -436,8 +436,8 @@ end
         m_h[i] = water_molecular_weight * (add_top) / (add_bottom * water_density)
     end
 
-    @test mean_hygroscopicity(aerosol_component[1], 
-                              aerosol_mode_number), 
+    @test mean_hygroscopicity(aerosol_mode_number[1], 
+                              aerosol_component), 
                               mass_mixing_ratio,
                               disassociation,
                               phi,
