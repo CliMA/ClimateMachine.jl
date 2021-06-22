@@ -27,95 +27,99 @@ function main()
     ArrayType = ClimateMachine.array_type()
 
     FT = Float64
-    problem = gw_small_setup(FT)
 
     mpicomm = MPI.COMM_WORLD
-    xmax = FT(problem.L)
-    zmax = FT(problem.H)
     
     #numlevels = 4
     numlevels = 2
 
     outdir = joinpath("esdg_output", "gravitywave")
 
-    for surfaceflux in (EntropyConservative,)
-      outdir = joinpath(outdir, "$surfaceflux")
-      mkpath(outdir)
+    for ΔTmexp in (2, 4)
+      problem = GravityWave{FT}(ΔT=FT(10) ^ (-ΔTmexp))
+      
+      xmax = FT(problem.L)
+      zmax = FT(problem.H)
 
-      convergence_data = Dict()
-      for N in (2, 3)
-        ndof_x = 60
-        ndof_y = 15
+      for surfaceflux in (EntropyConservative,)
+        outdir = joinpath(outdir, "DT$ΔTmexp", "$surfaceflux")
+        mkpath(outdir)
 
-        Kx_base = round(Int, ndof_x / N)
-        Ky_base = round(Int, ndof_y / N)
+        convergence_data = Dict()
+        for N in (2, 3)
+          ndof_x = 60
+          ndof_y = 15
 
-        Kx = Kx_base * 2 .^ ((1:numlevels) .- 1)
-        Ky = Ky_base * 2 .^ ((1:numlevels) .- 1)
+          Kx_base = round(Int, ndof_x / N)
+          Ky_base = round(Int, ndof_y / N)
 
-        l2_errors = zeros(FT, numlevels)
-        linf_errors = zeros(FT, numlevels)
-        l2_errors_state = zeros(FT, numlevels, 5)
-        linf_errors_state = zeros(FT, numlevels, 5)
-        for l in 1:numlevels
-          timeend = problem.timeend
-          FT = Float64
-          l2_err, l2_err_state, linf_err, linf_err_state = run(
-              mpicomm,
-              N,
-              (Kx[l], Ky[l]),
-              xmax,
-              zmax,
-              timeend,
-              problem,
-              ArrayType,
-              FT,
-              surfaceflux(),
-              outdir
+          Kx = Kx_base * 2 .^ ((1:numlevels) .- 1)
+          Ky = Ky_base * 2 .^ ((1:numlevels) .- 1)
+
+          l2_errors = zeros(FT, numlevels)
+          linf_errors = zeros(FT, numlevels)
+          l2_errors_state = zeros(FT, numlevels, 5)
+          linf_errors_state = zeros(FT, numlevels, 5)
+          for l in 1:numlevels
+            timeend = problem.timeend
+            FT = Float64
+            l2_err, l2_err_state, linf_err, linf_err_state = run(
+                mpicomm,
+                N,
+                (Kx[l], Ky[l]),
+                xmax,
+                zmax,
+                timeend,
+                problem,
+                ArrayType,
+                FT,
+                surfaceflux(),
+                outdir
+            )
+            @show l, l2_err, linf_err
+            l2_errors[l] = l2_err
+            linf_errors[l] = linf_err
+            l2_errors_state[l, :] .= l2_err_state
+            linf_errors_state[l, :] .= linf_err_state
+          end
+          l2_rates = log2.(l2_errors[1:numlevels-1] ./ l2_errors[2:numlevels])
+          linf_rates = log2.(linf_errors[1:numlevels-1] ./ linf_errors[2:numlevels])
+          
+          l2_rates_state = log2.(l2_errors_state[1:numlevels-1, :] ./ l2_errors_state[2:numlevels, :])
+          linf_rates_state = log2.(linf_errors_state[1:numlevels-1, :] ./ linf_errors_state[2:numlevels, :])
+      
+          avg_dx = problem.L ./ Kx ./ N
+          avg_dy = problem.H ./ Ky ./ N
+
+          convergence_data[N] = (;
+                avg_dx,
+                avg_dy,
+                l2_errors,
+                l2_rates,
+                linf_errors,
+                linf_rates,
+                l2_errors_state,
+                l2_rates_state,
+                linf_errors_state,
+                linf_rates_state,
           )
-          @show l, l2_err, linf_err
-          l2_errors[l] = l2_err
-          linf_errors[l] = linf_err
-          l2_errors_state[l, :] .= l2_err_state
-          linf_errors_state[l, :] .= linf_err_state
+
+          @show N
+          @show l2_rates
+          @show l2_rates_state[:, 1]
+          @show l2_rates_state[:, 2]
+          @show l2_rates_state[:, 3]
+          @show l2_rates_state[:, 5]
+          @show linf_rates
+          @show linf_rates_state[:, 1]
+          @show linf_rates_state[:, 2]
+          @show linf_rates_state[:, 3]
+          @show linf_rates_state[:, 5]
         end
-        l2_rates = log2.(l2_errors[1:numlevels-1] ./ l2_errors[2:numlevels])
-        linf_rates = log2.(linf_errors[1:numlevels-1] ./ linf_errors[2:numlevels])
-        
-        l2_rates_state = log2.(l2_errors_state[1:numlevels-1, :] ./ l2_errors_state[2:numlevels, :])
-        linf_rates_state = log2.(linf_errors_state[1:numlevels-1, :] ./ linf_errors_state[2:numlevels, :])
-    
-        avg_dx = problem.L ./ Kx ./ N
-        avg_dy = problem.H ./ Ky ./ N
-
-        convergence_data[N] = (;
-              avg_dx,
-              avg_dy,
-              l2_errors,
-              l2_rates,
-              linf_errors,
-              linf_rates,
-              l2_errors_state,
-              l2_rates_state,
-              linf_errors_state,
-              linf_rates_state,
-        )
-
-        @show N
-        @show l2_rates
-        @show l2_rates_state[:, 1]
-        @show l2_rates_state[:, 2]
-        @show l2_rates_state[:, 3]
-        @show l2_rates_state[:, 5]
-        @show linf_rates
-        @show linf_rates_state[:, 1]
-        @show linf_rates_state[:, 2]
-        @show linf_rates_state[:, 3]
-        @show linf_rates_state[:, 5]
+        @save(joinpath(outdir, "gw_convergence_$surfaceflux.jld2"),
+              convergence_data,
+             )
       end
-      @save(joinpath(outdir, "gw_convergence_$surfaceflux.jld2"),
-            convergence_data,
-           )
     end
 end
 

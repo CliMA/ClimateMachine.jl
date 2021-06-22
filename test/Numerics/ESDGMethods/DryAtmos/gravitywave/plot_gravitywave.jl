@@ -51,40 +51,59 @@ function gw_plot_convergence(datadir=joinpath("esdg_output", "gravitywave"))
 
     @load joinpath(root, datafile) convergence_data
 
-    @show convergence_data[2].l2_errors
-    @show convergence_data[3].l2_errors
+    @pgf begin
+      plotsetup = {
+                xlabel = "Δx [km]",
+                grid = "major",
+                xmode = "log",
+                ymode = "log",
+                xticklabel="{\\pgfmathparse{exp(\\tick)/1000}\\pgfmathprintnumber[fixed,precision=3]{\\pgfmathresult}}",
+                #xmax = 1,
+                xtick = convergence_data[2].avg_dx,
+                #ymin = 10. ^ -10 / 5,
+                #ymax = 5,
+                #ytick = 10. .^ -(0:2:10),
+                legend_pos="south east",
+                group_style= {group_size="2 by 2",
+                              vertical_sep="2cm",
+                              horizontal_sep="2cm"},
+              }
+     
+      Ns = sort(collect(keys(convergence_data)))[1:end-1]
+      s2title = Dict(1 => L"\rho",
+                     2 => L"\rho u",
+                     3 => L"\rho w",
+                     5 => L"\rho e")
 
-    plotsetup = @pgf {
-              xlabel = "Δx [km]",
-              grid = "major",
-              ylabel = L"L_{2}" * " error",
-              xmode = "log",
-              ymode = "log",
-              xticklabel="{\\pgfmathparse{exp(\\tick)/1000}\\pgfmathprintnumber[fixed,precision=3]{\\pgfmathresult}}",
-              #xmax = 1,
-              xtick = convergence_data[2].avg_dx,
-              #ymin = 10. ^ -10 / 5,
-              #ymax = 5,
-              #ytick = 10. .^ -(0:2:10),
-              legend_pos="south east",
-            }
-    axis = Axis(plotsetup)
-    labels = []
-    for N in keys(convergence_data)
-      dxs = convergence_data[N].avg_dx
-      l2s = convergence_data[N].l2_errors
-      l2rate = convergence_data[N].l2_rates
-      linfs = convergence_data[N].linf_errors
-      linfrate = convergence_data[N].linf_rates
-      coords = Coordinates(dxs, l2s)
-      @pgf plot = PlotInc({}, coords)
-      push!(axis, plot)
-      push!(labels, "N$N " * @sprintf("(%.2f)", l2rate[end]))
+      for norm in (:l2, :linf)
+        ylabel = norm === :l2 ?
+                 L"L_{2}" * " error" :
+                 L"L_{\infty}" * " error"
+        fig = GroupPlot(plotsetup)
+        for s in (1, 2, 3, 5)
+          labels = []
+          plots = []
+          for N in Ns
+            dxs = convergence_data[N].avg_dx
+            if norm === :l2
+              errs = convergence_data[N].l2_errors_state[:, s]
+              rates = convergence_data[N].l2_rates_state[:, s]
+            else
+              errs = convergence_data[N].linf_errors_state[:, s]
+              rates = convergence_data[N].linf_rates_state[:, s]
+            end
+            coords = Coordinates(dxs, errs)
+            plot = PlotInc({}, coords)
+            push!(plots, plot)
+            push!(labels, "N$N " * @sprintf("(%.2f)", rates[end]))
+          end
+          legend = Legend(labels)
+          push!(fig, {title=s2title[s], ylabel=ylabel}, plots..., legend)
+        end
+        savepath = joinpath(root, "gw_convergence_$(norm).pdf")
+        pgfsave(savepath, fig)
+      end
     end
-    @pgf legend = Legend(labels)
-    push!(axis, legend)
-    savepath = joinpath(root, "gw_convergence_l2.pdf")
-    pgfsave(savepath, axis)
   end
 end
 
@@ -151,8 +170,8 @@ function gw_plot_tht_perturbation(datadir)
       a.set_aspect(15)
     end
 
-    ll = 0.0036
-    sl = 0.0006
+    ll = 0.0036 / 100
+    sl = 0.0006 / 100
     levels = vcat(-ll:sl:-sl, sl:sl:ll)
     ax[1].set_title("T perturbation [K]")
     norm = matplotlib.colors.TwoSlopeNorm(vmin=levels[1], vcenter=0, vmax=levels[end])

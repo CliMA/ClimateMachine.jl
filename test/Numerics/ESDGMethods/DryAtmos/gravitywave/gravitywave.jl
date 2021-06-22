@@ -5,18 +5,17 @@ CLIMAParameters.Planet.MSLP(::EarthParameterSet) = 1e5
 
 Base.@kwdef struct GravityWave{FT} <: AbstractDryAtmosProblem
   T_ref::FT = 250
-  ΔT::FT = 0.0001
-  #ΔT::FT = 0.01
+  ΔT::FT = 0.01
   H::FT = 10e3
   u_0::FT = 20
   f::FT = 0
-  L::FT
-  d::FT
-  x_c::FT
-  timeend::FT
+  L::FT = 300e3
+  d::FT = 5e3
+  x_c::FT = 100e3
+  timeend::FT = 30 * 60
 end
-gw_small_setup(FT) = GravityWave{FT}(L=300e3, d=5e3, x_c=100e3, timeend=30*60)
-gw_large_setup(FT) = GravityWave{FT}(L=24000e3, d=400e3, x_c=8000e3, timeend=3000*60)
+#gw_small_setup(FT) = GravityWave{FT}(L=300e3, d=5e3, x_c=100e3, timeend=30*60)
+#gw_large_setup(FT) = GravityWave{FT}(L=24000e3, d=400e3, x_c=8000e3, timeend=3000*60)
 
 function vars_state(::DryAtmosModel, ::GravityWave, ::Auxiliary, FT)
   @vars begin
