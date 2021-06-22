@@ -116,7 +116,7 @@ function vgα(z::F) where {F}
     else
         k = F(0.109)
     end
-    return k*factor
+    return k*factor*FT(0.5)# they report αᵈ; αʷ = 2αᵈ
 end
 
 function vgn(z::F) where {F}
@@ -207,51 +207,6 @@ function ν(z::F) where {F}
     end
     return k
 end
-    
-#=
-function mymap(z::F,  depths::Array{F,1},values::Array{F,1}) where {F}
-    N = length(depths)
-    v = F(0)
-    @inbounds if -z < depths[1]
-        @inbounds v =  values[1]
-    elseif -z >= @inbounds depths[N]
-        @inbounds v =  values[N]
-    else
-        for i in 2:1:N
-            @inbounds   if -z < depths[i] && -z>= depths[i-1]
-                @inbounds num = values[i-1]*(depths[i]+z)+values[i]*(-z-depths[i-1])
-                @inbounds denom = depths[i]-depths[i-1]
-                v =  num/denom
-            end
-        end
-    end
-    return v
-    
-end
-
-
-
-function mymap_sorted(z::F,  depths::Array{F,1},values::Array{F,1}) where {F}
-    N = length(depths)
-    v = F(0)
-    @inbounds if -z < depths[1]
-        @inbounds v =  values[1]
-    elseif -z >= @inbounds depths[N]
-        @inbounds v =  values[N]
-    else
-        i1 = searchsorted(soil_depths, -z).stop
-        i2 = searchsorted(soil_depths, -z).start
-        if i1 != i2
-            @inbounds num = values[i1]*(depths[i2]+z)+values[i2]*(-z-depths[i1])
-            @inbounds denom = depths[i2]-depths[i1]
-            v =  num/denom
-        else
-            @inbounds v = values[i1]
-        end
-    end
-    return v
-end
-=#
 
 S_s = 1e-3
 wpf = WaterParamFunctions(FT; Ksat = (aux)->ks(aux.z), S_s = S_s, θ_r = (aux)->θr(aux.z))
@@ -275,8 +230,11 @@ surface_bc = LandComponentBC(
     soil_water = Neumann(surface_flux)
     )
 )
-
-ϑ_l0 = aux -> eltype(aux)(0.04)
+icdata = readdlm("./tutorials/Land/Soil/SiteBenchmarks/data/huang_sv62_ic.csv",',')
+icz = icdata[:,2]
+ict = icdata[:,1]
+θ = Spline1D(icz,ict,k =1)
+ϑ_l0 = aux -> eltype(aux)(θ(aux.z))
 
 
 soil_water_model = SoilWaterModel(
@@ -426,4 +384,4 @@ plot!(ylabel = "Depth (m)")
 plot!(xlabel  = "Volumeteric Water Content")
 
 #plot!(title = "SV62; infiltration")
-savefig("./sv62.png")
+savefig("./sv62_alpha.png")
