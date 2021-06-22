@@ -5,13 +5,19 @@ include("../interface/utilities/boilerplate.jl")
 # Set up parameters
 ########
 parameters = (
-    a    = 6.371e6,
-    Ω    = 7.2921159e-5,
-    g    = 9.81,
+    a    = get_planet_parameter(:planet_radius),
+    Ω    = get_planet_parameter(:Omega),
+    g    = get_planet_parameter(:grav),
+    κ    = get_planet_parameter(:kappa_d),
+    R_d  = get_planet_parameter(:R_d),
+    cv_d = get_planet_parameter(:cv_d),
+    cp_d = get_planet_parameter(:cp_d),
+    γ    = get_planet_parameter(:cp_d)/get_planet_parameter(:cv_d),
     H    = 30e3,
     pₒ   = 1.0e5,
     k    = 3.0,
     Γ    = 0.005,
+    T_0  = 0.0,
     T_E  = 310.0,
     T_P  = 240.0,
     b    = 2.0,
@@ -19,13 +25,7 @@ parameters = (
     λ_c  = π / 9,
     ϕ_c  = 2 * π / 9,
     V_p  = 1.0,
-    κ    = 2/7,
-    R_d = 8.3144598 / 28.97e-3,
-    κ_d = 2/7,
-    cp_d = (8.3144598 / 28.97e-3) / (2/7),
-    cv_d = (8.3144598 / 28.97e-3) / (2/7) - 1 / (2/7),
     day = 86400,
-    grav = 9.8,
     p0 = 1e5,
     T_ref = 255,
 )
@@ -34,8 +34,8 @@ parameters = (
 # Set up domain
 ########
 domain = SphericalShell(
-    radius = planet_radius(param_set), 
-    height = 30e3,
+    radius = parameters.a,
+    height = parameters.H,
 )
 grid = DiscretizedDomain(
     domain;
@@ -75,7 +75,6 @@ cond(𝒫,λ,ϕ)  = (0 < d(𝒫,λ,ϕ) < d_0(𝒫)) * (d(𝒫,λ,ϕ) != 𝒫.a *
 I_T(𝒫,ϕ,r)   = (cos(ϕ) * r / 𝒫.a)^𝒫.k - 𝒫.k / (𝒫.k + 2) * (cos(ϕ) * r / 𝒫.a)^(𝒫.k + 2)
 T(𝒫,ϕ,r)     = (τ_1(𝒫,r) - τ_2(𝒫,r) * I_T(𝒫,ϕ,r))^(-1) * (𝒫.a/r)^2
 p(𝒫,ϕ,r)     = 𝒫.pₒ * exp(-𝒫.g / 𝒫.R_d * (τ_int_1(𝒫,r) - τ_int_2(𝒫,r) * I_T(𝒫,ϕ,r)))
-θ(𝒫,ϕ,r)     = T(𝒫,ϕ,r) * (𝒫.pₒ / p(𝒫,ϕ,r))^𝒫.κ
 
 # base-state velocity variables
 U(𝒫,ϕ,r)  = 𝒫.g * 𝒫.k / 𝒫.a * τ_int_2(𝒫,r) * T(𝒫,ϕ,r) * ((cos(ϕ) * r / 𝒫.a)^(𝒫.k - 1) - (cos(ϕ) * r / 𝒫.a)^(𝒫.k + 1))
@@ -94,7 +93,7 @@ uˡᵒⁿ(𝒫,λ,ϕ,r)   = u(𝒫,ϕ,r) + δu(𝒫,λ,ϕ,r)
 uˡᵃᵗ(𝒫,λ,ϕ,r)   = v(𝒫,ϕ,r) + δv(𝒫,λ,ϕ,r)
 uʳᵃᵈ(𝒫,λ,ϕ,r)   = w(𝒫,ϕ,r) + δw(𝒫,λ,ϕ,r)
 
-e_int(𝒫,λ,ϕ,r)  = (𝒫.R_d / 𝒫.κ - 𝒫.R_d) * T(𝒫,ϕ,r)
+e_int(𝒫,λ,ϕ,r)  = (𝒫.R_d / 𝒫.κ - 𝒫.R_d) * (T(𝒫,ϕ,r) - 𝒫.T_0)
 e_kin(𝒫,λ,ϕ,r)  = 0.5 * ( uˡᵒⁿ(𝒫,λ,ϕ,r)^2 + uˡᵃᵗ(𝒫,λ,ϕ,r)^2 + uʳᵃᵈ(𝒫,λ,ϕ,r)^2 )
 e_pot(𝒫,λ,ϕ,r)  = 𝒫.g * r
 
@@ -102,11 +101,7 @@ e_pot(𝒫,λ,ϕ,r)  = 𝒫.g * r
 ρuˡᵒⁿ(𝒫,λ,ϕ,r) = ρ₀(𝒫,λ,ϕ,r) * uˡᵒⁿ(𝒫,λ,ϕ,r)
 ρuˡᵃᵗ(𝒫,λ,ϕ,r) = ρ₀(𝒫,λ,ϕ,r) * uˡᵃᵗ(𝒫,λ,ϕ,r)
 ρuʳᵃᵈ(𝒫,λ,ϕ,r) = ρ₀(𝒫,λ,ϕ,r) * uʳᵃᵈ(𝒫,λ,ϕ,r)
-if total_energy
-    ρe(𝒫,λ,ϕ,r) = ρ₀(𝒫,λ,ϕ,r) * (e_int(𝒫,λ,ϕ,r) + e_kin(𝒫,λ,ϕ,r) + e_pot(𝒫,λ,ϕ,r))
-else
-    ρe(𝒫,λ,ϕ,r) = ρ₀(𝒫,λ,ϕ,r) * (e_int(𝒫,λ,ϕ,r) + e_kin(𝒫,λ,ϕ,r))
-end
+ρe(𝒫,λ,ϕ,r) = ρ₀(𝒫,λ,ϕ,r) * (e_int(𝒫,λ,ϕ,r) + e_kin(𝒫,λ,ϕ,r) + e_pot(𝒫,λ,ϕ,r))
 
 # Cartesian Representation (boiler plate really)
 ρ₀ᶜᵃʳᵗ(𝒫, x...)  = ρ₀(𝒫, lon(x...), lat(x...), rad(x...))
@@ -114,13 +109,7 @@ end
                      + ρuˡᵃᵗ(𝒫, lon(x...), lat(x...), rad(x...)) * ϕ̂(x...)
                      + ρuˡᵒⁿ(𝒫, lon(x...), lat(x...), rad(x...)) * λ̂(x...) ) 
 ρeᶜᵃʳᵗ(𝒫, x...) = ρe(𝒫, lon(x...), lat(x...), rad(x...))
-
-########
-# Set up model physics
-########
-FT = Float64
-
-ref_state = DryReferenceState(DecayingTemperatureProfile{FT}(param_set, FT(290), FT(220), FT(8e3)))
+ρqᶜᵃʳᵗ(𝒫, x...) = 0.0
 
 #####
 # Held-Suarez Forcing
@@ -142,7 +131,7 @@ held_suarez_parameters = (;
     σ_b = FT(7 / 10),
     R_d  = parameters.R_d,
     day  = parameters.day,
-    grav = parameters.grav,
+    grav = parameters.g,
     cp_d = parameters.cp_d,
     cv_d = parameters.cv_d,
     MSLP = parameters.p0,  
@@ -151,11 +140,12 @@ held_suarez_parameters = (;
 ######
 # Modified Held-Suarez Forcing
 ######
-function calc_force!(
+function calc_component!(
     source,
     hsf::HeldSuarezForcing,
     state,
     aux,
+    physics,
 )
     FT = eltype(state)
     
@@ -180,7 +170,7 @@ function calc_force!(
     z = aux.z
     coord = @SVector[x,y,z]
 
-    p = pressure(ρ, ρu, ρe, Φ)
+    p = calc_pressure(physics.eos, state, aux, physics.parameters)
     T = p / (ρ * _R_d)
 
     # Held-Suarez parameters
@@ -217,33 +207,43 @@ function calc_force!(
     return nothing
 end
 
-# total energy
-eos     = TotalEnergy(γ = 1 / (1 - parameters.κ))
+########
+# Set up model physics
+########
+FT = Float64
+
+ref_state = DryReferenceState(
+    DecayingTemperatureProfile{FT}(parameters, FT(290), FT(220), FT(8e3))
+)
+
 physics = Physics(
     orientation = SphericalOrientation(),
     ref_state   = ref_state,
-    eos         = eos,
+    eos         = DryIdealGas(),
     lhs         = (
-        ESDGNonLinearAdvection(eos = eos),
-        PressureDivergence(eos = eos),
+        NonlinearAdvection{(:ρ, :ρu, :ρe)}(),
+        PressureDivergence(),
     ),
-    sources     = sources = (
-        DeepShellCoriolis{FT}(Ω = parameters.Ω),
+    sources     = (
+        DeepShellCoriolis(),
+        FluctuationGravity(),
         HeldSuarezForcing(held_suarez_parameters),
     ),
+    parameters = parameters,
 )
-linear_eos = linearize(physics.eos)
+
 linear_physics = Physics(
     orientation = physics.orientation,
     ref_state   = physics.ref_state,
-    eos         = linear_eos,
+    eos         = physics.eos,
     lhs         = (
-        ESDGLinearAdvection(),
-        PressureDivergence(eos = linear_eos),
+        LinearAdvection{(:ρ, :ρu, :ρe)}(),
+        LinearPressureDivergence(),
     ),
     sources     = (
-        ThinShellGravityFromPotential(),
+        FluctuationGravity(),
     ),
+    parameters = parameters,
 )
 
 ########
@@ -251,23 +251,16 @@ linear_physics = Physics(
 ########
 model = DryAtmosModel(
     physics = physics,
-    boundary_conditions = (5, 6),
-    initial_conditions = (ρ = ρ₀ᶜᵃʳᵗ, ρu = ρu⃗₀ᶜᵃʳᵗ, ρe = ρeᶜᵃʳᵗ),
-    numerics = (
-        flux = RusanovNumericalFlux(),
-    ),
-    parameters = parameters,
+    boundary_conditions = (DefaultBC(), DefaultBC()),
+    initial_conditions = (ρ = ρ₀ᶜᵃʳᵗ, ρu = ρu⃗₀ᶜᵃʳᵗ, ρe = ρeᶜᵃʳᵗ, ρq = ρqᶜᵃʳᵗ),
+    numerics = (flux = LMARSNumericalFlux(),),
 )
 
-linear_model = DryAtmosLinearModel(
+linear_model = DryAtmosModel(
     physics = linear_physics,
     boundary_conditions = model.boundary_conditions,
-    initial_conditions = nothing,
-    numerics = (
-        flux = model.numerics.flux,
-        direction = VerticalDirection()
-    ),
-    parameters = model.parameters,
+    initial_conditions = model.initial_conditions,
+    numerics = (flux = RefanovFlux(),),
 )
 
 ########
@@ -278,30 +271,27 @@ cfl = 3
 Δt = cfl * dx / 330.0
 start_time = 0
 end_time = 1200 * 24 * 3600
-method = ARK2GiraldoKellyConstantinescu
+method = IMEX()
 callbacks = (
-  Info(), 
-  CFL(), 
-  VTKState(
-    iteration = Int(floor(6*3600/Δt)), 
-    filepath = "./out/"),
+    Info(), 
+    CFL(), 
+    VTKState(
+       iteration = Int(floor(6*3600/Δt)), 
+       filepath = "./out/",
+    ),
 )
 
 ########
 # Set up simulation
 ########
 simulation = Simulation(
-    (model, linear_model,);
+    (Explicit(model), Implicit(linear_model),);
     grid = grid,
     timestepper = (method = method, timestep = Δt),
     time        = (start = start_time, finish = end_time),
     callbacks   = callbacks,
 )
 
-########
-# Run the simulation
-########
-# initialize!(simulation)
 evolve!(simulation)
 
 nothing
