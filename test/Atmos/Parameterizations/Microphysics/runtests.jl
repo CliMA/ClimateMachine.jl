@@ -401,27 +401,66 @@ end
                water_molecular_weight,
                ) ≈ h
 end 
-#=
-    Test conditions:
-        B = v, phi, epsilon, M_w, rho_a, M_a, rho_w 
-        v = number of ions the salt dissociates into within water → 3
-        phi = osmotic coefficient → 1
-        epsilon = mass fraction of soluble material → ????
-        M_w = molecular weight of water → 18.01528 g/mol
-        Rho_a = density of the aerosol material → 1.77 g/cm^3
-        M_a = molecular weight of aerosol material → 132
-        Rho_w = density of water → 1 g/cm^3
-
-    Test for different values of the variables
-=#
 
 # @testset "Mean Hygroscopicity" begin
+    aerosol_component = [1, 2, 3]         
+    aerosol_mode_number = [1, 2, 3, 4, 5]
+    mass_mixing_ratio = [[1, 2, 3, 4, 5]
+                         [0.1, 0.2, 0.3, 0.4, 0.5]
+                         [0.01, 0.02, 0.03, 0.04, 0.05]]
+    disassociation = [[1, 2, 3, 4, 5]
+                      [0.1, 0.2, 0.3, 0.4, 0.5]
+                      [0.01, 0.02, 0.03, 0.04, 0.05]]
+    phi = [[1, 2, 3, 4, 5]
+           [0.1, 0.2, 0.3, 0.4, 0.5]
+           [0.01, 0.02, 0.03, 0.04, 0.05]]
+    epsilon = [[1, 2, 3, 4, 5]
+               [0.1, 0.2, 0.3, 0.4, 0.5]
+               [0.01, 0.02, 0.03, 0.04, 0.05]]
+    molecular_weight = [[1, 2, 3, 4, 5]
+                        [0.1, 0.2, 0.3, 0.4, 0.5]
+                        [0.01, 0.02, 0.03, 0.04, 0.05]]
+    add_top = 0
+    add_bottom = 0
+    water_molecular_weight = 0.01801528 # kg/mol
+    water_density = 1000 # kg/m^3
+    m_h = zeros(3)
+    for i in 1:length(aerosol_mode_number)
+        for j in 1:length(aerosol_component)
+            add_top = mass_mixing_ratio[i][j] 
+                      * disassociation[i][j] 
+                      * phi[i][j]
+                      * epsilon[i][j]
+                      * molecular_weight[i][j]
+        end
+        m_h[i] = water_molecular_weight * (add_top) / (add_bottom * water_density)
+    end
 
-    # v = 3
-    # phi = 1
-    # epsilon = 
-    # M_w = 
-    # rho_a = 
+    @test mean_hygroscopicity(aerosol_component[1], 
+                              aerosol_mode_number), 
+                              mass_mixing_ratio,
+                              disassociation,
+                              phi,
+                              epsilon,
+                              molecular_weight,
+                              ) ≈ m_h[1]
+    @test mean_hygroscopicity(aerosol_component[2], 
+                              aerosol_mode_number), 
+                              mass_mixing_ratio,
+                              disassociation,
+                              phi,
+                              epsilon,
+                              molecular_weight,
+                              ) ≈ m_h[2]
+    @test mean_hygroscopicity(aerosol_component[3], 
+                              aerosol_mode_number), 
+                              mass_mixing_ratio,
+                              disassociation,
+                              phi,
+                              epsilon,
+                              molecular_weight,
+                              ) ≈ m_h[3]
+end
 
 
 #=
@@ -438,55 +477,6 @@ end
     Test for different values of the variables
 =#
 
-# @testset "Max Supersaturation" begin
-#=
-    Maximum Saturation:
-        S_mi → dependant on a_mi
-        a_mi = 0.05e-6 m
-        f_1 = dependant on sigma_i
-        sigma_i = 2	
-        Zeta = dependant on A, alpha, V, and G
-        A = surface tension effects in the kohler equilibrium equation
-        Alpha = coefficient in supersaturation balance equation
-        V = updraft velocity → 0.5 m/s
-        G = diffusion of heat and moisture to the particles (part 1)
-        Eta = dependant on alpha, V, G, p_w, gamma, and N_i
-        Alpha = coefficient in supersaturation balance equation
-        V = updraft velocity → 0.5 m/s
-        G = diffusion of heat and moisture to the particles (part 1)
-        rho_w = density of water → 1 g/cm^3
-        Gamma = coefficient in supersaturation balance equation
-        N_i = 100 cm^-3
-        G = diffusion of heat and moisture to the particles (part 1)
-
-    Test for different values of the variables
-=#
-
-# @testset "Mean Hygroscopicity" begin
-#=
-    Test conditions:
-        B = v, phi, epsilon, M_w, rho_a, M_a, rho_w 
-        v = number of ions the salt dissociates into within water → 3
-        phi = osmotic coefficient → 1
-        epsilon = mass fraction of soluble material → ????
-        M_w = molecular weight of water → 18.01528 g/mol
-        Rho_a = density of the aerosol material → 1.77 g/cm^3
-        M_a = molecular weight of aerosol material → 132
-        Rho_w = density of water → 1 g/cm^3
-
-    Test for different values of the variables
-=#
-
-# @testset "Dry Radius" begin
-#=
-    Test conditions:
-        a_mi = 0.05e-6 m
-        S_mi → dependant on a_mi
-        a_mi = 0.05e-6 m
-        S_max = get value from previous equation
-
-    Test for different values of the variables
-=#
 
 # @testset "Total Number" begin
 #=
