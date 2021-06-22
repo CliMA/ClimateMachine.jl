@@ -365,7 +365,63 @@ end
 
 end
 
-@testset "Hygroscopicity" begin
+@testset "hygroscopicity_test" begin
+
+    # assumptions: standard conditions
+    # parameters
+    osmotic_coefficient = 3 # no units
+    temperature = 298 # K
+    aerosol_density = 1770 # kg/m^3
+    aerosol_molecular_weight = 0.132 # kg/mol
+    aerosol_particle_density = 1.0*10^-4 # 1/cm^3
+    water_density = 1000 # kg/m^3
+    water_particle_density = 22.414 # kg/mol
+    water_molecular_weight = 0.01801528 # kg/mol
+
+    # hand calculated value
+    updraft_velocity = 3
+    R = 8.31446261815324
+    avogadro =  6.02214076 × 10^23
+
+    h = (updraft_velocity * osmotic_coefficient 
+        * (aerosol_particle_density * 1/avogadro 
+        * aerosol_molecular_weight)/(1/water_particle_density
+        * 1/1000 * water_molecular_weight) * water_molecular_weight
+        * aerosol_particle_density) / (aerosol_molecular_weight
+        * water_density)
+
+    @test hygroscopicity(
+               osmotic_coefficient,
+               temperature,
+               aerosol_density,
+               aerosol_molecular_weight,
+               aerosol_particle_density
+               water_density,
+               water_particle_density,
+               water_molecular_weight,
+               ) ≈ h
+end 
+#=
+    Test conditions:
+        B = v, phi, epsilon, M_w, rho_a, M_a, rho_w 
+        v = number of ions the salt dissociates into within water → 3
+        phi = osmotic coefficient → 1
+        epsilon = mass fraction of soluble material → ????
+        M_w = molecular weight of water → 18.01528 g/mol
+        Rho_a = density of the aerosol material → 1.77 g/cm^3
+        M_a = molecular weight of aerosol material → 132
+        Rho_w = density of water → 1 g/cm^3
+
+    Test for different values of the variables
+=#
+
+# @testset "Mean Hygroscopicity" begin
+
+    # v = 3
+    # phi = 1
+    # epsilon = 
+    # M_w = 
+    # rho_a = 
 
 
 #=
@@ -382,22 +438,7 @@ end
     Test for different values of the variables
 =#
 
-@testset "Mean Hygroscopicity" begin
-#=
-    Test conditions:
-        B = v, phi, epsilon, M_w, rho_a, M_a, rho_w 
-        v = number of ions the salt dissociates into within water → 3
-        phi = osmotic coefficient → 1
-        epsilon = mass fraction of soluble material → ????
-        M_w = molecular weight of water → 18.01528 g/mol
-        Rho_a = density of the aerosol material → 1.77 g/cm^3
-        M_a = molecular weight of aerosol material → 132
-        Rho_w = density of water → 1 g/cm^3
-
-    Test for different values of the variables
-=#
-
-@testset "Max Supersaturation" begin
+# @testset "Max Supersaturation" begin
 #=
     Maximum Saturation:
         S_mi → dependant on a_mi
@@ -421,7 +462,7 @@ end
     Test for different values of the variables
 =#
 
-@testset "Mean Hygroscopicity" begin
+# @testset "Mean Hygroscopicity" begin
 #=
     Test conditions:
         B = v, phi, epsilon, M_w, rho_a, M_a, rho_w 
@@ -436,7 +477,7 @@ end
     Test for different values of the variables
 =#
 
-@testset "Dry Radius" begin
+# @testset "Dry Radius" begin
 #=
     Test conditions:
         a_mi = 0.05e-6 m
@@ -447,7 +488,7 @@ end
     Test for different values of the variables
 =#
 
-@testset "Total Number" begin
+# @testset "Total Number" begin
 #=
     Test conditions:
         N_i = 100 cm^-3
@@ -462,7 +503,7 @@ end
     Test for different values of the variables
 =#
 
-@testset "Total Mass" begin
+# @testset "Total Mass" begin
 #=
     Test conditions:
         M_i = SET URSELF
