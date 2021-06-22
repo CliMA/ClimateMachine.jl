@@ -1,4 +1,4 @@
-@testset "Maximum_Supersaturation" begin
+@testset "max_supersat_test" begin
     # parameters inputted into function:
     a_mi = 5*(10^(-8)) # particle mode radius (m)
     sigma_i = 2 # standard deviation of mode radius (m)
@@ -11,7 +11,7 @@
     alpha = 1 # Coefficient in superaturation balance equation       
     V = 1 # Updraft velocity (m/s)
     G = 1 # Diffusion of heat and moisture for particles 
-    N_i = 100000000 # Initial particle concentration (1/cm^3)
+    N_i = 100000000 # Initial particle concentration (1/m^3)
     gamma = 1 # coefficient 
 
     # Internal calculations:
