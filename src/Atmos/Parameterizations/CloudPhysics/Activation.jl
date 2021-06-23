@@ -92,12 +92,24 @@ function smallactpartdryrad(a_mi,
                             N_i, 
                             gamma)
 
-    A = (2*tau*M_w)/(rho_w*R*T) # Surface tension effects on Kohler equilibrium equation (s/(kg*m))
-    S_min = ((2)/(B_i_bar)^(.5))((A)/(3*a_mi))^(3/2) # Minimum supersaturation
+    A =  a(tau, M_w, rho_w, R, T)
+    S_min =  S_min(B_i_bar, A, a_mi)
     S_max = maxsupersat(a_mi, sigma_i tau, M_w, rho_w, R, T, B_i_bar, alpha, V, G, N_i, gamma)
 
     DRSAP = a_mi*((S_mi)/(S_max))^(2/3)
     return DRSAP
+end
+
+# Minimum supersaturation
+function S_min(B_i_bar, A, a_mi)
+    s_min = ((2)/(B_i_bar)^(.5))((A)/(3*a_mi))^(3/2)
+    return s_min
+end
+
+# Surface tension effects on Kohler equilibrium equation (s/(kg*m))
+function A(tau, M_w, rho_w, R, T)
+    a = (2*tau*M_w)/(rho_w*R*T)
+    return a
 end
 
 end #module Activation.jl
