@@ -20,9 +20,9 @@ S_min = ((2)/(B_i_bar)^(.5))((A)/(3*a_mi))^(3/2) # Minimum supersaturation
 S_max = maxsupersat(a_mi, sigma_i tau, M_w, rho_w, R, T, B_i_bar, alpha, V, G, N_i, gamma)
 
 # Final calculation:
-DRSAP = a_mi*((S_mi)/(S_max))^(.5)
+DRSAP = a_mi*((S_mi)/(S_max))^(2/3)
 
 # Running test:
-@test smallactpartdryrad(a_mi, sigma_i tau, M_w, rho_w, R, T, B_i_bar, alpha, V, G, N_i, gamma) = DRSAP
+@test smallactpartdryrad(a_mi, sigma_i, tau, M_w, rho_w, R, T, B_i_bar, alpha, V, G, N_i, gamma) = DRSAP
 
 end
