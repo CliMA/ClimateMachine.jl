@@ -16,21 +16,6 @@ export activation_cloud_droplet_number
     activation_cloud_droplet_number(param_set::APS, q, T, ρ)
 TODO
 """
-function activation_cloud_droplet_number(
-    param_set::APS,
-    q::PhasePartition{FT},
-    T::FT,
-    ρ::FT,
-) where {FT <: Real}
-
-    _τ_precip::FT = τ_precip(param_set)
-    _qc_0::FT = qc_0(param_set)
-
-    # TODO
-    water_density::FT = 42
-
-    return 42
-end
 
 function hygroscopicity_test(osmotic_coefficient,
                temperature,
