@@ -106,3 +106,24 @@ where
   - ``u_{i} \equiv \frac{\mathrm{ln}(a_{ci}/a_{mi})}{\sqrt{2} ln \sigma_{i}} = \frac{2 \mathrm{ln}(S_{mi}/S_{max})}{3\sqrt{2} ln \sigma_{i}}``
   - ``\sigma_{i}`` is the geometric standard deviation for aerosol mode ``i``.
   - ``M_{i}`` is the mass of the aerosol mode ``i``.
+
+
+Variables:
+  - ``osmotic_coefficient`` 
+  - ``temperature``
+  - ``aerosol_molecular_mass``
+  - ``aerosol_particle_density``
+  - ``water_density``
+  - ``water_molar_density``
+  - ``water_molecular_mass``
+  - ``updraft_velocity``
+  - ``R``
+  - ``avogadros_number``
+  - ``dissociation``
+  - ``mass_fraction``
+  - ``particle_radius``
+  - ``particle_radius_stdev``
+  - ``activation_time``
+  - ``alpha``
+  - ``diffusion``
+  -  ``gamma``
