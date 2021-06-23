@@ -7,7 +7,6 @@
     rho_w = 1000 # Density of water (kg/m^3)
     R = 8.31446261815324 # Gas constant (kg*m^2/s^2*K*mol)
     T = 273.15 # Temperature (K)
-    B_i_bar = 1 # calculated in earlier function 
     alpha = 1 # Coefficient in superaturation balance equation       
     V = 1 # Updraft velocity (m/s)
     G = 1 # Diffusion of heat and moisture for particles 
@@ -15,6 +14,7 @@
     gamma = 1 # coefficient 
 
     # Internal calculations:
+    B_i_bar = mean_hygrosopicity() # calculated in earlier function    ------ INCOMPLETE-------
     f_i = 0.5 * exp(2.5*(log(sigma_i))^2) # function of sigma_i (check units)
     g_i = 1 + 0.25 * log(sigma_i) # function of sigma_i (log(m))
     A = (2*tau*M_w)/(rho_w*R*T) # Surface tension effects on Kohler equilibrium equation (s/(kg*m))
@@ -24,8 +24,8 @@
 
     
     # Final value for maximum supersaturation:
-    MS = ((1)/(S_min)^2) * (    f_i*((zeta/eta)^(3/2))     +    g_i*(((S_min^2)/(eta+3*zeta))^(3/2))     )
+    MS = ((1)/(((S_min)^2) * (    f_i*((zeta/eta)^(3/2))     +    g_i*(((S_min^2)/(eta+3*zeta))^(3/4))    ) ))
 
     # Comaparing calculated MS value to function output: 
-    @test maxsupersat(a_mi, sigma_i tau, M_w, rho_w, R, T, B_i_bar, alpha, V, G, N_i, gamma) = MS
+    @test maxsupersat(a_mi, sigma_i, tau, M_w, rho_w, R, T, B_i_bar, alpha, V, G, N_i, gamma) = MS
 end
