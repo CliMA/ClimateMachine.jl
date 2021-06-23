@@ -51,7 +51,7 @@ function hygroscopicity_test(osmotic_coefficient,
         * 1/1000 * water_molecular_weight) * water_molecular_weight
         * aerosol_particle_density) / (aerosol_molecular_weight
         * water_density)
-    return h
+    return h 
 end 
 
 function mean_hygroscopicity(aerosol_mode_number, 
