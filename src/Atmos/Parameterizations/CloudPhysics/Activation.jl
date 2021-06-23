@@ -78,5 +78,26 @@ function mean_hygroscopicity(aerosol_mode_number,
     return m_h
 end
 
-)
+function smallactpartdryrad(a_mi, 
+                            sigma_i,
+                            tau, 
+                            M_w, 
+                            rho_w, 
+                            R, 
+                            T, 
+                            B_i_bar,
+                            alpha,
+                            V, 
+                            G, 
+                            N_i, 
+                            gamma)
+
+    A = (2*tau*M_w)/(rho_w*R*T) # Surface tension effects on Kohler equilibrium equation (s/(kg*m))
+    S_min = ((2)/(B_i_bar)^(.5))((A)/(3*a_mi))^(3/2) # Minimum supersaturation
+    S_max = maxsupersat(a_mi, sigma_i tau, M_w, rho_w, R, T, B_i_bar, alpha, V, G, N_i, gamma)
+
+    DRSAP = a_mi*((S_mi)/(S_max))^(2/3)
+    return DRSAP
+end
+
 end #module Activation.jl
