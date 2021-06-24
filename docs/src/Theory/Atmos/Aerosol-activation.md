@@ -113,6 +113,7 @@ Variables:
   - ``temperature``
   - ``aerosol_molecular_mass``
   - ``aerosol_particle_density``
+  - ``aerosol_density``
   - ``water_density``
   - ``water_molar_density``
   - ``water_molecular_mass``
