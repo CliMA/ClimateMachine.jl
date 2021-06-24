@@ -409,12 +409,12 @@ end
 end 
 
 @testset "Mean Hygroscopicity" begin
-    aerosol_component = [1, 2, 3]         
+    aerosol_component = [1, 2, 3]        
     aerosol_mode_number = [1, 2, 3, 4, 5]
     mass_mixing_ratio = [[1, 2, 3, 4, 5]
                          [0.1, 0.2, 0.3, 0.4, 0.5]
                          [0.01, 0.02, 0.03, 0.04, 0.05]]
-    disassociation = [[1, 2, 3, 4, 5]
+    dissociation = [[1, 2, 3, 4, 5]
                       [0.1, 0.2, 0.3, 0.4, 0.5]
                       [0.01, 0.02, 0.03, 0.04, 0.05]]
     osmotic_coefficient = [[1, 2, 3, 4, 5]
@@ -426,20 +426,24 @@ end
     aerosol_molecular_mass = [[1, 2, 3, 4, 5]
                         [0.1, 0.2, 0.3, 0.4, 0.5]
                         [0.01, 0.02, 0.03, 0.04, 0.05]]
+    aerosol_density = [[1, 2, 3, 4, 5]
+                       [0.1, 0.2, 0.3, 0.4, 0.5]
+                       [0.01, 0.02, 0.03, 0.04, 0.05]]
     add_top = 0
     add_bottom = 0
-     water_molecular_mass = 0.01801528 # kg/mol
+    water_molecular_mass = 0.01801528 # kg/mol
     water_density = 1000 # kg/m^3
     m_h = zeros(3)
-    for i in 1:length(aerosol_mode_number)
-        for j in 1:length(aerosowater_molecular_weightl_component)
-            add_top = mass_mixing_ratio[i][j] 
-                      * disassociation[i][j] 
-                      * osmotic_coefficient[i][j]
-                      * mass_fraction[i][j]
-                      * aerosol_molecular_mass[i][j]
+    top_values = mass_mixing_ratio .* dissociation .* osmotic_coefficient .* mass_fraction .*aerosol_molecular_mass
+    top_values *= water_molecular_mass
+    bottom_values = mass_mixing_ratio ./ aerosol_density
+    bottom_values *= water_density
+
+    for i in 1:length(aerosol_component)
+        m_h[i] = sum(top_values[aerosol_component]) * water_molecular_mass / (sum(bottom_values) 
         end
-        m_h[i] = water_molecular_mass * (add_top) / (add_bottom * water_density)
+        m_h[i] = add_top / bottom_values
+    return m_h
     end
 
     @test mean_hygroscopicity(aerosol_mode_number[1], 
