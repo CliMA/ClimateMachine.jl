@@ -1,3 +1,4 @@
+Pkg.add("SpecialFunctions")
 using Test
 using ClimateMachine.Microphysics_0M
 using ClimateMachine.Microphysics
