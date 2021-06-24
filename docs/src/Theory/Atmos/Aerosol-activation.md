@@ -125,6 +125,7 @@ Variables:
   - ``particle_radius``
   - ``particle_radius_stdev``
   - ``activation_time``
-  - ``alpha``
+  - ``alpha`` # ADD MORE
   - ``diffusion``
-  -  ``gamma``
+  -  ``gamma`` # ADD MORE
+  - 

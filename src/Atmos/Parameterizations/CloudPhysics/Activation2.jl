@@ -40,6 +40,9 @@ function total_N_Act(a_mi, tau, M_w, rho_w, R, T, B_i_bar, sigma_i, alpha, V, G,
 
 end
 
+# need to finish
+function alpha_sic(T, M_a)
 
 
+function gamma_sic(T, M_a)
 end
