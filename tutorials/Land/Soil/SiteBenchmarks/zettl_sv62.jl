@@ -44,7 +44,7 @@ soil_heat_model = PrescribedTemperatureModel();
 
 
 function ks(z::F) where {F}
-    factor = F(1/100/60)# given in cm/min
+    factor = F(1/100/60)# given in cm/min# is D taken into account?
     if z >= F(-0.06)
         k = F(0.62)
     elseif z >= F(-0.15)
@@ -116,7 +116,8 @@ function vgα(z::F) where {F}
     else
         k = F(0.109)
     end
-    return k*factor*FT(0.5)# they report αᵈ; αʷ = 2αᵈ
+    return k*factor*FT(1.5)# they report αᵈ; αʷ = 2αᵈ. use mean since we dont do hysteresis?
+   
 end
 
 function vgn(z::F) where {F}
@@ -211,7 +212,7 @@ end
 S_s = 1e-3
 wpf = WaterParamFunctions(FT; Ksat = (aux)->ks(aux.z), S_s = S_s, θ_r = (aux)->θr(aux.z))
 soil_param_functions = SoilParamFunctions(FT; porosity = (aux)->ν(aux.z), water = wpf)
-kstop = FT(0.62/60/100)
+kstop = ks(FT(0.0))
 surface_flux = (aux,t)-> eltype(aux)(-kstop*(0.1-aux.soil.water.h)/0.0275)
 bottom_flux = (aux, t) -> aux.soil.water.K * eltype(aux)(-1)
 
@@ -288,52 +289,6 @@ dt = FT(0.01);
 # Create the solver configuration.
 solver_config =
     ClimateMachine.SolverConfiguration(t0, timeend, driver_config, ode_dt = dt);
-#=
-    dg = solver_config.dg
-    Q = solver_config.Q
-
-    vdg = DGModel(
-        driver_config;
-        state_auxiliary = dg.state_auxiliary,
-        direction = VerticalDirection(),
-    )
-
-
-
-    linearsolver = BatchedGeneralizedMinimalResidual(
-        dg,
-        Q;
-        max_subspace_size = 30,
-        atol = -1.0,
-        rtol = 1e-5,
-    )
-
-    """
-    N(q)(Q) = Qhat  => F(Q) = N(q)(Q) - Qhat
-    F(Q) == 0
-    ||F(Q^i) || / ||F(Q^0) || < tol
-    """
-    nonlinearsolver =
-        JacobianFreeNewtonKrylovSolver(Q, linearsolver; tol = 1e-5)
-
-    ode_solver = ARK2GiraldoKellyConstantinescu(
-        dg,
-        vdg,
-        NonLinearBackwardEulerSolver(
-            nonlinearsolver;
-            isadjustable = true,
-            preconditioner_update_freq = 100,
-        ),
-        Q;
-        dt = dt,
-        t0 = 0,
-        split_explicit_implicit = false,
-        variant = NaiveVariant(),
-    )
-
-    solver_config.solver = ode_solver
-=#
-# Determine how often you want output.
 n_outputs = 60;
 
 every_x_simulation_time = ceil(Int, (timeend-t0) / n_outputs);
@@ -384,4 +339,4 @@ plot!(ylabel = "Depth (m)")
 plot!(xlabel  = "Volumeteric Water Content")
 
 #plot!(title = "SV62; infiltration")
-savefig("./sv62_alpha.png")
+savefig("./sv62_alpha_15.png")

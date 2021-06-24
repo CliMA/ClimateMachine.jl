@@ -50,86 +50,70 @@ soil_heat_model = PrescribedTemperatureModel();
 # Depths: 5, 10 - SiL, 20- C, 50 (30?) - CL
 # Boundaries = 15/ 35
 function ν(z::F) where {F}
-    if z > F(-0.2)
+    if z > F(-0.15)
         #silt loam
-        ν = F(0.45)
-    elseif z > F(-0.4)
+        ν = F(0.4)
+    elseif z > F(-0.25)
         #clay - I adjusted this up because the data gives a value > clay's porosity for SWC
         ν = F(0.43)
-    elseif z> F(-0.65)
+    else
         #clay loam
         ν = F(0.45) # same, adjusted this up.
-    else
-        # gravel?
-        ν = FT(5)
     end
     return ν
 end
 function vgn(z::F) where {F}
-    if z > F(-0.2)
+    if z > F(-0.15)
         #silt loam
         n = F(1.4)
-    elseif z > F(-0.4)
+    elseif z > F(-0.25)
         #clay
         n = F(1.09)
-    elseif z> FT(-0.65)
+    else
         #clay loam
         n = F(1.31)
-    else
-        # gravel
-        n = F(2.68)
     end
     return n
 end
 function vgα(z::F) where {F}
-    if z > F(-0.2)
+    if z > F(-0.15)
         #silt loam
         α = F(2)
-    elseif z > F(-0.4)
+    elseif z > F(-0.25)
         #clay
         α = F(0.8)
-    elseif z> F(-0.65)
+    else
         #clay loam
         α = F(1.9)
-    else
-        # gravel
-        α = F(14.5)
     end
     return α
 end
 
 function ks(z::F) where {F}
-    if z > F(-0.2)
+    if z > F(-0.15)
         #silt loam
         k = F(0.45/3600/100)
-    elseif z > F(-0.4)
+    elseif z > F(-0.25)
         #clay
         k = F(0.2/3600/100)
-    elseif z> F(-0.65)
-
+    else
         # clay loam
         k = F(0.26/3600/100)
-    else
-        # gravel
-        k = F(29.7/3600/100)
     end
     return k
 end
 
 
 function θr(z::F) where {F}
-    if z > F(-0.2)
+    if z > F(-0.15)
         #silt loam
         k = F(0.067)
-    elseif z > F(-0.4)
+    elseif z > F(-0.25)
         #clay
         k = F(0.068)
-    elseif z> F(-0.65)
+    else
         # clay loam
         k = F(0.095)
-    else
-        # gravel
-        k = F(0.045)
     end
     return k
 end
@@ -175,11 +159,11 @@ bottom_flux = (aux, t) -> aux.soil.water.K * eltype(aux)(-1)
 surface_flux = (aux, t) -> incident(t)
 surface_zero_flux = (aux, t) -> eltype(aux)(0)
 N_poly = 1;
-nelem_vert = 15;
+nelem_vert = 12;
 
 # Specify the domain boundaries.
 zmax = FT(0);
-zmin = FT(-0.75);
+zmin = FT(-0.6);
 Δ = FT((zmax-zmin)/nelem_vert/2)
 bc = LandDomainBC(
     bottom_bc = LandComponentBC(
