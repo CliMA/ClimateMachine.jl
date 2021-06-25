@@ -38,7 +38,7 @@ function A(activation_time, water_molecular_mass, water_density, R, temperature)
     return A
 end
 
-function hygroscopicity_test(osmotic_coefficient, temperature, aerosol_density,
+function hygroscopicity(osmotic_coefficient, temperature, aerosol_density,
                              aerosol_molecular_mass, aerosol_particle_density
                              updraft_velocity)
 

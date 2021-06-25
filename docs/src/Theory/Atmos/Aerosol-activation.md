@@ -107,6 +107,17 @@ where
   - ``\sigma_{i}`` is the geometric standard deviation for aerosol mode ``i``.
   - ``M_{i}`` is the mass of the aerosol mode ``i``.
 
+8: S_min Calculation
+```math
+
+```
+
+9: A Calculation
+
+10: Alpha Calculations
+
+11: Gamma Calculations
+
 
 Variables:
   - ``osmotic_coefficient`` 
