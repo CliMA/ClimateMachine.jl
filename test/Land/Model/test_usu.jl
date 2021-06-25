@@ -40,9 +40,13 @@ using ClimateMachine.ArtifactWrappers
 
 ClimateMachine.init()
 FT = Float64
-
+#data = readdlm("/Users/shuangma/Downloads/USU_data.csv",',')
 data = readdlm("/Users/katherinedeck/Downloads/USU_data.csv",',')
 Qsurf = data[:, data[1,:] .== "Qsurf (kJ/m2/hr)"][2:end, :][:] ./ 3600 .*1000 # per second
+#Qsurf = data[:, data[1,:] .== "Flux(MFR)"][2:end, :][:] ./ 3600 .*1000 # per second
+#Qsurf = data[:, data[1,:] .== "Flux(FR)"][2:end, :][:] ./ 3600 .*1000 # per second
+#Qsurf = data[:, data[1,:] .== "Flux(Tave)"][2:end, :][:] ./ 3600 .*1000 # per second
+
 Qsurf = -Qsurf # sign convention is opposite as ours
 G = data[:, data[1,:] .== "G (kJ/hr/m2)"][2:end, :][:] ./ 3600 .*1000 # per second
 dates = data[:, data[1,:] .== "Date"][2:end, :][:]
@@ -164,7 +168,7 @@ tsurf_obs = Tsurf
 plot1 = plot(time_data, ρe_int)
 #u_int = (ρe_int .+ ρ_snow*(2100*273.16+LH_f0(param_set))) .*z_snow .-z_snow*ρ_snow*2100*273.15
 plot!(xticks = ([time_data[1],time_data[250],time_data[500]], [dates[1], dates[250], dates[500]]))
-plot2 = plot(range, tsurf_pw, label = "piecewise model, EQ")
+plot2 = plot(range, tsurf_pw, label = "piecewise model, EQ",ylim = [240,300])
 plot!(range, tsurf_obs, label = "obs")
 plot!(xlabel = "date", ylabel = "T surf (K)", legend = :topleft)
 plot!(xticks = ([1,250,500], [dates[1], dates[250], dates[500]]))
@@ -267,5 +271,23 @@ T_bottom = T_h #Q_bottom = 0
 
 plot!(range, T_surf_fr, label = "force restore")
 scatter!(range, T_ave, label = "bulk T")
-scatter!(range, data[:, data[1,:] .== "2mTair"][2:end, :][range], label = "2mTair")
-plot(plot1,plot2)
+#scatter!(range, data[:, data[1,:] .== "2mTair"][2:end, :][range], label = "2mTair")
+#plot(plot1,plot2)
+
+#=
+plot3=plot(range, tsurf_pw1, label = "pw, EQ, Qsurf",
+linestyle = :dot,linewidth = 3,
+ylim = [240,280],legend = :false)
+plot!(range, tsurf_pw2, label = "pw, EQ, Flux(MFR)",linestyle = :dot,linewidth = 3)
+plot!(range, tsurf_pw3, label = "pw, EQ, Flux(FR)",linestyle = :dot,linewidth = 3)
+plot!(range, tsurf_pw4, label = "pw, EQ, Flux(Tave)",linestyle = :dot,linewidth = 3)
+plot!(range, tsurf_obs, label = "obs",linecolor = :black)
+plot!(xlabel = "date", ylabel = "T surf (K)")
+plot!(xticks = ([1,250,500], [dates[1], dates[250], dates[500]]))
+plot!(range, T_surf_fr, label = "FR Qsurf",linewidth = 3)
+plot!(range, T_surf_fr2, label = "FR Flux(MFR)",linewidth = 3)
+plot!(range, T_surf_fr3, label = "FR Flux(FR)",linewidth = 3)
+plot!(range, T_surf_fr4, label = "FR Flux(Tave)",linewidth = 3)
+scatter!(range, T_ave, label = "bulk T")
+savefig("USU_qsurf.png")
+=#
