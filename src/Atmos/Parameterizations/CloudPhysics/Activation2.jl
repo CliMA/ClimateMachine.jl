@@ -14,7 +14,7 @@ function maxsupersat(a_mi, sigma_i, tau, M_w, rho_w, R, T, B_i_bar, alpha, V, G,
     eta = (((alpha*V)/G)^(3/2))/(2*pi*rho_w*gamma*N_i)
 
     # Final calculation:
-    mss = 1/((        (1/S_mi^2)*((f_i*(zeta/eta)^(3/2))+(g_i*((S_mi^2)/(eta+3*zeta))))       )^.5)
+    mss = 1/(((1/S_mi^2)*((f_i*(zeta/eta)^(3/2))+(g_i*((S_mi^2)/(eta+3*zeta))))^.5)
 
 
     return mss

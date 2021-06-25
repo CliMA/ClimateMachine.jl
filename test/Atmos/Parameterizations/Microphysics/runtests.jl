@@ -536,6 +536,7 @@ end
     end
         
     Pkg.add("SpecialFunctions")
+
 @testset "total_N_Act_test" begin
     # Input parameters
     particle_radius = [5*(10^(-8))] # particle mode radius (m)
@@ -566,4 +567,31 @@ end
 
 end
 
-# ADD MORE
+@testset alpha()
+    gravity = 9.8
+    water_molecular_mass = 0.01801528
+    latent_heat_evaporation = 2.26 * 10^-6
+    specific_heat_air = 1000
+    r = 31446261815324
+    t = 273.15
+    M_a = 0.058443
+    a = (gravity * water_molecular_mass * latent_heat_evaporation) 
+        / (specific_heat_air * r * t^2) - gravity * M_a / (r * t)
+    @test alpha_sic(T, M_a) ≈ a
+end
+
+@testset gamma()
+    gravity = 9.8
+    water_molecular_mass = 0.01801528
+    latent_heat_evaporation = 2.26 * 10^-6
+    specific_heat_air = 1000
+    r = 31446261815324
+    t = 273.15
+    M_a = 0.058443
+    rho_s = 2170
+    g = r * t / (rho_s * water_molecular_mass) + water_molecular_mass 
+        * specific_heat_air ^ 2 / (specific_heat_air * water_density * M_a * T)
+    @test gamma_sic(t, M_a, rho_s) ≈ g
+end
+
+end 
