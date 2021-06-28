@@ -6,6 +6,7 @@ using CLIMAParameters
 using CLIMAParameters.Planet: cp_l, cp_i, T_0, LH_f0, T_freeze
 
 export snow_temperature,
+    usu_bulk_snow_T,
     volumetric_internal_energy,
     compute_profile_coefficients,
     get_temperature_profile,
@@ -100,6 +101,25 @@ function snow_temperature(
 end
 
 
+function usu_bulk_snow_T(
+    ρe_int::FT,
+    ρ_snow::FT,
+    z_snow::FT,
+    param_set::AbstractParameterSet
+) where {FT}
+    _T_ref = FT(T_0(param_set))
+    _LH_f0 = FT(LH_f0(param_set))
+    ρc_snow = volumetric_heat_capacity(FT(0), ρ_snow, param_set)
+    ρc_eff = ρc_snow .* z_snow .+ FT(1700*0.1*2100)
+    T_f = FT(273.15)
+    T0 = T_0(param_set)
+    lf = LH_f0(param_set)
+    U = ρe_int*z_snow
+    Tsnow= U/ρc_eff + T_f
+    return Tsnow
+end
+
+
 """
     function volumetric_internal_energy(
         T::FT,
@@ -138,7 +158,8 @@ function compute_profile_coefficients(
     param_set::AbstractParameterSet,
 ) where {FT}
     l = liquid_fraction(ρe_int, ρ_snow, param_set)
-    T_snow = snow_temperature(ρe_int, l, ρ_snow, param_set)
+    #T_snow = snow_temperature(ρe_int, l, ρ_snow, param_set)
+    T_snow = usu_bulk_snow_T(ρe_int, ρ_snow, z_snow, param_set)
     ρc_snow = volumetric_heat_capacity(l, ρ_snow, param_set)
     ν = FT(2.0*π/24/3600)
     d = (FT(2)*κ_snow/(ρc_snow*ν))^FT(0.5)

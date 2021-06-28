@@ -209,7 +209,8 @@ function Land.land_init_aux!(
     l = liquid_fraction(ρe_int, ρ_snow, param_set)
 
     ρc_snow = volumetric_heat_capacity(l, ρ_snow, param_set)
-    T_snow = snow_temperature(ρe_int, l, ρ_snow, param_set)
+    #T_snow = snow_temperature(ρe_int, l, ρ_snow, param_set)
+    T_snow = usu_bulk_snow_T(ρe_int, ρ_snow, z_snow, param_set)
     T_surf = snow_temperature(ρe_surf,l,ρ_snow, param_set)
     ν = FT(2.0*π/24/3600)
     d = (FT(2)*κ_snow/(ρc_snow*ν))^FT(0.5)
@@ -238,7 +239,8 @@ function Land.land_nodal_update_auxiliary_state!(
     l = liquid_fraction(ρe_int, ρ_snow, param_set)
 
     ρc_snow = volumetric_heat_capacity(l, ρ_snow, param_set)
-    T_snow = snow_temperature(ρe_int, l, ρ_snow, param_set)
+    #    T_snow = snow_temperature(ρe_int, l, ρ_snow, param_set)
+    T_snow = usu_bulk_snow_T(ρe_int, ρ_snow, z_snow, param_set)
     T_surf = snow_temperature(ρe_surf,l,ρ_snow, param_set)
     ν = FT(2.0*π/24/3600)
     d = (FT(2)*κ_snow/(ρc_snow*ν))^FT(0.5)
@@ -321,7 +323,8 @@ function source(::SurfaceVolumetricEnergy, s::ForceRestore, land::LandModel, arg
     ρe_int = state.snow.ρe_int
     l = liquid_fraction(ρe_int, ρ_snow, param_set)
     ρc_snow = volumetric_heat_capacity(l, ρ_snow, param_set)
-    T_snow = snow_temperature(ρe_int, l, ρ_snow, param_set)
+    #T_snow = snow_temperature(ρe_int, l, ρ_snow, param_set)
+    T_snow = usu_bulk_snow_T(ρe_int, ρ_snow, z_snow, param_set)
     ρe_surf = state.snow.ρe_surf
     T_surf = snow_temperature(ρe_surf,l,ρ_snow, param_set)
     ν = FT(2.0*π/24/3600)

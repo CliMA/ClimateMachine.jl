@@ -42,27 +42,39 @@ ClimateMachine.init()
 FT = Float64
 
 data = readdlm("/Users/katherinedeck/Downloads/USU_data.csv",',')
-Qsurf = data[:, data[1,:] .== "Qsurf (kJ/m2/hr)"][2:end, :][:] ./ 3600 .*1000 # per second
-Qsurf = -Qsurf # sign convention is opposite as ours
-G = data[:, data[1,:] .== "G (kJ/hr/m2)"][2:end, :][:] ./ 3600 .*1000 # per second
-dates = data[:, data[1,:] .== "Date"][2:end, :][:]
-#mod_flux =data[:, data[1,:] .== "Flux(MFR)"][2:end, :][:]
-#Qsurf = -mod_flux
-start = 1
+start = 8
 range = start:500 # no rain or snow in this window, no melting either
 
-Tave = FT.(data[:, data[1,:] .== "mod_Tave(C)"][2:end,:][range]) .+ 273.15
+#Qsurf = data[:, data[1,:] .== "Qsurf (kJ/m2/hr)"][2:end, :][range] ./ 3600 .*1000 # per second
+Qsurf = data[:, data[1,:] .== "Flux(Tave)"][2:end, :][range] ./ 3600 .*1000 # per second
+Qsurf = -Qsurf # sign convention is opposite as ours
+G = data[:, data[1,:] .== "G (kJ/hr/m2)"][2:end, :][range] ./ 3600 .*1000 # per second
+dates = data[:, data[1,:] .== "Date"][2:end, :][range]
+uobs = data[:, data[1,:] .== "obs_int (kJ)"][2:end,:][range]
+u_model = data[:, data[1,:] .=="U from TS (Tave)"][2:end][range]
+
+
 Tsurf = FT.(data[:, data[1,:] .== "obs_Ts (C)"][2:end,:][range]) .+ 273.15
-ρ_snow = FT(280) #this is a guess based on "max depth = 0.5m with SWE = 0.14m"
+ρ_snow = FT(280) 
 κ_air = FT(0.023)
 κ_ice = FT(2.29)
 κ_snow = FT(κ_air + (7.75*1e-5 *ρ_snow + 1.105e-6*ρ_snow^2)*(κ_ice-κ_air))
+#κ_snow = 0.09
 swe = FT(mean((data[:, data[1,:] .== "mod_SWE(m)"][2:end,:][range])))
 
 z_snow = 1e3 * swe ./ ρ_snow
+ρcz = (1e3*swe*2100+2100*1700*0.1)./1000
+tobs = uobs ./ ρcz .+ 273.15
+modelt = u_model ./ ρcz .+ 273.15
+#Tave = FT.(data[:, data[1,:] .== "mod_Tave(C)"][2:end,:][range]) .+ 273.15
 
-t0 = (start-1)*1800
-t = FT.(0:1800:length(Qsurf)*1800-1) .- t0
+function compute_u_from_T(Tave, ρ_snow, z_snow)
+    return (Tave -273.15)*2100*(ρ_snow*z_snow+0.1*1700)
+end
+
+
+#t0 = (start-1)*1800
+t = FT.(0:1800:length(Qsurf)*1800-1)# .- t0
 soil_water_model = PrescribedWaterModel()
 soil_heat_model = PrescribedTemperatureModel()
 soil_param_functions = nothing
@@ -70,20 +82,19 @@ soil_param_functions = nothing
 m_soil = SoilModel(soil_param_functions, soil_water_model, soil_heat_model)
 
 snow_parameters = SnowParameters{FT,FT,FT,FT}(κ_snow,ρ_snow,z_snow)
-Qsurf_spline = Spline1D(t[range], Qsurf[range])
+Qsurf_spline = Spline1D(t, Qsurf )
 function Q_surf(t::FT, Q::Spline1D) where {FT}
     return Q(t)
 end
-Qbott_spline = Spline1D(t[range], G[range])
+Qbott_spline = Spline1D(t, G)
 function Q_bott(t::FT, Q::Spline1D) where {FT}
     return Q(t)
 end
     
 
 forcing = PrescribedForcing(FT;Q_surf = (t) -> eltype(t)(Q_surf(t,Qsurf_spline)),Q_bottom = (t) -> eltype(t)(Q_bott(t,Qbott_spline)))
-Tave0 = Tave[1]
-ρe_int0 = volumetric_internal_energy(Tave0, snow_parameters.ρ_snow, 0.0, param_set)
-#ρe_int0 = U0/z_snow-ρ_snow*2100*(0.01)-LH_f0(param_set)*200
+
+ρe_int0 = u_model[1]/z_snow*FT(1000)#they report in kJ per m^2
 ic = (aux) -> eltype(aux)(ρe_int0)
 eq_snow_model = SingleLayerSnowModel{typeof(snow_parameters), typeof(forcing),typeof(ic)}(
     snow_parameters,
@@ -155,27 +166,64 @@ ClimateMachine.invoke!(solver_config; user_callbacks = (callback,));
 z = 0:0.01:FT(snow_parameters.z_snow)
 N = length(dons_arr)
 ρe_int = [dons_arr[k]["snow.ρe_int"][1] for k in 1:N]
-T_ave = snow_temperature.(ρe_int, Ref(0.0), Ref(ρ_snow),Ref(param_set))
-coeffs = compute_profile_coefficients.(Q_surf.(time_data, Ref(Qsurf_spline)), Ref(0.0), Ref(snow_parameters.z_snow), Ref(snow_parameters.ρ_snow), Ref(snow_parameters.κ_snow), ρe_int, Ref(param_set))
-t_profs = get_temperature_profile.(Q_surf.(time_data, Ref(Qsurf_spline)), Ref(0.0), Ref(snow_parameters.z_snow), Ref(snow_parameters.ρ_snow), Ref(snow_parameters.κ_snow), ρe_int, Ref(param_set))
+#our_T_ave = snow_temperature.(ρe_int, Ref(0.0), Ref(ρ_snow),Ref(param_set))
+our_T_ave = usu_bulk_snow_T.(ρe_int, Ref(ρ_snow),Ref(z_snow), Ref(param_set))
+qb = Q_bott.(time_data, Ref(Qbott_spline))
+qs = Q_surf.(time_data, Ref(Qsurf_spline))
+ρc_snow = volumetric_heat_capacity(0.0, ρ_snow, param_set)
+ν = FT(2.0*π/24/3600)
+d = (FT(2)*κ_snow/(ρc_snow*ν))^FT(0.5)
+our_T_surf = -qs*κ_snow/d .+ our_T_ave
+
+
+coeffs = compute_profile_coefficients.(qs,qb, Ref(snow_parameters.z_snow), Ref(snow_parameters.ρ_snow), Ref(snow_parameters.κ_snow), ρe_int, Ref(param_set))
+t_profs = get_temperature_profile.(qs,qb, Ref(snow_parameters.z_snow), Ref(snow_parameters.ρ_snow), Ref(snow_parameters.κ_snow), ρe_int, Ref(param_set))
         
 tsurf_pw = [coeffs[k][1] for k in 1:N]
 tsurf_obs = Tsurf
-plot1 = plot(time_data, ρe_int)
-#u_int = (ρe_int .+ ρ_snow*(2100*273.16+LH_f0(param_set))) .*z_snow .-z_snow*ρ_snow*2100*273.15
-plot!(xticks = ([time_data[1],time_data[250],time_data[500]], [dates[1], dates[250], dates[500]]))
-plot2 = plot(range, tsurf_pw, label = "piecewise model, EQ")
-plot!(range, tsurf_obs, label = "obs")
+
+
+
+#function compute_u_from_ρe_int(ρe_int, ρ_snow, z_snow, l, param_set)
+#    T_f = 273.15
+#    T0 = T_0(param_set)
+#    lf = LH_f0(param_set)
+#    c_snow = c_i = cp_i(param_set)
+    #T = snow_temperature(ρe_int, l, ρ_snow,param_set)
+#    T = usu_bulk_snow_T(ρe_int, ρ_snow, z_snow, param_set)
+#    Usnow = z_snow*ρe_int + ρ_snow*c_snow*z_snow*(T0-T_f)+ρ_snow*z_snow*lf
+#    U_soil = 1700*2100*0.1*(T-T_f)
+#    return (Usnow + U_soil)/1e3 # they report in kJ
+#end
+#our_U = compute_u_from_ρe_int.(ρe_int, Ref(ρ_snow), Ref(z_snow), Ref(0.0), Ref(param_set))
+    
+#plot1 = plot(time_data, our_U)
+
+#plot!(time_data, uobs)
+#plot!(time_data, u_model)
+
+
+plot1a = plot(time_data, our_T_ave , label = "Our model, EQ")
+plot!(time_data, tobs,label = "Data")
+plot!(time_data, modelt, label = "UEB, EQ")
+plot!(ylabel = "bulk T (K)")
+plot!(xticks = ([time_data[1],time_data[250],time_data[end]], [dates[1], dates[250], dates[end]]))
+plot2a = plot(time_data, tsurf_pw , label = "original model, EQ")
+plot!(time_data, tsurf_obs, label = "Data")
+plot!(time_data, our_T_surf, label = "fixed EQ")
 plot!(xlabel = "date", ylabel = "T surf (K)", legend = :topleft)
-plot!(xticks = ([1,250,500], [dates[1], dates[250], dates[500]]))
-#savefig("snow_scatter2_eq.png")
+plot!(xticks = ([time_data[1],time_data[250],time_data[end]], [dates[1], dates[250], dates[end]]))
 
 
+###Our original model is incorrect b/c (1) T_ave is incorrect b/c of different thermal mass. Even correcting that,
+# Tsurf is incorrect, because of ??? incorrect Tbottom? Qbottom formula isnt quite correct, wrong kappa?
+
+#=
 
 
-mod_flux =data[:, data[1,:] .== "Flux(MFR)"][2:end, :][:]
-Qsurf_fr = -mod_flux[range[4:end]]
-Qsurf_spline = Spline1D(t[range[4:end]], Qsurf)
+mod_flux =data[:, data[1,:] .== "Flux(MFR)"][2:end, :][range]
+Qsurf_fr = -mod_flux
+Qsurf_spline = Spline1D(t, Qsurf_fr)
 function Q_surf(t::FT, Q::Spline1D) where {FT}
     return Q(t)
 end
@@ -255,17 +303,27 @@ end;
 ClimateMachine.invoke!(solver_config; user_callbacks = (callback,));
 z = 0:0.01:FT(snow_parameters.z_snow)
 N = length(dons_arr)
-ρe_int_fr = [dons_arr[k]["snow.ρe_int"][1] for k in 1:N]
-T_ave = snow_temperature.(ρe_int, Ref(0.0), Ref(ρ_snow),Ref(param_set))
-l = 0.0
-ρc_snow = volumetric_heat_capacity(l,ρ_snow,param_set)
-ρe_surf = [dons_arr[k]["snow.ρe_surf"][1] for k in 1:N]
-T_surf_fr = snow_temperature.(ρe_surf, Ref(0.0), Ref(ρ_snow),Ref(param_set))
-z = 0:0.01:z_snow
-T_h = [dons_arr[k]["snow.t_h"][1] for k in 1:N]
-T_bottom = T_h #Q_bottom = 0
+ρe_int = [dons_arr[k]["snow.ρe_int"][1] for k in 1:N]
+our_T_ave = snow_temperature.(ρe_int, Ref(0.0), Ref(ρ_snow),Ref(param_set))
 
-plot!(range, T_surf_fr, label = "force restore")
-scatter!(range, T_ave, label = "bulk T")
-scatter!(range, data[:, data[1,:] .== "2mTair"][2:end, :][range], label = "2mTair")
-plot(plot1,plot2)
+
+#our_U = compute_u_from_ρe_int.(ρe_int, Ref(ρ_snow), Ref(z_snow), Ref(0.0), Ref(param_set))
+    
+#plot1 = plot(time_data, our_U)
+uobs = data[:, data[1,:] .== "obs_int (kJ)"][2:end,:][range]
+u_model = data[:, data[1,:] .=="U from TS (MFR)"][2:end][range]
+uobs[uobs .== ""] .= uobs[4]
+#plot!(time_data, uobs)
+#plot!(time_data, u_model)
+ρcz = (1e3*swe*2100+2100*1700*0.1)./1000
+plot1b = plot(time_data, our_T_ave, label = "Our model, FR")
+plot!(time_data, uobs ./ ρcz .+ 273.15, label = "Data")
+plot!(time_data, u_model ./ ρcz .+ 273.15, label = "UEB, MFR")
+plot!(ylabel = "bulk T (K)")
+plot!(xticks = ([time_data[1],time_data[250],time_data[end]], [dates[1], dates[250], dates[end]]))
+plot!(legend = :bottomright)
+plot2a = plot(range, tsurf_pw, label = "our model, EQ")
+plot!(range, tsurf_obs, label = "Data")
+plot!(xlabel = "date", ylabel = "T surf (K)", legend = :topleft)
+plot!(xticks = ([1,250,500], [dates[1], dates[250], dates[500]]))
+=#
