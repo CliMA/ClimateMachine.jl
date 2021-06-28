@@ -163,13 +163,13 @@ end
     f = 0.5 .* exp(2.5*(log.(particle_radius_stdev)).^2) # function of particle_radius_stdev (check units)
     g = 1 .+ 0.25 .* log.(particle_radius_stdev) # function of particle_radius_stdev (log(m))
     A = (2.*activation_time.*water_molecular_mass)./(water_density .*R.*temperature) # Surface tension effects on Kohler equilibrium equation (s/(kg*m))
-    S_min = ((2)./(B_i_bar).^(.5)).*((A)./(3.*particle_radius)).^(3/2) # Minimum supersaturation
+    S_mi = ((2)./(B_i_bar).^(.5)).*((A)./(3.*particle_radius)).^(3/2) # Minimum supersaturation
     zeta = ((2.*A)./(3)).*((alpha.*updraft_velocity)/(diffusion)).^(.5) # dependent parameter 
     eta = (  ((alpha.*updraft_velocity)./(diffusion)).^(3/2)  ./    (2*pi.*water_density .*gamma.*aerosol_particle_density)   )    # dependent parameter
 
     
     # Final value for maximum supersaturation:
-    MS = sum(((1)./(((S_min).^2) * (    f_i.*((zeta./eta).^(3/2))     +    g_i.*(((S_min.^2)./(eta+3.*zeta)).^(3/4))    ) )))
+    MS = sum(((1)./(((S_mi).^2) * (f_i.*((zeta./eta).^(3/2))+g_i.*(((S_mi.^2)./(eta+3.*zeta)).^(3/4))    ) )))
 
     # Comaparing calculated MS value to function output: 
     @test maxsupersat(particle_radius, particle_radius_stdev, activation_time, water_molecular_mass, water_density , R, temperature, B_i_bar, alpha, updraft_velocity, diffusion, aerosol_particle_density, gamma) = MS
@@ -193,7 +193,7 @@ end
     # Internal calculations:
     B_bar = mean_hygrosopicity() # calculated in earlier function    ------ INCOMPLETE-------
     A = (2.*activation_time.*water_molecular_mass)./(water_density .*R.*temperature) # Surface tension effects on Kohler equilibrium equation (s/(kg*m))
-    S_min = ((2)./(B_i_bar).^(.5)).*((A)./(3.*particle_radius)).^(3/2) # Minimum supersaturation
+    S_mi = ((2)./(B_i_bar).^(.5)).*((A)./(3.*particle_radius)).^(3/2) # Minimum supersaturation
     S_max = maxsupersat(particle_radius, particle_radius_stdev activation_time, water_molecular_mass, water_density , R, temperature, B_i_bar, alpha, updraft_velocity, diffusion, aerosol_particle_density, gamma)
     
     # Final calculation:

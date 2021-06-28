@@ -27,7 +27,7 @@ LATENT_HEAT_EVAPORATION = 2.26 * 10^-6
 SPECIFIC_HEAT_AIR = 1000
 
 # Minimum supersaturation
-function S_min(B_bar, A, particle_radius)
+function S_mi(B_bar, A, particle_radius)
     S_m = (2./(B_bar).^.5).*(A./(3.*particle_radius)).^(3/2)
     return S_m
 end
@@ -75,13 +75,13 @@ function smallactpartdryrad(particle_radius, particle_radius_stdev,
                             aerosol_particle_density, gamma)
 
     A =  A(activation_time, WATER_MOLECULAR_MASS, WATER_DENSITY, R, temperature)
-    S_min =  S_min(B_bar, A, particle_radius)
+    S_mi =  S_mi(B_bar, A, particle_radius)
     S_max = maxsupersat(particle_radius, particle_radius_stdev, activation_time, 
                         WATER_MOLECULAR_MASS, WATER_DENSITY, R, temperature, 
                         B_bar, alpha, updraft_velocity, diffusion, 
                         aerosol_particle_density, gamma)
 
-    drsap = particle_radius.*((S_min)./(S_max)).^(2/3)
+    drsap = particle_radius.*((S_mi)./(S_max)).^(2/3)
     return drsap
 end
 
@@ -92,7 +92,7 @@ function maxsupersat(particle_radius, particle_radius_stdev, activation_time, te
     g = 1 .+ 0.25 .* log.(particle_radius_stdev)        
 
     A = A(activation_time, WATER_MOLECULAR_MASS, WATER_DENSITY, R, temperature)
-    S_m = S_min(B_bar, A, particle_radius)
+    S_m = S_mi(B_bar, A, particle_radius)
     zeta = ((2.*A)./3).*((alpha.*updraft_velocity)./diffusion).^(.5)
     eta = (((alpha.*updraft_velocity)./diffusion).^(3/2))./(2.*pi.*WATER_DENSITY.*gamma.*aerosol_particle_density)
 
@@ -107,7 +107,7 @@ function total_N_Act(particle_radius, activation_time, R, temperature, B_bar, pa
 
     # Internal calculations:
     A = A(activation_time, WATER_MOLECULAR_MASS, WATER_DENSITY, R, temperature)
-    S_m = S_min(B_bar, A, particle_radius)
+    S_m = S_mi(B_bar, A, particle_radius)
     u = (2.*log.(S_m./S_max))./(3.*(2.^.5).*log.(particle_radius_stdev))
     
     # Final Calculation: 

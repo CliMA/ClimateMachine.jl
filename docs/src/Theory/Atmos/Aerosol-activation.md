@@ -86,7 +86,7 @@ a_{ci} = a_{mi}(\frac{S_{mi}}{S_{max}})^{\frac{2}{3}}
 where
   - ``i = 1,...,I``
   - ``a_{mi}`` is the geometric mean dry radius.
-  -  ``S_{mi} = \frac{2}{\sqrt{\bar{B_{i}}}}(\frac{A}{3a_{mi}})^{3/2}``
+  - ``S_{mi} = \frac{2}{\sqrt{\bar{B_{i}}}}(\frac{A}{3a_{mi}})^{3/2}``
   - ``S_{max}`` is the equation 4.
 
 6: Total Number of Activated Aerosols
@@ -107,17 +107,52 @@ where
   - ``\sigma_{i}`` is the geometric standard deviation for aerosol mode ``i``.
   - ``M_{i}`` is the mass of the aerosol mode ``i``.
 
-8: S_min Calculation
+8: S_mi Calculation
 ```math
-
+S_mi = \frac{2}{\bar{B_i}}^{0.5} * \frac{3}{particle_radius}^{3/2}
 ```
+where
+  - ``S_mi`` is the supersaturation of the aerosol mode ``i``.
+  - ``\bar{B_i}`` is the mean hygroscopicity parameter of the aerosol material in the aerosol mode ``i``.
+  - ``particle_radius`` is the mean radius of the particles.
 
 9: A Calculation
+```math
+A = \frac{2*activation_time.*water_molecular_mass}{water_density.*R.*temperature}
+```
+where
+  - ``activation_time`` is time that the aerosol gets activated. 
+  - ``water_molecular_mass`` is the molecular mass of water. 
+  - ``water_density`` is the density of water. 
+  - ``R`` is the universal gas constant. 
+  - ``temperature`` is the temperature.
 
-10: Alpha Calculations
+10: Alpha Calculations (Size Invariant Coefficients)
+```math
+\alpha = \frac{gravity * water_molecular_mass * latent_heat_evaporation}
+         {specific_heat_air * R * T^2} - \frac{gravity * M_a}{R * T}
+```
+where 
+  - ``gravity`` is the gravitational force of the Earth.
+  - ``water_molecular_mass`` is the molecular mass of water. 
+  - ``latent_heat_evaporation`` is the latent heat of evaporation.
+  - ``specific_heat_air`` is the specific heat of air.
+  - ``R``  is the universal gas constant. 
+  - ``T`` is the temperature
+  - ``M_{a}`` is the molecular weight of the aerosol material.
 
-11: Gamma Calculations
-
+11: Gamma Calculations (Size Invariant Coefficients)
+```math
+\gamma = R * T / (rho_{s} * water_molecular_mass) + water_molecular_mass 
+        * specific_heat_air ^ 2 / (specific_heat_air * water_density * M_a * T)
+```
+  - ``water_molecular_mass`` is the molecular mass of water. 
+  - ``specific_heat_air`` is the specific heat of air.
+  - ``water_density`` is the density of water.
+  - ``R``  is the universal gas constant. 
+  - ``T`` is the temperature
+  - ``M_{a}`` is the molecular weight of the aerosol material.
+  - ``rho_{a}`` is the desnity of the aerosol.
 
 Variables:
   - ``osmotic_coefficient`` 
