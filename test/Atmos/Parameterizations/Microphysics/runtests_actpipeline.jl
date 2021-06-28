@@ -1,5 +1,5 @@
 #=
-Full testing pipeline for the implementation of code in Abdul-Razzal and Ghan (2000).
+Full testing pipeline for the implementation of model in Abdul-Razzal and Ghan (2000).
 
 Isabella Dula and Shevali Kadakia
 
@@ -11,14 +11,14 @@ Test classifications:
     the functions outputs against published results)
 
 Dimension (DIM):
-    --Tests are done with multi-dimensional inputs. 
+    --Tests are done with multi-dimensional inputs: 
     --0: Only one mode and one component (e.g., coarse sea salt) 
     --1: Considering multiple modes over one component (e.g., accumulation mode and coarse mode sea salt)
     --2: Considering multiple modes with multiple components (e.g., accumulation and coarse mode for sea 
     salt and dust)
 
 Modes and Components Considered
-    --This testing pipeline uses data from Porter and Clarke (1997) to provide real-world inputs into 
+    --This testing pipeline uses aerosol data from Porter and Clarke (1997) to provide real-world inputs into 
     the functions
     --Modes: Accumulation (ACC) and coarse (COA)
     --Components: Sea Salt (SS) and Dust (DUS)
@@ -536,7 +536,7 @@ end
 # VER; All tests done; DIM 2; ACC & COA, SS & DUS
 #------------------------------------------------------------------------------------------------------
 
-# DETERMINE PARAMETERS
+# TODO: DETERMINE PARAMETERS
 
 #------------------------------------------------------------------------------------------------------
 # Test No. 5
@@ -578,8 +578,9 @@ end
 # Test No. 6
 # VAL; ONLY total_N_Act_test; DIM 0; Paper validation
 
-# ~~~|This test section checks compares outputs to results give in the Abdul-Razzal and Ghan paper to 
-# ~~~|validate the accuracy of the functions implemented. 
+# ~~~|This test section checks compares outputs to results give in the 
+# ~~~|Abdul-Razzal and Ghan paper to validate the accuracy of the 
+# ~~~|functions implemented. 
 
 #------------------------------------------------------------------------------------------------------
 # Paper parameters/constants (AG=data given in Abdul-Razzak & Ghan (2000) paper)
@@ -590,6 +591,7 @@ sigma_AG = 2
 nu_AG = 3
 M_AG = 132 # kg/mol
 rho_AG = 1770 # kg/m^3
+N_AG = 100000000 # 1/m^3
 
 # 6a: Validating initial particle density versus final activation number. 
 
@@ -602,7 +604,7 @@ rho_AG = 1770 # kg/m^3
 
 
     for i in range(size(Ns))
-        # Input parameters
+        # Input parameters  TODO: figure out remaining parameters
         particle_radius = [a_AG] # particle mode radius (m)
         activation_time = [tau] # time of activation (s)                                                  
         water_molecular_mass = [M_w] # Molecular weight of water (kg/mol)
@@ -610,26 +612,92 @@ rho_AG = 1770 # kg/m^3
         temperature = [T_AG] # Temperature (K)
         particle_radius_stdev = [sigma_AG] # standard deviation of mode radius (m)
         alpha = [Alpha] # Coefficient in superaturation balance equation       
-        updraft_velocity = [V] # Updraft velocity (m/s)
+        updraft_velocity = [V_AG] # Updraft velocity (m/s)
         diffusion = [G] # Diffusion of heat and moisture for particles 
-        aerosol_particle_density = [0] # Initial particle concentration (1/m^3)
+        aerosol_particle_density = [Ns[i]] # Initial particle concentration (1/m^3)
         gamma = [Gamma] # coefficient 
-        
-        # Internal calculations:
-        B_bar = mean_hygrosopicity(mass_mixing_ratio, disassociation, osmotic_coefficient, mass_fraction, aerosol_molecular_mass, aerosol_density) # calculated in earlier function    ------ INCOMPLETE-------
-        A = (2.*activation_time.*water_molecular_mass)./(water_density .*R.*temperature) # Surface tension effects on Kohler equilibrium equation (s/(kg*m))
-        S_min = ((2)./(B_bar).^(.5)).*((A)./(3.*particle_radius)).^(3/2) # Minimum supersaturation
-        S_max = maxsupersat(particle_radius, particle_radius_stdev activation_time, water_molecular_mass, water_density , R, temperature, B_i_bar, alpha, updraft_velocity, diffusion, aerosol_particle_density, gamma)
+         
+        totN = totNs[i]
 
-        u = ((2*log.(S_min/S_max))./(3.*(2.^.5).*log.(particle_radius_stdev)))
-        # Final Calculation: 
-        totN = sum(aerosol_particle_density.*.5.*(1-erf.(u)))
+        func_totN = total_N_Act(particle_radius, activation_time, water_molecular_mass, water_density , R, temperature, B_i_bar, particle_radius_stdev, alpha, updraft_velocity, diffusion, aerosol_particle_density, gamma)
+        
+
 
         # Compare results:
-        @test total_N_Act(particle_radius, activation_time, water_molecular_mass, water_density , R, temperature, B_i_bar, particle_radius_stdev, alpha, updraft_velocity, diffusion, aerosol_particle_density, gamma) = 0
+        @test  ((totN-functotN)/totN)<.1 # checks if we are within a certain percent error of paper results
 
     end
 
 
 end
 
+# 6b: Validating initial updraft velocity versus final activation number
+
+@testset "Validate_initial_updraft_velocity" begin
+    # test paramters
+    Vs = [0.200895541, 0.350392221, 0.048877492, 0.02335161, 3.155076552, 0.781752551, 0.016214404]
+    totNs = [0.539319421, 0.647329779, 0.318536481, 0.22662361, 0.931693526, 0.785977761, 0.178818583]
+    
+    for i in range(size(Vs))
+        # Input parameters  TODO: figure out remaining parameters
+        particle_radius = [a_AG] # particle mode radius (m)
+        activation_time = [tau] # time of activation (s)                                                  
+        water_molecular_mass = [M_w] # Molecular weight of water (kg/mol)
+        water_density  = [rho_w] # Density of water (kg/m^3)
+        temperature = [T_AG] # Temperature (K)
+        particle_radius_stdev = [sigma_AG] # standard deviation of mode radius (m)
+        alpha = [Alpha] # Coefficient in superaturation balance equation       
+        updraft_velocity = [Vs[i]] # Updraft velocity (m/s)
+        diffusion = [G] # Diffusion of heat and moisture for particles 
+        aerosol_particle_density = [N_AG] # Initial particle concentration (1/m^3)
+        gamma = [Gamma] # coefficient 
+        
+        totN = totNs[i]
+
+        func_totN = total_N_Act(particle_radius, activation_time, water_molecular_mass, water_density , R, temperature, B_i_bar, particle_radius_stdev, alpha, updraft_velocity, diffusion, aerosol_particle_density, gamma)
+        
+
+
+        # Compare results:
+        @test  ((totN-functotN)/totN)<.1 # checks if we are within a certain percent error of paper results
+
+    end
+
+
+end
+
+# 6c: Validating initial mode radius versus final activation number 
+
+@testset "Validate_initial_mode_radius"  begin
+    # test paramters
+    as = [0.121074949, 0.246347032, 0.365327666, 0.015725944, 0.03836725, 0.089315933, 0.029013032]
+    totNs = [0.536374647, 0.319953771, 0.193993366, 0.73419934, 0.695886073, 0.615805014, 0.707858178]
+
+        for i in range(size(Vs))
+            # Input parameters  TODO: figure out remaining parameters
+            particle_radius = [as[i]] # particle mode radius (m)
+            activation_time = [tau] # time of activation (s)                                                  
+            water_molecular_mass = [M_w] # Molecular weight of water (kg/mol)
+            water_density  = [rho_w] # Density of water (kg/m^3)
+            temperature = [T_AG] # Temperature (K)
+            particle_radius_stdev = [sigma_AG] # standard deviation of mode radius (m)
+            alpha = [Alpha] # Coefficient in superaturation balance equation       
+            updraft_velocity = [V_AG] # Updraft velocity (m/s)
+            diffusion = [G] # Diffusion of heat and moisture for particles 
+            aerosol_particle_density = [N_AG] # Initial particle concentration (1/m^3)
+            gamma = [Gamma] # coefficient 
+
+            totN = totNs[i]
+
+            func_totN = total_N_Act(particle_radius, activation_time, water_molecular_mass, water_density , R, temperature, B_i_bar, particle_radius_stdev, alpha, updraft_velocity, diffusion, aerosol_particle_density, gamma)
+            
+
+
+            # Compare results:
+            @test  ((totN-functotN)/totN)<.1 # checks if we are within a certain percent error of paper results
+
+        end
+end
+
+
+# TODO: Implement more detailed validation tests
