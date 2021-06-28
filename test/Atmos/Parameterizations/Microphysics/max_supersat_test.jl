@@ -18,13 +18,13 @@
     f_i = 0.5 .* exp(2.5*(log.(sigma)).^2) # function of sigma (check units)
     g_i = 1 .+ 0.25 .* log.(sigma) # function of sigma (log(m))
     A = (2.*tau.*M_w)./(rho_w.*R.*T) # Surface tension effects on Kohler equilibrium equation (s/(kg*m))
-    S_min = ((2)./(B_i_bar).^(.5)).*((A)./(3.*a_m)).^(3/2) # Minimum supersaturation
+    S_mi = ((2)./(B_i_bar).^(.5)).*((A)./(3.*a_m)).^(3/2) # Minimum supersaturation
     zeta = ((2.*A)./(3)).*((alpha.*V)/(G)).^(.5) # dependent parameter 
     eta = (  ((alpha.*V)./(G)).^(3/2)  ./    (2*pi.*rho_w.*gamma.*N)   )    # dependent parameter
 
     
     # Final value for maximum supersaturation:
-    MS = sum(((1)./(((S_min).^2) * (    f_i.*((zeta./eta).^(3/2))     +    g_i.*(((S_min.^2)./(eta+3.*zeta)).^(3/4))    ) )))
+    MS = sum(((1)./(((S_mi).^2) * (    f_i.*((zeta./eta).^(3/2))     +    g_i.*(((S_mi.^2)./(eta+3.*zeta)).^(3/4))    ) )))
 
     # Comaparing calculated MS value to function output: 
     @test maxsupersat(a_m, sigma, tau, M_w, rho_w, R, T, B_i_bar, alpha, V, G, N, gamma) = MS
