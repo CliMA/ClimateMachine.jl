@@ -174,4 +174,38 @@ Variables:
   - ``alpha`` # ADD MORE
   - ``diffusion``
   -  ``gamma`` # ADD MORE
-  - 
+
+| Variable Name - Code | Meaning                               | Units
+Variable Name - Paper
+|  - TEMP              | temperature                           | Kelvin
+|  - WTR_MM            | molecular mass of water               | kg/mol
+|  - WTR_MLR_ρ         | molar density of water                | m^3/mol
+|  - WTR_ρ             | water density                         | kg/m^3
+|  - R                 | gas constant                          | (kg m^2) / (s^2 K mol)
+|  - G                 | gravity                               | m/s^2
+|  - LAT_HEAT_EVP      | latent heat of evaporation            | J/kg
+|  - SPC_HEAT_AIR      | specific heat of air                  | J/kg
+|  - P                 | ?                                     | 
+|  - act_time          | activation time                       | seconds
+|  - part_radius       | particle radius                       | meters
+|  - mass_mx_rat       | mass mixing ratio                     | N/A
+|  - diss              | dissociation                          | N/A
+|  - osm_coeff         | osmotic coefficient                   | N/A
+|  - mass_frac         | mass fraction                         | N/A
+|  - aero_mm           | molecular mass of aerosol             | kg/mol
+|  - aero_ρ            | density of aerosol                    | kg/m^3
+|  - a                 | alpha                                 | ?
+|  - b_bar             | mean hygroscopicity                   | ? 
+|  - s_m               | supersaturation FILL                  | ?
+|  - part_radius_stdev | standard deviation of particle radius | meters
+|  - updft_velo        | updraft velocity                      | m/s
+|  - diff              | diffusion                             | ?
+|  - aero_part_ρ       | aerosol particle density              | kg/m^3
+|  - f                 | ?                                     | ?
+|  - g                 | ?                                     | ?
+|  - gamma             | size invariant coefficients           | N/A
+|  - zeta              | dimentionless constant                | N/A
+|  - eta               | dimentionless constant                | N/A
+|  - s_max             | maximum supersaturation               | ?
+|  - u                 | ?                                     | ?
+|  - totN              | total number                          | N/A

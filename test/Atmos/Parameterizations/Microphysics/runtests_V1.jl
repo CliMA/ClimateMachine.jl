@@ -47,7 +47,7 @@ AVO = 6.02214076 × 10^23
 G = 9.8
 LAT_HEAT_EVP = 2.26 * 10^-6
 SPC_HEAT_AIR = 1000
-T = 273.1 # K (STP)
+TEMP = 273.1 # K (STP)
 P = 100000 # Pa (N/m^2) (STP)
 K = 2.4*10^(-2) # J/m*s*K
 R_v = R/WTR_MM 
@@ -55,9 +55,9 @@ D = 2.26 * 10 ^ (-5) # m^2/s
 
 
 # TEST INPUTS 
-P_saturation = 100000 # Pa                                  TODO
+P_sat = 100000 # Pa                                  TODO
 G = (((LAT_HEAT_EVP/(K*T))*((LAT_HEAT_EVP/(R_v*T))-1))+
-       ((R_v*T)/(P_saturation*D)))^(-1) # diffusion
+       ((R_v*T)/(P_sat*D)))^(-1) # diffusion
 
 # --Sea Salt accumulation and coarse modes:
 OC_SS = 0.9 # osmotic coefficient
@@ -86,11 +86,11 @@ sigma_SS_COA = 0.0000021 # mean particle stdev(m)
     aero_ρ = rho_SS
 
     # Internal calculations
-    B_bar = zeros(size(mass_mx_rat, 2))
-    for i in range(size(mass_mx_rat, 2))
+    B_bar = zeros(size(mass_mx_rat)[2])
+    for i in range(size(mass_mx_rat)[2])
         B_bar[i] = ((WTR_MM)/(WTR_ρ)).*
                    (sum(mass_mx_rat[i].*diss[i].*
-                   epsilon_SS[i].*(1./aero_mm[i])  ) 
+                   mass_frac[i].*(1./aero_mm[i])  ) 
                    / sum(mass_mx_rat[i]./aero_ρ[i]))
 
     end
@@ -114,7 +114,7 @@ end
     part_radius_stdev = sigma_SS_ACC # standard deviation of mode radius (m)
     act_time = tau # time of activation (s)                                                  
     updft_velo = V # Updraft velocity (m/s)
-    diffusion = DIF # Diffusion of heat and moisture for particles 
+    diff = DIF # Diffusion of heat and moisture for particles 
     aero_part_ρ = N # Initial particle concentration (1/m^3)
     aero_ρ = rho_SS
     mass_mx_rat = r_SS
@@ -123,7 +123,7 @@ end
     mass_frac = epsilon_SS
     aero_mm = M_SS
 
-    gamma = gamma_sic(M_SS, P_saturation) # coefficient 
+    gamma = gamma_sic(M_SS, P_sat) # coefficient 
     alpha = alpha_sic(M_SS) # Coefficient in superaturation balance equation       
 
     # Internal calculations
@@ -140,10 +140,10 @@ end
               diss, osm_coeff, mass_frac,
               aero_mm, aero_ρ)
 
-    zeta = ((2.*A)./(3)).*((alpha.*updft_velo)/(diffusion)).^
+    zeta = ((2.*A)./(3)).*((alpha.*updft_velo)/(diff)).^
            (.5) 
 
-    eta = (  ((alpha.*updft_velo)./(diffusion)).^(3/2)  ./    
+    eta = (  ((alpha.*updft_velo)./(diff)).^(3/2)  ./    
           (2*pi.*WTR_ρ .*gamma.*aero_part_ρ)   )    
           
 
@@ -154,7 +154,7 @@ end
 
     # Comparison between calculations and function output
     @test maxsupersat(part_radius, part_radius_stdev, act_time, 
-                      updft_velo, diffusion, 
+                      updft_velo, diff, 
                       aero_part_ρ, mass_mx_rat, 
                       diss, 
                       osm_coeff, mass_frac,
@@ -168,7 +168,7 @@ end
     act_time = tau # time of activation (s)                                                  
     part_radius_stdev = sigma_SS_ACC # standard deviation of mode radius (m)
     updft_velo = V # Updraft velocity (m/s)
-    diffusion = DIF # Diffusion of heat and moisture for particles 
+    diff = DIF # Diffusion of heat and moisture for particles 
     aero_part_ρ = N # Initial particle concentration (1/m^3)
     mass_mx_rat = r_SS
     diss = nu_SS
@@ -177,7 +177,7 @@ end
     aero_mm = M_SS
     aero_ρ = rho_SS
 
-    gamma = gamma_sic(M_SS, P_saturation) # coefficient 
+    gamma = gamma_sic(M_SS, P_sat) # coefficient 
     alpha = alpha_sic(M_SS) # Coefficient in superaturation balance equation       
 
 
@@ -194,7 +194,7 @@ end
               aero_mm, aero_ρ)
 
     S_max = maxsupersat(part_radius, part_radius_stdev, act_time, 
-                        updft_velo, diffusion, 
+                        updft_velo, diff, 
                         aero_part_ρ, mass_mx_rat, 
                         diss, 
                         osm_coeff, mass_frac,
@@ -209,7 +209,7 @@ end
     # Comparison between calculations and function output
     @test total_N_Act(part_radius, act_time, 
                       part_radius_stdev, updft_velo, 
-                      diffusion, aero_part_ρ) ≈ totN
+                      diff, aero_part_ρ) ≈ totN
 
 end
 
@@ -228,8 +228,8 @@ end
     aero_ρ = rho_SS
 
     # Internal calculations
-    B_bar = zeros(size(mass_mx_rat, 2))
-    for i in range(size(mass_mx_rat, 2))
+    B_bar = zeros(size(mass_mx_rat)[2])
+    for i in range(size(mass_mx_rat)[2])
         B_bar[i] = ((WTR_MM)/(WTR_ρ)).*
                    (sum(mass_mx_rat[i].*diss[i].*
                    epsilon_SS[i].*(1./aero_mm[i])  ) 
@@ -254,7 +254,7 @@ end
     part_radius_stdev = sigma_SS_COA # standard deviation of mode radius (m)
     act_time = tau # time of activation (s)                                                  
     updft_velo = V # Updraft velocity (m/s)
-    diffusion = DIF # Diffusion of heat and moisture for particles 
+    diff = DIF # Diffusion of heat and moisture for particles 
     aero_part_ρ = N # Initial particle concentration (1/m^3)
     aero_ρ = rho_SS
     mass_mx_rat = r_SS
@@ -263,7 +263,7 @@ end
     mass_frac = epsilon_SS
     aero_mm = M_SS
 
-    gamma = gamma_sic(M_SS, P_saturation) # coefficient 
+    gamma = gamma_sic(M_SS, P_sat) # coefficient 
     alpha = alpha_sic(M_SS) # Coefficient in superaturation balance equation       
 
     # Internal calculations
@@ -280,10 +280,10 @@ end
               diss, osm_coeff, mass_frac,
               aero_mm, aero_ρ)
 
-    zeta = ((2.*A)./(3)).*((alpha.*updft_velo)/(diffusion)).^
+    zeta = ((2.*A)./(3)).*((alpha.*updft_velo)/(diff)).^
            (.5) 
 
-    eta = (  ((alpha.*updft_velo)./(diffusion)).^(3/2)  ./    
+    eta = (  ((alpha.*updft_velo)./(diff)).^(3/2)  ./    
           (2*pi.*WTR_ρ .*gamma.*aero_part_ρ)   )    
           
 
@@ -294,7 +294,7 @@ end
 
     # Comparison between calculations and function output
     @test maxsupersat(part_radius, part_radius_stdev, act_time, 
-                      updft_velo, diffusion, 
+                      updft_velo, diff, 
                       aero_part_ρ, mass_mx_rat, 
                       diss, 
                       osm_coeff, mass_frac,
@@ -308,7 +308,7 @@ end
     act_time = tau # time of activation (s)                                                  
     part_radius_stdev = sigma_SS_COA # standard deviation of mode radius (m)
     updft_velo = V # Updraft velocity (m/s)
-    diffusion = DIF # Diffusion of heat and moisture for particles 
+    diff = DIF # Diffusion of heat and moisture for particles 
     aero_part_ρ = N # Initial particle concentration (1/m^3)
     mass_mx_rat = r_SS
     diss = nu_SS
@@ -317,7 +317,7 @@ end
     aero_mm = M_SS
     aero_ρ = rho_SS
 
-    gamma = gamma_sic(M_SS, P_saturation) # coefficient 
+    gamma = gamma_sic(M_SS, P_sat) # coefficient 
     alpha = alpha_sic(M_SS) # Coefficient in superaturation balance equation       
 
 
@@ -334,7 +334,7 @@ end
               aero_mm, aero_ρ)
 
     S_max = maxsupersat(part_radius, part_radius_stdev, act_time, 
-                        updft_velo, diffusion, 
+                        updft_velo, diff, 
                         aero_part_ρ, mass_mx_rat, 
                         diss, 
                         osm_coeff, mass_frac,
@@ -349,7 +349,7 @@ end
     # Comparison between calculations and function output
     @test total_N_Act(part_radius, act_time, 
                       part_radius_stdev, updft_velo, 
-                      diffusion, aero_part_ρ) ≈ totN
+                      diff, aero_part_ρ) ≈ totN
 
 end
 
@@ -367,8 +367,8 @@ end
     aero_mm = [M_SS, M_SS]
     aero_ρ = [rho_SS, rho_SS]
 
-    B_bar = zeros(size(mass_mx_rat, 2))
-    for i in range(size(mass_mx_rat, 2))
+    B_bar = zeros(size(mass_mx_rat)[2])
+    for i in range(size(mass_mx_rat)[2])
         B_bar[i] = ((WTR_MM)/(WTR_ρ)).*
                    (sum(mass_mx_rat[i].*diss[i].*
                    epsilon_SS[i].*(1./aero_mm[i])  ) 
@@ -394,7 +394,7 @@ end
     part_radius_stdev = [sigma_SS_ACC, sigma_SS_COA] 
     act_time = [tau, tau]                                                 
     updft_velo = [V, V] 
-    diffusion = [DIF, DIF] # Diffusion of heat and moisture for particles 
+    diff = [DIF, DIF] # Diffusion of heat and moisture for particles 
     aero_part_ρ = [N, N] # Initial particle concentration (1/m^3)
     aero_ρ = [rho_SS, rho_SS]
     mass_mx_rat = [r_SS, r_SS]
@@ -403,7 +403,7 @@ end
     mass_frac = [epsilon_SS, epsilon_SS]
     aero_mm = [M_SS, M_SS]
 
-    gamma = gamma_sic(M_SS, P_saturation) # coefficient 
+    gamma = gamma_sic(M_SS, P_sat) # coefficient 
     alpha = alpha_sic(M_SS) # Coefficient in superaturation balance equation       
 
     # Internal calculations
@@ -420,21 +420,21 @@ end
               diss, osm_coeff, mass_frac,
               aero_mm, aero_ρ)
 
-    zeta = ((2.*A)./(3)).*((alpha.*updft_velo)/(diffusion)).^
+    zeta = ((2.*A)./(3)).*((alpha.*updft_velo)/(diff)).^
            (.5) 
 
-    eta = (  ((alpha.*updft_velo)./(diffusion)).^(3/2)  ./    
+    eta = (  ((alpha.*updft_velo)./(diff)).^(3/2)  ./    
           (2*pi.*WTR_ρ .*gamma.*aero_part_ρ)   )    
           
 
     
     # Final value:
-    MS = sum(((1)./(((S_m).^2) * (    f.*((zeta./eta).^(3/2))     
-    .+    g.*(((S_m.^2)./(eta+3.*zeta)).^(3/4))    ) )))
+    MS = sum(((1)./(((S_m).^2) * (f.*((zeta./eta).^(3/2))     
+    .+ g.*(((S_m.^2)./(eta+3.*zeta)).^(3/4))))))
 
     # Comparison between calculations and function output
     @test maxsupersat(part_radius, part_radius_stdev, act_time, 
-                      updft_velo, diffusion, 
+                      updft_velo, diff, 
                       aero_part_ρ, mass_mx_rat, 
                       diss, 
                       osm_coeff, mass_frac,
@@ -448,7 +448,7 @@ end
     act_time = [tau, tau]                                                 
     part_radius_stdev = [sigma_SS_ACC, sigma_SS_COA] 
     updft_velo = [V, V]
-    diffusion = [DIF, DIF] 
+    diff = [DIF, DIF] 
     aero_part_ρ = [N, N]
     mass_mx_rat = [r_SS, r_SS]
     diss = [nu_SS, nu_SS]
@@ -457,7 +457,7 @@ end
     aero_mm = [M_SS, M_SS]
     aero_ρ = [rho_SS, rho_SS]
 
-    gamma = gamma_sic(M_SS, P_saturation) # coefficient 
+    gamma = gamma_sic(M_SS, P_sat) # coefficient 
     alpha = alpha_sic(M_SS) # Coefficient in superaturation balance equation       
 
 
@@ -474,7 +474,7 @@ end
               aero_mm, aero_ρ)
 
     S_max = maxsupersat(part_radius, part_radius_stdev, act_time, 
-                        updft_velo, diffusion, 
+                        updft_velo, diff, 
                         aero_part_ρ, mass_mx_rat, 
                         diss, 
                         osm_coeff, mass_frac,
@@ -489,7 +489,7 @@ end
     # Comparison between calculations and function output
     @test total_N_Act(part_radius, act_time, 
                       part_radius_stdev, updft_velo, 
-                      diffusion, aero_part_ρ) ≈ totN
+                      diff, aero_part_ρ) ≈ totN
 
 end
 
@@ -514,7 +514,7 @@ end
     act_time = tau                                               
     part_radius_stdev = sigma_SS_ACC
     updft_velo = V 
-    diffusion = DIF  
+    diff = DIF  
     aero_part_ρ = 0 # ZERO
     mass_mx_rat = r_SS
     diss = nu_SS
@@ -524,7 +524,7 @@ end
     aero_ρ = rho_SS
 
 
-    gamma = gamma_sic(M_SS, P_saturation) # coefficient 
+    gamma = gamma_sic(M_SS, P_sat) # coefficient 
     alpha = alpha_sic(M_SS) # Coefficient in superaturation balance equation       
 
     # Internal calculations
@@ -540,7 +540,7 @@ end
               aero_mm, aero_ρ)
 
     S_max = maxsupersat(part_radius, part_radius_stdev, act_time, 
-                        updft_velo, diffusion, 
+                        updft_velo, diff, 
                         aero_part_ρ, mass_mx_rat, 
                         diss, 
                         osm_coeff, mass_frac,
@@ -555,7 +555,7 @@ end
     # Comparison between calculations and function output
     @test total_N_Act(part_radius, act_time, 
                       part_radius_stdev, updft_velo, 
-                      diffusion, aero_part_ρ) ≈ totN
+                      diff, aero_part_ρ) ≈ totN
 
 end
 
@@ -591,17 +591,17 @@ tau_AG = 1 # s
     
     for i in range(size(Ns))
         # Input parameters  TODO: figure out remaining parameters
-        particle_radius = a_AG # particle mode radius (m)
-        activation_time = tau_AG # time of activation (s)                                                  
-        particle_radius_stdev = sigma_AG # standard deviation of mode radius (m)
-        updraft_velocity = V_AG # Updraft velocity (m/s)
-        diffusion = DIF # Diffusion of heat and moisture for particles 
-        aerosol_particle_density = Ns[i] # Initial particle concentration (1/m^3)
+        part_radius = a_AG # particle mode radius (m)
+        act_time = tau_AG # time of activation (s)                                                  
+        part_radius_stdev = sigma_AG # standard deviation of mode radius (m)
+        updft_velo = V_AG # Updraft velocity (m/s)
+        diff = DIF # Diffusion of heat and moisture for particles 
+        aero_part_ρ = Ns[i] # Initial particle concentration (1/m^3)
         totN = totNs[i]
 
-        func_totN = total_N_Act(particle_radius, activation_time, 
-                                particle_radius_stdev, updraft_velocity, 
-                                diffusion, aerosol_particle_density
+        func_totN = total_N_Act(part_radius, act_time, 
+                                part_radius_stdev, updft_velo, 
+                                diff, aero_part_ρ)
 
         # Compare results:
         @test  ((totN-functotN)/totN)<.1 

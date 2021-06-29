@@ -31,27 +31,28 @@ function S_m(act_time, part_radius, mass_mx_rat, diss, osm_coeff, mass_frac,
             aero_mm, aero_ρ)
 
     a = A(act_time)
-    B_bar = mean_hygroscopicity(mass_mx_rat, diss, osm_coeff, mass_frac,
+    b_bar = mean_hygroscopicity(mass_mx_rat, diss, osm_coeff, mass_frac,
             aero_mm, aero_ρ)
-    S_m = (2./(B_bar).^.5).*(a./(3.*part_radius)).^(3/2)
+    S_m = (2./(b_bar).^.5).*(a./(3.*part_radius)).^(3/2)
     return S_m
 
 end
 
 function A(act_time)
 
-    A = (2 * act_time .* WTR_MM) ./ (WTR_ρ .* R .* TEMP)
-    return A
+    a = (2 * act_time .* WTR_MM) ./ (WTR_ρ .* R .* TEMP)
+    return a
 
 end
 # input one mode at a time, returns the summation of all the compositions.
-function mean_hygroscopicity(diss, osm_coeff, mass_frac, aero_mm, 
+function mean_hygroscopicity(mass_mx_rat, diss, osm_coeff, mass_frac, aero_mm, 
                              aero_ρ)
-    top_values = mass_mx_rat .* diss .* osm_coeff.* mass_frac ./ aero_mm
-    top_values *= WTR_MM
-    bottom_values = mass_mx_rat ./ aero_ρ
-    bottom_values *= WTR_ρ
-    b_bar = sum(top_values)/sum(bottom_values)
+    b_bar = zeros(size(mass_mx_rat)[2])
+    for i in range(size(mass_mx_rat)[2])
+        b_bar[i] = ((WTR_MM)/(WTR_ρ)).*
+                   (sum(mass_mx_rat[i].*diss[i].*
+                   mass_frac[i].*(1./aero_mm[i])  ) 
+                   / sum(mass_mx_rat[i]./aero_ρ[i]))
     return b_bar
 
 end
@@ -65,16 +66,16 @@ function maxsupersat(part_radius, part_radius_stdev, act_time, updft_velo, diff,
     f = 0.5.*exp.(2.5*(log.(part_radius_stdev)).^2)
     g = 1 .+ 0.25 * log.(part_radius_stdev)        
     a = A(act_time)
-    S_m = S_m(act_time, part_radius, mass_mx_rat, 
+    s_m = S_m(act_time, part_radius, mass_mx_rat, 
               diss, osm_coeff, mass_frac,
               aero_mm, aero_ρ)
     gamma = gamma_sic(aero_mm, P_sat)
-    zeta = ((2.*A)./3).*((a.*updft_velo)./diff).^(.5)
+    zeta = ((2.*a)./3).*((a.*updft_velo)./diff).^(.5)
     eta = (((a.*updft_velo)./diff).^(3/2))./(2.*pi.*WTR_ρ.*gamma.*aero_part_ρ)
 
     # Final calculation:
-    mss = sum(1./(((1/S_m .^ 2).*((f.*(zeta/eta).^(3/2)).+
-             (g.*((S_m.^2)./(eta.+3.*zeta)).^(3/4)))).^.5))
+    mss = sum(1./(((1/s_m .^ 2).*((f.*(zeta/eta).^(3/2)).+
+             (g.*((s_m.^2)./(eta.+3.*zeta)).^(3/4)))).^.5))
 
     return mss
 
@@ -84,12 +85,12 @@ function total_N_Act(part_radius, act_time, part_radius_stdev, updft_velo, diff,
                      aero_part_ρ)
 
     # Internal calculations:
-    S_m = S_m(act_time, part_radius, mass_mx_rat, diss, osm_coeff, mass_frac,
+    s_m = S_m(act_time, part_radius, mass_mx_rat, diss, osm_coeff, mass_frac,
               aero_mm, aero_ρ)
-    S_max = maxsupersat(part_radius, part_radius_stdev, act_time, updft_velo, 
+    s_max = maxsupersat(part_radius, part_radius_stdev, act_time, updft_velo, 
                         diff, aero_part_ρ, mass_mx_rat, diss, osm_coeff, 
                         mass_frac, aero_mm, aero_ρ)
-    u = (2.*log.(S_m./S_max))./(3.*(2.^.5).*log.(part_radius_stdev))
+    u = (2.*log.(s_m./s_max))./(3.*(2.^.5).*log.(part_radius_stdev))
 
     # Final Calculation: 
     totN = sum(aero_part_ρ.*.5.*(1-erf.(u)))
@@ -100,7 +101,7 @@ end
 function alpha_sic(aero_mm)
 
     a = ((G * WTR_MM * LAT_HEAT_EVP) / (SPC_HEAT_AIR * R * T^2)) .- 
-        ((G * aerosol_molecular_mass) ./ (R * T))
+        ((G * aero_mm) ./ (R * T))
     return a
 
 end
