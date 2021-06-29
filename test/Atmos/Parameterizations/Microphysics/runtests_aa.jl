@@ -105,10 +105,10 @@ end
 
     # ------ INCOMPLETE-------
     B_bar = mean_hygrosopicity()
-    f = 0.5 .* exp(2.5 * (log.(part_rds_stdev)). ^ 2)
-    g = 1 .+ 0.25 .* log.(part_rds_stdev)
+    f = 0.5 .* exp(2.5 * (log.(part_radius_stdev)). ^ 2)
+    g = 1 .+ 0.25 .* log.(part_radius_stdev)
     A = (2 .* act_time .* WTR_MM)./ (WTR_ρ .* R .* T)
-    S_mi = ((2) ./ (B_i_bar) .^ (.5)) .* ((A) ./ (3.*part_rds)) .^ (3/2)
+    S_mi = ((2) ./ (B_i_bar) .^ (.5)) .* ((A) ./ (3.*part_radius)) .^ (3/2)
     zeta = ((2 .* A) ./ (3)).*((alpha .* updft_velo)/(diff)) .^ (.5)
     eta = (((alpha .* updft_velo) ./ (diff)) .^ (3/2)
           ./ (2 * pi .* WTR_ρ .* gamma .* aero_part_ρ))
@@ -118,7 +118,7 @@ end
          + g_i .* (((S_mi .^ 2)./(eta + 3 .* zeta)) .^ (3/4))))))
 
     # Comaparing calculated MS value to function output: 
-    @test maxsupersat(part_rds, part_rds_stdev, act_time, 
+    @test maxsupersat(part_radius, part_radius_stdev, act_time, 
                       WTR_MM, WTR_ρ, R, T, 
                       B_i_bar, alpha, updft_velo, diff, 
                       aero_part_ρ, gamma) ≈ MS
@@ -127,9 +127,9 @@ end
 @testset "smallactpartdryrad_test" begin
     # constants
 
-    part_rds = [5*(10^(-8))]
+    part_radius = [5*(10^(-8))]
     act_time = [1]
-    part_rds_stdev = [2]
+    part_radius_stdev = [2]
     alpha = [1]
     updft_velo = [1]
     diff = [1]
@@ -141,8 +141,8 @@ end
     # ------ INCOMPLETE-------
     B_bar = mean_hygrosopicity()
     A = (2 .* act_time .* water_molecular_mass) ./ (WTR_ρ .* R .* T)
-    S_mi = ((2) ./ (B_i_bar) .^ (.5)) .* ((A) ./ (3.*part_rds)) .^ (3/2)
-    S_max = maxsupersat(part_rds, part_rds_stdev, act_time, 
+    S_mi = ((2) ./ (B_i_bar) .^ (.5)) .* ((A) ./ (3.*part_radius)) .^ (3/2)
+    S_max = maxsupersat(part_radius, part_radius_stdev, act_time, 
                         WTR_MM, WTR_ρ , R, T, 
                         B_i_bar, alpha, updft_velo, diff, 
                         aero_part_ρ, gamma)
@@ -151,7 +151,7 @@ end
     drsap = particle_radius.*((S_mi)./(S_max)).^(2/3)
     
     # Comaparing calculated dry radius value to function output: 
-    @test smallactpartdryrad(part_rds, part_rds_stdev, 
+    @test smallactpartdryrad(part_radius, part_radius_stdev, 
                              act_time, R, T, B_i_bar, 
                              alpha, updft_velo, diff, 
                              aero_part_ρ, gamma) ≈ drsap
@@ -162,10 +162,10 @@ end
 
 @testset "total_N_Act_test" begin
     # constants
-    part_rds = [5*(10^(-8))]
+    part_radius = [5*(10^(-8))]
     act_time = [1]
     R = [8.31446261815324]
-    part_rds_stdev = [2]
+    part_radius_stdev = [2]
     alpha = [1]
     updft_velo = [1]
     diff = [1]
@@ -177,20 +177,20 @@ end
     # ------ INCOMPLETE-------
     B_bar = mean_hygrosopicity() 
     A = (2 .* act_time .* WTR_MM) ./ (WTR_ρ .* R .* T) 
-    S_min = ((2) ./ (B_bar) .^ (.5)) .* ((A) ./ (3 .* part_rds)) .^ (3/2) 
-    S_max = maxsupersat(part_rds, part_rds_stdev, act_time, 
+    S_min = ((2) ./ (B_bar) .^ (.5)) .* ((A) ./ (3 .* part_radius)) .^ (3/2) 
+    S_max = maxsupersat(part_radius, part_radius_stdev, act_time, 
                         WTR_MM, WTR_ρ , R, T, 
                         B_i_bar, alpha, updft_velo, diff, 
                         aerosol_particle_density, gamma)
-    u = ((2 * log.(S_min/S_max)) ./ (3.*(2 .^ .5) .* log.(part_rds_stdev)))
+    u = ((2 * log.(S_min/S_max)) ./ (3.*(2 .^ .5) .* log.(part_radius_stdev)))
 
     # Final value for total number:
     totN = sum(aero_part_ρ .* .5 .* (1-erf .(u)))
 
     # Comaparing calculated total number value to function output:
-    @test total_N_Act(part_rds, act_time, WTR_MM, 
+    @test total_N_Act(part_radius, act_time, WTR_MM, 
                       WTR_ρ , R, T, B_i_bar, 
-                      part_rds_stdev, alpha, updft_velo, diff, 
+                      part_radius_stdev, alpha, updft_velo, diff, 
                       aero_part_ρ, gamma) ≈ totN
 
 end

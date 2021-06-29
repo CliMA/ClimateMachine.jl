@@ -49,10 +49,17 @@ LAT_HEAT_EVP = 2.26 * 10^-6
 SPC_HEAT_AIR = 1000
 T = 273.1 # K (STP)
 P = 100000 # Pa (N/m^2) (STP)
+K = 2.4*10^(-2) # J/m*s*K
+R_v = R/WTR_MM 
+D = 2.26 * 10 ^ (-5) # m^2/s
+
 
 # TEST INPUTS 
 P_saturation = 100000 # Pa                                  TODO
-# --Sea Salt accumulation and coarse modes: 
+G = (((LAT_HEAT_EVP/(K*T))*((LAT_HEAT_EVP/(R_v*T))-1))+
+       ((R_v*T)/(P_saturation*D)))^(-1) # diffusion
+
+# --Sea Salt accumulation and coarse modes:
 OC_SS = 0.9 # osmotic coefficient
 M_SS = 0.058443 # sea salt molar mass; kg/mol
 rho_SS = 2170 # sea salt density; kg/m^3
@@ -63,7 +70,6 @@ a_SS_ACC = 0.000000243 # mean particle radius (m)
 a_SS_COA = 0.0000015 # mean particle radius (m)
 sigma_SS_ACC = 0.0000014 # mean particle stdev (m)
 sigma_SS_COA = 0.0000021 # mean particle stdev(m)
-DIF = 1 # diffusion                                         TODO
 
 #------------------------------------------------------------------------------------------------------
 # Test No. 1
@@ -71,6 +77,7 @@ DIF = 1 # diffusion                                         TODO
 #------------------------------------------------------------------------------------------------------
 
 @testset "Mean_Hygroscopicity_1" begin
+    # Parameters for calculations and function input
     mass_mx_rat = r_SS
     diss = nu_SS
     osm_coeff = OC_SS
@@ -78,6 +85,7 @@ DIF = 1 # diffusion                                         TODO
     aero_mm = M_SS
     aero_ρ = rho_SS
 
+    # Internal calculations
     B_bar = zeros(size(mass_mx_rat, 2))
     for i in range(size(mass_mx_rat, 2))
         B_bar[i] = ((WTR_MM)/(WTR_ρ)).*
@@ -87,6 +95,7 @@ DIF = 1 # diffusion                                         TODO
 
     end
     
+    # Comparison between calculations and function output
     for i in size(B_bar)
         @test mean_hygroscopicity(mass_mx_rat, diss, 
                                   osm_coeff, mass_frac,
@@ -94,11 +103,13 @@ DIF = 1 # diffusion                                         TODO
                                   aero_ρ)[i] 
                                   ≈ B_bar[i]
     end
+    
+    @test size(B_bar) = size([1])
 
 end
 
 @testset "max_supersat_1" begin
-    # parameters inputted into function:
+    # Parameters for calculations and function input
     part_radius = a_SS_ACC # particle mode radius (m)
     part_radius_stdev = sigma_SS_ACC # standard deviation of mode radius (m)
     act_time = tau # time of activation (s)                                                  
@@ -115,7 +126,7 @@ end
     gamma = gamma_sic(M_SS, P_saturation) # coefficient 
     alpha = alpha_sic(M_SS) # Coefficient in superaturation balance equation       
 
-    # Internal calculations:
+    # Internal calculations
     B_bar = mean_hygrosopicity(mass_mx_rat, diss, 
                                osm_coeff, mass_frac,
                                aero_mm, 
@@ -137,11 +148,11 @@ end
           
 
     
-    # Final value for maximum supersaturation:
+    # Final value:
     MS = sum(((1)./(((S_m).^2) * (    f.*((zeta./eta).^(3/2))     
     .+    g.*(((S_m.^2)./(eta+3.*zeta)).^(3/4))    ) )))
 
-    # Comaparing calculated MS value to function output: 
+    # Comparison between calculations and function output
     @test maxsupersat(part_radius, part_radius_stdev, act_time, 
                       updft_velo, diffusion, 
                       aero_part_ρ, mass_mx_rat, 
@@ -152,7 +163,7 @@ end
 end
         
 @testset "total_N_Act_1" begin
-    # Input parameters
+    # Parameters for calculations and function input
     part_radius = a_SS_ACC # particle mode radius (m)
     act_time = tau # time of activation (s)                                                  
     part_radius_stdev = sigma_SS_ACC # standard deviation of mode radius (m)
@@ -170,7 +181,7 @@ end
     alpha = alpha_sic(M_SS) # Coefficient in superaturation balance equation       
 
 
-    # Internal calculations:
+    # Internal calculations
     B_bar = mean_hygrosopicity(mass_mx_rat, diss, 
                                osm_coeff, mass_frac,
                                aero_mm, 
@@ -191,10 +202,11 @@ end
 
     u = ((2*log.(S_m/S_max))./(3.*(2.^.5).*
         log.(part_radius_stdev)))
-    # Final Calculation: 
+    
+    # Final value:
     totN = sum(aero_part_ρ.*.5.*(1-erf.(u)))
 
-    # Compare results:
+    # Comparison between calculations and function output
     @test total_N_Act(part_radius, act_time, 
                       part_radius_stdev, updft_velo, 
                       diffusion, aero_part_ρ) ≈ totN
@@ -207,6 +219,7 @@ end
 #------------------------------------------------------------------------------------------------------
 
 @testset "Mean_Hygroscopicity_2" begin
+    # Parameters for calculations and function input
     mass_mx_rat = r_SS
     diss = nu_SS
     osm_coeff = OC_SS
@@ -214,6 +227,7 @@ end
     aero_mm = M_SS
     aero_ρ = rho_SS
 
+    # Internal calculations
     B_bar = zeros(size(mass_mx_rat, 2))
     for i in range(size(mass_mx_rat, 2))
         B_bar[i] = ((WTR_MM)/(WTR_ρ)).*
@@ -222,7 +236,8 @@ end
                    / sum(mass_mx_rat[i]./aero_ρ[i]))
 
     end
-    
+
+    # Comparison between calculations and function output
     for i in size(B_bar)
         @test mean_hygroscopicity(mass_mx_rat, diss, 
                                   osm_coeff, mass_frac,
@@ -230,11 +245,11 @@ end
                                   aero_ρ)[i] 
                                   ≈ B_bar[i]
     end
-
+    @test size(B_bar) = size([1])
 end
 
 @testset "max_supersat_2" begin
-    # parameters inputted into function:
+    # Parameters for calculations and function input
     part_radius = a_SS_COA # particle mode radius (m)
     part_radius_stdev = sigma_SS_COA # standard deviation of mode radius (m)
     act_time = tau # time of activation (s)                                                  
@@ -251,7 +266,7 @@ end
     gamma = gamma_sic(M_SS, P_saturation) # coefficient 
     alpha = alpha_sic(M_SS) # Coefficient in superaturation balance equation       
 
-    # Internal calculations:
+    # Internal calculations
     B_bar = mean_hygrosopicity(mass_mx_rat, diss, 
                                osm_coeff, mass_frac,
                                aero_mm, 
@@ -273,11 +288,11 @@ end
           
 
     
-    # Final value for maximum supersaturation:
+    # Final value:
     MS = sum(((1)./(((S_m).^2) * (    f.*((zeta./eta).^(3/2))     
     .+    g.*(((S_m.^2)./(eta+3.*zeta)).^(3/4))    ) )))
 
-    # Comaparing calculated MS value to function output: 
+    # Comparison between calculations and function output
     @test maxsupersat(part_radius, part_radius_stdev, act_time, 
                       updft_velo, diffusion, 
                       aero_part_ρ, mass_mx_rat, 
@@ -288,7 +303,7 @@ end
 end
         
 @testset "total_N_Act_2" begin
-    # Input parameters
+    # Parameters for calculations and function input
     part_radius = a_SS_COA # particle mode radius (m)
     act_time = tau # time of activation (s)                                                  
     part_radius_stdev = sigma_SS_COA # standard deviation of mode radius (m)
@@ -306,7 +321,7 @@ end
     alpha = alpha_sic(M_SS) # Coefficient in superaturation balance equation       
 
 
-    # Internal calculations:
+    # Internal calculations
     B_bar = mean_hygrosopicity(mass_mx_rat, diss, 
                                osm_coeff, mass_frac,
                                aero_mm, 
@@ -327,10 +342,11 @@ end
 
     u = ((2*log.(S_m/S_max))./(3.*(2.^.5).*
         log.(part_radius_stdev)))
-    # Final Calculation: 
+
+    # Final value:
     totN = sum(aero_part_ρ.*.5.*(1-erf.(u)))
 
-    # Compare results:
+    # Comparison between calculations and function output
     @test total_N_Act(part_radius, act_time, 
                       part_radius_stdev, updft_velo, 
                       diffusion, aero_part_ρ) ≈ totN
@@ -343,6 +359,7 @@ end
 #------------------------------------------------------------------------------------------------------
 
 @testset "Mean_Hygroscopicity_3" begin
+    # Parameters for calculations and function input    
     mass_mx_rat = [r_SS, r_SS]
     diss = [nu_SS, nu_SS]
     osm_coeff = [OC_SS, OC_SS]
@@ -359,6 +376,7 @@ end
 
     end
     
+    # Comparison between calculations and function output
     for i in size(B_bar)
         @test mean_hygroscopicity(mass_mx_rat, diss, 
                                   osm_coeff, mass_frac,
@@ -366,11 +384,12 @@ end
                                   aero_ρ)[i] 
                                   ≈ B_bar[i]
     end
+    @test size(B_bar) = size([1, 1])
 
 end
 
 @testset "max_supersat_3" begin
-    # parameters inputted into function:
+    # Parameters for calculations and function input
     part_radius = [a_SS_ACC, a_SS_COA] 
     part_radius_stdev = [sigma_SS_ACC, sigma_SS_COA] 
     act_time = [tau, tau]                                                 
@@ -387,7 +406,7 @@ end
     gamma = gamma_sic(M_SS, P_saturation) # coefficient 
     alpha = alpha_sic(M_SS) # Coefficient in superaturation balance equation       
 
-    # Internal calculations:
+    # Internal calculations
     B_bar = mean_hygrosopicity(mass_mx_rat, diss, 
                                osm_coeff, mass_frac,
                                aero_mm, 
@@ -409,11 +428,11 @@ end
           
 
     
-    # Final value for maximum supersaturation:
+    # Final value:
     MS = sum(((1)./(((S_m).^2) * (    f.*((zeta./eta).^(3/2))     
     .+    g.*(((S_m.^2)./(eta+3.*zeta)).^(3/4))    ) )))
 
-    # Comaparing calculated MS value to function output: 
+    # Comparison between calculations and function output
     @test maxsupersat(part_radius, part_radius_stdev, act_time, 
                       updft_velo, diffusion, 
                       aero_part_ρ, mass_mx_rat, 
@@ -424,7 +443,7 @@ end
 end
         
 @testset "total_N_Act_3" begin
-    # Input parameters
+    # Parameters for calculations and function input
     part_radius = [a_SS_ACC, a_SS_COA] 
     act_time = [tau, tau]                                                 
     part_radius_stdev = [sigma_SS_ACC, sigma_SS_COA] 
@@ -442,7 +461,7 @@ end
     alpha = alpha_sic(M_SS) # Coefficient in superaturation balance equation       
 
 
-    # Internal calculations:
+    # Internal calculations
     B_bar = mean_hygrosopicity(mass_mx_rat, diss, 
                                osm_coeff, mass_frac,
                                aero_mm, 
@@ -463,10 +482,11 @@ end
 
     u = ((2*log.(S_m/S_max))./(3.*(2.^.5).*
         log.(part_radius_stdev)))
-    # Final Calculation: 
+
+    # Final value:
     totN = sum(aero_part_ρ.*.5.*(1-erf.(u)))
 
-    # Compare results:
+    # Comparison between calculations and function output
     @test total_N_Act(part_radius, act_time, 
                       part_radius_stdev, updft_velo, 
                       diffusion, aero_part_ρ) ≈ totN
@@ -489,7 +509,7 @@ end
 
 #------------------------------------------------------------------------------------------------------
 @testset "total_N_Act_5" begin
-    # Input parameters
+    # Parameters for calculations and function input
     part_radius = a_SS_ACC 
     act_time = tau                                               
     part_radius_stdev = sigma_SS_ACC
@@ -507,7 +527,7 @@ end
     gamma = gamma_sic(M_SS, P_saturation) # coefficient 
     alpha = alpha_sic(M_SS) # Coefficient in superaturation balance equation       
 
-    # Internal calculations:
+    # Internal calculations
     B_bar = mean_hygrosopicity(mass_mx_rat, diss, 
                                osm_coeff, mass_frac,
                                aero_mm, 
@@ -529,10 +549,10 @@ end
     u = ((2*log.(S_m/S_max))./(3.*(2.^.5).*
         log.(part_radius_stdev)))
     
-    # Final Calculation: 
+    # Final value:
     totN = sum(aero_part_ρ.*.5.*(1-erf.(u)))
 
-    # Compare results:
+    # Comparison between calculations and function output
     @test total_N_Act(part_radius, act_time, 
                       part_radius_stdev, updft_velo, 
                       diffusion, aero_part_ρ) ≈ totN
@@ -548,5 +568,46 @@ end
 # ~~~|functions implemented. 
 
 #------------------------------------------------------------------------------------------------------
+# Paper Parameters (AG=Abdul-Razzak+Ghan)
+T_AG = 294 # K 
+V_AG = 0.5 # m/s
+a_AG = 5*10^(-8)
+sigma_AG = 2
+nu_AG = 3
+M_AG = 132 # kg/mol
+rho_AG = 1770 # kg/m^3
+N_AG = 100000000 # 1/m^3
+tau_AG = 1 # s
 
-# TODO: Finalize; See runtests_actpipeline.jl for current version
+
+# Test 6a: Validating initial particle density versus final activation number.
+
+@testset "Validate_initial_N" begin
+    # test paramters
+    Ns = [810.7472258, 3555.037372, 2936.468114, 
+          2515.271387, 1778.226562, 1166.163519]
+    totNs = [0.613108201, 0.507426454, 0.525448148, 
+             0.542970165, 0.567620911, 0.594486894]
+    
+    for i in range(size(Ns))
+        # Input parameters  TODO: figure out remaining parameters
+        particle_radius = a_AG # particle mode radius (m)
+        activation_time = tau_AG # time of activation (s)                                                  
+        particle_radius_stdev = sigma_AG # standard deviation of mode radius (m)
+        updraft_velocity = V_AG # Updraft velocity (m/s)
+        diffusion = G_AG # Diffusion of heat and moisture for particles 
+        aerosol_particle_density = Ns[i] # Initial particle concentration (1/m^3)
+        totN = totNs[i]
+
+        func_totN = total_N_Act(particle_radius, activation_time, 
+                                particle_radius_stdev, updraft_velocity, 
+                                diffusion, aerosol_particle_density
+
+        # Compare results:
+        @test  ((totN-functotN)/totN)<.1 
+        # ^^^ checks if we are within a certain percent error of paper results
+
+    end
+
+
+end
