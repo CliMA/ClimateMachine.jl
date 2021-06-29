@@ -109,19 +109,19 @@ where
 
 8: S_mi Calculation
 ```math
-S_mi = \frac{2}{\bar{B_i}}^{0.5} * \frac{3}{particle_radius}^{3/2}
+S_mi = \frac{2}{\bar{B_i}}^{0.5} * \frac{3}{part_rds}^{3/2}
 ```
 where
   - ``S_mi`` is the supersaturation of the aerosol mode ``i``.
   - ``\bar{B_i}`` is the mean hygroscopicity parameter of the aerosol material in the aerosol mode ``i``.
-  - ``particle_radius`` is the mean radius of the particles.
+  - ``part_rds`` is the mean radius of the particles.
 
 9: A Calculation
 ```math
-A = \frac{2*activation_time.*water_molecular_mass}{water_density.*R.*temperature}
+A = \frac{2 * act_time .* wtr_mm}{wtr_ρ .* R .* temp}
 ```
 where
-  - ``activation_time`` is time that the aerosol gets activated. 
+  - ``act_time`` is time that the aerosol gets activated. 
   - ``water_molecular_mass`` is the molecular mass of water. 
   - ``water_density`` is the density of water. 
   - ``R`` is the universal gas constant. 
