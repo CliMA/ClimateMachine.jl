@@ -44,22 +44,15 @@ function A(act_time)
     return A
 
 end
-
-function mean_hygroscopicity(mass_mx_rat, diss, osm_coeff, mass_frac, aero_mm, 
+# input one mode at a time, returns the summation of all the compositions.
+function mean_hygroscopicity(diss, osm_coeff, mass_frac, aero_mm, 
                              aero_ρ)
-    
-    B_bar = zeros(size(mass_mx_rat, 2))
-    for i in range(size(mass_mx_rat, 2))
-        r = mass_mx_rat[i]
-        nu = diss[i]
-        phi = osm_coeff[i]
-        epsilon = mass_frac[i]
-        M_a = aero_mm[i]
-        rho_a = aero_ρ[i]
-        B_bar[i] = ((WTR_MM)/(WTR_ρ))*
-                   ((sum(r .* nu .* phi .* epsilon .* (1./M_a)))/(sum(r ./ rho_a)))
-    end
-    return B_bar
+    top_values = mass_mx_rat .* diss .* osm_coeff.* mass_frac ./ aero_mm
+    top_values *= WTR_MM
+    bottom_values = mass_mx_rat ./ aero_ρ
+    bottom_values *= WTR_ρ
+    b_bar = sum(top_values)/sum(bottom_values)
+    return b_bar
 
 end
 

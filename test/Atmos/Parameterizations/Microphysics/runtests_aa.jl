@@ -28,12 +28,12 @@ P = 100000 # Pa (N/m^2) (STP)
 @testset "Mean Hygroscopicity" begin
     aero_comp = [1, 2, 3]        
     aero_m_num = [1, 2, 3, 4, 5]
-    mass_mx_rat = [[1, 2, 3, 4, 5]
-                         [0.1, 0.2, 0.3, 0.4, 0.5]
-                         [0.01, 0.02, 0.03, 0.04, 0.05]]
+    mass_mx_rat = [[1,    2,    3,    4,    5]
+                   [0.1,  0.2,  0.3,  0.4,  0.5]
+                   [0.01, 0.02, 0.03, 0.04, 0.05]]
     diss = [[1, 2, 3, 4, 5]
-                      [0.1, 0.2, 0.3, 0.4, 0.5]
-                      [0.01, 0.02, 0.03, 0.04, 0.05]]
+            [0.1, 0.2, 0.3, 0.4, 0.5]
+            [0.01, 0.02, 0.03, 0.04, 0.05]]
     osm_coeff = [[1, 2, 3, 4, 5]
            [0.1, 0.2, 0.3, 0.4, 0.5]
            [0.01, 0.02, 0.03, 0.04, 0.05]]
@@ -43,48 +43,42 @@ P = 100000 # Pa (N/m^2) (STP)
     aero_mm = [[1, 2, 3, 4, 5]
                         [0.1, 0.2, 0.3, 0.4, 0.5]
                         [0.01, 0.02, 0.03, 0.04, 0.05]]
-    aero_ρ= [[1, 2, 3, 4, 5]
+    aero_ρ = [[1, 2, 3, 4, 5]
                        [0.1, 0.2, 0.3, 0.4, 0.5]
                        [0.01, 0.02, 0.03, 0.04, 0.05]]
-    add_top = 0
-    add_bottom = 0
 
-    m_h = zeros(3)
-    top_values = mass_mx_rat .* diss .* osm_coeff.* mass_frac .*aero_mm
-    top_values *= WTR_MM
-    bottom_values = mass_mx_rat ./ aero_ρ
-    bottom_values *= WTR_ρ
+    m_h = zeros(3, 5)
 
     for i in 1:length(aero_comp)
-        m_h[i] = sum(top_values[aero_comp]) * WTR_MM / (sum(bottom_values))
+        top_values = mass_mx_rat[i][1] .* diss[i][1] .* osm_coeff[i][1] .* mass_frac[i][1] ./ aero_mm[i]
+        top_values *= WTR_MM
+        bottom_values = mass_mx_rat[i] ./ aero_ρ[i]
+        bottom_values *= WTR_ρ
+        m_h[i] = sum(top_values)/ sum(bottom_values)
+        top_values = 0
+        bottom_values = 0
     end
 
-    return m_h
-end
-
-    @test mean_hygroscopicity(aero_comp[1], 
-                              aero_m_num), 
-                              mass_mx_rat,
-                              diss,
-                              osm_coeff,
-                              mass_frac,
-                              aero_mm,
+    @test mean_hygroscopicity(mass_mx_rat[1],
+                              diss[1],
+                              osm_coeff[1],
+                              mass_frac[1],
+                              aero_mm[1],
+                              aero_ρ[1]
                               ) ≈ m_h[1]
-    @test mean_hygroscopicity(aero_comp[2], 
-                              aero_m_num), 
-                              mass_mx_rat,
-                              diss,
-                              osm_coeff,
-                              mass_frac,
-                              aero_mm,
+    @test mean_hygroscopicity(mass_mx_rat[2],
+                              diss[2],
+                              osm_coeff[2],
+                              mass_frac[2],
+                              aero_mm[2],
+                              aero_ρ[2]
                               ) ≈ m_h[2]
-    @test mean_hygroscopicity(aero_comp[3], 
-                              aero_m_num), 
-                              mass_mx_rat,
-                              diss,
-                              osm_coeff,
-                              mass_frac,
-                              aero_mm,
+    @test mean_hygroscopicity(mass_mx_rat[3],
+                              diss[3],
+                              osm_coeff[3],
+                              mass_frac[3],
+                              aero_mm[3],
+                              aero_ρ[3]
                               ) ≈ m_h[3]
 end
 
