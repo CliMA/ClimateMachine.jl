@@ -595,7 +595,7 @@ tau_AG = 1 # s
         activation_time = tau_AG # time of activation (s)                                                  
         particle_radius_stdev = sigma_AG # standard deviation of mode radius (m)
         updraft_velocity = V_AG # Updraft velocity (m/s)
-        diffusion = G_AG # Diffusion of heat and moisture for particles 
+        diffusion = DIF # Diffusion of heat and moisture for particles 
         aerosol_particle_density = Ns[i] # Initial particle concentration (1/m^3)
         totN = totNs[i]
 
