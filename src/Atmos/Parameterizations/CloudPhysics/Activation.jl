@@ -22,8 +22,9 @@ export activation_cloud_droplet_number
 # --Write function to determine mass fraction of soluble 
 #   material (epsilon)
 #--Determine P_saturation origins (do we get this from model?)
+#--Double check math syntax
 #--------------------------------------------------------------------#
-#CONSTANTS 
+# CONSTANTS 
 
 WTR_MM = 0.01801528 # kg/mol
 WTR_MLR_ρ = 0.022414 # m^3/mol TODO (used for epsilon)
