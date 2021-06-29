@@ -182,10 +182,11 @@ Variable Name - Paper
 |  - WTR_MLR_ρ         | molar density of water                | m^3/mol
 |  - WTR_ρ             | water density                         | kg/m^3
 |  - R                 | gas constant                          | (kg m^2) / (s^2 K mol)
+|  - AVO               | water density                         | kg/m^3
 |  - G                 | gravity                               | m/s^2
 |  - LAT_HEAT_EVP      | latent heat of evaporation            | J/kg
 |  - SPC_HEAT_AIR      | specific heat of air                  | J/kg
-|  - P                 | ?                                     | 
+|  - P                 | pressure                              | Pa
 |  - act_time          | activation time                       | seconds
 |  - part_radius       | particle radius                       | meters
 |  - mass_mx_rat       | mass mixing ratio                     | N/A
@@ -209,3 +210,7 @@ Variable Name - Paper
 |  - s_max             | maximum supersaturation               | ?
 |  - u                 | ?                                     | ?
 |  - totN              | total number                          | N/A
+|  - P_sat             | saturation pressure                   | Pa
+|  - K 
+|  - R_v
+|  - D
