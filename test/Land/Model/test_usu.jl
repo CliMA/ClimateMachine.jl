@@ -1,5 +1,7 @@
 # how to set G? Is there a single set of ρ,κ_snow that leads to fitting Tsurf, Tbottom, and Tbulk?
 
+# Also, as we vary density, z_snow changes. we should have a better/more robust estimate
+# of bulk T? Maybe it doesnt matter so much...
 
 using MPI
 using OrderedCollections
