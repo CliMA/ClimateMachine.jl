@@ -1,3 +1,11 @@
+"""
+    Isabella Dula and Shevali Kadakia
+    
+    This file has all the functions for the parametrization, according to the model
+    given in Abdul-Razzak and Ghan (2000).
+    
+"""
+
 using SpecialFunctions
 module Activation
 
@@ -8,13 +16,6 @@ const APS = AbstractParameterSet
 export activation_cloud_droplet_number
 # TODO: Check over these ^^^^
 
-"""
-    Isabella Dula and Shevali Kadakia
-    
-    This file has all the functions for the parametrization, according to the model
-    given in Abdul-Razzak and Ghan (2000).
-    
-"""
 
 WTR_MM = 0.01801528 # kg/mol
 WTR_MLR_ρ = 0.022414 # m^3/mol TODO (used for epsilon)

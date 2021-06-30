@@ -42,22 +42,21 @@ struct RainParameterSet <: AbstractRainParameterSet end
 struct SnowParameterSet <: AbstractSnowParameterSet end
 
 # Vars:
-
 # General: 
-TEMP = 273.15 # temperature, assuming STP (K) 
-AERO_PART_ρ = 100000000 # aerosol particle density (particles/m^3)
-UPDFT_VELO = 5.5 # updraft velocity (m/s)
+T = 273.15 # temperature, assuming STP (K) 
+N = 100000000 # aerosol particle density (particles/m^3)
+V = 5.5 # updraft velocity (m/s)
 R = 8.314462618 # gas constant ((kg m^2) / (s^2 K mol))
-AVO = 6.02214076 × 10^23 # avogadro's number 
-TAU = 1              #   |
-ALPHA = 1            #   | 
-DIFF = 1        #diffusion   }INCOMPLETE
-GAMMA  = 1           #   |
+avocado = 6.02214076 × 10^23 # avogadro's number 
+tau = 1              #   |
+Alpha = 1            #   | 
+G = 1        #diffusion   }INCOMPLETE
+Gamma  = 1           #   |
 
 # Water Properties:
-ρ_W = 1000 # water density  (kg/m^3)
-M_W = 0.01801528 # water molecular mass (kg/mol)
-N_W = 0.022414 # water molar density (m^3/mol)
+rho_w = 1000 # water density  (kg/m^3)
+M_w = 0.01801528 # water molecular mass (kg/mol)
+N_w = 0.022414 # water molar density (m^3/mol)
 
 # Sea Salt accumulation and coarse modes: 
 OC_SS = 0.9 # osmotic coefficient
@@ -656,7 +655,6 @@ end
         totN = totNs[i]
 
         func_totN = total_N_Act(particle_radius, activation_time, water_molecular_mass, water_density , R, temperature, B_i_bar, particle_radius_stdev, alpha, updraft_velocity, diffusion, aerosol_particle_density, gamma)
-        
 
 
         # Compare results:
