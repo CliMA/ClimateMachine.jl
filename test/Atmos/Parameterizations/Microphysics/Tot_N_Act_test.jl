@@ -1,4 +1,4 @@
-Pkg.add("SpecialFunctions")
+using SpecialFunctions
 @testset "total_N_Act_test" begin
     # Input parameters
     a_m = [5*(10^(-8))] # particle mode radius (m)
