@@ -27,6 +27,23 @@ SPC_HEAT_AIR = 1000
 TEMP = 273.1 # K (STP)
 P = 100000 # Pa (N/m^2) (STP)
 
+
+"""
+Critical supersaturation: 
+        S_m(act_time, part_radius, mass_mx_rat, diss, osm_coeff, mass_frac,
+        aero_mm, aero_ρ)
+
+    - 'act_time' - time of activation
+    - 'part_radius' - mean particle radius
+    - 'mass_mx_rat' - mass mixing ratio
+    - 'diss' - dissociation
+    - 'osm_coeff' - osmotic coefficient
+    - 'mass_frac' - mass fraction of soluble material
+    - 'aero_mm' - aerosol molar mass
+    - 'aero_ρ' - aerosol density
+
+    Returns the critical superation of an aerosol mode and component. 
+"""
 function S_m(act_time, part_radius, mass_mx_rat, diss, osm_coeff, mass_frac,
             aero_mm, aero_ρ)
 
@@ -38,15 +55,43 @@ function S_m(act_time, part_radius, mass_mx_rat, diss, osm_coeff, mass_frac,
 
 end
 
+"""
+Critical supersaturation: 
+        A(act_time)
+
+    - 'act_time' - time of activation
+
+
+    Returns A (coefficient of the curvature effect); key 
+    input into other functions. Takes in scalar and outputs 
+    scalar.
+"""
 function A(act_time)
 
     a = (2 * act_time .* WTR_MM) ./ (WTR_ρ .* R .* TEMP)
     return a
 
 end
-# input one mode at a time, returns the summation of all the compositions.
+
+"""
+Mean Hygroscopocity: 
+        mean_hygroscopicity(mass_mx_rat, diss, osm_coeff, 
+                            mass_frac, aero_mm, aero_ρ)
+
+    - 'mass_mx_rat' - mass mizing ratio
+    - 'diss' - dissociation
+    - 'osm_coeff' - osmotic coefficient
+    - 'mass_frac' - mass fraction of soluble material
+    - 'aero_mm' - aerosol molar mass
+    - 'aero_ρ' - aerosol density
+
+    Inputs can be either scalar, vector, or matrix. Returns the 
+    mean hygroscopicity across each mode of an inputted aerosol model.
+    Output is either a vector or a scalar.  
+"""
 function mean_hygroscopicity(mass_mx_rat, diss, osm_coeff, mass_frac, aero_mm, 
                              aero_ρ)
+
     b_bar = zeros(size(mass_mx_rat)[2])
     for i in range(size(mass_mx_rat)[2])
         b_bar[i] = ((WTR_MM)/(WTR_ρ)).*
@@ -57,6 +102,30 @@ function mean_hygroscopicity(mass_mx_rat, diss, osm_coeff, mass_frac, aero_mm,
 
 end
 
+"""
+Maximum Supersaturation: 
+        maxsupersat(part_radius, part_radius_stdev, 
+                    act_time, updft_velo, diff, 
+                    aero_part_ρ, mass_mx_rat, diss, osm_coeff, mass_frac,
+                    aero_mm, aero_ρ)
+
+    - 'part_radius' - mean particle radius
+    - 'part_radius_stdev' - standard dev. of mean particle radius
+    - 'act_time' - time of activation
+    - 'updft_velo' - updraft velocity 
+    - 'diff' - diffusion                                    TODO
+    - 'aero_part_ρ' - aerosol particle density
+    - 'mass_mx_rat' - mass mixing ratio
+    - 'diss' - dissociation
+    - 'osm_coeff' - osmotic coefficient
+    - 'mass_frac' - mass fraction of soluble material
+    - 'aero_mm' - aerosol molar mass
+    - 'aero_ρ' - aerosol density
+    
+
+    Inputs can be either scalar or vector. Returns the 
+    maximum supersaturation of an aerosol model. Output is scalar.
+"""
 function maxsupersat(part_radius, part_radius_stdev, act_time, updft_velo, diff, 
                      aero_part_ρ, mass_mx_rat, diss, osm_coeff, mass_frac,
                      aero_mm, aero_ρ)
@@ -81,6 +150,20 @@ function maxsupersat(part_radius, part_radius_stdev, act_time, updft_velo, diff,
 
 end
 
+"""
+Total Number of Activated Particles: 
+        total_N_Act(part_radius, act_time, part_radius_stdev, 
+                    updft_velo, diff, aero_part_ρ)
+
+    - 'part_radius' - mean particle radius
+    - 'part_radius_stdev' - standard dev. of mean particle radius
+    - 'act_time' - time of activation
+    - 'updft_velo' - updraft velocity 
+    - 'diff' - diffusion                                TODO
+    - 'aero_part_ρ' - aerosol particle density                           
+    
+    Returns total number of activated particles. 
+"""
 function total_N_Act(part_radius, act_time, part_radius_stdev, updft_velo, diff, 
                      aero_part_ρ)
 
@@ -98,6 +181,16 @@ function total_N_Act(part_radius, act_time, part_radius_stdev, updft_velo, diff,
 
 end
 
+"""
+Size invariant coefficients: 
+        alpha_sic(aero_mm)
+        gamma_sic(aero_mm, P_sat)
+
+    - 'aero_mm' = aerosol molar mass
+    - 'P_sat' - saturation pressure             TODO                        
+    
+    Returns coefficients relevant to other functions. 
+"""
 function alpha_sic(aero_mm)
 
     a = ((G * WTR_MM * LAT_HEAT_EVP) / (SPC_HEAT_AIR * R * T^2)) .- 
@@ -114,4 +207,4 @@ function gamma_sic(aero_mm, P_sat)
 
 end
 
-end #module Activation.jl
+end module Activation.jl
