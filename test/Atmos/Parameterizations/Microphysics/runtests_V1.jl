@@ -135,12 +135,12 @@ end
     f = 0.5 .* exp(2.5*(log.(part_radius_stdev)).^2) 
     g = 1 .+ 0.25 .* log.(part_radius_stdev) 
 
-    A = A(act_time)
+    coeff_of_curve = coeff_of_curve(act_time)
     S_m = S_m(act_time, part_radius, mass_mx_rat, 
               diss, osm_coeff, mass_frac,
               aero_mm, aero_ρ)
 
-    zeta = ((2.*A)./(3)).*((alpha.*updft_velo)/(diff)).^
+    zeta = ((2.*coeff_of_curve)./(3)).*((alpha.*updft_velo)/(diff)).^
            (.5) 
 
     eta = (  ((alpha.*updft_velo)./(diff)).^(3/2)  ./    
@@ -187,7 +187,7 @@ end
                                aero_mm, 
                                aero_ρ) 
 
-    A = A(act_time)
+    coeff_of_curve = coeff_of_curve(act_time)
 
     S_m = S_m(act_time, part_radius, mass_mx_rat, 
               diss, osm_coeff, mass_frac,
@@ -275,12 +275,12 @@ end
     f = 0.5 .* exp(2.5*(log.(part_radius_stdev)).^2) 
     g = 1 .+ 0.25 .* log.(part_radius_stdev) 
 
-    A = A(act_time)
+    coeff_of_curve = coeff_of_curve(act_time)
     S_m = S_m(act_time, part_radius, mass_mx_rat, 
               diss, osm_coeff, mass_frac,
               aero_mm, aero_ρ)
 
-    zeta = ((2.*A)./(3)).*((alpha.*updft_velo)/(diff)).^
+    zeta = ((2.*coeff_of_curve)./(3)).*((alpha.*updft_velo)/(diff)).^
            (.5) 
 
     eta = (  ((alpha.*updft_velo)./(diff)).^(3/2)  ./    
@@ -327,7 +327,7 @@ end
                                aero_mm, 
                                aero_ρ) 
 
-    A = A(act_time)
+    coeff_of_curve = coeff_of_curve(act_time)
 
     S_m = S_m(act_time, part_radius, mass_mx_rat, 
               diss, osm_coeff, mass_frac,
@@ -415,12 +415,12 @@ end
     f = 0.5 .* exp(2.5*(log.(part_radius_stdev)).^2) 
     g = 1 .+ 0.25 .* log.(part_radius_stdev) 
 
-    A = A(act_time)
+    coeff_of_curve = coeff_of_curve(act_time)
     S_m = S_m(act_time, part_radius, mass_mx_rat, 
               diss, osm_coeff, mass_frac,
               aero_mm, aero_ρ)
 
-    zeta = ((2.*A)./(3)).*((alpha.*updft_velo)/(diff)).^
+    zeta = ((2.*coeff_of_curve)./(3)).*((alpha.*updft_velo)/(diff)).^
            (.5) 
 
     eta = (  ((alpha.*updft_velo)./(diff)).^(3/2)  ./    
@@ -467,7 +467,7 @@ end
                                aero_mm, 
                                aero_ρ) 
 
-    A = A(act_time)
+    coeff_of_curve = coeff_of_curve(act_time)
 
     S_m = S_m(act_time, part_radius, mass_mx_rat, 
               diss, osm_coeff, mass_frac,
@@ -533,7 +533,7 @@ end
                                aero_mm, 
                                aero_ρ) 
 
-    A = A(act_time)
+    coeff_of_curve = coeff_of_curve(act_time)
 
     S_m = S_m(act_time, part_radius, mass_mx_rat, 
               diss, osm_coeff, mass_frac,

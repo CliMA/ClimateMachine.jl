@@ -47,7 +47,7 @@ Critical supersaturation:
 function S_m(act_time, part_radius, mass_mx_rat, diss, osm_coeff, mass_frac,
             aero_mm, aero_ρ)
 
-    a = A(act_time)
+    a = coeff_of_curve(act_time)
     b_bar = mean_hygroscopicity(mass_mx_rat, diss, osm_coeff, mass_frac,
             aero_mm, aero_ρ)
     S_m = (2./(b_bar).^.5).*(a./(3.*part_radius)).^(3/2)
@@ -56,17 +56,17 @@ function S_m(act_time, part_radius, mass_mx_rat, diss, osm_coeff, mass_frac,
 end
 
 """
-Critical supersaturation: 
-        A(act_time)
+Coefficient of curvature effect: 
+        coeff_of_curve(act_time)
 
     - 'act_time' - time of activation
 
 
-    Returns A (coefficient of the curvature effect); key 
+    Returns coeff_of_curve (coefficient of the curvature effect); key 
     input into other functions. Takes in scalar and outputs 
     scalar.
 """
-function A(act_time)
+function coeff_of_curve(act_time)
 
     a = (2 * act_time .* WTR_MM) ./ (WTR_ρ .* R .* TEMP)
     return a
@@ -134,7 +134,7 @@ function maxsupersat(part_radius, part_radius_stdev, act_time, updft_velo, diff,
     a = alpha_sic(aero_mm)
     f = 0.5.*exp.(2.5*(log.(part_radius_stdev)).^2)
     g = 1 .+ 0.25 * log.(part_radius_stdev)        
-    a = A(act_time)
+    a = coeff_of_curve(act_time)
     s_m = S_m(act_time, part_radius, mass_mx_rat, 
               diss, osm_coeff, mass_frac,
               aero_mm, aero_ρ)
