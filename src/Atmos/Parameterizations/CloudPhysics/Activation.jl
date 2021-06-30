@@ -1,4 +1,4 @@
-Pkg.add("SpecialFunctions")
+using SpecialFunctions
 module Activation
 
 using Thermodynamics

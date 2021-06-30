@@ -1,4 +1,4 @@
-Pkg.add("SpecialFunctions")
+using SpecialFunctions
 
 function maxsupersat(a_mi, sigma_i, tau, M_w, rho_w, R, T, B_i_bar, alpha, V, G, N_i, gamma)
 
