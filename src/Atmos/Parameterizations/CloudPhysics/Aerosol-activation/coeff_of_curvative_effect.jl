@@ -65,7 +65,6 @@ struct mode{T}
     radius::T
     radius_stdev::T
     activation_time::T
-    density::T
 end
 
 # complete aerosol model struct
@@ -79,13 +78,13 @@ accum_mode_seasalt = mode((particle_density_seasalt_accum,), (osmotic_coeff_seas
                         (molar_mass_seasalt,), 
                             (dissoc_seasalt,), (mass_frac_seasalt,), (mass_mix_ratio_seasalt,),
                         (radius_seasalt_accum,),
-                        (radius_stdev_seasalt_accum,), (activation_time_seasalt,), (rho_seasalt,))
+                        (radius_stdev_seasalt_accum,), (activation_time_seasalt,))
 
 coarse_mode_seasalt = mode((particle_density_seasalt_accum,), (osmotic_coeff_seasalt,), 
                         (molar_mass_seasalt,), 
                             (dissoc_seasalt,), (mass_frac_seasalt,), (mass_mix_ratio_seasalt,),
                         (radius_seasalt_coarse,),
-                        (radius_stdev_seasalt_coarse,), (activation_time_seasalt,), (rho_seasalt,))
+                        (radius_stdev_seasalt_coarse,), (activation_time_seasalt,))
 
 coarse_mode_ssanddust = mode((particle_density_seasalt_accum, particle_density_dust_coarse), 
                             (osmotic_coeff_seasalt, osmotic_coeff_dust), 
@@ -95,29 +94,37 @@ coarse_mode_ssanddust = mode((particle_density_seasalt_accum, particle_density_d
                             (mass_mix_ratio_seasalt, mass_mix_ratio_dust),
                         (radius_seasalt_coarse, radius_dust_coarse),
                         (radius_stdev_seasalt_coarse, radius_stdev_dust_accum),
-                         (activation_time_seasalt, activation_time_dust), (rho_seasalt, rho_dust))
-
-
+                         (activation_time_seasalt, activation_time_dust))
 
 
 """
-mean_hygroscopicity(am::aerosol_model)
+Coefficient of curvature effect: 
+        coeff_of_curve(act_time)
+    - 'act_time' - time of activation
+    Returns coeff_of_curve (coefficient of the curvature effect); key 
+    input into other functions. Takes in scalar and outputs 
+    scalar.
 """
-function mean_hygroscopicity(am::aerosol_model)
+function coeff_of_curve(am::aerosol_model)
     return ntuple(length(am.modes)) do i 
         mode_i = am.modes[i]
+        # take weighted average of activation times 
         n_comps = length(mode_i.particle_density)
-        top = sum(n_comps) do j
-            mode_i.mass_mix_ratio[j]*mode_i.dissoc[j]*mode_i.osmotic_coeff[j]*mode_i.mass_frac[j]*(1/mode_i.molar_mass[j])
-        end
-        bottom = sum(n_comps) do j 
-            mode_i.mass_mix_ratio[j]/mode_i.density[j]
+        numerator = sum(n_comps) do j
+            mode_i.activation_time[j]*mode_i.particle_density[j]
         end 
-        coeff = Mw/density_water
-        coeff*(top/bottom)
-    end 
+        denominator = sum(n_comps) do j
+            mode_i.particle_density[j]
+        end
+        avg_activation_time = numerator/denominator 
+        top = 2*avg_activation_time*Mw
+        bottom = density_water*R*T
+        top/bottom
+
+    end
+
 end
 
 am = aerosol_model((accum_mode_seasalt, coarse_mode_ssanddust))
-testoutput1 = mean_hygroscopicity(am)
-println("This is the result of mean_hygroscopicity: ", testoutput1)
+testoutput1 = coeff_of_curve(am)
+println("This is the result of coeff_of_curve: ", testoutput1)
