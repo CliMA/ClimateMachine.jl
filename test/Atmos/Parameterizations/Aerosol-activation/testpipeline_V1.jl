@@ -38,10 +38,10 @@ The structure of the pipeline is as follows:
 """
 
 # GET FROM CLIMA PARAMATERS
-
 molar_mass_water = 18
 density_water = 1000.0
 R = 8.314462618 # gas constant ((kg m^2) / (s^2 K mol))
+
 # Universal parameters:
 
 # Building the test structures
@@ -86,76 +86,88 @@ radius_stdev_dust_accum = 0.0000021 # mean particle stdev(m)
 # 2. Create structs that parameters can be pass through
 # individual aerosol mode struct
 struct mode{T}
-    particle_density::T
-    osmotic_coeff::T
-    molar_mass::T 
-    dissoc::T 
-    mass_frac::T 
-    mass_mix_ratio::T 
-    radius::T
-    radius_stdev::T
-    n_components::T
-    function mode(particle_density::T,
-                  osmotic_coeff::T, 
-                  molar_mass::T, 
-                  dissoc::T, 
-                  mass_frac::T, 
-                  mass_mix_ratio::T,
-                  radius::T,
-                  radius_stdev::T) where {T}
-        return new{T}(particle_density, 
-                      osmotic_coeff, 
-                      molar_mass, 
-                      dissoc, 
-                      mass_frac,
-                      mass_mix_ratio,
-                      radius,
-                      radius_stdev,
-                      length(particle_density))
+    particle_density::Tuple
+    osmotic_coeff::Tuple
+    molar_mass::Tuple
+    dissoc::Tuple
+    mass_frac::Tuple
+    mass_mix_ratio::Tuple
+    radius::Tuple
+    radius_stdev::Tuple
+    n_components::Float64 
+end
+
+function create_mode(num_modes::Int, 
+                     particle_density::Tuple,
+                     osmotic_coeff::Tuple,
+                     molar_mass::Tuple, 
+                     dissoc::Tuple, 
+                     mass_frac::Tuple, 
+                     mass_mix_ratio::Tuple, 
+                     radius::Tuple,
+                     radius_stdev::Tuple,
+                     n_components::Float64 
+                     )
+    ntuple(num_modes) do i
+        mode(Tuple(particle_density[i]), 
+             Tuple(osmotic_coeff[i]), 
+             Tuple(molar_mass[i]), 
+             Tuple(dissoc[i]), 
+             Tuple(mass_frac[i]), 
+             Tuple(mass_mix_ratio[i]), 
+             Tuple(radius[i]), 
+             Tuple(radius_stdev[i]), 
+             Tuple(n_components[i])
+             )
     end
 end
 
 # complete aerosol model struct
 struct aerosol_model{T}
-    modes::T
-    N::T 
-    function aerosol_model(modes::T) where {T}
-        return new{T}(modes, length(modes)) #modes
+    modes::Tuple
+    N::Int 
+    function aerosol_model(modes::mode) where {T}
+        return (modes, length(modes)) #modes
     end
 end 
 
 # 3. Populate structs to pass into functions/run calculations
 # Test cases 1-3 (Just Sea Salt)
-accum_mode_seasalt = mode(particle_density_seasalt_accum, osmotic_coeff_seasalt, molar_mass_seasalt, 
-                  dissoc_seasalt, mass_frac_seasalt, mass_mix_ratio_seasalt, radius_seasalt_accum,
-                  radius_stdev_seasalt_accum)
+accum_mode_seasalt = create_mode(1, (particle_density_seasalt_accum,), 
+                          (osmotic_coeff_seasalt,), 
+                          (molar_mass_seasalt,), 
+                          (dissoc_seasalt,), 
+                          (mass_frac_seasalt,), 
+                          (mass_mix_ratio_seasalt,), 
+                          (radius_seasalt_accum,),
+                          (radius_stdev_seasalt_accum),)
 
-coarse_mode_seasalt = mode(osmotic_coeff_seasalt, molar_mass_seasalt, 
-                  dissoc_seasalt, mass_frac_seasalt, radius_seasalt_coarse,
-                  radius_stdev_seasalt_coarse)
+# coarse_mode_seasalt = mode(osmotic_coeff_seasalt, molar_mass_seasalt, 
+#                   dissoc_seasalt, mass_frac_seasalt, radius_seasalt_coarse,
+#                   radius_stdev_seasalt_coarse)
 
 aerosolmodel_testcase1 = aerosol_model(accum_mode_seasalt)
-aerosolmodel_testcase2 = aerosol_model(coarse_mode_seasalt)
-aerosolmodel_testcase3 = aerosol_model((accum_mode_seasalt, coarse_mode_seasalt))
+# aerosolmodel_testcase2 = aerosol_model(coarse_mode_seasalt)
+# aerosolmodel_testcase3 = aerosol_model((accum_mode_seasalt, coarse_mode_seasalt))
 
 # Test cases 4-5 (Sea Salt and Dust)
-accum_mode_seasalt_dust = mode((osmotic_coeff_seasalt, osmotic_coeff_dust), 
-                               (molar_mass_seasalt, molar_mass_dust),
-                               (dissoc_seasalt, dissoc_dust),
-                               (mass_frac_seasalt, mass_frac_dust),
-                               (radius_seasalt_accum, radius_dust_accum),
-                               (radius_stdev_seasalt_accum, radius_stdev_dust_accum))
+# accum_mode_seasalt_dust = mode((osmotic_coeff_seasalt, osmotic_coeff_dust), 
+#                                (molar_mass_seasalt, molar_mass_dust),
+#                                (dissoc_seasalt, dissoc_dust),
+#                                (mass_frac_seasalt, mass_frac_dust),
+#                                (radius_seasalt_accum, radius_dust_accum),
+#                                (radius_stdev_seasalt_accum, radius_stdev_dust_accum))
 
-coarse_mode_seasalt_dust = ((osmotic_coeff_seasalt, osmotic_coeff_dust), 
-                            (molar_mass_seasalt, molar_mass_dust),
-                            (dissoc_seasalt, dissoc_dust),
-                            (mass_frac_seasalt, mass_frac_dust),
-                            (radius_seasalt_coarse, radius_dust_coarse),
-                            (radius_stdev_seasalt_coarse, radius_stdev_dust_coarse))
+# coarse_mode_seasalt_dust = ((osmotic_coeff_seasalt, osmotic_coeff_dust), 
+#                             (molar_mass_seasalt, molar_mass_dust),
+#                             (dissoc_seasalt, dissoc_dust),
+#                             (mass_frac_seasalt, mass_frac_dust),
+#                             (radius_seasalt_coarse, radius_dust_coarse),
+#                             (radius_stdev_seasalt_coarse, radius_stdev_dust_coarse))
 
-aerosolmodel_testcase4 = aerosol_model(accum_mode_seasalt_dust)
-aerosolmodel_testcase5 = aerosol_model((accum_mode_seasalt_dust,
-                                        coarse_mode_seasalt_dust))
+# aerosolmodel_testcase4 = aerosol_model(accum_mode_seasalt_dust)
+# aerosolmodel_testcase5 = aerosol_model((accum_mode_seasalt_dust,
+#                                         coarse_mode_seasalt_dust))
 
 function mean_hygroscopicity(am::aerosol_model)
     return ntuple(am.N) do i
@@ -174,16 +186,30 @@ end
 
 print(mean_hygroscopicity(aerosolmodel_testcase1))
 
+# questions about temp, 
+# need to fill equations: , alpha --> 1.0, eta() --> 2.0
+# Key:
+# surface tension == A
+# surface_tension_effects(zeta) --> 3.0
 
-function max_super_sat_test(am:aerosol_model)
+function max_super_sat_test(am::aerosol_model, temp::Float64, updraft_velocity::Float64, diffusion::Float64)
     mean_hygro = mean_hygroscopicity(am)
     summation = ntuple(am.N) do i
         mode_i = am.modes[i]
         f = 0.5 * exp(2.5 * ln(mode_i.radius_stdev)^2)
         g = 1 + 0.25 * ln(mode_i.radius_stdev)
-        surface_tension = 2 * ADD_IN * molar_mass_water / (density_water * R * ADD_IN)
+        surface_tension = 2 * activation_time * molar_mass_water / (density_water * R * temp)
+        surface_tension_effects = 2 * surface_tension / 3 * (1.0 * updraft_velocity / diffusion)^(1/2)
         supersat = 2/sqrt(mean_hygro[i]) * (surface_tension / (3 * mode_i.radius)) ^ (3/2)
-        1/(supersat ^ 2) * (f * (ADD_IN/ADD_IN) ^(3/2) + g * (supersat ^ 2)/ (ADD_IN + 3*ADD_IN)^(3/4))
+        1/(supersat ^ 2) * (f * (surface_tension_effects/2.0) ^(3/2) + g * (supersat ^ 2)/ (2.0 + 3*surface_tension_effects)^(3/4))
     end
     return (summation ^ 1/2)
 end
+
+print(max_super_sat_test(aerosolmodel_testcase1), 2.0, 3.0)
+# function total_N_Act_test(am::aerosol_model)
+
+
+# function surface_tension_test()
+
+# function eta_test()
