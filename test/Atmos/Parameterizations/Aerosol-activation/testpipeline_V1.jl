@@ -86,29 +86,20 @@ radius_stdev_dust_accum = 0.0000021 # mean particle stdev(m)
 # 2. Create structs that parameters can be pass through
 # individual aerosol mode struct
 struct mode{T}
-    particle_density::Tuple
-    osmotic_coeff::Tuple
-    molar_mass::Tuple
-    dissoc::Tuple
-    mass_frac::Tuple
-    mass_mix_ratio::Tuple
-    radius::Tuple
-    radius_stdev::Tuple
-    n_components::Float64 
+    particle_density::T
+    osmotic_coeff::T
+    molar_mass::T
+    dissoc::T
+    mass_frac::T
+    mass_mix_ratio::T
+    radius::T
+    radius_stdev::T
+    aerosol_density::T
+    n_components::T 
 end
 
-function create_mode(num_modes::Int, 
-                     particle_density::Tuple,
-                     osmotic_coeff::Tuple,
-                     molar_mass::Tuple, 
-                     dissoc::Tuple, 
-                     mass_frac::Tuple, 
-                     mass_mix_ratio::Tuple, 
-                     radius::Tuple,
-                     radius_stdev::Tuple,
-                     n_components::Float64 
-                     )
-    ntuple(num_modes) do i
+function create_mode(num_modes::Int64, particle_density::Tuple, osmotic_coeff::Tuple, molar_mass::Tuple, dissoc::Tuple, mass_frac::Tuple, mass_mix_ratio::Tuple, radius::Tuple, radius_stdev::Tuple, aerosol_density::Tuple)
+    return ntuple(num_modes) do i
         mode(Tuple(particle_density[i]), 
              Tuple(osmotic_coeff[i]), 
              Tuple(molar_mass[i]), 
@@ -117,17 +108,18 @@ function create_mode(num_modes::Int,
              Tuple(mass_mix_ratio[i]), 
              Tuple(radius[i]), 
              Tuple(radius_stdev[i]), 
-             Tuple(n_components[i])
+             Tuple(aerosol_density[i]),
+             Tuple(length(particle_density[i]) * 1.0)
              )
     end
 end
 
 # complete aerosol model struct
 struct aerosol_model{T}
-    modes::Tuple
+    modes::T
     N::Int 
-    function aerosol_model(modes::mode) where {T}
-        return (modes, length(modes)) #modes
+    function aerosol_model(modes::T) where {T}
+        return new{T}(modes, length(modes)) #modes
     end
 end 
 
@@ -140,7 +132,9 @@ accum_mode_seasalt = create_mode(1, (particle_density_seasalt_accum,),
                           (mass_frac_seasalt,), 
                           (mass_mix_ratio_seasalt,), 
                           (radius_seasalt_accum,),
-                          (radius_stdev_seasalt_accum),)
+                          (rho_seasalt,),
+                          (radius_stdev_seasalt_accum,),
+                          )
 
 # coarse_mode_seasalt = mode(osmotic_coeff_seasalt, molar_mass_seasalt, 
 #                   dissoc_seasalt, mass_frac_seasalt, radius_seasalt_coarse,
@@ -177,7 +171,7 @@ function mean_hygroscopicity(am::aerosol_model)
             mode_i.osmotic_coeff[j] * mode_i.mass_mix_ratio[j] * mode_i.dissoc[j] * mode_i.mass_frac[j] * 1/mode_i.molar_mass[j]
         end
         denominator = sum(num_of_comp) do j
-            mode_i.mass_mix_ratio[j] / mode_i.density[j]
+            mode_i.mass_mix_ratio[j] / mode_i.aerosol_density[j]
         end
         (numerator/denominator) * (molar_mass_water/density_water)
     end
