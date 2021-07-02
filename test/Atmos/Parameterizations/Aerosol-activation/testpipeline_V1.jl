@@ -39,46 +39,47 @@ The structure of the pipeline is as follows:
 
 # GET FROM CLIMA PARAMATERS
 
-molar_mass_water = 18.0
+molar_mass_water = 18
 density_water = 1000.0
+R = 8.314462618 # gas constant ((kg m^2) / (s^2 K mol))
 # Universal parameters:
 
 # Building the test structures
 # 1. Set Aerosol parameters: 
 
 # Sea Salt--universal parameters
-osmotic_coeff_seasalt = (0.9,) # osmotic coefficient
-molar_mass_seasalt = (0.058443,) # sea salt molar mass; kg/mol
-rho_seasalt = (2170.0,) # sea salt density; kg/m^3
-dissoc_seasalt = (2.0,) # Sea salt dissociation                         
-mass_frac_seasalt = (1.0,) # mass fraction                              TODO
-mass_mix_ratio_seasalt = (1.0,) # mass mixing rati0                     TODO
+osmotic_coeff_seasalt = 0.9 # osmotic coefficient
+molar_mass_seasalt = 0.058443 # sea salt molar mass; kg/mol
+rho_seasalt = 2170.0 # sea salt density; kg/m^3
+dissoc_seasalt = 2.0 # Sea salt dissociation                         
+mass_frac_seasalt = 1.0 # mass fraction                              TODO
+mass_mix_ratio_seasalt = 1.0 # mass mixing rati0                     TODO
 
 # Sea Salt -- Accumulation mode
-radius_seasalt_accum = (0.000000243,) # mean particle radius (m)
-radius_stdev_seasalt_accum = (0.0000014,) # mean particle stdev (m)
-particle_density_seasalt_accum = (100.0,) #000000 # particle density (1/m^3)
+radius_seasalt_accum = 0.000000243 # mean particle radius (m)
+radius_stdev_seasalt_accum = 0.0000014 # mean particle stdev (m)
+particle_density_seasalt_accum = 100.0 #000000 # particle density (1/m^3)
 
 # Sea Salt -- Coarse Mode
-radius_seasalt_coarse = (0.0000015,) # mean particle radius (m)
-radius_stdev_seasalt_coarse = (0.0000021,) # mean particle stdev(m)
+radius_seasalt_coarse = 0.0000015 # mean particle radius (m)
+radius_stdev_seasalt_coarse = 0.0000021 # mean particle stdev(m)
 
 # TODO: Dust parameters (just copy and pasted seasalt values rn)
 # Dust--universal parameters
-osmotic_coeff_dust = (0.9,) # osmotic coefficient
-molar_mass_dust = (0.058443,) # sea salt molar mass; kg/mol
-rho_dust = (2170.0,) # sea salt density; kg/m^3
-dissoc_dust = (2.0,) # Sea salt dissociation                         
-mass_frac_dust = (1.0,) # mass fraction                              TODO
-mass_mix_ratio_dust = (1.0,) # mass mixing rati0                     TODO
+osmotic_coeff_dust = 0.9 # osmotic coefficient
+molar_mass_dust = 0.058443 # sea salt molar mass; kg/mol
+rho_dust = 2170.0 # sea salt density; kg/m^3
+dissoc_dust = 2.0 # Sea salt dissociation                         
+mass_frac_dust = 1.0 # mass fraction                              TODO
+mass_mix_ratio_dust = 1.0 # mass mixing rati0                     TODO
 
 # Dust -- Accumulation mode
-radius_dust_accum = (0.000000243,) # mean particle radius (m)
-radius_stdev_dust_accum = (0.0000014,) # mean particle stdev (m)
+radius_dust_accum = 0.000000243 # mean particle radius (m)
+radius_stdev_dust_accum = 0.0000014 # mean particle stdev (m)
 
 # Dust -- Coarse Mode
-radius_dust_coarse = (0.0000015,) # mean particle radius (m)
-radius_stdev_dust_accum = (0.0000021,) # mean particle stdev(m)
+radius_dust_coarse = 0.0000015 # mean particle radius (m)
+radius_stdev_dust_accum = 0.0000021 # mean particle stdev(m)
 
 # Abdul-Razzak and Ghan 
 
@@ -110,7 +111,7 @@ struct mode{T}
                       mass_mix_ratio,
                       radius,
                       radius_stdev,
-                      (1.0,))#length(particle_density))
+                      length(particle_density))
     end
 end
 
@@ -129,32 +130,32 @@ accum_mode_seasalt = mode(particle_density_seasalt_accum, osmotic_coeff_seasalt,
                   dissoc_seasalt, mass_frac_seasalt, mass_mix_ratio_seasalt, radius_seasalt_accum,
                   radius_stdev_seasalt_accum)
 
-# coarse_mode_seasalt = mode(osmotic_coeff_seasalt, molar_mass_seasalt, 
-#                   dissoc_seasalt, mass_frac_seasalt, radius_seasalt_coarse,
-#                   radius_stdev_seasalt_coarse)
+coarse_mode_seasalt = mode(osmotic_coeff_seasalt, molar_mass_seasalt, 
+                  dissoc_seasalt, mass_frac_seasalt, radius_seasalt_coarse,
+                  radius_stdev_seasalt_coarse)
 
 aerosolmodel_testcase1 = aerosol_model(accum_mode_seasalt)
-# aerosolmodel_testcase2 = aerosol_model(coarse_mode_seasalt)
-# aerosolmodel_testcase3 = aerosol_model((accum_mode_seasalt, coarse_mode_seasalt))
+aerosolmodel_testcase2 = aerosol_model(coarse_mode_seasalt)
+aerosolmodel_testcase3 = aerosol_model((accum_mode_seasalt, coarse_mode_seasalt))
 
 # Test cases 4-5 (Sea Salt and Dust)
-# accum_mode_seasalt_dust = mode((osmotic_coeff_seasalt, osmotic_coeff_dust), 
-#                                (molar_mass_seasalt, molar_mass_dust),
-#                                (dissoc_seasalt, dissoc_dust),
-#                                (mass_frac_seasalt, mass_frac_dust),
-#                                (radius_seasalt_accum, radius_dust_accum),
-#                                (radius_stdev_seasalt_accum, radius_stdev_dust_accum))
+accum_mode_seasalt_dust = mode((osmotic_coeff_seasalt, osmotic_coeff_dust), 
+                               (molar_mass_seasalt, molar_mass_dust),
+                               (dissoc_seasalt, dissoc_dust),
+                               (mass_frac_seasalt, mass_frac_dust),
+                               (radius_seasalt_accum, radius_dust_accum),
+                               (radius_stdev_seasalt_accum, radius_stdev_dust_accum))
 
-# coarse_mode_seasalt_dust = ((osmotic_coeff_seasalt, osmotic_coeff_dust), 
-#                             (molar_mass_seasalt, molar_mass_dust),
-#                             (dissoc_seasalt, dissoc_dust),
-#                             (mass_frac_seasalt, mass_frac_dust),
-#                             (radius_seasalt_coarse, radius_dust_coarse),
-#                             (radius_stdev_seasalt_coarse, radius_stdev_dust_coarse))
+coarse_mode_seasalt_dust = ((osmotic_coeff_seasalt, osmotic_coeff_dust), 
+                            (molar_mass_seasalt, molar_mass_dust),
+                            (dissoc_seasalt, dissoc_dust),
+                            (mass_frac_seasalt, mass_frac_dust),
+                            (radius_seasalt_coarse, radius_dust_coarse),
+                            (radius_stdev_seasalt_coarse, radius_stdev_dust_coarse))
 
-# aerosolmodel_testcase4 = aerosol_model(accum_mode_seasalt_dust)
-# aerosolmodel_testcase5 = aerosol_model((accum_mode_seasalt_dust,
-#                                         coarse_mode_seasalt_dust))
+aerosolmodel_testcase4 = aerosol_model(accum_mode_seasalt_dust)
+aerosolmodel_testcase5 = aerosol_model((accum_mode_seasalt_dust,
+                                        coarse_mode_seasalt_dust))
 
 function mean_hygroscopicity(am::aerosol_model)
     return ntuple(am.N) do i
@@ -172,3 +173,17 @@ end
 
 
 print(mean_hygroscopicity(aerosolmodel_testcase1))
+
+
+function max_super_sat_test(am:aerosol_model)
+    mean_hygro = mean_hygroscopicity(am)
+    summation = ntuple(am.N) do i
+        mode_i = am.modes[i]
+        f = 0.5 * exp(2.5 * ln(mode_i.radius_stdev)^2)
+        g = 1 + 0.25 * ln(mode_i.radius_stdev)
+        surface_tension = 2 * ADD_IN * molar_mass_water / (density_water * R * ADD_IN)
+        supersat = 2/sqrt(mean_hygro[i]) * (surface_tension / (3 * mode_i.radius)) ^ (3/2)
+        1/(supersat ^ 2) * (f * (ADD_IN/ADD_IN) ^(3/2) + g * (supersat ^ 2)/ (ADD_IN + 3*ADD_IN)^(3/4))
+    end
+    return (summation ^ 1/2)
+end
