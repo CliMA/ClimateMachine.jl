@@ -48,7 +48,7 @@ radius_dust_accum = 0.000000243 # mean particle radius (m)
 radius_stdev_dust_accum = 0.0000014 # mean particle stdev (m)
 
 # Dust -- Coarse Mode
-radius_dust_coarse = 0.0000015 # mean particle radius (m)
+radius_dust_coarse = 0.00015 # mean particle radius (m)
 radius_stdev_dust_accum = 0.0000021 # mean particle stdev(m)
 
 # Abdul-Razzak and Ghan 
@@ -100,7 +100,8 @@ coarse_mode_ssanddust = mode((particle_density_seasalt_accum, particle_density_d
 
 
 
-"""
+
+                         """
 mean_hygroscopicity(am::aerosol_model)
 
 DO DOCSTRING
@@ -120,6 +121,46 @@ function mean_hygroscopicity(am::aerosol_model)
     end 
 end
 
+function coeff_of_curve(am::aerosol_model)
+    return ntuple(length(am.modes)) do i 
+        mode_i = am.modes[i]
+        # take weighted average of activation times 
+        n_comps = length(mode_i.particle_density)
+        numerator = sum(n_comps) do j
+            mode_i.activation_time[j]*mode_i.particle_density[j]
+        end 
+        denominator = sum(n_comps) do j
+            mode_i.particle_density[j]
+        end
+        avg_activation_time = numerator/denominator 
+        top = 2*avg_activation_time*Mw
+        bottom = density_water*R*T
+        top/bottom
+
+    end
+
+end
+
+function critical_supersaturation(am::aerosol_model)
+    coeff_of_curvature = coeff_of_curve(am)
+    mh = mean_hygroscopicity(am)
+    return ntuple(length(am.modes)) do i 
+        mode_i = am.modes[i]
+        # weighted average of mode radius
+        n_comps = length(mode_i.particle_density)
+        numerator = sum(n_comps) do j
+            mode_i.radius[j]*mode_i.particle_density[j]
+        end 
+        denominator = sum(n_comps) do j
+            mode_i.particle_density[j]
+        end
+        avg_radius = numerator/denominator
+        exp1 = 2 / (mh[i])^(.5)
+        exp2 = (coeff_of_curvature[i]/3*avg_radius)^(3/2)
+        exp1*exp2
+    end
+end
+
 am = aerosol_model((accum_mode_seasalt, coarse_mode_ssanddust))
-testoutput1 = mean_hygroscopicity(am)
-println("This is the result of mean_hygroscopicity: ", testoutput1)
+testoutput1 = critical_supersaturation(am)
+println("This is the result of critical_supersaturation: ", testoutput1)
