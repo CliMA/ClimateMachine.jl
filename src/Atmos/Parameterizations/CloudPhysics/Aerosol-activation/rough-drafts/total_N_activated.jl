@@ -137,10 +137,10 @@ function alpha_sic(am::aerosol_model)
         # Find weighted molar mass of mode
         n_comps = length(mode_i.particle_density)
         println("This is number of comps:",  1:n_comps, "mode:", i)
-        numerator = sum( 1:n_comps) do j
+        numerator = sum(1:n_comps) do j
             mode_i.particle_density[j] * mode_i.molar_mass[j]
         end
-        denominator = sum( 1:n_comps) do j
+        denominator = sum(1:n_comps) do j
             mode_i.particle_density[j]
         end
         avg_molar_mass = numerator/denominator
@@ -162,10 +162,10 @@ function gamma_sic(am::aerosol_model, P_sat)
         mode_i = am.modes[i]
         # Find weighted molar mass of mode
          n_comps = length(mode_i.particle_density)
-        numerator = sum( 1:n_comps) do j
+        numerator = sum(1:n_comps) do j
             mode_i.particle_density[j] * mode_i.molar_mass[j]
         end
-        denominator = sum( 1:n_comps) do j
+        denominator = sum(1:n_comps) do j
             mode_i.particle_density[j]
         end
         avg_molar_mass = numerator/denominator

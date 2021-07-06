@@ -110,7 +110,9 @@ function mean_hygroscopicity(am::aerosol_model)
         mode_i = am.modes[i]
         n_comps = length(mode_i.particle_density)
         top = sum(n_comps) do j
-            mode_i.mass_mix_ratio[j]*mode_i.dissoc[j]*mode_i.osmotic_coeff[j]*mode_i.mass_frac[j]*(1/mode_i.molar_mass[j])
+            mode_i.mass_mix_ratio[j]*mode_i.dissoc[j]*
+            mode_i.osmotic_coeff[j]*mode_i.mass_frac[j]*
+            (1/mode_i.molar_mass[j])
         end
         bottom = sum(n_comps) do j 
             mode_i.mass_mix_ratio[j]/mode_i.density[j]
