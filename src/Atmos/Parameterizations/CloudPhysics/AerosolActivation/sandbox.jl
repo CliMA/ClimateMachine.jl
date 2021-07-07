@@ -44,7 +44,7 @@ activation_time_seasalt = 1.0
 # Sea Salt -- Accumulation mode
 radius_seasalt_accum = 0.000000243 # mean particle radius (m)
 radius_stdev_seasalt_accum = 0.0000014 # mean particle stdev (m)
-particle_density_seasalt_accum = 100.0 #000000 # particle density (1/m^3)
+particle_density_seasalt_accum = 1e8 #000000 # particle density (1/m^3)
 
 # Sea Salt -- Coarse Mode
 radius_seasalt_coarse = 0.0000015 # mean particle radius (m)
@@ -53,10 +53,10 @@ radius_stdev_seasalt_coarse = 0.0000021 # mean particle stdev(m)
 # TODO: Dust parameters (just copy and pasted seasalt values rn)
 # Dust--universal parameters
 osmotic_coeff_dust = 0.9 # osmotic coefficient
-molar_mass_dust = 0.058443  # sea salt molar mass; kg/mol
-particle_density_dust_coarse = 1000.0
+molar_mass_dust = 0.058443 * 10  # sea salt molar mass; kg/mol
+particle_density_dust_coarse = 1e5
 rho_dust = 2170.0 # sea salt density; kg/m^3
-dissoc_dust = 2.0 # Sea salt dissociation                         
+dissoc_dust = 5.0 # Sea salt dissociation                         
 mass_frac_dust = 1.0 # mass fraction                              TODO
 mass_mix_ratio_dust = 1.0 # mass mixing rati0                     TODO
 activation_time_dust = 3.0 
@@ -131,10 +131,10 @@ function alpha_sic(am::aerosol_model)
         mode_i = am.modes[i]
         # Find weighted molar mass of mode
         n_comps = length(mode_i.particle_density)
-        numerator = sum(n_comps) do j
+        numerator = sum(1:n_comps) do j
             mode_i.particle_density[j]*mode_i.molar_mass[j]
         end
-        denominator = sum(n_comps) do j
+        denominator = sum(1:n_comps) do j
             mode_i.particle_density[j]
         end
         avg_molar_mass = numerator/denominator
@@ -156,10 +156,10 @@ function gamma_sic(am::aerosol_model, P_sat)
         mode_i = am.modes[i]
         # Find weighted molar mass of mode
         n_comps = length(mode_i.particle_density)
-        numerator = sum(n_comps) do j
+        numerator = sum(1:n_comps) do j
             mode_i.particle_density[j]*mode_i.molar_mass[j]
         end
-        denominator = sum(n_comps) do j
+        denominator = sum(1:n_comps) do j
             mode_i.particle_density[j]
         end
         avg_molar_mass = numerator/denominator
@@ -182,10 +182,10 @@ function coeff_of_curvature(am::aerosol_model)
         mode_i = am.modes[i]
         # take weighted average of activation times 
         n_comps = length(mode_i.particle_density)
-        numerator = sum(n_comps) do j
+        numerator = sum(1:n_comps) do j
             mode_i.activation_time[j]*mode_i.particle_density[j]
         end 
-        denominator = sum(n_comps) do j
+        denominator = sum(1:n_comps) do j
             mode_i.particle_density[j]
         end
         avg_activation_time = numerator/denominator 
@@ -208,12 +208,12 @@ function mean_hygroscopicity(am::aerosol_model)
     return ntuple(length(am.modes)) do i 
         mode_i = am.modes[i]
         n_comps = length(mode_i.particle_density)
-        top = sum(n_comps) do j
+        top = sum(1:n_comps) do j
             mode_i.mass_mix_ratio[j]*mode_i.dissoc[j]*
             mode_i.osmotic_coeff[j]*mode_i.mass_frac[j]*
             (1/mode_i.molar_mass[j])
         end
-        bottom = sum(n_comps) do j 
+        bottom = sum(1:n_comps) do j 
             mode_i.mass_mix_ratio[j]/mode_i.density[j]
         end 
         coeff = molmass_water/ρ_cloud_liq
@@ -231,10 +231,10 @@ function critical_supersaturation(am::aerosol_model)
         mode_i = am.modes[i]
         # weighted average of mode radius
         n_comps = length(mode_i.particle_density)
-        numerator = sum(n_comps) do j
+        numerator = sum(1:n_comps) do j
             mode_i.radius[j]*mode_i.particle_density[j]
         end 
-        denominator = sum(n_comps) do j
+        denominator = sum(1:n_comps) do j
             mode_i.particle_density[j]
         end
         avg_radius = numerator/denominator
@@ -252,17 +252,17 @@ function max_supersaturation(am, P_SAT)
     gamma = gamma_sic(am, P_SAT)
     A = coeff_of_curvature(am)
     Sm = critical_supersaturation(am)
-    return sum(1:length(am.modes)) do i 
+    X = sum(1:length(am.modes)) do i 
 
         mode_i = am.modes[i]
 
         # weighted avgs of diff params:
         n_comps = length(mode_i.particle_density)
         # radius_stdev
-        num = sum( 1:n_comps) do j 
+        num = sum(1:n_comps) do j 
             mode_i.particle_density[j]  *  mode_i.radius_stdev[j]
         end
-        den = sum( 1:n_comps) do j 
+        den = sum(1:n_comps) do j 
             mode_i.particle_density[j]
         end 
         avg_radius_stdev = num/den 
@@ -280,8 +280,9 @@ function max_supersaturation(am, P_SAT)
         exp2 = f*(zeta/eta)^(3/2)
         exp3 = g*((Sm[i]^2)/(eta+3*zeta))^(3/4)
 
-        (exp1*(exp2+exp3))^(1/2)
+        exp1*(exp2+exp3)
     end
+    return (X)^(1/2)
 
 end
 
@@ -296,10 +297,10 @@ function total_N_activated(am::aerosol_model)
         # weighted avgs of diff params:
         n_comps = length(mode_i.particle_density)
         # radius_stdev
-        num = sum( 1:n_comps) do j 
+        num = sum(1:n_comps) do j 
             mode_i.particle_density[j]  *  mode_i.radius_stdev[j]
         end
-        den = sum( 1:n_comps) do j 
+        den = sum(1:n_comps) do j 
             mode_i.particle_density[j]
         end 
         avg_radius_stdev = num/den 
