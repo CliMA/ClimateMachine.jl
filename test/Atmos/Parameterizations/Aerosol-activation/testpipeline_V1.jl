@@ -1,4 +1,8 @@
 using SpecialFunctions
+using Test
+using CLIMAParameters: gas_constant
+using CLIMAParameters.Planet: molmass_water, ρ_cloud_liq, grav, T_freeze
+using CLIMAParameters.Atmos.Microphysics
 
 # GET FROM CLIMA PARAMATERS
 molar_mass_water = 18
@@ -145,7 +149,8 @@ coarse_mode_seasalt_dust = mode((particle_density_seasalt_coarse,
 aerosolmodel_testcase4 = aerosol_model((accum_mode_seasalt_dust,))
 aerosolmodel_testcase5 = aerosol_model((accum_mode_seasalt_dust,
                                         coarse_mode_seasalt_dust))
-
+println("HERE")
+println(molmass_water)
 function total_mass(m::mode)
     num_of_comp = m.n_components
     total_mass = sum(num_of_comp) do j
@@ -243,31 +248,29 @@ function tp_total_n_act(am::aerosol_model,
     return summation
 end
 
-@testset "mean_hygroscopicity" begin
-    @test tp_mean_hygroscopicity(aerosolmodel_testcase1) ≈ 
-    @test tp_mean_hygroscopicity(aerosolmodel_testcase2) ≈ 
-    @test tp_mean_hygroscopicity(aerosolmodel_testcase3) ≈ 
-    @test tp_mean_hygroscopicity(aerosolmodel_testcase4) ≈ 
-    @test tp_mean_hygroscopicity(aerosolmodel_testcase5) ≈ 
-end
+# @testset "mean_hygroscopicity" begin
+#     @test tp_mean_hygroscopicity(aerosolmodel_testcase1) ≈ (1,0)
+#     @test tp_mean_hygroscopicity(aerosolmodel_testcase2) ≈ (1,0)
+#     @test tp_mean_hygroscopicity(aerosolmodel_testcase3) ≈ (1,0)
+#     @test tp_mean_hygroscopicity(aerosolmodel_testcase4) ≈ (1,0)
+#     @test tp_mean_hygroscopicity(aerosolmodel_testcase5) ≈ (1,0)
+# end
+# @testset "max_super_sat" begin
+#     @test tp_max_super_sat(aerosolmodel_testcase1, 2.0, 3.0, 4.0, 1.0) ≈ (1,0)
+#     @test tp_max_super_sat(aerosolmodel_testcase2, 2.0, 3.0, 4.0, 1.0) ≈ (1,0)
+#     @test tp_max_super_sat(aerosolmodel_testcase3, 2.0, 3.0, 4.0, 1.0) ≈ (1,0)
+#     @test tp_max_super_sat(aerosolmodel_testcase4, 2.0, 3.0, 4.0, 1.0) ≈ (1,0)
+#     @test tp_max_super_sat(aerosolmodel_testcase5, 2.0, 3.0, 4.0, 1.0) ≈ (1,0)
+# end
 
-@testset "max_super_sat" begin
-    @test tp_max_super_sat(aerosolmodel_testcase1, 2.0, 3.0, 4.0, 1.0) ≈ 
-    @test tp_max_super_sat(aerosolmodel_testcase2, 2.0, 3.0, 4.0, 1.0) ≈ 
-    @test tp_max_super_sat(aerosolmodel_testcase3, 2.0, 3.0, 4.0, 1.0) ≈ 
-    @test tp_max_super_sat(aerosolmodel_testcase4, 2.0, 3.0, 4.0, 1.0) ≈ 
-    @test tp_max_super_sat(aerosolmodel_testcase5, 2.0, 3.0, 4.0, 1.0) ≈ 
-end
-
-@testset "total_n_act" begin
-    @test tp_total_n_act(aerosolmodel_testcase1, 2.0, 3.0, 4.0, 1.0) ≈ 
-    @test tp_total_n_act(aerosolmodel_testcase1, 2.0, 3.0, 4.0, 1.0) ≈ 
-    @test tp_total_n_act(aerosolmodel_testcase1, 2.0, 3.0, 4.0, 1.0) ≈ 
-    @test tp_total_n_act(aerosolmodel_testcase1, 2.0, 3.0, 4.0, 1.0) ≈ 
-    @test tp_total_n_act(aerosolmodel_testcase1, 2.0, 3.0, 4.0, 1.0) ≈  
-end
-
-println("total_n_act") begin
+# @testset "total_n_act" begin
+#     @test tp_total_n_act(aerosolmodel_testcase1, 2.0, 3.0, 4.0, 1.0) ≈ 1
+#     @test tp_total_n_act(aerosolmodel_testcase1, 2.0, 3.0, 4.0, 1.0) ≈ 1
+#     @test tp_total_n_act(aerosolmodel_testcase1, 2.0, 3.0, 4.0, 1.0) ≈ 1
+#     @test tp_total_n_act(aerosolmodel_testcase1, 2.0, 3.0, 4.0, 1.0) ≈ 1
+#     @test tp_total_n_act(aerosolmodel_testcase1, 2.0, 3.0, 4.0, 1.0) ≈ 1 
+# end
+println("total_n_act") 
 println(tp_mean_hygroscopicity(aerosolmodel_testcase1))
 println(tp_mean_hygroscopicity(aerosolmodel_testcase2))
 println(tp_mean_hygroscopicity(aerosolmodel_testcase3))
