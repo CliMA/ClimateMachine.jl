@@ -1,4 +1,4 @@
-# # Zettl - site SV62
+# # Zettl - site SV60
 using MPI
 using OrderedCollections
 using StaticArrays
@@ -35,19 +35,18 @@ const FT = Float64;
 
 ClimateMachine.init(; disable_gpu = true);
 
-#data = readdlm("/Users/katherinedeck/Desktop/data/huang_2011/Site 1BData/1B-62 Enviroscan Recalb.-Table 1.csv",',')
-#tws_obs = FT.(data[46:46+16,23]) Seems inaccurate?
+#data = readdlm("/Users/katherinedeck/Desktop/data/huang_2011/Site 2D-60 Data/Enviroscan Recalb.-Table 1.csv",',')
+data = readdlm("/Users/katherinedeck/Desktop/code/ClimateMachine.jl/tutorials/Land/Soil/SiteBenchmarks/data/zettl_60_inf.csv", '\t')
+#tws_obs = FT.(data[46:46+16,23])
 #columns = 6:1:16
 #depth1 = [5,15,25,35,45,55,65,75,85,95,105]
-#depth2 = [1,11,21,31,41,51,61,71,81,91,101]
+#depth2 = [2.5,12.5,22.5,32.5,42.5,52.5,62.5,72.5,82.5,92.5,102.5]
 #depth = -0.5 .* (depth1 .+ depth2) ./100
-#T = FT.(data[18:68,4])
-#data = transpose(FT.(data[18:68,:][:,columns])./100)
+#T = FT.(data[46:75,4])
+#data = transpose(FT.(data[46:75,:][:,columns])./100)
 #ic = data[:, T .== 0.0]
-data = readdlm("/Users/katherinedeck/Desktop/code/ClimateMachine.jl/tutorials/Land/Soil/SiteBenchmarks/data/zettl_62_inf.csv", '\t')
 depth = -1/100*data[2:end,1]
 ic = data[2:end, 2]
-
 
 const clima_dir = dirname(dirname(pathof(ClimateMachine)));
 include(joinpath(clima_dir, "docs", "plothelpers.jl"));
@@ -58,172 +57,196 @@ soil_heat_model = PrescribedTemperatureModel();
 
 
 function ks(z::F) where {F}
-    factor = F(1/100/60)# given in cm/min# is D taken into account?
-    if z >= F(-0.06)
-        k = F(0.62)
-    elseif z >= F(-0.15)
-        k = F(0.216)
-    elseif z >=  F(-0.27)
-        k = F(0.47)
-    elseif z>= F(-0.32)
-        k = F(0.719)
-    elseif z>=F(-0.37)
-        k = F(0.576)
-    elseif z>=F(-0.42)
-        k = F(0.554)
-    elseif z >=  F(-0.46)
-        k = F(0.505)
-    elseif z>= F(-0.54)
-        k = F(1.311)
-    elseif z>=F(-0.6)
-        k = F(0.750)
-    elseif z>=F(-0.67)
-        k = F(0.789)
-    elseif z >=  F(-0.71)
-        k = F(1.059)
-    elseif z>= F(-0.78)
-        k = F(1.865)
-    elseif z>=F(-0.81)
-        k = F(2.109)
-    elseif z>=F(-0.88)
-        k = F(2.636)
+    factor = F(1/100/60)# given in cm/min
+    if z >= F(-0.07)
+        k = F(0.944)
+    elseif z >= F(-0.1)
+        k = F(0.71)
+    elseif z >=  F(-0.17)
+        k = F(0.703)
+    elseif z>= F(-0.2)
+        k = F(0.624)
+    elseif z>=F(-0.23)
+        k = F(0.521)
+    elseif z>=F(-0.30)
+        k = F(0.341)
+    elseif z >=  F(-0.35)
+        k = F(0.351)
+    elseif z>= F(-0.45)
+        k = F(0.456)
+    elseif z>=F(-0.48)
+        k = F(0.423)
+    elseif z>=F(-0.53)
+        k = F(0.260)
+    elseif z >=  F(-0.59)
+        k = F(0.382)
+    elseif z>= F(-0.68)
+        k = F(0.270)
+    elseif z>=F(-0.74)
+        k = F(0.187)
+    elseif z>=F(-0.78)
+        k = F(0.297)
+    elseif z >=  F(-0.84)
+        k = F(0.272)
     elseif z >=  F(-0.97)
-        k = F(1.901)
+        k = F(0.725)
+    elseif z >=  F(-1.02)
+        k = F(1.169)
     else
-        k = F(1.268)
+        k = F(0.457)
     end
     return k*factor
 end
 
 function vgα(z::F) where {F}
     factor = F(100)
-    if z >= F(-0.06)
-        k = F(0.129)
-    elseif z >= F(-0.15)
-        k = F(0.108)
-    elseif z >=  F(-0.27)
-        k = F(0.051)
-    elseif z>= F(-0.32)
-        k = F(0.114)
-    elseif z>=F(-0.37)
+   if z >= F(-0.07)
+        k = F(0.07)
+    elseif z >= F(-0.1)
+        k = F(0.057)
+    elseif z >=  F(-0.17)
+        k = F(0.102)
+    elseif z>= F(-0.2)
         k = F(0.093)
-    elseif z>=F(-0.42)
-        k = F(0.095)
-    elseif z >=  F(-0.46)
-        k = F(0.152)
-    elseif z>= F(-0.54)
-        k = F(0.176)
-    elseif z>=F(-0.6)
-        k = F(0.119)
-    elseif z>=F(-0.67)
-        k = F(0.101)
-    elseif z >=  F(-0.71)
-        k = F(0.099)
-    elseif z>= F(-0.78)
-        k = F(0.105)
-    elseif z>=F(-0.81)
-        k = F(0.105)
-    elseif z>=F(-0.88)
-        k = F(0.106)
+    elseif z>=F(-0.23)
+        k = F(0.068)
+    elseif z>=F(-0.30)
+        k = F(0.034)
+    elseif z >=  F(-0.35)
+        k = F(0.058)
+    elseif z>= F(-0.45)
+        k = F(0.057)
+    elseif z>=F(-0.48)
+        k = F(0.057)
+    elseif z>=F(-0.53)
+        k = F(0.056)
+    elseif z >=  F(-0.59)
+        k = F(0.06)
+    elseif z>= F(-0.68)
+        k = F(0.049)
+    elseif z>=F(-0.74)
+        k = F(0.027)
+    elseif z>=F(-0.78)
+        k = F(0.132)
+    elseif z >=  F(-0.84)
+        k = F(0.083)
     elseif z >=  F(-0.97)
-        k = F(0.107)
+        k = F(0.092)
+    elseif z >=  F(-1.02)
+        k = F(0.046)
     else
-        k = F(0.109)
+        k = F(0.064)
     end
-    return k*factor*FT(2)# they report αᵈ; αʷ = 2αᵈ. use mean since we dont do hysteresis? Or use wetting curve for all (NH)
-   
+    return k*factor*FT(2)# they report αᵈ; we don't model hysteresis. use mean: αʷ = 2αᵈ, so use *1.5? in sims they use 2 for all non-hysteresis runs
 end
 
 function vgn(z::F) where {F}
-    if z >= F(-0.06)
-        k = F(1.986)
-    elseif z >= F(-0.15)
-        k = F(1.875)
-    elseif z >=  F(-0.27)
-        k = F(2.296)
-    elseif z>= F(-0.32)
-        k = F(1.736)
-    elseif z>=F(-0.37)
-        k = F(2.07)
-    elseif z>=F(-0.42)
-        k = F(1.994)
-    elseif z >=  F(-0.46)
-        k = F(2.044)
-    elseif z>= F(-0.54)
-        k = F(1.711)
-    elseif z>=F(-0.6)
-        k = F(1.955)
-    elseif z>=F(-0.67)
-        k = F(1.982)
-    elseif z >=  F(-0.71)
-        k = F(1.931)
-    elseif z>= F(-0.78)
-        k = F(1.970)
-    elseif z>=F(-0.81)
-        k = F(1.851)
-    elseif z>=F(-0.88)
-        k = F(1.997)
+   if z >= F(-0.07)
+        k = F(1.717)
+    elseif z >= F(-0.1)
+        k = F(1.968)
+    elseif z >=  F(-0.17)
+        k = F(2.517)
+    elseif z>= F(-0.2)
+        k = F(2.736)
+    elseif z>=F(-0.23)
+        k = F(2.388)
+    elseif z>=F(-0.30)
+        k = F(2.302)
+    elseif z >=  F(-0.35)
+        k = F(2.136)
+    elseif z>= F(-0.45)
+        k = F(2.169)
+    elseif z>=F(-0.48)
+        k = F(2.095)
+    elseif z>=F(-0.53)
+        k = F(2.396)
+    elseif z >=  F(-0.59)
+        k = F(2.568)
+    elseif z>= F(-0.68)
+        k = F(2.455)
+    elseif z>=F(-0.74)
+        k = F(2.711)
+    elseif z>=F(-0.78)
+        k = F(1.488)
+    elseif z >=  F(-0.84)
+        k = F(2.109)
     elseif z >=  F(-0.97)
-        k = F(2.019)
+        k = F(2.206)
+    elseif z >=  F(-1.02)
+        k = F(2.362)
     else
-        k = F(2.024)
+        k = F(2.306)
     end
     return k
 end
 
 
 function θr(z::F) where {F}
-    if z >= F(-0.67)
+    if z >= F(-0.07)
         k = F(0.0)
-    elseif z >= F(-0.81)
-        k = F(0.005)
-    elseif z >=  F(-0.88)
-        k = F(0.003)
+    elseif z >= F(-0.17)
+        k = F(0.007)
+    elseif z >=  F(-0.2)
+        k = F(0.011)
+    elseif z >=F(-0.3)
+        k = F(0.0)
+    elseif z >= F(-0.35)
+        k = F(0.001)
+    elseif z>=F(-0.84)
+        k = F(0.0)
+    elseif z>= F(-0.97)
+        k = F(0.013)
     else
-        k = F(0.004)
+        k = F(0.00)
     end
     return k
 end
 
 
 function ν(z::F) where {F}
-    if z >= F(-0.06)
-        k = F(0.467)
-    elseif z >= F(-0.15)
-        k = F(0.3)
-    elseif z >=  F(-0.27)
-        k = F(0.379)
-    elseif z>= F(-0.32)
-        k = F(0.388)
-    elseif z>=F(-0.37)
-        k = F(0.389)
-    elseif z>=F(-0.42)
+    if z >= F(-0.07)
+        k = F(0.483)
+    elseif z >= F(-0.1)
+        k = F(0.508)
+    elseif z >=  F(-0.17)
+        k = F(0.536)
+    elseif z>= F(-0.2)
+        k = F(0.504)
+    elseif z>=F(-0.23)
+        k = F(0.452)
+    elseif z>=F(-0.30)
+        k = F(0.401)
+    elseif z >=  F(-0.35)
+        k = F(0.355)
+    elseif z>= F(-0.45)
+        k = F(0.356)
+    elseif z>=F(-0.48)
+        k = F(0.360)
+    elseif z>=F(-0.53)
+        k = F(0.356)
+    elseif z >=  F(-0.59)
+        k = F(0.352)
+    elseif z>= F(-0.68)
         k = F(0.405)
-    elseif z >=  F(-0.46)
-        k = F(0.4)
-    elseif z>= F(-0.54)
-        k = F(0.324)
-    elseif z>=F(-0.6)
-        k = F(0.311)
-    elseif z>=F(-0.67)
-        k = F(0.305)
-    elseif z >=  F(-0.71)
-        k = F(0.302)
-    elseif z>= F(-0.78)
-        k = F(0.305)
-    elseif z>=F(-0.81)
-        k = F(0.302)
-    elseif z>=F(-0.88)
-        k = F(0.289)
+    elseif z>=F(-0.74)
+        k = F(0.385)
+    elseif z>=F(-0.78)
+        k = F(0.378)
+    elseif z >=  F(-0.84)
+        k = F(0.264)
     elseif z >=  F(-0.97)
-        k = F(0.316)
+        k = F(0.303)
+    elseif z >=  F(-1.02)
+        k = F(0.287)
     else
-        k = F(0.332)
+        k = F(0.34)
     end
     return k
 end
+
 N_poly = 1;
-nelem_vert = 75;
+nelem_vert = 55;
 
 # Specify the domain boundaries.
 zmax = FT(0);
@@ -235,8 +258,8 @@ wpf = WaterParamFunctions(FT; Ksat = (aux)->ks(aux.z), S_s = S_s, θ_r = (aux)->
 soil_param_functions = SoilParamFunctions(FT; porosity = (aux)->ν(aux.z), water = wpf)
 kstop = ks(FT(0.0))
 
-#surface_state = (aux, t) -> eltype(aux)(0.4671)
-surface_flux = (aux,t)-> eltype(aux)( t  < 60*60 ? -kstop*((0.1+Δ)-aux.soil.water.h)/Δ : 0.0)
+#surface_state = (aux, t) -> eltype(aux)(S_s*0.1 + ν(aux.z))
+surface_flux = (aux,t)-> eltype(aux)(t < 64*60 ? -kstop*((0.1+Δ)-aux.soil.water.h)/Δ : 0.0)
 bottom_flux = (aux, t) -> aux.soil.water.K * eltype(aux)(-1)
 
 bc = LandDomainBC(
@@ -244,14 +267,13 @@ bc = LandDomainBC(
         soil_water = Neumann(bottom_flux)
     ),
     surface_bc = LandComponentBC(
-    #    soil_water = Dirichlet(surface_state)
+       # soil_water = Dirichlet(surface_state)
     soil_water = Neumann(surface_flux)
     )
 )
-#icdata = readdlm("./tutorials/Land/Soil/SiteBenchmarks/data/huang_sv62_ic.csv",',')
+#icdata = readdlm("./tutorials/Land/Soil/SiteBenchmarks/data/huang_sv60_ic.csv",',')
 θ = Spline1D(reverse(depth),reverse(ic),k =1)
 ϑ_l0 = aux -> eltype(aux)(θ(aux.z))
-
 
 
 soil_water_model = SoilWaterModel(
@@ -299,12 +321,16 @@ driver_config = ClimateMachine.SingleStackConfiguration(
 
 # Choose the initial and final times, as well as a timestep.
 t0 = FT(0)
-timeend = FT(60 *60)+t0
+timeend = FT(60 *64)+t0
 dt = FT(0.005);
 
 # Create the solver configuration.
+#ode_solver_type = ClimateMachine.ExplicitSolverType(
+#    solver_method = SSPRK34SpiteriRuuth
+#)
 solver_config =
-    ClimateMachine.SolverConfiguration(t0, timeend, driver_config, ode_dt = dt);
+    ClimateMachine.SolverConfiguration(t0, timeend, driver_config, ode_dt = dt)#, ode_solver_type = ode_solver_type,)
+
 dg = solver_config.dg
 Q = solver_config.Q
 
@@ -315,7 +341,54 @@ ode_solver = SSPRK34SpiteriRuuth(
         t0 = t0,
 )
 solver_config.solver = ode_solver
-n_outputs = 60;
+#solver_config.solver = SSPRK34SpiteriRuuth()
+#=
+    dg = solver_config.dg
+    Q = solver_config.Q
+
+    vdg = DGModel(
+        driver_config;
+        state_auxiliary = dg.state_auxiliary,
+        direction = VerticalDirection(),
+    )
+
+
+
+    linearsolver = BatchedGeneralizedMinimalResidual(
+        dg,
+        Q;
+        max_subspace_size = 30,
+        atol = -1.0,
+        rtol = 1e-5,
+    )
+
+    """
+    N(q)(Q) = Qhat  => F(Q) = N(q)(Q) - Qhat
+    F(Q) == 0
+    ||F(Q^i) || / ||F(Q^0) || < tol
+    """
+    nonlinearsolver =
+        JacobianFreeNewtonKrylovSolver(Q, linearsolver; tol = 1e-5)
+
+    ode_solver = ARK2GiraldoKellyConstantinescu(
+        dg,
+        vdg,
+        NonLinearBackwardEulerSolver(
+            nonlinearsolver;
+            isadjustable = true,
+            preconditioner_update_freq = 100,
+        ),
+        Q;
+        dt = dt,
+        t0 = 0,
+        split_explicit_implicit = false,
+        variant = NaiveVariant(),
+    )
+
+    solver_config.solver = ode_solver
+=#
+# Determine how often you want output.
+n_outputs = 64;
 
 every_x_simulation_time = ceil(Int, (timeend-t0) / n_outputs);
 
@@ -338,26 +411,22 @@ push!(dons_arr, dons)
 push!(time_data, gettime(solver_config.solver))
 z = get_z(solver_config.dg.grid; rm_dupes = true);
 
-
-their_sim = readdlm("/Users/katherinedeck/Desktop/code/ClimateMachine.jl/tutorials/Land/Soil/SiteBenchmarks/data/zettl_62_sim.csv", '\t')
-
+their_sim = readdlm("/Users/katherinedeck/Desktop/code/ClimateMachine.jl/tutorials/Land/Soil/SiteBenchmarks/data/zettl_60_sim.csv", '\t')
 
 
 plot(dons_arr[1]["soil.water.ϑ_l"],z, label = "initial", color = "grey", aspect_ratio = 0.8)
+
 plot!(dons_arr[9]["soil.water.ϑ_l"], z, label = "8min", color = "orange")
 scatter!(data[2:end, 3], depth,label = "", color = "orange")
 plot!(their_sim[2:end, 3],-their_sim[2:end,1]./100, label = "", linestyle = :dot, color = "orange")
-
 
 plot!(dons_arr[17]["soil.water.ϑ_l"], z, label = "16min", color = "red")
 scatter!( data[2:end, 4],depth, label = "", color = "red")
 plot!(their_sim[2:end, 4],-their_sim[2:end,1]./100, label = "", linestyle = :dot, color = "red")
 
-
 plot!(dons_arr[25]["soil.water.ϑ_l"], z, label = "24min", color = "teal")
 scatter!( data[2:end, 5],depth, label = "", color = "teal")
 plot!(their_sim[2:end, 5],-their_sim[2:end,1]./100, label = "", linestyle = :dot, color = "teal")
-
 
 plot!(dons_arr[33]["soil.water.ϑ_l"], z, label = "32min", color = "blue")
 scatter!( data[2:end, 6],depth, label = "", color = "blue")
@@ -367,13 +436,9 @@ plot!(dons_arr[41]["soil.water.ϑ_l"], z, label = "40min", color = "purple")
 scatter!( data[2:end, 7],depth, label = "", color = "purple")
 plot!(their_sim[2:end, 7],-their_sim[2:end,1]./100, label = "", linestyle = :dot, color = "purple")
 
-
-plot!(dons_arr[61]["soil.water.ϑ_l"], z, label = "60min", color = "green")
+plot!(dons_arr[65]["soil.water.ϑ_l"], z, label = "64min", color = "green")
 scatter!( data[2:end, 8], depth,label = "", color = "green")
 plot!(their_sim[2:end, 8],-their_sim[2:end,1]./100, label = "", linestyle = :dot, color = "green")
-
-
-
 plot!([0,0],[0,0], label = "CliMA", color = "black")
 plot!([0,0],[0,0], label = "Hydrus", color = "black", linestyle = :dot)
 scatter!([1,1],[1,1], label = "Data", color = "black")
@@ -389,28 +454,23 @@ plot!(ylabel = "Depth (m)")
 
 plot!(xlabel  = "Volumeteric Water Content")
 
-savefig("./sv62_alpha_2_inf_updated_data.png")
+savefig("./sv60_alpha_2_inf_updated_data.png")
 function compute_tws(N)
     m = data[2:end, N]
     foo = Spline1D(reverse(depth), reverse(m))
     q = foo.(z)
     return sum((q[2:end] .+ q[1:end-1])./2.0 .*Δ .*2)*100
 end
-tws = [sum((dons_arr[k]["soil.water.ϑ_l"][1:end-1] .+ dons_arr[k]["soil.water.ϑ_l"][2:end]) ./2) .* Δ .* 2 .* 100 for k in 1:61] #cm
-plot(0:1:60, tws, label = "Simulated")
-scatter!([0, 8,16,24,32,40,60], compute_tws.(Array(1:1:7).+1), label = "Observed")
+tws = [sum((dons_arr[k]["soil.water.ϑ_l"][1:end-1] .+ dons_arr[k]["soil.water.ϑ_l"][2:end]) ./2) .* Δ .* 2 .* 100 for k in 1:65] #cm
+plot(0:1:64, tws, label = "Simulated")
+scatter!([0, 8,16,24,32,40,64], compute_tws.(Array(1:1:7).+1), label = "Observed")
 #scatter!(T[1:17],tws_obs,  label = "Observed")
 plot!(legend = :bottomright)
 plot!(ylabel = "Total Water Storage in 1.1m (cm)")
 plot!(xlabel = "Minutes since infiltration began")
-savefig("./sv62_alpha_2_tws_inf_updated_data.png")
+savefig("./sv60_alpha_2_tws_inf_updated_data.png")
 
 #=
-
-
-
-
-
 #data = readdlm("./tutorials/Land/Soil/SiteBenchmarks/data/huang_sv60.csv", ',')
 plot(dons_arr[1]["soil.water.ϑ_l"],z, label = "initial", color = "black", aspect_ratio = 0.8)
 plot!(dons_arr[9]["soil.water.ϑ_l"], z, label = "8min", color = "orange")
@@ -429,8 +489,8 @@ scatter!( data[:, T .== 32],depth, label = "", color = "blue")
 plot!(dons_arr[41]["soil.water.ϑ_l"], z, label = "40min", color = "purple")
 scatter!( data[:, T .== 40],depth, label = "", color = "purple")
 #scatter!(data[2:end, 5], data[2:end, 6], label = "", color = "purple")
-plot!(dons_arr[61]["soil.water.ϑ_l"], z, label = "60min", color = "green")
-scatter!( data[:, T .== 60], depth,label = "", color = "green")
+plot!(dons_arr[65]["soil.water.ϑ_l"], z, label = "64min", color = "green")
+scatter!( data[:, T .== 64], depth,label = "", color = "green")
 #scatter!(data[2:end, 7], data[2:end, 8], label = "", color = "green")
 plot!(legend = :bottomright)
 
@@ -444,8 +504,8 @@ plot!(ylabel = "Depth (m)")
 
 plot!(xlabel  = "Volumeteric Water Content")
 
-#plot!(title = "SV62; infiltration")
-savefig("./sv62_alpha_2_infiltration.png")
+
+savefig("./sv60_alpha_2_infiltration.png")
 
 function compute_tws(t)
     m = data[:, T .== t]
@@ -453,24 +513,13 @@ function compute_tws(t)
     q = foo.(z)
     return sum((q[2:end] .+ q[1:end-1])./2.0 .*Δ .*2)*100
 end
-tws = [sum((dons_arr[k]["soil.water.ϑ_l"][1:end-1] .+ dons_arr[k]["soil.water.ϑ_l"][2:end]) ./2) .* Δ .* 2 .* 100 for k in 1:61] #cm
-plot(0:1:60, tws, label = "Simulated")
-scatter!(T[1:16], compute_tws.(T[1:16]), label = "Observed")
+tws = [sum((dons_arr[k]["soil.water.ϑ_l"][1:end-1] .+ dons_arr[k]["soil.water.ϑ_l"][2:end]) ./2) .* Δ .* 2 .* 100 for k in 1:65] #cm
+plot(0:1:64, tws, label = "Simulated")
+scatter!(T[1:17], compute_tws.(T[1:17]), label = "Observed")
 #scatter!(T[1:17],tws_obs,  label = "Observed")
 plot!(legend = :bottomright)
 plot!(ylabel = "Total Water Storage in 1.1m (cm)")
 plot!(xlabel = "Minutes since infiltration began")
-savefig("./sv62_alpha_2_tws_inf.png")
-
-plot(dons_arr[61]["soil.water.ϑ_l"],z, label = "60 min", color = "black", aspect_ratio = 0.8)
-
-
-#plot!(dons_arr[91]["soil.water.ϑ_l"], z, label = "92min", color = "orange")
-#scatter!(data[:, T .== 92], depth,label = "", color = "orange")
-
-
-
-
+savefig("./sv60_alpha_2_tws_inf.png")
 
 =#
-
