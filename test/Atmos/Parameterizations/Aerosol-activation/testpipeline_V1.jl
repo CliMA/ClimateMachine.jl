@@ -4,7 +4,7 @@ using CLIMAParameters: gas_constant
 using CLIMAParameters.Planet: molmass_water, ρ_cloud_liq, grav, T_freeze
 using CLIMAParameters.Atmos.Microphysics
 
-include("AerosolActivation-Shevali.jl")
+include("/home/skadakia/clones/ClimateMachine.jl/src/Atmos/Parameterizations/CloudPhysics/Aerosol-activation/AerosolActivation.jl")
 
 # using ClimateMachine.Atmos.Parameterizations.CloudPhysics.Aerosol-activation.AerosolActivation-Shevali.jl: alpha_sic, gamma_sic, coeff_of_curvature, mean_hygroscopicity
 
@@ -208,23 +208,24 @@ function tp_max_super_sat(am::aerosol_model,
 end
 
 function tp_coeff_of_curve(temp::Float64, activation_time::Float64)
-    value = 2 * activation_time * density_water / (density_water * R * temp)
+    value = 2 * activation_time * molar_mass_water / (density_water * R * temp)
     return value
 end
 
 function tp_critical_supersaturation(am::aerosol_model, 
                                      temp::Float64, 
                                      activation_time::Float64)
-    mean_hygro = tp_mean_hygroscopicity(am)
+    mean_hygro = 2 #tp_mean_hygroscopicity(am)
     return ntuple(am.N) do i
         mode_i = am.modes[i]
         num_of_comp = mode_i.n_components
         total_mass_value = total_mass(mode_i)
         a = sum(num_of_comp) do j
-            mode_i.particle_density[j]/total_mass_value * 2 / sqrt(mean_hygro[i]) * (tp_coeff_of_curve(temp, activation_time) / (3 * mode_i.dry_radius[j]) ^ (3/2))
+            mode_i.particle_density[j]/total_mass_value * 2 / sqrt(mean_hygro[i]) * (tp_coeff_of_curve(temp, activation_time) / (3 * mode_i.dry_radius[j])) ^ (3/2)
         end
         a
     end
+    
 end
 
 function tp_total_n_act(am::aerosol_model, 
@@ -239,8 +240,8 @@ function tp_total_n_act(am::aerosol_model,
             critical_supersaturation = tp_critical_supersaturation(am, temp, mode_i.activation_time[j])
             max_supersat = tp_max_super_sat(am, temp, updraft_velocity, diffusion)
             sigma = mode_i.radius_stdev[j]
-            u_bottom = 2 * log(critical_supersaturation[i] / max_supersat[i])
-            u_top = 3 * sqrt(2) * log(sigma)
+            u_top = 2 * log(critical_supersaturation[i] / max_supersat[i])
+            u_bottom = 3 * sqrt(2) * log(sigma)
             u = u_top / u_bottom
             mode_i.particle_density[j]/total_mass_value * mode_i.particle_density[j] * 1/2 * (1 - erf(u))
         end
@@ -252,12 +253,12 @@ function tp_total_n_act(am::aerosol_model,
     return summation
 end
 
-println("total_n_act") 
-println(tp_mean_hygroscopicity(aerosolmodel_testcase1))
-println(tp_mean_hygroscopicity(aerosolmodel_testcase2))
-println(tp_mean_hygroscopicity(aerosolmodel_testcase3))
-println(tp_mean_hygroscopicity(aerosolmodel_testcase4))
-println(tp_mean_hygroscopicity(aerosolmodel_testcase5))
+# println("total_n_act") 
+# println(tp_mean_hygroscopicity(aerosolmodel_testcase1))
+# println(tp_mean_hygroscopicity(aerosolmodel_testcase2))
+# println(tp_mean_hygroscopicity(aerosolmodel_testcase3))
+# println(tp_mean_hygroscopicity(aerosolmodel_testcase4))
+# println(tp_mean_hygroscopicity(aerosolmodel_testcase5))
 
 # println("test max super sat")
 # println(tp_max_super_sat(aerosolmodel_testcase1, 2.0, 3.0, 4.0))
