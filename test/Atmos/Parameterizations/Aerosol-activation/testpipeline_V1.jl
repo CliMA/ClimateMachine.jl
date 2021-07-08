@@ -65,6 +65,7 @@ struct mode{T}
     radius_stdev::T
     aerosol_density::T
     n_components::Int64
+    activation_time::Float64
 end
 
 # complete aerosol model struct
@@ -87,6 +88,7 @@ accum_mode_seasalt = mode((particle_density_seasalt_accum,),
                           (dry_radius_seasalt_accum,),
                           (rho_seasalt,),
                           (radius_stdev_seasalt_accum,), 
+                          (1.0,),
                           1)
 
 coarse_mode_seasalt = mode((particle_density_seasalt_coarse,),
@@ -98,6 +100,7 @@ coarse_mode_seasalt = mode((particle_density_seasalt_coarse,),
                            (dry_radius_seasalt_coarse,),
                            (rho_seasalt,),
                            (radius_stdev_seasalt_coarse,), 
+                           (1.0,),
                            1)
 
 aerosolmodel_testcase1 = aerosol_model((accum_mode_seasalt,))
@@ -123,6 +126,7 @@ accum_mode_seasalt_dust = mode((particle_density_seasalt_accum,
                                 rho_dust),
                                (radius_stdev_seasalt_accum, 
                                 radius_stdev_dust_accum),
+                               (1.0, 1.0),
                                 2)
 
 coarse_mode_seasalt_dust = mode((particle_density_seasalt_coarse, 
@@ -143,6 +147,7 @@ coarse_mode_seasalt_dust = mode((particle_density_seasalt_coarse,
                                  rho_dust),
                                 (radius_stdev_seasalt_coarse, 
                                  radius_stdev_dust_coarse),
+                                (1.0, 1.0),
                                  2)
 
 aerosolmodel_testcase4 = aerosol_model((accum_mode_seasalt_dust,))
@@ -182,8 +187,7 @@ end
 function tp_max_super_sat(am::aerosol_model, 
                             temp::Float64, 
                             updraft_velocity::Float64, 
-                            diffusion::Float64, 
-                            activation_time::Float64)
+                            diffusion::Float64)
     mean_hygro = tp_mean_hygroscopicity(am)
     return ntuple(am.N) do i
         mode_i = am.modes[i]
@@ -192,7 +196,7 @@ function tp_max_super_sat(am::aerosol_model,
         a = sum(num_of_comp) do j
             f = 0.5 * exp(2.5 * log(mode_i.radius_stdev[j])^2)
             g = 1 + 0.25 * log(mode_i.radius_stdev[j])
-            surface_tension = 2 * activation_time * molar_mass_water / (density_water * R * temp)
+            surface_tension = 2 * activation_time[j] * molar_mass_water / (density_water * R * temp)
             surface_tension_effects = 2 * surface_tension / 3 * (1.0 * updraft_velocity / diffusion)^(1/2)
             supersat = 2/sqrt(mean_hygro[i]) * (surface_tension / (3 * mode_i.dry_radius[j])) ^ (3/2)
             mode_i.particle_density[j]/total_mass_value * (1/(supersat ^ 2) * (f * (surface_tension_effects/2.0) ^(3/2) + g * (supersat ^ 2)/ (2.0 + 3 * surface_tension_effects)^(3/4)))
@@ -224,15 +228,14 @@ end
 function tp_total_n_act(am::aerosol_model, 
                           temp::Float64, 
                           updraft_velocity::Float64, 
-                          diffusion::Float64, 
-                          activation_time::Float64)
-    critical_supersaturation = tp_critical_supersaturation(am::aerosol_model, temp::Float64, activation_time::Float64)
-    max_supersat = tp_max_super_sat(am, temp, updraft_velocity, diffusion, activation_time)
+                          diffusion::Float64)
     values = ntuple(am.N) do i
         mode_i = am.modes[i]
         num_of_comp = mode_i.n_components
         total_mass_value = total_mass(mode_i)
         a = sum(num_of_comp) do j
+            critical_supersaturation = tp_critical_supersaturation(am, temp, activation_time[j])
+            max_supersat = tp_max_super_sat(am, temp, updraft_velocity, diffusion, activation_time[j])
             sigma = mode_i.radius_stdev[j]
             u_bottom = 2 * log(critical_supersaturation[i] / max_supersat[i])
             u_top = 3 * sqrt(2) * log(sigma)
