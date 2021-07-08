@@ -10,6 +10,9 @@ include("AerosolActivation-Shevali.jl")
 
 # Universal parameters:
 
+molar_mass_water = 18
+density_water = 1000.0
+R = 8.314462618
 # Building the test structures
 # 1. Set Aerosol parameters: 
 
@@ -64,8 +67,8 @@ struct mode{T}
     dry_radius::T
     radius_stdev::T
     aerosol_density::T
+    activation_time::T
     n_components::Int64
-    activation_time::Float64
 end
 
 # complete aerosol model struct
@@ -196,7 +199,7 @@ function tp_max_super_sat(am::aerosol_model,
         a = sum(num_of_comp) do j
             f = 0.5 * exp(2.5 * log(mode_i.radius_stdev[j])^2)
             g = 1 + 0.25 * log(mode_i.radius_stdev[j])
-            surface_tension = 2 * activation_time[j] * molar_mass_water / (density_water * R * temp)
+            surface_tension = 2 * mode_i.activation_time[j] * molar_mass_water / (density_water * R * temp)
             surface_tension_effects = 2 * surface_tension / 3 * (1.0 * updraft_velocity / diffusion)^(1/2)
             supersat = 2/sqrt(mean_hygro[i]) * (surface_tension / (3 * mode_i.dry_radius[j])) ^ (3/2)
             mode_i.particle_density[j]/total_mass_value * (1/(supersat ^ 2) * (f * (surface_tension_effects/2.0) ^(3/2) + g * (supersat ^ 2)/ (2.0 + 3 * surface_tension_effects)^(3/4)))
@@ -234,8 +237,8 @@ function tp_total_n_act(am::aerosol_model,
         num_of_comp = mode_i.n_components
         total_mass_value = total_mass(mode_i)
         a = sum(num_of_comp) do j
-            critical_supersaturation = tp_critical_supersaturation(am, temp, activation_time[j])
-            max_supersat = tp_max_super_sat(am, temp, updraft_velocity, diffusion, activation_time[j])
+            critical_supersaturation = tp_critical_supersaturation(am, temp, mode_i.activation_time[j])
+            max_supersat = tp_max_super_sat(am, temp, updraft_velocity, diffusion)
             sigma = mode_i.radius_stdev[j]
             u_bottom = 2 * log(critical_supersaturation[i] / max_supersat[i])
             u_top = 3 * sqrt(2) * log(sigma)
@@ -272,26 +275,27 @@ end
 #     @test tp_total_n_act(aerosolmodel_testcase1, 2.0, 3.0, 4.0, 1.0) ≈ 1
 #     @test tp_total_n_act(aerosolmodel_testcase1, 2.0, 3.0, 4.0, 1.0) ≈ 1 
 # end
-# println("total_n_act") 
-# println("LOOK HERE")
-# println(tp_mean_hygroscopicity(aerosolmodel_testcase1))
-# println(tp_mean_hygroscopicity(aerosolmodel_testcase2))
-# println(tp_mean_hygroscopicity(aerosolmodel_testcase3))
-# println(tp_mean_hygroscopicity(aerosolmodel_testcase4))
-# println(tp_mean_hygroscopicity(aerosolmodel_testcase5))
 
-# println("test max super sat")
-# println(tp_max_super_sat(aerosolmodel_testcase1, 2.0, 3.0, 4.0, 1.0))
-# println(tp_max_super_sat(aerosolmodel_testcase2, 2.0, 3.0, 4.0, 1.0))
-# println(tp_max_super_sat(aerosolmodel_testcase3, 2.0, 3.0, 4.0, 1.0))
-# println(tp_max_super_sat(aerosolmodel_testcase4, 2.0, 3.0, 4.0, 1.0))
-# println(tp_max_super_sat(aerosolmodel_testcase5, 2.0, 3.0, 4.0, 1.0))
+println("total_n_act") 
+println("LOOK HERE")
+println(tp_mean_hygroscopicity(aerosolmodel_testcase1))
+println(tp_mean_hygroscopicity(aerosolmodel_testcase2))
+println(tp_mean_hygroscopicity(aerosolmodel_testcase3))
+println(tp_mean_hygroscopicity(aerosolmodel_testcase4))
+println(tp_mean_hygroscopicity(aerosolmodel_testcase5))
 
-# println("test total n activated")
-# println(tp_total_n_act(aerosolmodel_testcase1, 2.0, 3.0, 4.0, 1.0))
-# println(tp_total_n_act(aerosolmodel_testcase2, 2.0, 3.0, 4.0, 1.0))
-# println(tp_total_n_act(aerosolmodel_testcase3, 2.0, 3.0, 4.0, 1.0))
-# println(tp_total_n_act(aerosolmodel_testcase4, 2.0, 3.0, 4.0, 1.0))
-# println(tp_total_n_act(aerosolmodel_testcase5, 2.0, 3.0, 4.0, 1.0))
+println("test max super sat")
+println(tp_max_super_sat(aerosolmodel_testcase1, 2.0, 3.0, 4.0))
+println(tp_max_super_sat(aerosolmodel_testcase2, 2.0, 3.0, 4.0))
+println(tp_max_super_sat(aerosolmodel_testcase3, 2.0, 3.0, 4.0))
+println(tp_max_super_sat(aerosolmodel_testcase4, 2.0, 3.0, 4.0))
+println(tp_max_super_sat(aerosolmodel_testcase5, 2.0, 3.0, 4.0))
 
-mean_hygroscopicity(aerosolmodel_testcase1)
+println("test total n activated")
+println(tp_total_n_act(aerosolmodel_testcase1, 2.0, 3.0, 4.0))
+println(tp_total_n_act(aerosolmodel_testcase2, 2.0, 3.0, 4.0))
+println(tp_total_n_act(aerosolmodel_testcase3, 2.0, 3.0, 4.0))
+println(tp_total_n_act(aerosolmodel_testcase4, 2.0, 3.0, 4.0))
+println(tp_total_n_act(aerosolmodel_testcase5, 2.0, 3.0, 4.0))
+
+# mean_hygroscopicity(aerosolmodel_testcase1)
