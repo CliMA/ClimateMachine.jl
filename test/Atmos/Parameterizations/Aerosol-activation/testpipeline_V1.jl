@@ -4,7 +4,7 @@ using CLIMAParameters: gas_constant
 using CLIMAParameters.Planet: molmass_water, ρ_cloud_liq, grav, T_freeze
 using CLIMAParameters.Atmos.Microphysics
 
-include("/home/skadakia/clones/ClimateMachine.jl/src/Atmos/Parameterizations/CloudPhysics/Aerosol-activation/AerosolActivation.jl")
+include("/home/skadakia/clones/ClimateMachine.jl/src/Atmos/Parameterizations/CloudPhysics/Aerosol-activation/AerosolActivation-Shevali.jl")
 
 # using ClimateMachine.Atmos.Parameterizations.CloudPhysics.Aerosol-activation.AerosolActivation-Shevali.jl: alpha_sic, gamma_sic, coeff_of_curvature, mean_hygroscopicity
 
@@ -275,3 +275,6 @@ end
 # println(tp_total_n_act(aerosolmodel_testcase5, 2.0, 3.0, 4.0))
 
 # mean_hygroscopicity(aerosolmodel_testcase1)
+
+# temperature: 273.15 in K
+# tau: 75 mN/m

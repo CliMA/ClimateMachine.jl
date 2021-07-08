@@ -6,7 +6,6 @@ Aerosol activation module, which includes:
 - maximum supersaturation for an entire aerosol model
 - total number of particles actived in a system given an aerosol model 
 """
-module AerosolActivation
 
 using SpecialFunctions
 
@@ -80,7 +79,7 @@ alpha_sic(aero_mm)
     Returns coefficient relevant to other functions. Uses aerosol
     Molar mass
 """
-struct mode{T}
+struct mode_2{T}
     particle_density::T
     osmotic_coeff::T
     molar_mass::T 
@@ -93,25 +92,25 @@ struct mode{T}
 end
 
 # complete aerosol model struct
-struct aerosol_model{T}
+struct aerosol_model_2{T}
     modes::T
 end 
 
 # 3. Populate structs to pass into functions/run calculations
 # Test cases 1-3 (Just Sea Salt)
-accum_mode_seasalt = mode((particle_density_seasalt_accum,), (osmotic_coeff_seasalt,), 
+accum_mode_seasalt = mode_2((particle_density_seasalt_accum,), (osmotic_coeff_seasalt,), 
                         (molar_mass_seasalt,), 
                             (dissoc_seasalt,), (mass_frac_seasalt,), (mass_mix_ratio_seasalt,),
                         (radius_seasalt_accum,),
                         (radius_stdev_seasalt_accum,), (activation_time_seasalt,))
 
-coarse_mode_seasalt = mode((particle_density_seasalt_accum,), (osmotic_coeff_seasalt,), 
+coarse_mode_seasalt = mode_2((particle_density_seasalt_accum,), (osmotic_coeff_seasalt,), 
                         (molar_mass_seasalt,), 
                             (dissoc_seasalt,), (mass_frac_seasalt,), (mass_mix_ratio_seasalt,),
                         (radius_seasalt_coarse,),
                         (radius_stdev_seasalt_coarse,), (activation_time_seasalt,))
 
-coarse_mode_ssanddust = mode((particle_density_seasalt_accum, particle_density_dust_coarse), 
+coarse_mode_ssanddust = mode_2((particle_density_seasalt_accum, particle_density_dust_coarse), 
                             (osmotic_coeff_seasalt, osmotic_coeff_dust), 
                         (molar_mass_seasalt, molar_mass_dust), 
                             (dissoc_seasalt, dissoc_dust), 
@@ -121,7 +120,7 @@ coarse_mode_ssanddust = mode((particle_density_seasalt_accum, particle_density_d
                         (radius_stdev_seasalt_coarse, radius_stdev_dust_accum),
                          (activation_time_seasalt, activation_time_dust))
 
-function alpha_sic(am::aerosol_model)
+function alpha_sic(am::aerosol_model_2)
     return ntuple(length(am.modes)) do i 
         mode_i = am.modes[i]
         # Find weighted molar mass of mode
@@ -146,7 +145,7 @@ gamma_sic(aero_mm)
     Returns coefficient relevant to other functions. Uses aerosol
     Molar mass and water saturation pressure. 
 """
-function gamma_sic(am::aerosol_model, P_sat)
+function gamma_sic(am::aerosol_model_2, P_sat)
     return ntuple(length(am.modes)) do i 
         mode_i = am.modes[i]
         # Find weighted molar mass of mode
@@ -172,7 +171,7 @@ coeff_of_curvature(am::aerosol_model)
     input into other functions. Utilizes activation time and particle density 
     from modes struct.
 """
-function coeff_of_curvature(am::aerosol_model)
+function coeff_of_curvature(am::aerosol_model_2)
     return ntuple(length(am.modes)) do i 
         mode_i = am.modes[i]
         # take weighted average of activation times 
@@ -199,7 +198,7 @@ mean_hygroscopicity(am::aerosol_model)
     Utilizes mass mixing ratio, dissociation, mass fraction, molar mass, particle 
     density from mode struct. 
 """
-function mean_hygroscopicity(am::aerosol_model)
+function mean_hygroscopicity(am::aerosol_model_2)
     return ntuple(length(am.modes)) do i 
         mode_i = am.modes[i]
         n_comps = length(mode_i.particle_density)
@@ -216,4 +215,3 @@ function mean_hygroscopicity(am::aerosol_model)
     end 
 end
 
-end # module AerosolActivation.jl
