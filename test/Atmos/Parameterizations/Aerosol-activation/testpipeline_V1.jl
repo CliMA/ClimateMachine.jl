@@ -4,7 +4,7 @@ using CLIMAParameters: gas_constant
 using CLIMAParameters.Planet: molmass_water, ρ_cloud_liq, grav, T_freeze
 using CLIMAParameters.Atmos.Microphysics
 
-# include("/home/skadakia/clones/ClimateMachine.jl/src/Atmos/Parameterizations/CloudPhysics/Aerosol-activation/AerosolActivation-Shevali.jl")
+include("AerosolActivation-Shevali.jl")
 
 # using ClimateMachine.Atmos.Parameterizations.CloudPhysics.Aerosol-activation.AerosolActivation-Shevali.jl: alpha_sic, gamma_sic, coeff_of_curvature, mean_hygroscopicity
 
@@ -269,24 +269,26 @@ end
 #     @test tp_total_n_act(aerosolmodel_testcase1, 2.0, 3.0, 4.0, 1.0) ≈ 1
 #     @test tp_total_n_act(aerosolmodel_testcase1, 2.0, 3.0, 4.0, 1.0) ≈ 1 
 # end
-println("total_n_act") 
-println("LOOK HERE")
-println(tp_mean_hygroscopicity(aerosolmodel_testcase1))
-println(tp_mean_hygroscopicity(aerosolmodel_testcase2))
-println(tp_mean_hygroscopicity(aerosolmodel_testcase3))
-println(tp_mean_hygroscopicity(aerosolmodel_testcase4))
-println(tp_mean_hygroscopicity(aerosolmodel_testcase5))
+# println("total_n_act") 
+# println("LOOK HERE")
+# println(tp_mean_hygroscopicity(aerosolmodel_testcase1))
+# println(tp_mean_hygroscopicity(aerosolmodel_testcase2))
+# println(tp_mean_hygroscopicity(aerosolmodel_testcase3))
+# println(tp_mean_hygroscopicity(aerosolmodel_testcase4))
+# println(tp_mean_hygroscopicity(aerosolmodel_testcase5))
 
-println("test max super sat")
-println(tp_max_super_sat(aerosolmodel_testcase1, 2.0, 3.0, 4.0, 1.0))
-println(tp_max_super_sat(aerosolmodel_testcase2, 2.0, 3.0, 4.0, 1.0))
-println(tp_max_super_sat(aerosolmodel_testcase3, 2.0, 3.0, 4.0, 1.0))
-println(tp_max_super_sat(aerosolmodel_testcase4, 2.0, 3.0, 4.0, 1.0))
-println(tp_max_super_sat(aerosolmodel_testcase5, 2.0, 3.0, 4.0, 1.0))
+# println("test max super sat")
+# println(tp_max_super_sat(aerosolmodel_testcase1, 2.0, 3.0, 4.0, 1.0))
+# println(tp_max_super_sat(aerosolmodel_testcase2, 2.0, 3.0, 4.0, 1.0))
+# println(tp_max_super_sat(aerosolmodel_testcase3, 2.0, 3.0, 4.0, 1.0))
+# println(tp_max_super_sat(aerosolmodel_testcase4, 2.0, 3.0, 4.0, 1.0))
+# println(tp_max_super_sat(aerosolmodel_testcase5, 2.0, 3.0, 4.0, 1.0))
 
-println("test total n activated")
-println(tp_total_n_act(aerosolmodel_testcase1, 2.0, 3.0, 4.0, 1.0))
-println(tp_total_n_act(aerosolmodel_testcase2, 2.0, 3.0, 4.0, 1.0))
-println(tp_total_n_act(aerosolmodel_testcase3, 2.0, 3.0, 4.0, 1.0))
-println(tp_total_n_act(aerosolmodel_testcase4, 2.0, 3.0, 4.0, 1.0))
-println(tp_total_n_act(aerosolmodel_testcase5, 2.0, 3.0, 4.0, 1.0))
+# println("test total n activated")
+# println(tp_total_n_act(aerosolmodel_testcase1, 2.0, 3.0, 4.0, 1.0))
+# println(tp_total_n_act(aerosolmodel_testcase2, 2.0, 3.0, 4.0, 1.0))
+# println(tp_total_n_act(aerosolmodel_testcase3, 2.0, 3.0, 4.0, 1.0))
+# println(tp_total_n_act(aerosolmodel_testcase4, 2.0, 3.0, 4.0, 1.0))
+# println(tp_total_n_act(aerosolmodel_testcase5, 2.0, 3.0, 4.0, 1.0))
+
+mean_hygroscopicity(aerosolmodel_testcase1)
