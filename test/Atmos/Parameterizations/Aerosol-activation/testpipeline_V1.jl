@@ -89,8 +89,8 @@ accum_mode_seasalt = mode((particle_density_seasalt_accum,),
                           (mass_frac_seasalt,), 
                           (mass_mix_ratio_seasalt,), 
                           (dry_radius_seasalt_accum,),
-                          (rho_seasalt,),
-                          (radius_stdev_seasalt_accum,), 
+                          (radius_stdev_seasalt_accum,),
+                          (rho_seasalt,), 
                           (1.0,),
                           1)
 
@@ -101,8 +101,8 @@ coarse_mode_seasalt = mode((particle_density_seasalt_coarse,),
                            (mass_frac_seasalt,), 
                            (mass_mix_ratio_seasalt,),
                            (dry_radius_seasalt_coarse,),
-                           (rho_seasalt,),
-                           (radius_stdev_seasalt_coarse,), 
+                           (radius_stdev_seasalt_coarse,),
+                           (rho_seasalt,), 
                            (1.0,),
                            1)
 
@@ -125,10 +125,10 @@ accum_mode_seasalt_dust = mode((particle_density_seasalt_accum,
                                 mass_mix_ratio_dust),
                                (dry_radius_seasalt_accum, 
                                 dry_radius_dust_accum),
-                               (rho_seasalt, 
-                                rho_dust),
                                (radius_stdev_seasalt_accum, 
                                 radius_stdev_dust_accum),
+                               (rho_seasalt, 
+                                rho_dust),
                                (1.0, 1.0),
                                 2)
 
@@ -146,18 +146,17 @@ coarse_mode_seasalt_dust = mode((particle_density_seasalt_coarse,
                                  mass_mix_ratio_dust),
                                 (dry_radius_seasalt_coarse, 
                                  dry_radius_dust_coarse),
-                                (rho_seasalt, 
-                                 rho_dust),
                                 (radius_stdev_seasalt_coarse, 
                                  radius_stdev_dust_coarse),
+                                (rho_seasalt, 
+                                 rho_dust),
                                 (1.0, 1.0),
                                  2)
 
 aerosolmodel_testcase4 = aerosol_model((accum_mode_seasalt_dust,))
 aerosolmodel_testcase5 = aerosol_model((accum_mode_seasalt_dust,
                                         coarse_mode_seasalt_dust))
-println("HERE")
-println(molmass_water)
+
 function total_mass(m::mode)
     num_of_comp = m.n_components
     total_mass = sum(num_of_comp) do j
@@ -172,7 +171,7 @@ function tp_mean_hygroscopicity(am::aerosol_model)
         total_mass_value = total_mass(mode_i)
         num_of_comp = mode_i.n_components # mode_i.n_components
         numerator = sum(num_of_comp) do j
-            mode_i.particle_density[j]/total_mass_value * mode_i.osmotic_coeff[j] * mode_i.mass_mix_ratio[j] * mode_i.dissoc[j] * mode_i.mass_frac[j] * 1/mode_i.molar_mass[j]
+            mode_i.osmotic_coeff[j] * mode_i.mass_mix_ratio[j] * mode_i.dissoc[j] * mode_i.mass_frac[j] * 1/mode_i.molar_mass[j] # mode_i.particle_density[j]/total_mass_value * 
         end
         denominator = sum(num_of_comp) do j
             mode_i.particle_density[j]/total_mass_value * mode_i.mass_mix_ratio[j] / mode_i.aerosol_density[j]
@@ -188,9 +187,9 @@ end
 # surface_tension_effects(zeta) --> 3.0
 
 function tp_max_super_sat(am::aerosol_model, 
-                            temp::Float64, 
-                            updraft_velocity::Float64, 
-                            diffusion::Float64)
+                          temp::Float64, 
+                          updraft_velocity::Float64, 
+                          diffusion::Float64)
     mean_hygro = tp_mean_hygroscopicity(am)
     return ntuple(am.N) do i
         mode_i = am.modes[i]
@@ -214,8 +213,8 @@ function tp_coeff_of_curve(temp::Float64, activation_time::Float64)
 end
 
 function tp_critical_supersaturation(am::aerosol_model, 
-                                       temp::Float64, 
-                                       activation_time::Float64)
+                                     temp::Float64, 
+                                     activation_time::Float64)
     mean_hygro = tp_mean_hygroscopicity(am)
     return ntuple(am.N) do i
         mode_i = am.modes[i]
@@ -229,9 +228,9 @@ function tp_critical_supersaturation(am::aerosol_model,
 end
 
 function tp_total_n_act(am::aerosol_model, 
-                          temp::Float64, 
-                          updraft_velocity::Float64, 
-                          diffusion::Float64)
+                        temp::Float64, 
+                        updraft_velocity::Float64, 
+                        diffusion::Float64)
     values = ntuple(am.N) do i
         mode_i = am.modes[i]
         num_of_comp = mode_i.n_components
@@ -253,49 +252,25 @@ function tp_total_n_act(am::aerosol_model,
     return summation
 end
 
-# @testset "mean_hygroscopicity" begin
-#     @test tp_mean_hygroscopicity(aerosolmodel_testcase1) ≈ (1,0)
-#     @test tp_mean_hygroscopicity(aerosolmodel_testcase2) ≈ (1,0)
-#     @test tp_mean_hygroscopicity(aerosolmodel_testcase3) ≈ (1,0)
-#     @test tp_mean_hygroscopicity(aerosolmodel_testcase4) ≈ (1,0)
-#     @test tp_mean_hygroscopicity(aerosolmodel_testcase5) ≈ (1,0)
-# end
-# @testset "max_super_sat" begin
-#     @test tp_max_super_sat(aerosolmodel_testcase1, 2.0, 3.0, 4.0, 1.0) ≈ (1,0)
-#     @test tp_max_super_sat(aerosolmodel_testcase2, 2.0, 3.0, 4.0, 1.0) ≈ (1,0)
-#     @test tp_max_super_sat(aerosolmodel_testcase3, 2.0, 3.0, 4.0, 1.0) ≈ (1,0)
-#     @test tp_max_super_sat(aerosolmodel_testcase4, 2.0, 3.0, 4.0, 1.0) ≈ (1,0)
-#     @test tp_max_super_sat(aerosolmodel_testcase5, 2.0, 3.0, 4.0, 1.0) ≈ (1,0)
-# end
-
-# @testset "total_n_act" begin
-#     @test tp_total_n_act(aerosolmodel_testcase1, 2.0, 3.0, 4.0, 1.0) ≈ 1
-#     @test tp_total_n_act(aerosolmodel_testcase1, 2.0, 3.0, 4.0, 1.0) ≈ 1
-#     @test tp_total_n_act(aerosolmodel_testcase1, 2.0, 3.0, 4.0, 1.0) ≈ 1
-#     @test tp_total_n_act(aerosolmodel_testcase1, 2.0, 3.0, 4.0, 1.0) ≈ 1
-#     @test tp_total_n_act(aerosolmodel_testcase1, 2.0, 3.0, 4.0, 1.0) ≈ 1 
-# end
-
 println("total_n_act") 
-println("LOOK HERE")
 println(tp_mean_hygroscopicity(aerosolmodel_testcase1))
 println(tp_mean_hygroscopicity(aerosolmodel_testcase2))
 println(tp_mean_hygroscopicity(aerosolmodel_testcase3))
 println(tp_mean_hygroscopicity(aerosolmodel_testcase4))
 println(tp_mean_hygroscopicity(aerosolmodel_testcase5))
 
-println("test max super sat")
-println(tp_max_super_sat(aerosolmodel_testcase1, 2.0, 3.0, 4.0))
-println(tp_max_super_sat(aerosolmodel_testcase2, 2.0, 3.0, 4.0))
-println(tp_max_super_sat(aerosolmodel_testcase3, 2.0, 3.0, 4.0))
-println(tp_max_super_sat(aerosolmodel_testcase4, 2.0, 3.0, 4.0))
-println(tp_max_super_sat(aerosolmodel_testcase5, 2.0, 3.0, 4.0))
+# println("test max super sat")
+# println(tp_max_super_sat(aerosolmodel_testcase1, 2.0, 3.0, 4.0))
+# println(tp_max_super_sat(aerosolmodel_testcase2, 2.0, 3.0, 4.0))
+# println(tp_max_super_sat(aerosolmodel_testcase3, 2.0, 3.0, 4.0))
+# println(tp_max_super_sat(aerosolmodel_testcase4, 2.0, 3.0, 4.0))
+# println(tp_max_super_sat(aerosolmodel_testcase5, 2.0, 3.0, 4.0))
 
-println("test total n activated")
-println(tp_total_n_act(aerosolmodel_testcase1, 2.0, 3.0, 4.0))
-println(tp_total_n_act(aerosolmodel_testcase2, 2.0, 3.0, 4.0))
-println(tp_total_n_act(aerosolmodel_testcase3, 2.0, 3.0, 4.0))
-println(tp_total_n_act(aerosolmodel_testcase4, 2.0, 3.0, 4.0))
-println(tp_total_n_act(aerosolmodel_testcase5, 2.0, 3.0, 4.0))
+# println("test total n activated")
+# println(tp_total_n_act(aerosolmodel_testcase1, 2.0, 3.0, 4.0))
+# println(tp_total_n_act(aerosolmodel_testcase2, 2.0, 3.0, 4.0))
+# println(tp_total_n_act(aerosolmodel_testcase3, 2.0, 3.0, 4.0))
+# println(tp_total_n_act(aerosolmodel_testcase4, 2.0, 3.0, 4.0))
+# println(tp_total_n_act(aerosolmodel_testcase5, 2.0, 3.0, 4.0))
 
 # mean_hygroscopicity(aerosolmodel_testcase1)

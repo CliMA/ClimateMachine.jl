@@ -476,7 +476,7 @@ function total_N_activated(am::aerosol_model)
 end
 
 # println("LOOK HERE")
-# println(mean_hygroscopicity(aerosolmodel_testcase1))
+println(mean_hygroscopicity(aerosolmodel_testcase1))
 # max_supersatuation(aerosolmodel_testcase1)
 # total_N_activated(aerosolmodel_testcase1)
 
@@ -496,10 +496,10 @@ end
 #     @test tp_max_super_sat(aerosolmodel_testcase5, 2.0, 3.0, 4.0, 1.0) == max_supersatuation(aerosolmodel_testcase5)
 # end
 
-@testset "total_n_act" begin
-    @test tp_total_n_act(aerosolmodel_testcase1, 2.0, 3.0, 4.0, 1.0) = total_N_activated(aerosolmodel_testcase1)
-    @test tp_total_n_act(aerosolmodel_testcase1, 2.0, 3.0, 4.0, 1.0) = total_N_activated(aerosolmodel_testcase2)
-    @test tp_total_n_act(aerosolmodel_testcase1, 2.0, 3.0, 4.0, 1.0) = total_N_activated(aerosolmodel_testcase3)
-    @test tp_total_n_act(aerosolmodel_testcase1, 2.0, 3.0, 4.0, 1.0) = total_N_activated(aerosolmodel_testcase4)
-    @test tp_total_n_act(aerosolmodel_testcase1, 2.0, 3.0, 4.0, 1.0) = total_N_activated(aerosolmodel_testcase5)
-end
+# @testset "total_n_act" begin
+#     @test tp_total_n_act(aerosolmodel_testcase1, 2.0, 3.0, 4.0, 1.0) = total_N_activated(aerosolmodel_testcase1)
+#     @test tp_total_n_act(aerosolmodel_testcase1, 2.0, 3.0, 4.0, 1.0) = total_N_activated(aerosolmodel_testcase2)
+#     @test tp_total_n_act(aerosolmodel_testcase1, 2.0, 3.0, 4.0, 1.0) = total_N_activated(aerosolmodel_testcase3)
+#     @test tp_total_n_act(aerosolmodel_testcase1, 2.0, 3.0, 4.0, 1.0) = total_N_activated(aerosolmodel_testcase4)
+#     @test tp_total_n_act(aerosolmodel_testcase1, 2.0, 3.0, 4.0, 1.0) = total_N_activated(aerosolmodel_testcase5)
+# end
