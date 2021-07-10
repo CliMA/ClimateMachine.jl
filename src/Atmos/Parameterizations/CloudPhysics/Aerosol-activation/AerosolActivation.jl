@@ -6,7 +6,7 @@ Aerosol activation module, which includes:
 - maximum supersaturation for an entire aerosol model
 - total number of particles actived in a system given an aerosol model 
 """
-module AerosolActivation
+
 
 using SpecialFunctions
 
@@ -126,4 +126,3 @@ function mean_hygroscopicity(am::aerosol_model)
     end 
 end
 
-end # module AerosolActivation.jl
