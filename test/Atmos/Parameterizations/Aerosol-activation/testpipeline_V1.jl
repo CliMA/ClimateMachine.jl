@@ -1,12 +1,16 @@
 using SpecialFunctions
 using Test
+
+using ClimateMachine.AerosolModel: mode, aerosol_model
+using ClimateMachine.AerosolActivation
+
+using CLIMAParameters
 using CLIMAParameters: gas_constant
 using CLIMAParameters.Planet: molmass_water, ρ_cloud_liq, grav, T_freeze
 using CLIMAParameters.Atmos.Microphysics
 
-# include("/home/skadakia/clones/ClimateMachine.jl/src/Atmos/Parameterizations/CloudPhysics/Aerosol-activation/AerosolActivation-Shevali.jl")
-
-# using ClimateMachine.Atmos.Parameterizations.CloudPhysics.Aerosol-activation.AerosolActivation-Shevali.jl: alpha_sic, gamma_sic, coeff_of_curvature, mean_hygroscopicity
+struct EarthParameterSet <: AbstractEarthParameterSet end
+const param_set = EarthParameterSet()
 
 # Universal parameters:
 MOLAR_MASS_WATER = 18
@@ -56,32 +60,6 @@ particle_density_dust_accum = 100.0
 dry_radius_dust_coarse = 0.0000015
 radius_stdev_dust_coarse = 0.0000021
 particle_density_dust_coarse = 100.0
-
-# Abdul-Razzak and Ghan
-
-# 2. Create structs that parameters can be pass through
-# individual aerosol mode struct
-#struct mode{T}
-#    particle_density::T
-#    osmotic_coeff::T
-#    molar_mass::T
-#    dissoc::T
-#    mass_frac::T
-#    mass_mix_ratio::T
-#    dry_radius::T
-#    radius_stdev::T
-#    aerosol_density::T
-#    n_components::Int64
-#end
-
-# # complete aerosol model struct
-struct aerosol_model{T}
-    modes::T
-    N::Int
-    function aerosol_model(modes::T) where {T}
-        return new{T}(modes, length(modes)) #modes new{T}
-    end
-end
 
 # 3. Populate structs to pass into functions/run calculations
 # Test cases 1-3 (Just Sea Salt)
@@ -293,30 +271,31 @@ end
 # println(tp_max_super_sat(aerosolmodel_testcase4, 2.0, 3.0, 4.0, 5.0))
 # println(tp_max_super_sat(aerosolmodel_testcase5, 2.0, 3.0, 4.0, 5.0))
 
-println("test total n activated")
-println(tp_total_n_act(aerosolmodel_testcase1, 2.0, 3.0, 4.0, 5.0))
-println(tp_total_n_act(aerosolmodel_testcase2, 2.0, 3.0, 4.0, 5.0))
-println(tp_total_n_act(aerosolmodel_testcase3, 2.0, 3.0, 4.0, 5.0))
-println(tp_total_n_act(aerosolmodel_testcase4, 2.0, 3.0, 4.0, 5.0))
-println(tp_total_n_act(aerosolmodel_testcase5, 2.0, 3.0, 4.0, 5.0))
+#println("test total n activated")
+#println(tp_total_n_act(aerosolmodel_testcase1, 2.0, 3.0, 4.0, 5.0))
+#println(tp_total_n_act(aerosolmodel_testcase2, 2.0, 3.0, 4.0, 5.0))
+#println(tp_total_n_act(aerosolmodel_testcase3, 2.0, 3.0, 4.0, 5.0))
+#println(tp_total_n_act(aerosolmodel_testcase4, 2.0, 3.0, 4.0, 5.0))
+#println(tp_total_n_act(aerosolmodel_testcase5, 2.0, 3.0, 4.0, 5.0))
 
-# mean_hygroscopicity(aerosolmodel_testcase1)
-# max_supersatuation(aerosolmodel_testcase1, P_SAT)
-# @testset "mean_hygroscopicity" begin
-#     @test tp_mean_hygroscopicity(aerosolmodel_testcase1) == mean_hygroscopicity(aerosolmodel_testcase1)
-#     @test tp_mean_hygroscopicity(aerosolmodel_testcase2) == mean_hygroscopicity(aerosolmodel_testcase2)
-#     @test tp_mean_hygroscopicity(aerosolmodel_testcase3) == mean_hygroscopicity(aerosolmodel_testcase3)
-#     @test tp_mean_hygroscopicity(aerosolmodel_testcase4) == mean_hygroscopicity(aerosolmodel_testcase4)
-#     @test tp_mean_hygroscopicity(aerosolmodel_testcase5) == mean_hygroscopicity(aerosolmodel_testcase5)
-# end
+#mean_hygroscopicity(param_set, aerosolmodel_testcase1)
+#max_supersatuation(aerosolmodel_testcase1, P_SAT)
 
-# @testset "max_super_sat" begin
-#     @test tp_max_super_sat(aerosolmodel_testcase1, 2.0, 3.0, 4.0, 1.0) == max_supersatuation(aerosolmodel_testcase1)
-#     @test tp_max_super_sat(aerosolmodel_testcase2, 2.0, 3.0, 4.0, 1.0) == max_supersatuation(aerosolmodel_testcase2)
-#     @test tp_max_super_sat(aerosolmodel_testcase3, 2.0, 3.0, 4.0, 1.0) == max_supersatuation(aerosolmodel_testcase3)
-#     @test tp_max_super_sat(aerosolmodel_testcase4, 2.0, 3.0, 4.0, 1.0) == max_supersatuation(aerosolmodel_testcase4)
-#     @test tp_max_super_sat(aerosolmodel_testcase5, 2.0, 3.0, 4.0, 1.0) == max_supersatuation(aerosolmodel_testcase5)
-# end
+@testset "mean_hygroscopicity" begin
+    @test tp_mean_hygroscopicity(aerosolmodel_testcase1) == mean_hygroscopicity(param_set, aerosolmodel_testcase1)
+    @test tp_mean_hygroscopicity(aerosolmodel_testcase2) == mean_hygroscopicity(param_set, aerosolmodel_testcase2)
+    @test tp_mean_hygroscopicity(aerosolmodel_testcase3) == mean_hygroscopicity(param_set, aerosolmodel_testcase3)
+    @test tp_mean_hygroscopicity(aerosolmodel_testcase4) == mean_hygroscopicity(param_set, aerosolmodel_testcase4)
+    @test tp_mean_hygroscopicity(aerosolmodel_testcase5) == mean_hygroscopicity(param_set, aerosolmodel_testcase5)
+end
+
+#@testset "max_supersaturation" begin
+#    @test tp_max_super_sat(aerosolmodel_testcase1, 2.0, 3.0, 4.0, 1.0) == max_supersaturation(param_set, aerosolmodel_testcase1)
+#    @test tp_max_super_sat(aerosolmodel_testcase2, 2.0, 3.0, 4.0, 1.0) == max_supersaturation(param_set, aerosolmodel_testcase2)
+#    @test tp_max_super_sat(aerosolmodel_testcase3, 2.0, 3.0, 4.0, 1.0) == max_supersaturation(param_set, aerosolmodel_testcase3)
+#    @test tp_max_super_sat(aerosolmodel_testcase4, 2.0, 3.0, 4.0, 1.0) == max_supersaturation(param_set, aerosolmodel_testcase4)
+#    @test tp_max_super_sat(aerosolmodel_testcase5, 2.0, 3.0, 4.0, 1.0) == max_supersaturation(param_set, aerosolmodel_testcase5)
+#end
 
 # @testset "total_n_act" begin
 #     @test tp_total_n_act(aerosolmodel_testcase1, 2.0, 3.0, 4.0, 1.0) = total_N_activated(aerosolmodel_testcase1)

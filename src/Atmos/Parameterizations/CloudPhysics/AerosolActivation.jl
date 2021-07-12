@@ -3,44 +3,47 @@ Aerosol activation module, which includes:
 - mean hygroscopicity for each mode of an aerosol model
 - critical supersaturation for each mode of an aerosol model
 - maximum supersaturation for an entire aerosol model
-- total number of particles actived in a system given an aerosol model 
+- total number of particles actived in a system given an aerosol model
 - a number of helper functions
 """
 module AerosolActivation
 
 using SpecialFunctions
 
+using ClimateMachine.AerosolModel
+
 using CLIMAParameters
+using CLIMAParameters: gas_constant
 using CLIMAParameters.Planet: ρ_cloud_liq, R_v, grav, molmass_water, LH_v0, cp_d
-using CLIMAParameters.Atmos: K_therm, D_vapor
+using CLIMAParameters.Atmos.Microphysics: K_therm, D_vapor
+
+const APS = AbstractParameterSet
 
 export alpha_sic
 export gamma_sic
 export mean_hygroscopicity
 export coeff_of_curvature
 export critical_supersaturation
-export max_supersatuation
+export max_supersaturation
 export total_N_activated
 
 # Constants
 TEMP = 273.15
 P_SAT = 100000
 P = 100000
-R = molmass_water * R_v
-G_DIFF = (((LH_v0/(K_therm*TEMP))*(((LH_v0/(*TEMP)R_v)-1))+((R_v*TEMP)/(P_SAT*D_vapor)))^(-1)
-UPDFT_VELO = 5 
+UPDFT_VELO = 5
 
 
 
 """
 alpha_sic(aero_mm)
-    - am -- aerosol_model                      
-    
+    - am -- aerosol_model
+
     Returns coefficient relevant to other functions. Uses aerosol
     Molar mass
 """
 function alpha_sic(am::aerosol_model)
-    return ntuple(length(am.modes)) do i 
+    return ntuple(length(am.modes)) do i
         mode_i = am.modes[i]
         # Find weighted molar mass of mode
         n_comps = length(mode_i.particle_density)
@@ -59,13 +62,13 @@ end
 
 """
 gamma_sic(aero_mm)
-    - am -- aerosol_model                      
-    
+    - am -- aerosol_model
+
     Returns coefficient relevant to other functions. Uses aerosol
-    Molar mass and water saturation pressure. 
+    Molar mass and water saturation pressure.
 """
 function gamma_sic(am::aerosol_model, P_sat)
-    return ntuple(length(am.modes)) do i 
+    return ntuple(length(am.modes)) do i
         mode_i = am.modes[i]
         # Find weighted molar mass of mode
         n_comps = length(mode_i.particle_density)
@@ -78,30 +81,30 @@ function gamma_sic(am::aerosol_model, P_sat)
         avg_molar_mass = numerator/denominator
         exp1 = (R*TEMP)/(P_sat*molmass_water)
         exp2 = (molmass_water*LH_v0^2)/(cp_v*P*avg_molar_mass*TEMP)
-        exp1+exp2 
+        exp1+exp2
     end
 end
 
 """
 coeff_of_curvature(am::aerosol_model)
     - am -- aerosol_model
-    
-    Returns coeff_of_curvature (coefficient of the curvature effect); key 
-    input into other functions. Utilizes activation time and particle density 
+
+    Returns coeff_of_curvature (coefficient of the curvature effect); key
+    input into other functions. Utilizes activation time and particle density
     from modes struct.
 """
 function coeff_of_curvature(am::aerosol_model)
-    return ntuple(length(am.modes)) do i 
+    return ntuple(length(am.modes)) do i
         mode_i = am.modes[i]
-        # take weighted average of activation times 
+        # take weighted average of activation times
         n_comps = length(mode_i.particle_density)
         numerator = sum(1:n_comps) do j
             mode_i.activation_time[j]*mode_i.particle_density[j]
-        end 
+        end
         denominator = sum(1:n_comps) do j
             mode_i.particle_density[j]
         end
-        avg_activation_time = numerator/denominator 
+        avg_activation_time = numerator/denominator
         top = 2*avg_activation_time*molmass_water
         bottom = ρ_cloud_liq*R*TEMP
         top/bottom
@@ -113,12 +116,16 @@ end
 """
 mean_hygroscopicity(am::aerosol_model)
     - am -- aerosol model
-    Returns the mean hygroscopicty along each mode of an inputted aerosol model. 
-    Utilizes mass mixing ratio, dissociation, mass fraction, molar mass, particle 
-    density from mode struct. 
+    Returns the mean hygroscopicty along each mode of an inputted aerosol model.
+    Utilizes mass mixing ratio, dissociation, mass fraction, molar mass, particle
+    density from mode struct.
 """
-function mean_hygroscopicity(am::aerosol_model)
-    return ntuple(length(am.modes)) do i 
+function mean_hygroscopicity(param_set::APS, am::aerosol_model)
+
+    _molmass_water = molmass_water(param_set)
+    _ρ_cloud_liq = ρ_cloud_liq(param_set)
+
+    return ntuple(length(am.modes)) do i
         mode_i = am.modes[i]
         n_comps = length(mode_i.particle_density)
         top = sum(1:n_comps) do j
@@ -126,27 +133,27 @@ function mean_hygroscopicity(am::aerosol_model)
             mode_i.osmotic_coeff[j]*mode_i.mass_frac[j]*
             (1/mode_i.molar_mass[j])
         end
-        bottom = sum(1:n_comps) do j 
-            mode_i.mass_mix_ratio[j]/mode_i.density[j]
-        end 
-        coeff = molmass_water/ρ_cloud_liq
+        bottom = sum(1:n_comps) do j
+            mode_i.mass_mix_ratio[j]/mode_i.aerosol_density[j]
+        end
+        coeff = _molmass_water/_ρ_cloud_liq
         coeff*(top/bottom)
-    end 
+    end
 end
 
 """
-TO DO: DOCSTRING 
+TO DO: DOCSTRING
 """
 function critical_supersaturation(am::aerosol_model)
     coeff_of_curve = coeff_of_curvature(am)
     mh = mean_hygroscopicity(am)
-    return ntuple(length(am.modes)) do i 
+    return ntuple(length(am.modes)) do i
         mode_i = am.modes[i]
         # weighted average of mode radius
         n_comps = length(mode_i.particle_density)
         numerator = sum(1:n_comps) do j
             mode_i.radius[j]*mode_i.particle_density[j]
-        end 
+        end
         denominator = sum(1:n_comps) do j
             mode_i.particle_density[j]
         end
@@ -158,33 +165,41 @@ function critical_supersaturation(am::aerosol_model)
 end
 
 """
-TO DO: DOCSTRING 
+TO DO: DOCSTRING
 """
-function max_supersaturation(am, P_SAT)
+function max_supersaturation(param_set::APS, am, P_SAT)
+
+    _K_therm::FT = K_therm(param_set)
+    _R_v::FT = R_v(param_set)
+    _D_vapor::FT = D_vapor(param_set)
+    _LH_v0::FT = LH_v0(param_set)
+
+    G_DIFF = ((_LH_v0 / (_K_therm * TEMP)) * (((_LH_v0 / TEMP / _R_v) -1)) + ((_R_v * TEMP) / (P_SAT * _D_vapor)))^(-1)
+
     alpha = alpha_sic(am)
     gamma = gamma_sic(am, P_SAT)
     A = coeff_of_curvature(am)
     Sm = critical_supersaturation(am)
-    X = sum(1:length(am.modes)) do i 
+    X = sum(1:length(am.modes)) do i
 
         mode_i = am.modes[i]
 
         # weighted avgs of diff params:
         n_comps = length(mode_i.particle_density)
         # radius_stdev
-        num = sum(1:n_comps) do j 
+        num = sum(1:n_comps) do j
             mode_i.particle_density[j]  *  mode_i.radius_stdev[j]
         end
-        den = sum(1:n_comps) do j 
+        den = sum(1:n_comps) do j
             mode_i.particle_density[j]
-        end 
-        avg_radius_stdev = num/den 
-        
-        total_particles = sum(1:n_comps) do j 
+        end
+        avg_radius_stdev = num/den
+
+        total_particles = sum(1:n_comps) do j
             mode_i.particle_density[j]
         end
         f = 0.5  *  exp(2.5  *  (log(avg_radius_stdev))^2 )
-        g = 1 + 0.25  *  log(avg_radius_stdev) 
+        g = 1 + 0.25  *  log(avg_radius_stdev)
 
         zeta = (2 * A[i] * (1/3))  *  ((alpha[i] * UPDFT_VELO)/G_DIFF)^(.5)
         eta = (((alpha[i]*UPDFT_VELO)/(G_DIFF))^(3/2))/(2*pi*ρ_cloud_liq*gamma[i]*total_particles)
@@ -200,7 +215,7 @@ function max_supersaturation(am, P_SAT)
 end
 
 """
-TO DO: DOCSTRING 
+TO DO: DOCSTRING
 """
 function total_N_activated(am::aerosol_model)
     smax = max_supersaturation(am, P_SAT)
@@ -210,15 +225,15 @@ function total_N_activated(am::aerosol_model)
         # weighted avgs of diff params:
         n_comps = length(mode_i.particle_density)
         # radius_stdev
-        num = sum(1:n_comps) do j 
+        num = sum(1:n_comps) do j
             mode_i.particle_density[j]  *  mode_i.radius_stdev[j]
         end
-        den = sum(1:n_comps) do j 
+        den = sum(1:n_comps) do j
             mode_i.particle_density[j]
-        end 
-        avg_radius_stdev = num/den 
-        
-        total_particles = sum(1:n_comps) do j 
+        end
+        avg_radius_stdev = num/den
+
+        total_particles = sum(1:n_comps) do j
             mode_i.particle_density[j]
         end
 
@@ -226,7 +241,7 @@ function total_N_activated(am::aerosol_model)
         ubottom = 3*(2^.5)*log(avg_radius_stdev)
         u = utop/ubottom
         total_particles*(1/2)*(1-erf(u))
-    end 
+    end
 end
 
 end # module AerosolActivation.jl
