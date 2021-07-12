@@ -22,12 +22,12 @@ export max_supersatuation
 export total_N_activated
 # GET FROM CLIMA PARAMATERS
 
-TEMP = 273.15
-P_SAT = 100000
-P = 100000
-R = molmass_water * R_v
-G_DIFF = (((LH_v0/(K_therm*TEMP))*(((LH_v0/(*TEMP)R_v)-1))+((R_v*TEMP)/(P_SAT*D_vapor)))^(-1)
-UPDFT_VELO = 5 
+# TEMP = 273.15
+# P_SAT = 100000
+# P = 100000
+# R = molmass_water * R_v
+# G_DIFF = (((LH_v0/(K_therm*TEMP))*(((LH_v0/(*TEMP)R_v)-1))+((R_v*TEMP)/(P_SAT*D_vapor)))^(-1)
+# UPDFT_VELO = 5 
 
 g = 9.81
 Mw = 18.1
@@ -39,6 +39,7 @@ P=100000
 P_saturation = 100000
 molar_mass_water = 18.0
 density_water = 1000.0
+surface_tension = 0.0757
 # Universal parameters:
 
 # Building the test structures
@@ -265,6 +266,26 @@ function gamma_sic(am::aerosol_model, P_sat::Float64)
     end
 end
 
+function critical_supersaturation(am::aerosol_model)
+    coeff_of_curvature = coeff_of_curve(am)
+    mh = mean_hygroscopicity(am)
+    return ntuple(length(am.modes)) do i 
+        mode_i = am.modes[i]
+        # weighted average of mode radius
+        n_comps = length(mode_i.particle_density)
+        numerator = sum(n_comps) do j
+            mode_i.radius[j]*mode_i.particle_density[j]
+        end 
+        denominator = sum(n_comps) do j
+            mode_i.particle_density[j]
+        end
+        avg_radius = numerator/denominator
+        exp1 = 2 / (mh[i])^(.5)
+        exp2 = (coeff_of_curvature[i]/3*avg_radius)^(3/2)
+        exp1*exp2
+    end
+end
+
 """
 coeff_of_curvature(am::aerosol_model)
     - am -- aerosol_model
@@ -279,7 +300,7 @@ function coeff_of_curvature(am::aerosol_model)
         # take weighted average of activation times 
         n_comps = length(mode_i.particle_density)
         numerator = sum(n_comps) do j
-            mode_i.activation_time[j]*mode_i.particle_density[j]
+            surface_tension*mode_i.particle_density[j]
         end 
         denominator = sum(n_comps) do j
             mode_i.particle_density[j]
