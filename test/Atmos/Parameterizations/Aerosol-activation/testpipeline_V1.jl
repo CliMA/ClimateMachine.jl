@@ -1,8 +1,21 @@
+"""
+This file tests the functions written for Aerosol Activation. Three funtions are 
+tested. 
+"""
+
 using SpecialFunctions
 using Test
+
+using ClimateMachine.AerosolModel: mode, aerosol_model
+using ClimateMachine.AerosolActivation
+
+using CLIMAParameters
 using CLIMAParameters: gas_constant
 using CLIMAParameters.Planet: molmass_water, ρ_cloud_liq, grav, T_freeze
 using CLIMAParameters.Atmos.Microphysics
+
+struct EarthParameterSet <: AbstractEarthParameterSet end
+const param_set = EarthParameterSet()
 
 # include("/home/skadakia/clones/ClimateMachine.jl/src/Atmos/Parameterizations/CloudPhysics/Aerosol-activation/AerosolActivation-Shevali.jl")
 
@@ -57,7 +70,7 @@ dry_radius_dust_coarse = 0.0000015
 radius_stdev_dust_coarse = 0.0000021
 particle_density_dust_coarse = 100.0
 
-# Abdul-Razzak and Ghan 
+
 
 # 2. Create structs that parameters can be pass through
 # individual aerosol mode struct
@@ -155,12 +168,21 @@ coarse_mode_seasalt_dust = mode((particle_density_seasalt_coarse,
 aerosolmodel_testcase4 = aerosol_model((accum_mode_seasalt_dust,))
 aerosolmodel_testcase5 = aerosol_model((accum_mode_seasalt_dust,
                                         coarse_mode_seasalt_dust))
-
+"""
+    functionality: calculates the coefficient of curvature
+    parameters: temperature, and activation time
+    returns: scalar coefficeint of curvature
+"""
 function tp_coeff_of_curve(temp::Float64)
     value = 2 * SURFACE_TENSION * MOLAR_MASS_WATER / (DENSITY_WATER * R * temp)
     return value
 end
 
+"""
+    functionality: calculates the total mass in the mode
+    parameters: an aerosol mode
+    returns: a scalar of the total mass
+"""
 function total_mass(m::mode)
     num_of_comp = m.n_components
     total_mass = sum(num_of_comp) do j
@@ -169,13 +191,19 @@ function total_mass(m::mode)
     return total_mass
 end
 
+"""
+    functionality: calculates the mean hygroscopicity for all the modes
+    parameters: an aerosol model
+    returns: tuple of the mean hygroscopicities for each mode
+"""
+
 function tp_mean_hygroscopicity(am::aerosol_model)
     return ntuple(am.N) do i
         mode_i = am.modes[i]
         total_mass_value = total_mass(mode_i)
         num_of_comp = mode_i.n_components # mode_i.n_components
         numerator = sum(num_of_comp) do j
-            mode_i.osmotic_coeff[j] * mode_i.mass_mix_ratio[j] * mode_i.dissoc[j] * mode_i.mass_frac[j] * 1/mode_i.molar_mass[j] # mode_i.particle_density[j]/total_mass_value * 
+            mode_i.osmotic_coeff[j] * mode_i.mass_mix_ratio[j] * mode_i.dissoc[j] * mode_i.mass_frac[j] * 1/mode_i.molar_mass[j] # mode_i.particle_density[j]/total_mass_value *
         end
         denominator = sum(num_of_comp) do j
             mode_i.particle_density[j]/total_mass_value * mode_i.mass_mix_ratio[j] / mode_i.aerosol_density[j]
@@ -184,30 +212,51 @@ function tp_mean_hygroscopicity(am::aerosol_model)
     end
 end
 
-# questions about temp, 
-# need to fill equations: , alpha --> 1.0, eta() --> 2.0
-# Key:
-# surface tension == A
-# surface_tension_effects(zeta) --> 3.0
+"""
+    functionality: calculates the size-invariant coefficeint
+    parameters: temperature, the mass of the aerosol material
+    returns: alpha (affects the supersaturation)
+"""
 
 function alpha(temp::Float64, aerosol_mass::Float64)
     value = GRAVITY * MOLAR_MASS_WATER * LATENT_HEAT / (SPECIFIC_HEAT * R * temp^2) - GRAVITY * aerosol_mass/(R * temp)
-    return value 
+    return value
 end
+
+"""
+    functionality: calculates the size-invariant coefficeint
+    parameters: temperature, the mass of the aerosol material, the pressure
+    returns: gamma (affects the supersaturation)
+"""
 
 function gamma(temp::Float64, aerosol_mass::Float64, press::Float64)
     value = R * temp / (P_SAT * MOLAR_MASS_WATER) + MOLAR_MASS_WATER * LATENT_HEAT ^ 2/(SPECIFIC_HEAT * press * aerosol_mass * temp)
     return value
 end
 
+"""
+    functionality: calculates the zeta value
+    parameters: temperature, the mass of the aerosol material, 
+                the updraft velocity, and the diffusion
+    returns: zeta (affects the supersaturation)
+"""
+
 function zeta(temp::Float64, aerosol_mass::Float64, updraft_velocity::Float64, G_diff::Float64)
     value = 2 * tp_coeff_of_curve(temp) / 3 * (alpha(temp, aerosol_mass) * updraft_velocity / G_diff)^(1/2)
     return value
 end
 
-function eta(temp::Float64, 
-             aerosol_mass::Float64, 
-             particle_density::Float64, 
+"""
+    functionality: calculates the eta value
+    parameters: temperature, the mass of the aerosol material, 
+                the particle density, the diffusion constant, 
+                the updraft velocity, and the pressure
+    returns: eta (affects the supersaturation)
+"""
+
+function eta(temp::Float64,
+             aerosol_mass::Float64,
+             particle_density::Float64,
              G_diff::Float64,
              updraft_velocity::Float64,
              press::Float64)
@@ -215,9 +264,16 @@ function eta(temp::Float64,
     return value
 end
 
-function tp_max_super_sat(am::aerosol_model, 
-                          temp::Float64, 
-                          updraft_velocity::Float64, 
+"""
+    functionality: calculates the maximum super saturation for each mode
+    parameters: aerosol model, temperature, updraft velocity, diffusion constant,
+                and the activation activation time
+    returns: a tuple with the max supersaturations for each mode
+"""
+
+function tp_max_super_sat(am::aerosol_model,
+                          temp::Float64,
+                          updraft_velocity::Float64,
                           G_diff::Float64,
                           press::Float64)
     mean_hygro = tp_mean_hygroscopicity(am)
@@ -230,7 +286,7 @@ function tp_max_super_sat(am::aerosol_model,
             g = 1 + 0.25 * log(mode_i.radius_stdev[j])
             coeff_of_curve = tp_coeff_of_curve(temp)
             surface_tension_effects = zeta(temp, mode_i.molar_mass[j], updraft_velocity, G_diff)
-            critsat = 2/sqrt(mean_hygro[i]) * (coeff_of_curve / (3 * mode_i.dry_radius[j])) ^ (3/2) # FILL 
+            critsat = 2/sqrt(mean_hygro[i]) * (coeff_of_curve / (3 * mode_i.dry_radius[j])) ^ (3/2) # FILL
             eta_value = eta(temp, mode_i.molar_mass[j], mode_i.particle_density[j], G_diff, updraft_velocity, press)
             mode_i.particle_density[j]/total_mass_value * (1/(critsat ^ 2) * (f * (surface_tension_effects/eta_value) ^(3/2) + g * (critsat ^ 2)/ (eta_value + 3 * surface_tension_effects)^(3/4)))
         end
@@ -238,7 +294,14 @@ function tp_max_super_sat(am::aerosol_model,
     end
 end
 
-function tp_critical_supersaturation(am::aerosol_model, 
+"""
+    functionality: calculates the critical supersaturation 
+    parameters: aerosol model
+    returns: a tuple of the critical supersaturations of each mode
+
+"""
+
+function tp_critical_supersaturation(am::aerosol_model,
                                      temp::Float64)
     mean_hygro = tp_mean_hygroscopicity(am)
     return ntuple(am.N) do i
@@ -250,12 +313,21 @@ function tp_critical_supersaturation(am::aerosol_model,
         end
         a
     end
-    
+
 end
 
-function tp_total_n_act(am::aerosol_model, 
-                        temp::Float64, 
-                        updraft_velocity::Float64, 
+"""
+    functionality: calculates the total number of particles activated across all 
+                   modes and components
+    parameters: aerosol model, temperature, updraft velocity, diffusion, and
+                activation time
+    returns: a scalar of the total number of particles activated across all modes 
+             and components
+"""
+
+function tp_total_n_act(am::aerosol_model,
+                        temp::Float64,
+                        updraft_velocity::Float64,
                         G_diff::Float64,
                         press::Float64)
     critical_supersaturation = tp_critical_supersaturation(am, temp)
@@ -279,7 +351,9 @@ function tp_total_n_act(am::aerosol_model,
     return summation
 end
 
-# println("total_n_act") 
+# Checks that the tests run
+
+# println("total_n_act")
 # println(tp_mean_hygroscopicity(aerosolmodel_testcase1))
 # println(tp_mean_hygroscopicity(aerosolmodel_testcase2))
 # println(tp_mean_hygroscopicity(aerosolmodel_testcase3))
@@ -293,30 +367,30 @@ end
 # println(tp_max_super_sat(aerosolmodel_testcase4, 2.0, 3.0, 4.0, 5.0))
 # println(tp_max_super_sat(aerosolmodel_testcase5, 2.0, 3.0, 4.0, 5.0))
 
-println("test total n activated")
-println(tp_total_n_act(aerosolmodel_testcase1, 2.0, 3.0, 4.0, 5.0))
-println(tp_total_n_act(aerosolmodel_testcase2, 2.0, 3.0, 4.0, 5.0))
-println(tp_total_n_act(aerosolmodel_testcase3, 2.0, 3.0, 4.0, 5.0))
-println(tp_total_n_act(aerosolmodel_testcase4, 2.0, 3.0, 4.0, 5.0))
-println(tp_total_n_act(aerosolmodel_testcase5, 2.0, 3.0, 4.0, 5.0))
+#println("test total n activated")
+#println(tp_total_n_act(aerosolmodel_testcase1, 2.0, 3.0, 4.0, 5.0))
+#println(tp_total_n_act(aerosolmodel_testcase2, 2.0, 3.0, 4.0, 5.0))
+#println(tp_total_n_act(aerosolmodel_testcase3, 2.0, 3.0, 4.0, 5.0))
+#println(tp_total_n_act(aerosolmodel_testcase4, 2.0, 3.0, 4.0, 5.0))
+#println(tp_total_n_act(aerosolmodel_testcase5, 2.0, 3.0, 4.0, 5.0))
 
-# mean_hygroscopicity(aerosolmodel_testcase1)
-# max_supersatuation(aerosolmodel_testcase1, P_SAT)
-# @testset "mean_hygroscopicity" begin
-#     @test tp_mean_hygroscopicity(aerosolmodel_testcase1) == mean_hygroscopicity(aerosolmodel_testcase1)
-#     @test tp_mean_hygroscopicity(aerosolmodel_testcase2) == mean_hygroscopicity(aerosolmodel_testcase2)
-#     @test tp_mean_hygroscopicity(aerosolmodel_testcase3) == mean_hygroscopicity(aerosolmodel_testcase3)
-#     @test tp_mean_hygroscopicity(aerosolmodel_testcase4) == mean_hygroscopicity(aerosolmodel_testcase4)
-#     @test tp_mean_hygroscopicity(aerosolmodel_testcase5) == mean_hygroscopicity(aerosolmodel_testcase5)
-# end
+# Running the tests
 
-# @testset "max_super_sat" begin
-#     @test tp_max_super_sat(aerosolmodel_testcase1, 2.0, 3.0, 4.0, 1.0) == max_supersatuation(aerosolmodel_testcase1)
-#     @test tp_max_super_sat(aerosolmodel_testcase2, 2.0, 3.0, 4.0, 1.0) == max_supersatuation(aerosolmodel_testcase2)
-#     @test tp_max_super_sat(aerosolmodel_testcase3, 2.0, 3.0, 4.0, 1.0) == max_supersatuation(aerosolmodel_testcase3)
-#     @test tp_max_super_sat(aerosolmodel_testcase4, 2.0, 3.0, 4.0, 1.0) == max_supersatuation(aerosolmodel_testcase4)
-#     @test tp_max_super_sat(aerosolmodel_testcase5, 2.0, 3.0, 4.0, 1.0) == max_supersatuation(aerosolmodel_testcase5)
-# end
+@testset "mean_hygroscopicity" begin
+    @test tp_mean_hygroscopicity(aerosolmodel_testcase1) == mean_hygroscopicity(param_set, aerosolmodel_testcase1)
+    @test tp_mean_hygroscopicity(aerosolmodel_testcase2) == mean_hygroscopicity(param_set, aerosolmodel_testcase2)
+    @test tp_mean_hygroscopicity(aerosolmodel_testcase3) == mean_hygroscopicity(param_set, aerosolmodel_testcase3)
+    @test tp_mean_hygroscopicity(aerosolmodel_testcase4) == mean_hygroscopicity(param_set, aerosolmodel_testcase4)
+    @test tp_mean_hygroscopicity(aerosolmodel_testcase5) == mean_hygroscopicity(param_set, aerosolmodel_testcase5)
+end
+
+#@testset "max_supersaturation" begin
+#    @test tp_max_super_sat(aerosolmodel_testcase1, 2.0, 3.0, 4.0, 1.0) == max_supersaturation(param_set, aerosolmodel_testcase1)
+#    @test tp_max_super_sat(aerosolmodel_testcase2, 2.0, 3.0, 4.0, 1.0) == max_supersaturation(param_set, aerosolmodel_testcase2)
+#    @test tp_max_super_sat(aerosolmodel_testcase3, 2.0, 3.0, 4.0, 1.0) == max_supersaturation(param_set, aerosolmodel_testcase3)
+#    @test tp_max_super_sat(aerosolmodel_testcase4, 2.0, 3.0, 4.0, 1.0) == max_supersaturation(param_set, aerosolmodel_testcase4)
+#    @test tp_max_super_sat(aerosolmodel_testcase5, 2.0, 3.0, 4.0, 1.0) == max_supersaturation(param_set, aerosolmodel_testcase5)
+#end
 
 # @testset "total_n_act" begin
 #     @test tp_total_n_act(aerosolmodel_testcase1, 2.0, 3.0, 4.0, 1.0) = total_N_activated(aerosolmodel_testcase1)
@@ -324,4 +398,3 @@ println(tp_total_n_act(aerosolmodel_testcase5, 2.0, 3.0, 4.0, 5.0))
 #     @test tp_total_n_act(aerosolmodel_testcase1, 2.0, 3.0, 4.0, 1.0) = total_N_activated(aerosolmodel_testcase3)
 #     @test tp_total_n_act(aerosolmodel_testcase1, 2.0, 3.0, 4.0, 1.0) = total_N_activated(aerosolmodel_testcase4)
 #     @test tp_total_n_act(aerosolmodel_testcase1, 2.0, 3.0, 4.0, 1.0) = total_N_activated(aerosolmodel_testcase5)
-# end
