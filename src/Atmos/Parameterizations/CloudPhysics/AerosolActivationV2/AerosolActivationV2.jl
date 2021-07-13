@@ -129,7 +129,7 @@ function mean_hygroscopicity(param_set::APS, am::aerosol_model)
             (1/mode_i.molar_mass[j])
         end
         bottom = sum(1:n_comps) do j 
-            mode_i.mass_mix_ratio[j]/mode_i.density[j]
+            mode_i.mass_mix_ratio[j]/mode_i.aerosol_density[j]
         end 
         coeff = _molmass_water/_ρ_cloud_liq
         coeff*(top/bottom)
@@ -148,10 +148,10 @@ function critical_supersaturation(param_set::APS, am::aerosol_model)
     mh = mean_hygroscopicity(am)
     return ntuple(length(am.modes)) do i 
         mode_i = am.modes[i]
-        # weighted average of mode radius
+        # weighted average of mode dry_radius
         n_comps = mode_i.n_components
         numerator = sum(1:n_comps) do j
-            mode_i.radius[j]*mode_i.particle_density[j]
+            mode_i.dry_radius[j]*mode_i.particle_density[j]
         end 
         denominator = sum(1:n_comps) do j
             mode_i.particle_density[j]
