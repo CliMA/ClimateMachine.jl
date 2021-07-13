@@ -8,11 +8,12 @@ Aerosol activation module, which includes:
 """
 
 using SpecialFunctions
-
+# using ClimateMachine.AerosolModel
 using CLIMAParameters
 using CLIMAParameters: gas_constant
+# using CLIMAParameters.Atmos: K_therm, D_vapor
 using CLIMAParameters.Planet: ρ_cloud_liq, R_v, grav, molmass_water, LH_v0, cp_v
-using CLIMAParameters.Atmos: K_therm, D_vapor
+
 
 # export alpha_sic
 # export gamma_sic
