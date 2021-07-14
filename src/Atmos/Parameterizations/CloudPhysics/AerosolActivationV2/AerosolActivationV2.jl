@@ -55,7 +55,7 @@ alpha_sic(aero_mm)
     - am -- aerosol_model                      
     
 """
-function alpha_sic(param_set::APS, am::aerosol_model, TEMP)
+function alpha_sic(param_set::APS, am::aerosol_model, TEMP::Float64)
 
     _gas_constant = gas_constant(param_set)
     _grav = grav(param_set)
@@ -90,7 +90,7 @@ gamma_sic(aero_mm, TEMP, P_SAT, PRESS)
     
     Returns coefficient relevant to other functions. 
 """
-function gamma_sic(param_set::APS, am::aerosol_model, TEMP, PRESS, P_SAT)
+function gamma_sic(param_set::APS, am::aerosol_model, TEMP::Float64, PRESS::Float64, P_SAT::Float64)
 
     _gas_constant = gas_constant(param_set)
     _molmass_water = molmass_water(param_set)
@@ -122,7 +122,7 @@ coeff_of_curvature(am::aerosol_model)
     Returns coeff_of_curvature (coefficient of the curvature effect); key 
     input into other functions. 
 """
-function coeff_of_curvature(param_set::APS, am::aerosol_model, TEMP)
+function coeff_of_curvature(param_set::APS, am::aerosol_model, TEMP::Float64)
 
         _gas_constant = gas_constant(param_set)
         _ρ_cloud_liq = ρ_cloud_liq(param_set)
@@ -201,7 +201,8 @@ max_supsaturation(am::aerosol_model, TEMP, UPDFT_VELO, PRESS, P_SAT)
 
     Returns the maximum supersaturation for an entire aerosol model. 
 """
-function max_supersaturation(param_set::APS, am::aerosol_model, TEMP, UPDFT_VELO, PRESS, P_SAT)
+function max_supersaturation(param_set::APS, am::aerosol_model, TEMP::Float64, 
+                             UPDFT_VELO::Float64, PRESS::Float64, P_SAT::Float64)
 
     _ρ_cloud_liq = ρ_cloud_liq(param_set)
     _R_v = R_v(param_set)
@@ -209,7 +210,7 @@ function max_supersaturation(param_set::APS, am::aerosol_model, TEMP, UPDFT_VELO
     _K_therm = K_therm(param_set)
     _D_vapor = D_vapor(param_set)
 
-    alpha = alpha_sic(param_set, am)
+    alpha = alpha_sic(param_set, am, TEMP)
     gamma = gamma_sic(param_set, am, P_SAT, PRESS)
     A = coeff_of_curvature(param_set, am)
     Sm = critical_supersaturation(param_set, am)
@@ -255,7 +256,12 @@ total_N_activated(am::aerosol_model, TEMP, UPDFT_VELO, PRESS, P_SAT)
     -- PRESS - pressure (Pa)
     -- P_SAT - saturation press (Pa)
 """
-function total_N_activated(param_set::APS, am::aerosol_model, TEMP, UPDFT_VELO, PRESS, P_SAT)
+function total_N_activated(param_set::APS, 
+                           am::aerosol_model, 
+                           TEMP::Float64, 
+                           UPDFT_VELO::Float64, 
+                           PRESS::Float64, 
+                           P_SAT::Float64)
     smax = max_supersaturation(param_set, am, TEMP, UPDFT_VELO, P_SAT, PRESS)
     sm = critical_supersaturation(param_set, am)
     TOTN =  sum(1:length(am.modes)) do i
