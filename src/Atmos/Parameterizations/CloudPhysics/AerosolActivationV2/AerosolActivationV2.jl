@@ -9,10 +9,37 @@ Aerosol activation module, which includes:
 
 using SpecialFunctions
 
+#using ClimateMachine.AerosolModel
+
 using CLIMAParameters
 using CLIMAParameters: gas_constant
 using CLIMAParameters.Planet: ρ_cloud_liq, R_v, grav, molmass_water, LH_v0, cp_v
-using CLIMAParameters.Atmos: K_therm, D_vapor
+using CLIMAParameters.Atmos.Microphysics: K_therm, D_vapor
+
+struct EarthParameterSet <: AbstractEarthParameterSet end
+const APS = EarthParameterSet
+struct mode{T}
+    particle_density::T
+    osmotic_coeff::T
+    molar_mass::T
+    dissoc::T
+    mass_frac::T
+    mass_mix_ratio::T
+    dry_radius::T
+    radius_stdev::T
+    aerosol_density::T
+    n_components::Int64
+end
+
+# complete aerosol model struct
+struct aerosol_model{T}
+    modes::T
+    N::Int
+    function aerosol_model(modes::T) where {T}
+        return new{T}(modes, length(modes)) #modes new{T}
+    end
+end
+
 
 # export alpha_sic
 # export gamma_sic
@@ -182,10 +209,10 @@ function max_supersaturation(param_set::APS, am::aerosol_model, TEMP, UPDFT_VELO
     _K_therm = K_therm(param_set)
     _D_vapor = D_vapor(param_set)
 
-    alpha = alpha_sic(am)
-    gamma = gamma_sic(am, P_SAT, PRESS)
-    A = coeff_of_curvature(am)
-    Sm = critical_supersaturation(am)
+    alpha = alpha_sic(param_set, am)
+    gamma = gamma_sic(param_set, am, P_SAT, PRESS)
+    A = coeff_of_curvature(param_set, am)
+    Sm = critical_supersaturation(param_set, am)
     G_DIFF = ((_LH_v0/(_K_therm*TEMP))*(((_LH_v0/TEMP/_R_v)-1))+((_R_v*TEMP)/(P_SAT*_D_vapor)))^(-1)
 
     X = sum(1:length(am.modes)) do i 
@@ -229,8 +256,8 @@ total_N_activated(am::aerosol_model, TEMP, UPDFT_VELO, PRESS, P_SAT)
     -- P_SAT - saturation press (Pa)
 """
 function total_N_activated(param_set::APS, am::aerosol_model, TEMP, UPDFT_VELO, PRESS, P_SAT)
-    smax = max_supersaturation(am, TEMP, UPDFT_VELO, P_SAT, PRESS)
-    sm = critical_supersaturation(am)
+    smax = max_supersaturation(param_set, am, TEMP, UPDFT_VELO, P_SAT, PRESS)
+    sm = critical_supersaturation(param_set, am)
     TOTN =  sum(1:length(am.modes)) do i
         mode_i = am.modes[i]
         # weighted avgs of diff params:
