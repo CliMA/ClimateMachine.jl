@@ -2,7 +2,8 @@ using SpecialFunctions
 using Test
 # using ClimateMachine.AerosolModel: mode, aerosol_model
 # using ClimateMachine.AerosolActivationV2
-include("/home/idularaz/ClimateMachine.jl/src/Atmos/Parameterizations/CloudPhysics/AerosolActivationV2/AerosolActivationV2.jl")
+
+include("//home/skadakia/clones/ClimateMachine.jl/src/Atmos/Parameterizations/CloudPhysics/AerosolActivationV2/AerosolActivationV2.jl")
 using CLIMAParameters
 using CLIMAParameters: gas_constant
 using CLIMAParameters.Planet: molmass_water, ρ_cloud_liq, grav, LH_v0, cp_v
