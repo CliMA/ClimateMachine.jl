@@ -16,6 +16,8 @@ using CLIMAParameters: gas_constant
 using CLIMAParameters.Planet: ρ_cloud_liq, R_v, grav, molmass_water, LH_v0, cp_v
 using CLIMAParameters.Atmos.Microphysics: K_therm, D_vapor
 
+surface_tension = 0.0757
+
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const APS = EarthParameterSet
 struct mode{T}
@@ -57,7 +59,7 @@ alpha_sic(aero_mm)
 """
 function alpha_sic(param_set::APS, am::aerosol_model, TEMP::Float64)
 
-    _gas_constant = gas_constant(param_set)
+    _gas_constant = gas_constant()
     _grav = grav(param_set)
     _molmass_water = molmass_water(param_set)
     _LH_v0 = LH_v0(param_set)
@@ -92,7 +94,7 @@ gamma_sic(aero_mm, TEMP, P_SAT, PRESS)
 """
 function gamma_sic(param_set::APS, am::aerosol_model, TEMP::Float64, PRESS::Float64, P_SAT::Float64)
 
-    _gas_constant = gas_constant(param_set)
+    _gas_constant = gas_constant()
     _molmass_water = molmass_water(param_set)
     _LH_v0 = LH_v0(param_set)
     _cp_v = cp_v(param_set)
@@ -124,11 +126,10 @@ coeff_of_curvature(am::aerosol_model)
 """
 function coeff_of_curvature(param_set::APS, am::aerosol_model, TEMP::Float64)
 
-        _gas_constant = gas_constant(param_set)
+        _gas_constant = gas_constant()
         _ρ_cloud_liq = ρ_cloud_liq(param_set)
         _molmass_water = molmass_water(param_set)
 
-        mode_i = am.modes[i]
         # take weighted average of activation times
         top = 2*surface_tension*_molmass_water
         bottom = _ρ_cloud_liq*_gas_constant*TEMP
@@ -170,9 +171,9 @@ critical_supersaturation(am::aerosol_model)
 
     Returns the critical superation for each mode of an aerosol model. 
 """
-function critical_supersaturation(param_set::APS, am::aerosol_model)
-    coeff_of_curve = coeff_of_curvature(am)
-    mh = mean_hygroscopicity(am)
+function critical_supersaturation(param_set::APS, am::aerosol_model, TEMP::Float64)
+    coeff_of_curve = coeff_of_curvature(param_set, am, TEMP)
+    mh = mean_hygroscopicity(param_set, am)
     return ntuple(length(am.modes)) do i 
         mode_i = am.modes[i]
         # weighted average of mode dry_radius
@@ -211,9 +212,9 @@ function max_supersaturation(param_set::APS, am::aerosol_model, TEMP::Float64,
     _D_vapor = D_vapor(param_set)
 
     alpha = alpha_sic(param_set, am, TEMP)
-    gamma = gamma_sic(param_set, am, P_SAT, PRESS)
-    A = coeff_of_curvature(param_set, am)
-    Sm = critical_supersaturation(param_set, am)
+    gamma = gamma_sic(param_set, am, TEMP, P_SAT, PRESS)
+    A = coeff_of_curvature(param_set, am, TEMP)
+    Sm = critical_supersaturation(param_set, am, TEMP)
     G_DIFF = ((_LH_v0/(_K_therm*TEMP))*(((_LH_v0/TEMP/_R_v)-1))+((_R_v*TEMP)/(P_SAT*_D_vapor)))^(-1)
 
     X = sum(1:length(am.modes)) do i 
@@ -235,7 +236,7 @@ function max_supersaturation(param_set::APS, am::aerosol_model, TEMP::Float64,
         end
         f = 0.5  *  exp(2.5  *  (log(avg_radius_stdev))^2 )
         g = 1 + 0.25  *  log(avg_radius_stdev)        
-        zeta = (2 * A[i] * (1/3))  *  ((alpha[i] * UPDFT_VELO)/G_DIFF)^(.5)
+        zeta = (2 * A * (1/3))  *  ((alpha[i] * UPDFT_VELO)/G_DIFF)^(.5)
         eta = (((alpha[i]*UPDFT_VELO)/(G_DIFF))^(3/2))/(2*pi*_ρ_cloud_liq*gamma[i]*total_particles)
         exp1 = 1/(Sm[i])^2
         exp2 = f*(zeta/eta)^(3/2)
@@ -263,7 +264,7 @@ function total_N_activated(param_set::APS,
                            PRESS::Float64, 
                            P_SAT::Float64)
     smax = max_supersaturation(param_set, am, TEMP, UPDFT_VELO, P_SAT, PRESS)
-    sm = critical_supersaturation(param_set, am)
+    sm = critical_supersaturation(param_set, am, TEMP)
     TOTN =  sum(1:length(am.modes)) do i
         mode_i = am.modes[i]
         # weighted avgs of diff params:

@@ -311,13 +311,13 @@ TEMP = 273.15
 UPDFT_VELO = 5.0
 PRESS = 100000.0
 
-@testset "mean_hygroscopicity" begin
-    @test all(tp_mean_hygroscopicity(param_set, aerosolmodel_testcase1) .≈ mean_hygroscopicity(param_set, aerosolmodel_testcase1))
-    @test all(tp_mean_hygroscopicity(param_set, aerosolmodel_testcase2) .≈ mean_hygroscopicity(param_set, aerosolmodel_testcase2))
-    @test all(tp_mean_hygroscopicity(param_set, aerosolmodel_testcase3) .≈ mean_hygroscopicity(param_set, aerosolmodel_testcase3))
-    @test all(tp_mean_hygroscopicity(param_set, aerosolmodel_testcase4) .≈ mean_hygroscopicity(param_set, aerosolmodel_testcase4))
-    @test all(tp_mean_hygroscopicity(param_set, aerosolmodel_testcase5) .≈ mean_hygroscopicity(param_set, aerosolmodel_testcase5))
-end
+# @testset "mean_hygroscopicity" begin
+#     @test all(tp_mean_hygroscopicity(param_set, aerosolmodel_testcase1) .≈ mean_hygroscopicity(param_set, aerosolmodel_testcase1))
+#     @test all(tp_mean_hygroscopicity(param_set, aerosolmodel_testcase2) .≈ mean_hygroscopicity(param_set, aerosolmodel_testcase2))
+#     @test all(tp_mean_hygroscopicity(param_set, aerosolmodel_testcase3) .≈ mean_hygroscopicity(param_set, aerosolmodel_testcase3))
+#     @test all(tp_mean_hygroscopicity(param_set, aerosolmodel_testcase4) .≈ mean_hygroscopicity(param_set, aerosolmodel_testcase4))
+#     @test all(tp_mean_hygroscopicity(param_set, aerosolmodel_testcase5) .≈ mean_hygroscopicity(param_set, aerosolmodel_testcase5))
+# end
 
 @testset "max_supersaturation" begin
     # println(tp_max_super_sat(param_set, aerosolmodel_testcase1, 2.0, UPDFT_VELO, PRESS))
