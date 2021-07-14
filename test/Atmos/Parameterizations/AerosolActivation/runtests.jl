@@ -19,6 +19,9 @@ P_SAT = 1.0 # need to fix  # TODO - use the Themodynamics.jl
 #TODO LATENT_HEAT = 1000.0  is it this one? _LH_v0 = LH_v0(param_set)
 #TODO SPECIFIC_HEAT = 1 is it this one?: _cp_v = cp_v(param_set)
 
+T = 283.15     # air temperature
+p = 100000.0   # air pressure
+w = 5.0        # vertical velocity
 
 # Building the test structures
 # 1. Set Aerosol parameters:
@@ -28,7 +31,7 @@ osmotic_coeff_seasalt = 0.9
 molar_mass_seasalt = 0.058443
 rho_seasalt = 2170.0
 dissoc_seasalt = 2.0
-mass_frac_seasalt = 1.0
+soluble_mass_frac_seasalt = 1.0
 mass_mix_ratio_seasalt = 1.0
 
 # Sea Salt -- Accumulation mode
@@ -47,7 +50,7 @@ osmotic_coeff_dust = 0.9
 molar_mass_dust = 0.058443
 rho_dust = 2170.0
 dissoc_dust = 2.0
-mass_frac_dust = 1.0
+soluble_mass_frac_dust = 1.0
 mass_mix_ratio_dust = 1.0
 
 # Dust -- Accumulation mode
@@ -67,7 +70,7 @@ accum_mode_seasalt = mode(
     (osmotic_coeff_seasalt,),
     (molar_mass_seasalt,),
     (dissoc_seasalt,),
-    (mass_frac_seasalt,),
+    (soluble_mass_frac_seasalt,),
     (mass_mix_ratio_seasalt,),
     (dry_radius_seasalt_accum,),
     (radius_stdev_seasalt_accum,),
@@ -80,7 +83,7 @@ coarse_mode_seasalt = mode(
     (osmotic_coeff_seasalt,),
     (molar_mass_seasalt,),
     (dissoc_seasalt,),
-    (mass_frac_seasalt,),
+    (soluble_mass_frac_seasalt,),
     (mass_mix_ratio_seasalt,),
     (dry_radius_seasalt_coarse,),
     (radius_stdev_seasalt_coarse,),
@@ -99,7 +102,7 @@ accum_mode_seasalt_dust = mode(
     (osmotic_coeff_seasalt, osmotic_coeff_dust),
     (molar_mass_seasalt, molar_mass_dust),
     (dissoc_seasalt, dissoc_dust),
-    (mass_frac_seasalt, mass_frac_dust),
+    (soluble_mass_frac_seasalt, soluble_mass_frac_dust),
     (mass_mix_ratio_seasalt, mass_mix_ratio_dust),
     (dry_radius_seasalt_accum, dry_radius_dust_accum),
     (radius_stdev_seasalt_accum, radius_stdev_dust_accum),
@@ -112,7 +115,7 @@ coarse_mode_seasalt_dust = mode(
     (osmotic_coeff_seasalt, osmotic_coeff_dust),
     (molar_mass_seasalt, molar_mass_dust),
     (dissoc_seasalt, dissoc_dust),
-    (mass_frac_seasalt, mass_frac_dust),
+    (soluble_mass_frac_seasalt, soluble_mass_frac_dust),
     (mass_mix_ratio_seasalt, mass_mix_ratio_dust),
     (dry_radius_seasalt_coarse, dry_radius_dust_coarse),
     (radius_stdev_seasalt_coarse, radius_stdev_dust_coarse),
@@ -157,7 +160,7 @@ function tp_mean_hygroscopicity(param_set::EPS, am::aerosol_model)
             mode_i.osmotic_coeff[j] *
             mode_i.mass_mix_ratio[j] *
             mode_i.dissoc[j] *
-            mode_i.mass_frac[j] *
+            mode_i.soluble_mass_frac[j] *
             1 / mode_i.molar_mass[j] # mode_i.particle_density[j]/total_mass_value *
         end
         denominator = sum(num_of_comp) do j
@@ -341,6 +344,8 @@ end
 
 @testset "mean_hygroscopicity" begin
 
+    println("----------")
+    println("mean_hygroscopicity: ")
     println(tp_mean_hygroscopicity(param_set, aerosolmodel_testcase1))
     println(mean_hygroscopicity(param_set, aerosolmodel_testcase1))
 
@@ -364,9 +369,13 @@ end
         tp_mean_hygroscopicity(param_set, aerosolmodel_testcase5) .≈
         mean_hygroscopicity(param_set, aerosolmodel_testcase5),
     )
+    println(" ")
 end
 
 @testset "max_supersaturation" begin
+
+    println("----------")
+    println("max_supersaturation: ")
     println(tp_max_super_sat(
         param_set,
         aerosolmodel_testcase1,
@@ -375,35 +384,39 @@ end
         4.0,
         1.0,
     ))
-    println(max_supersaturation(param_set, aerosolmodel_testcase1, P_SAT))
-    #@test all(tp_max_super_sat(param_set, aerosolmodel_testcase1, 2.0, 3.0, 4.0, 1.0) .≈ max_supersaturation(param_set, aerosolmodel_testcase1, P_SAT))
-    #@test all(tp_max_super_sat(param_set, aerosolmodel_testcase2, 2.0, 3.0, 4.0, 1.0) .≈ max_supersaturation(param_set, aerosolmodel_testcase2, P_SAT))
-    #@test all(tp_max_super_sat(param_set, aerosolmodel_testcase3, 2.0, 3.0, 4.0, 1.0) .≈ max_supersaturation(param_set, aerosolmodel_testcase3, P_SAT))
-    #@test all(tp_max_super_sat(param_set, aerosolmodel_testcase4, 2.0, 3.0, 4.0, 1.0) .≈ max_supersaturation(param_set, aerosolmodel_testcase4, P_SAT))
-    #@test all(tp_max_super_sat(param_set, aerosolmodel_testcase5, 2.0, 3.0, 4.0, 1.0) .≈ max_supersaturation(param_set, aerosolmodel_testcase5, P_SAT))
+    println(max_supersaturation(param_set, aerosolmodel_testcase1, T, p, w))
+    #@test all(tp_max_super_sat(param_set, aerosolmodel_testcase1, 2.0, 3.0, 4.0, 1.0) .≈ max_supersaturation(param_set, aerosolmodel_testcase1, T, p, w))
+    #@test all(tp_max_super_sat(param_set, aerosolmodel_testcase2, 2.0, 3.0, 4.0, 1.0) .≈ max_supersaturation(param_set, aerosolmodel_testcase2, T, p, w))
+    #@test all(tp_max_super_sat(param_set, aerosolmodel_testcase3, 2.0, 3.0, 4.0, 1.0) .≈ max_supersaturation(param_set, aerosolmodel_testcase3, T, p, w))
+    #@test all(tp_max_super_sat(param_set, aerosolmodel_testcase4, 2.0, 3.0, 4.0, 1.0) .≈ max_supersaturation(param_set, aerosolmodel_testcase4, T, p, w))
+    #@test all(tp_max_super_sat(param_set, aerosolmodel_testcase5, 2.0, 3.0, 4.0, 1.0) .≈ max_supersaturation(param_set, aerosolmodel_testcase5, T, p, w))
+    println(" ")
 end
 
 @testset "total_n_act" begin
+    println("----------")
+    println("total_N_act: ")
     println(tp_total_n_act(param_set, aerosolmodel_testcase1, 2.0, 3.0, 4.0, 1.0))
-    println(total_N_activated(param_set, aerosolmodel_testcase1))
+    println(total_N_activated(param_set, aerosolmodel_testcase1, T, p, w))
     @test all(
         tp_total_n_act(param_set, aerosolmodel_testcase1, 2.0, 3.0, 4.0, 1.0) .≈
-        total_N_activated(param_set, aerosolmodel_testcase1),
+        total_N_activated(param_set, aerosolmodel_testcase1, T, p, w),
     )
     @test all(
         tp_total_n_act(param_set, aerosolmodel_testcase1, 2.0, 3.0, 4.0, 1.0) .≈
-        total_N_activated(param_set, aerosolmodel_testcase2),
+        total_N_activated(param_set, aerosolmodel_testcase2, T, p, w),
     )
     @test all(
         tp_total_n_act(param_set, aerosolmodel_testcase1, 2.0, 3.0, 4.0, 1.0) .≈
-        total_N_activated(param_set, aerosolmodel_testcase3),
+        total_N_activated(param_set, aerosolmodel_testcase3, T, p, w),
     )
     @test all(
         tp_total_n_act(param_set, aerosolmodel_testcase1, 2.0, 3.0, 4.0, 1.0) .≈
-        total_N_activated(param_set, aerosolmodel_testcase4),
+        total_N_activated(param_set, aerosolmodel_testcase4, T, p, w),
     )
     @test all(
         tp_total_n_act(param_set, aerosolmodel_testcase1, 2.0, 3.0, 4.0, 1.0) .≈
-        total_N_activated(param_set, aerosolmodel_testcase5),
+        total_N_activated(param_set, aerosolmodel_testcase5, T, p, w),
     )
+    println(" ")
 end
