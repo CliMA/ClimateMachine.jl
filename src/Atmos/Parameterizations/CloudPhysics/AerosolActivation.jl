@@ -28,10 +28,10 @@ export max_supersaturation
 export total_N_activated
 
 # TODO - pass them in as input to functions
-TEMP = 273.15
+TEMP = 273.15     # T
 P_SAT = 100000.0
 P = 100000.0
-UPDFT_VELO = 5.0
+UPDFT_VELO = 5.0   # vertical_vel
 
 """
 alpha_sic(aero_mm)
