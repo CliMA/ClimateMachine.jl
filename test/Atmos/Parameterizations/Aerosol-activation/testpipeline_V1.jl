@@ -392,11 +392,19 @@ end
 # end
 
 @testset "max_super_sat" begin
+<<<<<<< HEAD
     @test tp_max_super_sat(aerosolmodel_testcase1, 2.0, 3.0, 4.0, 1.0) == max_supersaturation(am::aerosol_model, TEMP, UPDFT_VELO, PRESS, P_SAT)
     @test tp_max_super_sat(aerosolmodel_testcase2, 2.0, 3.0, 4.0, 1.0) == max_supersaturation(am::aerosol_model, TEMP, UPDFT_VELO, PRESS, P_SAT)
     @test tp_max_super_sat(aerosolmodel_testcase3, 2.0, 3.0, 4.0, 1.0) == max_supersaturation(am::aerosol_model, TEMP, UPDFT_VELO, PRESS, P_SAT)
     @test tp_max_super_sat(aerosolmodel_testcase4, 2.0, 3.0, 4.0, 1.0) == max_supersaturation(am::aerosol_model, TEMP, UPDFT_VELO, PRESS, P_SAT)
     @test tp_max_super_sat(aerosolmodel_testcase5, 2.0, 3.0, 4.0, 1.0) == max_supersaturation(am::aerosol_model, TEMP, UPDFT_VELO, PRESS, P_SAT)
+=======
+    @test tp_max_super_sat(aerosolmodel_testcase1, 2.0, 3.0, 4.0, 1.0) == max_supersaturation(aerosolmodel_testcase1, 2.0, 3.0, 4.0, 1.0)
+    @test tp_max_super_sat(aerosolmodel_testcase2, 2.0, 3.0, 4.0, 1.0) == max_supersaturation(aerosolmodel_testcase2, 2.0, 3.0, 4.0, 1.0)
+    @test tp_max_super_sat(aerosolmodel_testcase3, 2.0, 3.0, 4.0, 1.0) == max_supersaturation(aerosolmodel_testcase3, 2.0, 3.0, 4.0, 1.0)
+    @test tp_max_super_sat(aerosolmodel_testcase4, 2.0, 3.0, 4.0, 1.0) == max_supersaturation(aerosolmodel_testcase4, 2.0, 3.0, 4.0, 1.0)
+    @test tp_max_super_sat(aerosolmodel_testcase5, 2.0, 3.0, 4.0, 1.0) == max_supersaturation(aerosolmodel_testcase5, 2.0, 3.0, 4.0, 1.0)
+>>>>>>> ad9485f482dde7ea41b17312b80ee85400ea4adc
 end
 
 # @testset "total_n_act" begin
