@@ -17,7 +17,7 @@ using Test
 # struct EarthParameterSet <: AbstractEarthParameterSet end
 # const param_set = EarthParameterSet()
 
-include("/home/skadakia/clones/ClimateMachine.jl/src/Atmos/Parameterizations/CloudPhysics/Aerosol-activation/AerosolActivation-Shevali.jl")
+include("/home/idularaz/ClimateMachine.jl/src/Atmos/Parameterizations/CloudPhysics/AerosolActivationV2/AerosolActivationV2.jl")
 
 # using ClimateMachine.Atmos.Parameterizations.CloudPhysics.Aerosol-activation.AerosolActivation-Shevali.jl: alpha_sic, gamma_sic, coeff_of_curvature, mean_hygroscopicity
 
@@ -30,6 +30,13 @@ P_SAT = 1.0 # need to fix
 LATENT_HEAT = 1000.0
 SPECIFIC_HEAT = 1
 GRAVITY = 9.81
+
+# Params:
+TEMP = 273.15
+UPDFT_VELO = 5
+PRESS = 100000
+P_SAT = 100000
+
 # Building the test structures
 # 1. Set Aerosol parameters: 
 
@@ -43,12 +50,12 @@ mass_mix_ratio_seasalt = 1.0
 
 # Sea Salt -- Accumulation mode
 dry_radius_seasalt_accum = 0.000000243
-radius_stdev_seasalt_accum = 0.0000014
+radius_stdev_seasalt_accum = 1.4
 particle_density_seasalt_accum = 100.0
 
 # Sea Salt -- Coarse Mode
 dry_radius_seasalt_coarse = 0.0000015
-radius_stdev_seasalt_coarse = 0.0000021
+radius_stdev_seasalt_coarse = 2
 particle_density_seasalt_coarse = 100.0
 
 # TODO: Dust parameters (just copy and pasted seasalt values rn)
@@ -62,12 +69,12 @@ mass_mix_ratio_dust = 1.0
 
 # Dust -- Accumulation mode
 dry_radius_dust_accum = 0.000000243
-radius_stdev_dust_accum = 0.0000014
+radius_stdev_dust_accum = 1.4
 particle_density_dust_accum = 100.0
 
 # Dust -- Coarse Mode
 dry_radius_dust_coarse = 0.0000015
-radius_stdev_dust_coarse = 0.0000021
+radius_stdev_dust_coarse = 2.1
 particle_density_dust_coarse = 100.0
 
 
@@ -385,11 +392,19 @@ end
 # end
 
 @testset "max_super_sat" begin
+<<<<<<< HEAD
+    @test tp_max_super_sat(aerosolmodel_testcase1, 2.0, 3.0, 4.0, 1.0) == max_supersaturation(am::aerosol_model, TEMP, UPDFT_VELO, PRESS, P_SAT)
+    @test tp_max_super_sat(aerosolmodel_testcase2, 2.0, 3.0, 4.0, 1.0) == max_supersaturation(am::aerosol_model, TEMP, UPDFT_VELO, PRESS, P_SAT)
+    @test tp_max_super_sat(aerosolmodel_testcase3, 2.0, 3.0, 4.0, 1.0) == max_supersaturation(am::aerosol_model, TEMP, UPDFT_VELO, PRESS, P_SAT)
+    @test tp_max_super_sat(aerosolmodel_testcase4, 2.0, 3.0, 4.0, 1.0) == max_supersaturation(am::aerosol_model, TEMP, UPDFT_VELO, PRESS, P_SAT)
+    @test tp_max_super_sat(aerosolmodel_testcase5, 2.0, 3.0, 4.0, 1.0) == max_supersaturation(am::aerosol_model, TEMP, UPDFT_VELO, PRESS, P_SAT)
+=======
     @test tp_max_super_sat(aerosolmodel_testcase1, 2.0, 3.0, 4.0, 1.0) == max_supersaturation(aerosolmodel_testcase1, 2.0, 3.0, 4.0, 1.0)
     @test tp_max_super_sat(aerosolmodel_testcase2, 2.0, 3.0, 4.0, 1.0) == max_supersaturation(aerosolmodel_testcase2, 2.0, 3.0, 4.0, 1.0)
     @test tp_max_super_sat(aerosolmodel_testcase3, 2.0, 3.0, 4.0, 1.0) == max_supersaturation(aerosolmodel_testcase3, 2.0, 3.0, 4.0, 1.0)
     @test tp_max_super_sat(aerosolmodel_testcase4, 2.0, 3.0, 4.0, 1.0) == max_supersaturation(aerosolmodel_testcase4, 2.0, 3.0, 4.0, 1.0)
     @test tp_max_super_sat(aerosolmodel_testcase5, 2.0, 3.0, 4.0, 1.0) == max_supersaturation(aerosolmodel_testcase5, 2.0, 3.0, 4.0, 1.0)
+>>>>>>> ad9485f482dde7ea41b17312b80ee85400ea4adc
 end
 
 # @testset "total_n_act" begin
