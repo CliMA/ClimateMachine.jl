@@ -9,6 +9,7 @@ using CLIMAParameters: gas_constant
 using CLIMAParameters.Planet: molmass_water, ρ_cloud_liq, grav, LH_v0, cp_v
 using CLIMAParameters.Atmos.Microphysics: K_therm, D_vapor
 
+println(molmass_water)
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const EPS = EarthParameterSet
 const param_set = EarthParameterSet()
