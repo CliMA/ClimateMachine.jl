@@ -13,12 +13,13 @@ export aerosol_model
 # the first 3 lines will probably model variables
 # the rest are constants depending on aerosol type and
 # could be packed into something like chemical composition struct
+# TODO - should we name the elements?
 struct mode{T}
-    dry_radius::T
-    radius_stdev::T
+    r_dry::Real
+    stdev::Real
+    N::Real
     mass_mix_ratio::T
     soluble_mass_frac::T
-    particle_density::T
     osmotic_coeff::T
     molar_mass::T
     dissoc::T
