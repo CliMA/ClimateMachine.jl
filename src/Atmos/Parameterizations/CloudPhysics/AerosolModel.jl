@@ -1,8 +1,3 @@
-"""
-
-
-"""
-
 module AerosolModel
 
 export mode

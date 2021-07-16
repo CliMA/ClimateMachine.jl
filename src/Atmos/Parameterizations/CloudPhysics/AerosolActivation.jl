@@ -1,3 +1,4 @@
+
 """
     Aerosol activation module, which includes:
 
@@ -124,19 +125,25 @@ function max_supersaturation(param_set::APS, am::aerosol_model, T::FT, p::FT, w:
     # eq 11, 12 in Razzak et al 1998
     α::FT = _grav * _molmass_water * L / _cp_d / _gas_constant / T^2 -
             _grav * _molmass_dryair / _gas_constant / T
+    println("this is α functions: ", α)
     γ::FT = _gas_constant * T / p_vs / _molmass_water +
             _molmass_water * L^2 / _cp_d / p / _molmass_dryair / T
+    println("this is γ functions: ", γ)
     A::FT = coeff_of_curvature(param_set, T)
+    println("this is A functions: ", A)
     ζ::FT = 2 * A / 3 * sqrt(α * w / G)
+    println("this is ζ functions: ", ζ)
     Sm = critical_supersaturation(param_set, am, T) # TODO how to specify the type here?
-
+    println("this is crit supersat functions: ", Sm)
     tmp::FT = sum(1:length(am.modes)) do i
-
         mode_i = am.modes[i]
 
         f::FT = 0.5 * exp(2.5 * (log(mode_i.stdev))^2)
+        println("this is f functions: ", f)
         g::FT = 1 + 0.25 * log(mode_i.stdev)
+        println("this is g functions: ", g)
         η::FT = (α * w / G)^(3/2) / (2 * pi * _ρ_cloud_liq * γ * mode_i.N)
+        println("this is η functions: ", η)
 
         1 / (Sm[i])^2 * (f * (ζ / η)^(3/2) + g * (Sm[i]^2 / (η + 3 * ζ))^(3/4))
     end
