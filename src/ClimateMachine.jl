@@ -21,6 +21,18 @@ include(joinpath(
     "CloudPhysics",
     "Microphysics_0M.jl",
 ))
+include(joinpath(
+    "Atmos",
+    "Parameterizations",
+    "CloudPhysics",
+    "AerosolModel.jl",
+))
+include(joinpath(
+    "Atmos",
+    "Parameterizations",
+    "CloudPhysics",
+    "AerosolActivation.jl",
+))
 include(joinpath("Common", "SurfaceFluxes", "SurfaceFluxes.jl"))
 include(joinpath("Arrays", "MPIStateArrays.jl"))
 include(joinpath("Numerics", "Mesh", "Mesh.jl"))
