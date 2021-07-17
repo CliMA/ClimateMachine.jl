@@ -278,11 +278,8 @@ function tp_critical_supersaturation(
         mode_i = am.modes[i]
         num_of_comp = mode_i.n_components
         a = sum(num_of_comp) do j
-            2 /
-            sqrt(mean_hygro[i]) *
-            (
-                tp_coeff_of_curve(param_set, temp) / (3 * mode_i.r_dry)
-            )^(3 / 2)
+            2 / sqrt(mean_hygro[i]) *
+            (tp_coeff_of_curve(param_set, temp) / (3 * mode_i.r_dry))^(3 / 2)
         end
         a
     end
@@ -307,8 +304,7 @@ function tp_total_n_act(
         u_top = 2 * log(critical_supersaturation[i] / max_supersat[i])
         u_bottom = 3 * sqrt(2) * log(sigma)
         u = u_top / u_bottom
-        mode_i.N *
-        1 / 2 * (1 - erf(u))
+        mode_i.N * 1 / 2 * (1 - erf(u))
     end
     summation = 0.0
     for i in range(1, length = length(values))
@@ -329,7 +325,7 @@ end
     for AM in AM_test_cases
         @test all(
             tp_mean_hygroscopicity(param_set, AM) .≈
-            mean_hygroscopicity(param_set, AM)
+            mean_hygroscopicity(param_set, AM),
         )
     end
     println(" ")
@@ -339,7 +335,7 @@ end
 
     println("----------")
     println("max_supersaturation: ")
-    println(tp_max_super_sat(param_set, AM_1, 2.0, 3.0, 4.0, 1.0,))
+    println(tp_max_super_sat(param_set, AM_1, 2.0, 3.0, 4.0, 1.0))
     println(max_supersaturation(param_set, AM_1, T, p, w))
 
     # TODO
