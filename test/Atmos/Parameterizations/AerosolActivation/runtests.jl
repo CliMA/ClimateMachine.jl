@@ -25,8 +25,6 @@ w = 5.0        # vertical velocity
 
 # TODO - move areosol properties to CLIMAParameters
 
-
-
 function tp_coeff_of_curve(param_set::EPS, T::FT) where {FT <: Real}
 
     _molmass_water::FT = molmass_water(param_set)
@@ -66,10 +64,11 @@ function α(param_set::EPS, T::FT, aerosol_mass::FT) where {FT <: Real}
     _grav::FT = grav(param_set)
     _gas_constant::FT = gas_constant()
     _cp_d::FT = cp_d(param_set)
+    _molmass_dryair::FT = molmass_dryair(param_set)
     L::FT = latent_heat_vapor(param_set, T)
 
     return _grav * _molmass_water * L / (_cp_d * _gas_constant * T^2) -
-           _grav * aerosol_mass / (_gas_constant * T)
+           _grav * _molmass_dryair / (_gas_constant * T)
 end
 
 function γ(
@@ -216,7 +215,7 @@ function tp_total_n_act(
 )
     critical_supersaturation = tp_critical_supersaturation(param_set, am, temp)
     max_supersat =
-        tp_max_super_sat(param_set, am, temp, updraft_velocity, G_diff, press)
+        tp_max_super_sat(param_set, am, temp, updraft_velocity, press)
     values = ntuple(am.N) do i
         mode_i = am.modes[i]
 
@@ -298,23 +297,23 @@ end
     println(" ")
 end
 
-# @testset "total_n_act" begin
+@testset "total_n_act" begin
 
-#     println("----------")
-#     println("total_N_act: ")
-#     println(tp_total_n_act(param_set, AM_1, 2.0, 3.0, 4.0, 1.0))
-#     println(total_N_activated(param_set, AM_1, T, p, w))
+    println("----------")
+    println("total_N_act: ")
+    println(tp_total_n_act(param_set, AM_1, 2.0, 3.0, 4.0, 1.0))
+    println(total_N_activated(param_set, AM_1, T, p, w))
 
-#     # TODO
-#     #for AM in AM_test_cases
-#     #    @test all(
-#     #        tp_total_n_act(param_set, AM, 2.0, 3.0, 4.0, 1.0) .≈
-#     #        total_N_activated(param_set, AM, T, p, w)
-#     #    )
-#     #end
+    # TODO
+    #for AM in AM_test_cases
+    #    @test all(
+    #        tp_total_n_act(param_set, AM, 2.0, 3.0, 4.0, 1.0) .≈
+    #        total_N_activated(param_set, AM, T, p, w)
+    #    )
+    #end
 
-#     println(" ")
-# end
+    println(" ")
+end
 
 
 # println(tp_max_super_sat_prac(param_set, AM_5, 2.0, 3.0, 4.0, 1.0,))
