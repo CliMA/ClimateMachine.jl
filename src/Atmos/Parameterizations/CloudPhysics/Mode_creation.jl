@@ -1,6 +1,6 @@
 """
 Text file format:
-material, molar mass, osmotic coefficient, density, mass fraction, mass mixing ratio (?), dissociation
+material, molar mass, osmotic coefficient, density, mass fraction, dissociation
 """
 
 function get_data(material::String, path::String)
@@ -59,7 +59,7 @@ accum_mode_seasalt = mode(
     r_dry_accum,
     stdev_accum,
     N_accum,
-    (1.0,), # mass mix ratio TODO
+    (1.0,),
     (seasalt[d_mass_frac],),
     (seasalt[d_osmotic_coeff],),
     (seasalt[d_molar_mass],),

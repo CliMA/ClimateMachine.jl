@@ -14,17 +14,28 @@ using CLIMAParameters: gas_constant
 using CLIMAParameters.Planet: molmass_water, ρ_cloud_liq, grav, cp_d, molmass_dryair
 using CLIMAParameters.Atmos.Microphysics
 
-include("/home/skadakia/clones/ClimateMachine.jl/src/Atmos/Parameterizations/CloudPhysics/Mode_creation.jl")
+
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const EPS = EarthParameterSet
 const param_set = EarthParameterSet()
 
+include("/home/skadakia/clones/ClimateMachine.jl/src/Atmos/Parameterizations/CloudPhysics/Mode_creation.jl")
+
+# CONSTANTS FOR TEST
 T = 283.15     # air temperature
 p = 100000.0   # air pressure
 w = 5.0        # vertical velocity
 
 # TODO - move areosol properties to CLIMAParameters
 
+
+# FUNCTIONS FOR TESTS
+
+"""    
+    functionality: calculates the coefficient of curvature
+    parameters: parameter set, temperature
+    returns: scalar coefficeint of curvature
+"""
 function tp_coeff_of_curve(param_set::EPS, T::FT) where {FT <: Real}
 
     _molmass_water::FT = molmass_water(param_set)
@@ -36,6 +47,11 @@ function tp_coeff_of_curve(param_set::EPS, T::FT) where {FT <: Real}
     return 2 * _surface_tension * _molmass_water / _ρ_cloud_liq / _gas_const / T
 end
 
+"""    
+    functionality: calculates the mean hygroscopicity for all the modes
+    parameters: parameter set, aerosol model
+    returns: tuple of the mean hygroscopicities for each mode
+"""
 function tp_mean_hygroscopicity(param_set::EPS, am::aerosol_model)
 
     _molmass_water = molmass_water(param_set)
@@ -58,6 +74,11 @@ function tp_mean_hygroscopicity(param_set::EPS, am::aerosol_model)
     end
 end
 
+"""    
+    functionality: calculates alpha (size-invariant coefficient)
+    parameters: parameter set, temperature, aerosol particle mass
+    returns: scalar size-invariant coefficient
+"""
 function α(param_set::EPS, T::FT, aerosol_mass::FT) where {FT <: Real}
 
     _molmass_water::FT = molmass_water(param_set)
@@ -71,6 +92,11 @@ function α(param_set::EPS, T::FT, aerosol_mass::FT) where {FT <: Real}
            _grav * _molmass_dryair / (_gas_constant * T)
 end
 
+"""    
+    functionality: calculates gamma (size-invariant coefficient)
+    parameters: parameter set, temperature, aerosol particle mass, and pressure
+    returns: scalar coefficeint of curvature
+"""
 function γ(
     param_set::EPS,
     T::FT,
@@ -85,11 +111,16 @@ function γ(
 
     L::FT = latent_heat_vapor(param_set, T)
     p_vs::FT = saturation_vapor_pressure(param_set, T, Liquid())
-    # 1227.623212237539 # saturation_vapor_pressure(param_set, T, Liquid())
+    println("pressure2: ", press)
     return _gas_constant * T / (p_vs * _molmass_water) +
            _molmass_water * L^2  / (_cp_d * press * _molmass_dryair * T)
 end
-
+"""    
+    functionality: calculates zeta
+    parameters: parameter set, temperature, aerosol particle mass, 
+                updraft velocity, and G_diff
+    returns: scalar zeta value
+"""
 function ζ(
     param_set::EPS,
     T::FT,
@@ -98,12 +129,17 @@ function ζ(
     G_diff::FT,
 ) where {FT <: Real}
     α_var = α(param_set, T, aerosol_mass)
-    println("this is α test: ", α_var)
     return 2 * tp_coeff_of_curve(param_set, T) / 3 *
-           (α_var *= updraft_velocity / G_diff
-    )^(1 / 2)
+           sqrt(α_var * updraft_velocity / G_diff)
 end
 
+"""    
+    functionality: calculates eta
+    parameters: parameter set, temerpature, aerosol particle mass, 
+                aerosol particle number concentration, G_diff, 
+                updraft velocity, and pressure
+    returns: scalar eta value
+"""
 function η(
     param_set::EPS,
     temp::Float64,
@@ -130,12 +166,18 @@ function η(
     )
 end
 
+"""    
+    functionality: calculates the maximum super saturation for each mode
+    parameters: parameter set, aerosol model, temperature, pressure, and
+                updraft velocity
+    returns: a tuple with the max supersaturations for each mode
+"""
 function tp_max_super_sat(
     param_set::EPS,
     am::aerosol_model,
     temp::FT,
-    updraft_velocity::FT,
-    press::FT) where {FT <: Real}
+    press::FT,
+    updraft_velocity::FT) where {FT <: Real}
 
     _grav::FT = grav(param_set)
     _molmass_water::FT = molmass_water(param_set)
@@ -154,11 +196,8 @@ function tp_max_super_sat(
         num_of_comp = mode_i.n_components
         a = sum(num_of_comp) do j
             f = 0.5 * exp(2.5 * (log(mode_i.stdev))^2)
-            println("this is f test: ", f)
             g = 1 + 0.25 * log(mode_i.stdev)
-            println("this is g test: ", g)
             coeff_of_curve = tp_coeff_of_curve(param_set, temp)
-            println("this is A test: ", coeff_of_curve)
             surface_tension_effects = ζ(param_set,
                                            temp,
                                            mode_i.molar_mass[j],
@@ -168,8 +207,7 @@ function tp_max_super_sat(
             println("this is ζ test: ", surface_tension_effects)
             critsat =
                 2 / sqrt(mean_hygro[i]) *
-                (coeff_of_curve / (3 * mode_i.r_dry))^(3 / 2) # FILL
-            println("this is critsat test: ", critsat)
+                (coeff_of_curve / (3 * mode_i.r_dry))^(3 / 2)
             η_value = η(param_set, temp, mode_i.molar_mass[j], mode_i.N, G_diff, updraft_velocity, press)
             println("this is η_value test: ", η_value)
             1 / (critsat^2) * (
@@ -184,6 +222,11 @@ function tp_max_super_sat(
     end
 end
 
+"""    
+    functionality: calculates the critical supersaturation
+    parameters: parameter set, aerosol model, and temperature
+    returns: a tuple of the critical supersaturations of each mode
+"""
 function tp_critical_supersaturation(
     param_set::EPS,
     am::aerosol_model,
@@ -202,9 +245,16 @@ function tp_critical_supersaturation(
         end
         a
     end
-
 end
 
+"""    
+    functionality: calculates the total number of particles activated across all 
+                   modes and components
+    parameters: parameters set, aerosol model, temperature, updraft velocity,
+                G_diff, and pressure
+    returns: a scalar of the total number of particles activated across all modes 
+             and components
+"""
 function tp_total_n_act(
     param_set::EPS,
     am::aerosol_model,
@@ -234,34 +284,7 @@ function tp_total_n_act(
 end
 
 
-function tp_max_super_sat_prac(param_set::EPS,
-                               am::aerosol_model,
-                               temp::Float64,
-                               updraft_velocity::Float64,
-                               G_diff::Float64,
-                               press::Float64)
-    mean_hygro = 2 # tp_mean_hygroscopicity(param_set, am)
-    return ntuple(am.N) do i
-        mode_i = am.modes[i]
-        num_of_comp = mode_i.n_components
-        a = sum(num_of_comp) do j
-            f = 2 # 0.5 * exp(2.5 * log(mode_i.stdev)^2)
-            g = 2 # 1 + 0.25 * log(mode_i.stdev)
-            coeff_of_curve = 2 # tp_coeff_of_curve(param_set, temp)
-            surface_tension_effects = 2 
-            critsat = 3
-            η_value = 3
-            println(j)
-            1 / (critsat^2) * (f * (surface_tension_effects / η_value)^(3 / 2) + g * (critsat^2 /(η_value + 3 * surface_tension_effects))^(3 / 4))
-            
-        end
-        a^(1 / 2)
-
-    end
-end
-
-
-
+# TESTS
 
 @testset "mean_hygroscopicity" begin
 
@@ -297,23 +320,23 @@ end
     println(" ")
 end
 
-@testset "total_n_act" begin
+# @testset "total_n_act" begin
 
-    println("----------")
-    println("total_N_act: ")
-    println(tp_total_n_act(param_set, AM_1, 2.0, 3.0, 4.0, 1.0))
-    println(total_N_activated(param_set, AM_1, T, p, w))
+#     println("----------")
+#     println("total_N_act: ")
+#     println(tp_total_n_act(param_set, AM_1, 2.0, 3.0, 4.0, 1.0))
+#     println(total_N_activated(param_set, AM_1, T, p, w))
 
-    # TODO
-    #for AM in AM_test_cases
-    #    @test all(
-    #        tp_total_n_act(param_set, AM, 2.0, 3.0, 4.0, 1.0) .≈
-    #        total_N_activated(param_set, AM, T, p, w)
-    #    )
-    #end
+#     # TODO
+#     #for AM in AM_test_cases
+#     #    @test all(
+#     #        tp_total_n_act(param_set, AM, 2.0, 3.0, 4.0, 1.0) .≈
+#     #        total_N_activated(param_set, AM, T, p, w)
+#     #    )
+#     #end
 
-    println(" ")
-end
+#     println(" ")
+# end
 
 
 # println(tp_max_super_sat_prac(param_set, AM_5, 2.0, 3.0, 4.0, 1.0,))
