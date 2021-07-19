@@ -1,3 +1,4 @@
+
 using SpecialFunctions
 using Test
 
@@ -13,7 +14,7 @@ using CLIMAParameters: gas_constant
 using CLIMAParameters.Planet: molmass_water, ρ_cloud_liq, grav, cp_d, molmass_dryair
 using CLIMAParameters.Atmos.Microphysics
 
-# include ("/home/skadakia/clones/ClimateMachine.jl/src/Atmos/Parameterizations/CloudPhysics/Mode_creation.jl")
+include("/home/skadakia/clones/ClimateMachine.jl/src/Atmos/Parameterizations/CloudPhysics/Mode_creation.jl")
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const EPS = EarthParameterSet
 const param_set = EarthParameterSet()
@@ -24,98 +25,7 @@ w = 5.0        # vertical velocity
 
 # TODO - move areosol properties to CLIMAParameters
 
-# seasalt = get_data("seasalt", "/home/skadakia/clones/ClimateMachine.jl/src/Atmos/Parameterizations/CloudPhysics/particle_data.txt")
-# dust = get_data("dust", "/home/skadakia/clones/ClimateMachine.jl/src/Atmos/Parameterizations/CloudPhysics/particle_data.txt")
 
-# Sea Salt--universal parameters
-osmotic_coeff_seasalt = 0.9
-dissoc_seasalt = 2.0
-molar_mass_seasalt = 0.058443
-rho_seasalt = 2170.0
-soluble_mass_frac_seasalt = 1.0
-
-# TODO: Dust parameters (just copy and pasted seasalt values rn)
-# Dust--universal parameters
-osmotic_coeff_dust = 0.9
-dissoc_dust = 2.0
-molar_mass_dust = 0.058443
-rho_dust = 2170.0
-soluble_mass_frac_dust = 1.0
-
-# Accumulation mode
-r_dry_accum = 0.243 * 1e-6 # μm
-stdev_accum = 1.4          # -
-N_accum = 100.0 * 1e6      # 1/m3
-
-# Coarse Mode
-r_dry_coarse = 1.5 * 1e-6  # μm
-stdev_coarse = 2.1         # -
-N_coarse = 1.0 * 1e6       # 1/m3
-
-# Building the test structures:
-
-# 1) create aerosol modes
-accum_mode_seasalt = mode(
-    r_dry_accum,
-    stdev_accum,
-    N_accum,
-    (1.0,), # mass mix ratio TODO
-    (soluble_mass_frac_seasalt,),
-    (osmotic_coeff_seasalt,),
-    (molar_mass_seasalt,),
-    (dissoc_seasalt,),
-    (rho_seasalt,),
-    1,
-)
-
-coarse_mode_seasalt = mode(
-    r_dry_coarse,
-    stdev_coarse,
-    N_coarse,
-    (1.0,), # mass mix ratio TODO
-    (soluble_mass_frac_seasalt,),
-    (osmotic_coeff_seasalt,),
-    (molar_mass_seasalt,),
-    (dissoc_seasalt,),
-    (rho_seasalt,),
-    1,
-)
-
-accum_mode_seasalt_dust = mode(
-    r_dry_accum,
-    stdev_accum,
-    N_accum,
-    (0.5, 0.5), # mass mix ratio TODO
-    (soluble_mass_frac_seasalt, soluble_mass_frac_dust),
-    (osmotic_coeff_seasalt, osmotic_coeff_dust),
-    (molar_mass_seasalt, molar_mass_dust),
-    (dissoc_seasalt, dissoc_dust),
-    (rho_seasalt, rho_dust),
-    2,
-)
-
-coarse_mode_seasalt_dust = mode(
-    r_dry_coarse,
-    stdev_coarse,
-    N_coarse,
-    (0.25, 0.75), # mass mix ratio TODO
-    (soluble_mass_frac_seasalt, soluble_mass_frac_dust),
-    (osmotic_coeff_seasalt, osmotic_coeff_dust),
-    (molar_mass_seasalt, molar_mass_dust),
-    (dissoc_seasalt, dissoc_dust),
-    (rho_seasalt, rho_dust),
-    2,
-)
-
-# 2) create aerosol models
-AM_1 = aerosol_model((accum_mode_seasalt,))
-AM_2 = aerosol_model((coarse_mode_seasalt,))
-AM_3 = aerosol_model((accum_mode_seasalt, coarse_mode_seasalt))
-AM_4 = aerosol_model((accum_mode_seasalt_dust,))
-AM_5 = aerosol_model((accum_mode_seasalt_dust, coarse_mode_seasalt_dust))
-
-# 3) bundle them together
-AM_test_cases = [AM_1, AM_2, AM_3, AM_4, AM_5]
 
 function tp_coeff_of_curve(param_set::EPS, T::FT) where {FT <: Real}
 
@@ -189,8 +99,9 @@ function ζ(
     G_diff::FT,
 ) where {FT <: Real}
     α_var = α(param_set, T, aerosol_mass)
+    println("this is α test: ", α_var)
     return 2 * tp_coeff_of_curve(param_set, T) / 3 *
-           (α_var=* updraft_velocity / G_diff
+           (α_var *= updraft_velocity / G_diff
     )^(1 / 2)
 end
 
@@ -209,8 +120,7 @@ function η(
     γ_var = γ(param_set, temp, aerosol_mass, press)
     # println("this is α")
     # println(α_var)
-    # println("this is γ")
-    # println(γ_var)
+    println("this is γ test: ", γ_var)
     return (α_var * updraft_velocity /
            G_diff)^(3 / 2) / (
         2 *
@@ -245,30 +155,24 @@ function tp_max_super_sat(
         num_of_comp = mode_i.n_components
         a = sum(num_of_comp) do j
             f = 0.5 * exp(2.5 * (log(mode_i.stdev))^2)
-            # println("this is f")
-            # println(f)
+            println("this is f test: ", f)
             g = 1 + 0.25 * log(mode_i.stdev)
-            # println("this is g")
-            # println(g)
+            println("this is g test: ", g)
             coeff_of_curve = tp_coeff_of_curve(param_set, temp)
-            println("this is α")
-            println(coeff_of_curve)
+            println("this is A test: ", coeff_of_curve)
             surface_tension_effects = ζ(param_set,
                                            temp,
                                            mode_i.molar_mass[j],
                                            updraft_velocity,
                                            G_diff)
                                 
-            println("this is ζ")
-            println(surface_tension_effects)
+            println("this is ζ test: ", surface_tension_effects)
             critsat =
                 2 / sqrt(mean_hygro[i]) *
                 (coeff_of_curve / (3 * mode_i.r_dry))^(3 / 2) # FILL
-            # println("this is critsat")
-            # println(critsat)
+            println("this is critsat test: ", critsat)
             η_value = η(param_set, temp, mode_i.molar_mass[j], mode_i.N, G_diff, updraft_velocity, press)
-            println("this is η_value")
-            println(η_value)
+            println("this is η_value test: ", η_value)
             1 / (critsat^2) * (
                 f * (surface_tension_effects / η_value)^(3 / 2) +
                 g * (critsat^2 /
@@ -341,8 +245,6 @@ function tp_max_super_sat_prac(param_set::EPS,
     return ntuple(am.N) do i
         mode_i = am.modes[i]
         num_of_comp = mode_i.n_components
-        println("this is n_components")
-        println(num_of_comp)
         a = sum(num_of_comp) do j
             f = 2 # 0.5 * exp(2.5 * log(mode_i.stdev)^2)
             g = 2 # 1 + 0.25 * log(mode_i.stdev)
@@ -362,39 +264,39 @@ end
 
 
 
-# @testset "mean_hygroscopicity" begin
+@testset "mean_hygroscopicity" begin
 
-#     println("----------")
-#     println("mean_hygroscopicity: ")
-#     println(tp_mean_hygroscopicity(param_set, AM_1))
-#     println(mean_hygroscopicity(param_set, AM_1))
+    println("----------")
+    println("mean_hygroscopicity: ")
+    println(tp_mean_hygroscopicity(param_set, AM_1))
+    println(mean_hygroscopicity(param_set, AM_1))
 
-#     for AM in AM_test_cases
-#         @test all(
-#             tp_mean_hygroscopicity(param_set, AM) .≈
-#             mean_hygroscopicity(param_set, AM)
-#         )
-#     end
-#     println(" ")
-# end
+    for AM in AM_test_cases
+        @test all(
+            tp_mean_hygroscopicity(param_set, AM) .≈
+            mean_hygroscopicity(param_set, AM)
+        )
+    end
+    println(" ")
+end
 
-# @testset "max_supersaturation" begin
+@testset "max_supersaturation" begin
 
-#     println("----------")
-#     println("max_supersaturation: ")
-#     println(tp_max_super_sat(param_set, AM_1,  T, p, w))
-#     println(max_supersaturation(param_set, AM_1, T, p, w))
+    println("----------")
+    println("max_supersaturation: ")
+    println(tp_max_super_sat(param_set, AM_1,  T, p, w))
+    println(max_supersaturation(param_set, AM_1, T, p, w))
 
-#     # TODO
-#     #for AM in AM_test_cases
-#     #    @test all(
-#     #        tp_max_super_sat(param_set, AM, 2.0, 3.0, 4.0, 1.0) .≈
-#     #        max_supersaturation(param_set, AM, T, p, w)
-#     #    )
-#     #end
+    # TODO
+    #for AM in AM_test_cases
+    #    @test all(
+    #        tp_max_super_sat(param_set, AM, 2.0, 3.0, 4.0, 1.0) .≈
+    #        max_supersaturation(param_set, AM, T, p, w)
+    #    )
+    #end
 
-#     println(" ")
-# end
+    println(" ")
+end
 
 # @testset "total_n_act" begin
 
