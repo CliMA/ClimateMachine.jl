@@ -1,4 +1,8 @@
-import Pkg; Pkg.add("Plots")
+# import Pkg; Pkg.add("GR")
+# using GR
+# import Pkg; Pkg.add("Plots")
+# import Pkg; Pkg.add("PyPlot")
+# using PyPlot
 using SpecialFunctions
 using Plots
 
@@ -16,9 +20,9 @@ struct EarthParameterSet <: AbstractEarthParameterSet end
 const EPS = EarthParameterSet
 const param_set = EarthParameterSet()
 
-T = 283.15     # air temperature
+T = 274.0     # air temperature
 p = 100000.0   # air pressure
-w = 5.0        # vertical velocity
+w = .5        # vertical velocity
 
 
 
@@ -66,12 +70,12 @@ radius_stdev_AG = 2.0
 density_AG = 1770.0 
 TEMP_plot = 294.0
 
-plotting_mode = mode((N_samples[1], ), (osmotic_coeff_AG, ), (molar_mass_AG, ),
-                     (dissoc_AG,), (mass_frac_AG,), (mass_mix_ratio_AG,),
-                     (dry_radius_AG, ), (radius_stdev_AG, ), (density_AG,), 1)
-plotting_model = aerosol_model((plotting_mode,))
-println(length(plotting_model.modes))
-println(total_N_activated(param_set, plotting_model, T, p, w))
+# plotting_mode = mode((N_samples[1], ), (osmotic_coeff_AG, ), (molar_mass_AG, ),
+#                      (dissoc_AG,), (mass_frac_AG,), (mass_mix_ratio_AG,),
+#                      (dry_radius_AG, ), (radius_stdev_AG, ), (density_AG,), 1)
+# plotting_model = aerosol_model((plotting_mode,))
+# println(length(plotting_model.modes))
+# println(total_N_activated(param_set, plotting_model, T, p, w))
 # for i in 1:length(N_samples)
 #     datapointi = mode((N_samples[i],), (osmotic_coeff_AG,), 
 #                       (molas_mass_AG, ), (dissoc_AG,)), 
@@ -79,20 +83,23 @@ println(total_N_activated(param_set, plotting_model, T, p, w))
 # end
 
 
-EXP_fraction_particles_activated = []
+EXP_fraction_particles_activated = zeros(length(N_samples))
 
 for i in 1:length(N_samples)
     # initialize aerosol model
     modei = mode(dry_radius_AG, radius_stdev_AG, N_samples[i], 
-                 (mass_mix_ratio_AG,), (mass_frac_AG,), (osmotic_coeff_AG,)
-                 (molas_mass_AG,), (dissoc_AG, ), (density_AG, ), 1)
+                 (mass_mix_ratio_AG,), (mass_frac_AG,), (osmotic_coeff_AG,),
+                 (molar_mass_AG,), (dissoc_AG, ), (density_AG, ), 1)
     modeli = aerosol_model((modei,))
     parts_act = total_N_activated(param_set, modeli, T, p, w)
     EXP_fraction_particles_activated[i] = parts_act/N_samples[i]  
 end
 
 # begin plotting
-pyplot()
-    plot(N_samples, PAPER_N_fraction_activated)
-    plot!(N_samples, EXP_fraction_particles_activated)
-end
+# pyplot()
+#     plot(N_samples, PAPER_N_fraction_activated)
+#     # plot!(N_samples, EXP_fraction_particles_activated)
+# end
+println(EXP_fraction_particles_activated)
+display(plot(N_samples, PAPER_N_fraction_activated))
+display(plot!(N_samples, EXP_fraction_particles_activated))
