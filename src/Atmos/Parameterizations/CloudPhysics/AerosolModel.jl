@@ -1,33 +1,39 @@
-
-struct MassFraction end
-struct Dissociation end
-struct AerosolMolarMass end
-struct AerosolDensity end
-struct MassMixRatio end
-struct OsmoticCoeff end
+"""
 
 
-struct ChemComposition
+"""
+
+module AerosolModel
+
+export mode
+export aerosol_model
+
+# individual aerosol mode struct
+# TODO:
+# the first 3 lines will probably model variables
+# the rest are constants depending on aerosol type and
+# could be packed into something like chemical composition struct
+# TODO - should we name the elements?
+struct mode{T}
+    r_dry::Real
+    stdev::Real
+    N::Real
+    mass_mix_ratio::T
+    soluble_mass_frac::T
+    osmotic_coeff::T
+    molar_mass::T
+    dissoc::T
+    aerosol_density::T
+    n_components::Int64
 end
 
-struct ChemMode{T}
-    chem_comp::T
+# complete aerosol model struct
+struct aerosol_model{T}
+    modes::T
+    N::Int
+    function aerosol_model(modes::T) where {T}
+        return new{T}(modes, length(modes)) #modes new{T}
+    end
 end
 
-
-
-struct AerosolModes{T,PS}
-    mode::T
-    param_set::PS
 end
-
-get_param_set(am::AerosolModes) = am.param_set
-
-am = AerosolModes((ChemMode((MolarMass(),))), ChemMode((MolarMass(), Density())), ParameterSet())
-
-ps = get_param_set(am) # am.param_set
-ams[1].tup[1] # MolarMass()
-
-am[2].tup[2] # Density
-
-
