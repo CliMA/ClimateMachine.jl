@@ -1,4 +1,6 @@
+import Pkg; Pkg.add("Plots")
 using SpecialFunctions
+using Plots
 
 using Thermodynamics
 
@@ -36,13 +38,29 @@ N_samples = [15.65732013, 205.38735, 277.3022744, 349.2332106, 421.1801587,
              4525.345387, 4597.358266, 4669.358901, 4741.377432, 4813.389369, 
              4885.397539, 4954.006328]
 
-
+PAPER_N_fraction_activated = [0.757982763, 0.68872084, 0.675045956, 0.663318114, 
+                              0.653537315, 0.636609951, 0.629921514, 0.623805736, 
+                              0.61837715, 0.612834031, 0.608207168, 0.6046414, 
+                              0.601358612, 0.5979916, 0.593937397, 0.590799449, 
+                              0.587088841, 0.583149169, 0.580240285, 0.576987805, 
+                              0.57465158, 0.571742695, 0.56940647, 0.566383054, 
+                              0.564485505, 0.564617756, 0.558572656, 0.556580027, 
+                              0.554358334, 0.552365705, 0.55002948, 0.547922319, 
+                              0.545127966, 0.543249869, 0.540455517, 0.538577419, 
+                              0.536241194, 0.534134033, 0.532714064, 0.530492371, 
+                              0.528156146, 0.525476325, 0.524514483, 0.521032939, 
+                              0.51961297, 0.516245958, 0.51494052, 0.511573508, 
+                              0.509924474, 0.508848101, 0.505366557, 0.504290183, 
+                              0.501724894, 0.499617733, 0.497625104, 0.494487156, 
+                              0.493868909, 0.490387365, 0.48919646, 0.486516639, 
+                              0.483836818, 0.482073253, 0.478820773, 0.477744399, 
+                              0.475866302, 0.473530077, 0.479362567]
 
 osmotic_coeff_AG = 1.0 
 molar_mass_AG = 132.0
 dissoc_AG = 3.0
 mass_mix_ratio_AG = 1.0
-mass_frac_AG = .9
+mass_frac_AG = 1.0
 dry_radius_AG = 5e-8 
 radius_stdev_AG = 2.0
 density_AG = 1770.0 
@@ -59,3 +77,22 @@ println(total_N_activated(param_set, plotting_model, T, p, w))
 #                       (molas_mass_AG, ), (dissoc_AG,)), 
 #                       (,)
 # end
+
+
+EXP_fraction_particles_activated = []
+
+for i in 1:length(N_samples)
+    # initialize aerosol model
+    modei = mode(dry_radius_AG, radius_stdev_AG, N_samples[i], 
+                 (mass_mix_ratio_AG,), (mass_frac_AG,), (osmotic_coeff_AG,)
+                 (molas_mass_AG,), (dissoc_AG, ), (density_AG, ), 1)
+    modeli = aerosol_model((modei,))
+    parts_act = total_N_activated(param_set, modeli, T, p, w)
+    EXP_fraction_particles_activated[i] = parts_act/N_samples[i]  
+end
+
+# begin plotting
+pyplot()
+    plot(N_samples, PAPER_N_fraction_activated)
+    plot!(N_samples, EXP_fraction_particles_activated)
+end
