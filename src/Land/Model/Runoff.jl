@@ -90,7 +90,7 @@ function compute_surface_grad_bc(
 )
     FT = eltype(state⁻)
     incident_water_flux = precip_model(t)
-    Δz = FT(0.1)#10 cm#runoff_model.Δz
+    Δz = runoff_model.Δz
     water = soil.water
     param_functions = soil.param_functions
     hydraulics = water.hydraulics
