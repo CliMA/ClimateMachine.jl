@@ -88,6 +88,8 @@ function α(param_set::EPS, T::FT, aerosol_mass::FT) where {FT <: Real}
     _cp_d::FT = cp_d(param_set)
     _molmass_dryair::FT = molmass_dryair(param_set)
     L::FT = latent_heat_vapor(param_set, T)
+    alpha = _grav * _molmass_water * L / (_cp_d * _gas_constant * T^2) -
+           _grav * _molmass_dryair / (_gas_constant * T)
 
     return _grav * _molmass_water * L / (_cp_d * _gas_constant * T^2) -
            _grav * _molmass_dryair / (_gas_constant * T)
@@ -112,7 +114,8 @@ function γ(
 
     L::FT = latent_heat_vapor(param_set, T)
     p_vs::FT = saturation_vapor_pressure(param_set, T, Liquid())
-    println("pressure2: ", press)
+    gamma = _gas_constant * T / (p_vs * _molmass_water) +
+           _molmass_water * L^2  / (_cp_d * press * _molmass_dryair * T)
     return _gas_constant * T / (p_vs * _molmass_water) +
            _molmass_water * L^2  / (_cp_d * press * _molmass_dryair * T)
 end
@@ -130,6 +133,8 @@ function ζ(
     G_diff::FT,
 ) where {FT <: Real}
     α_var = α(param_set, T, aerosol_mass)
+    zeta = 2 * tp_coeff_of_curve(param_set, T) / 3 *
+           sqrt(α_var * updraft_velocity / G_diff)
     return 2 * tp_coeff_of_curve(param_set, T) / 3 *
            sqrt(α_var * updraft_velocity / G_diff)
 end
@@ -154,9 +159,14 @@ function η(
     _ρ_cloud_liq = ρ_cloud_liq(param_set)
     α_var = α(param_set, temp, aerosol_mass)
     γ_var = γ(param_set, temp, aerosol_mass, press)
-    # println("this is α")
-    # println(α_var)
-    println("this is γ test: ", γ_var)
+    eta = (α_var * updraft_velocity /
+           G_diff)^(3 / 2) / (
+        2 *
+        pi *
+        _ρ_cloud_liq * γ_var
+         *
+        number_concentration
+    )
     return (α_var * updraft_velocity /
            G_diff)^(3 / 2) / (
         2 *
@@ -173,12 +183,11 @@ end
                 updraft velocity
     returns: a tuple with the max supersaturations for each mode
 """
-function tp_max_super_sat(
-    param_set::EPS,
-    am::aerosol_model,
-    temp::FT,
-    press::FT,
-    updraft_velocity::FT) where {FT <: Real}
+function tp_max_super_sat(param_set::EPS,
+                          am::aerosol_model,
+                          temp::FT,
+                          press::FT,
+                          updraft_velocity::FT) where {FT <: Real}
 
     _grav::FT = grav(param_set)
     _molmass_water::FT = molmass_water(param_set)
@@ -195,7 +204,7 @@ function tp_max_super_sat(
     return ntuple(am.N) do i
         mode_i = am.modes[i]
         num_of_comp = mode_i.n_components
-        a = sum(num_of_comp) do j
+        a = sum(1:num_of_comp) do j
             f = 0.5 * exp(2.5 * (log(mode_i.stdev))^2)
             g = 1 + 0.25 * log(mode_i.stdev)
             coeff_of_curve = tp_coeff_of_curve(param_set, temp)
@@ -203,22 +212,14 @@ function tp_max_super_sat(
                                            temp,
                                            mode_i.molar_mass[j],
                                            updraft_velocity,
-                                           G_diff)
-                                
-            println("this is ζ test: ", surface_tension_effects)
+                                           G_diff)                   
             critsat =
                 2 / sqrt(mean_hygro[i]) *
                 (coeff_of_curve / (3 * mode_i.r_dry))^(3 / 2)
             η_value = η(param_set, temp, mode_i.molar_mass[j], mode_i.N, G_diff, updraft_velocity, press)
-            println("this is η_value test: ", η_value)
-            1 / (critsat^2) * (
-                f * (surface_tension_effects / η_value)^(3 / 2) +
-                g * (critsat^2 /
-                (η_value + 3 * surface_tension_effects))^(3 / 4)
-            )
-
+            1 / (critsat^2) * (f * (surface_tension_effects / η_value)^(3 / 2) + g * (critsat^2 / (η_value + 3 * surface_tension_effects))^(3 / 4))
         end
-        a^(1 / 2)
+        sqrt(a)
 
     end
 end
@@ -287,21 +288,21 @@ end
 
 # TESTS
 
-@testset "mean_hygroscopicity" begin
+# @testset "mean_hygroscopicity" begin
 
-    println("----------")
-    println("mean_hygroscopicity: ")
-    println(tp_mean_hygroscopicity(param_set, AM_1))
-    println(mean_hygroscopicity(param_set, AM_1))
+#     println("----------")
+#     println("mean_hygroscopicity: ")
+#     println(tp_mean_hygroscopicity(param_set, AM_1))
+#     println(mean_hygroscopicity(param_set, AM_1))
 
-    for AM in AM_test_cases
-        @test all(
-            tp_mean_hygroscopicity(param_set, AM) .≈
-            mean_hygroscopicity(param_set, AM)
-        )
-    end
-    println(" ")
-end
+#     for AM in AM_test_cases
+#         @test all(
+#             tp_mean_hygroscopicity(param_set, AM) .≈
+#             mean_hygroscopicity(param_set, AM)
+#         )
+#     end
+#     println(" ")
+# end
 
 @testset "max_supersaturation" begin
 
@@ -311,12 +312,12 @@ end
     println(max_supersaturation(param_set, AM_1, T, p, w))
 
     # TODO
-    #for AM in AM_test_cases
-    #    @test all(
-    #        tp_max_super_sat(param_set, AM, 2.0, 3.0, 4.0, 1.0) .≈
-    #        max_supersaturation(param_set, AM, T, p, w)
-    #    )
-    #end
+    for AM in AM_test_cases
+       @test all(
+           tp_max_super_sat(param_set, AM, T, p, w) .≈
+           max_supersaturation(param_set, AM, T, p, w)
+       )
+    end
 
     println(" ")
 end
@@ -345,8 +346,8 @@ end
 
 
 
-@testset "Zero Verification" begin
-    println(total_N_activated(param_set, AM_6, T, p, w))
-    @test(total_N_activated(param_set, AM_6, T, p, w)≈0.0)
-    @test(total_N_activated(param_set, AM_1, T, p, 0.0000000000000001)≈0.0)
-end
+# @testset "Zero Verification" begin
+#     println(total_N_activated(param_set, AM_6, T, p, w))
+#     @test(total_N_activated(param_set, AM_6, T, p, w)≈0.0)
+#     @test(total_N_activated(param_set, AM_1, T, p, 0.0000000000000001)≈0.0)
+# end
