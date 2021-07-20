@@ -19,8 +19,9 @@ struct EarthParameterSet <: AbstractEarthParameterSet end
 const EPS = EarthParameterSet
 const param_set = EarthParameterSet()
 
-include("/home/skadakia/clones/ClimateMachine.jl/src/Atmos/Parameterizations/CloudPhysics/Mode_creation.jl")
-
+# include("/home/skadakia/clones/ClimateMachine.jl/src/Atmos/Parameterizations/CloudPhysics/Mode_creation.jl")
+include("/home/idularaz/ClimateMachine.jl/src/Atmos/Parameterizations/CloudPhysics/Mode_creation.jl")
+# prinln("length of AM", length(AM.N))
 # CONSTANTS FOR TEST
 T = 283.15     # air temperature
 p = 100000.0   # air pressure
@@ -341,3 +342,11 @@ end
 
 # println(tp_max_super_sat_prac(param_set, AM_5, 2.0, 3.0, 4.0, 1.0,))
 # println(max_supersaturation(param_set, AM_1, T, p, w))
+
+
+
+@testset "Zero Verification" begin
+    println(total_N_activated(param_set, AM_6, T, p, w))
+    @test(total_N_activated(param_set, AM_6, T, p, w)≈0.0)
+    @test(total_N_activated(param_set, AM_1, T, p, 0.0000000000000001)≈0.0)
+end

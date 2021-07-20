@@ -5,6 +5,7 @@
 # using PyPlot
 using SpecialFunctions
 using Plots
+using Test
 
 using Thermodynamics
 
@@ -100,6 +101,10 @@ end
 #     plot(N_samples, PAPER_N_fraction_activated)
 #     # plot!(N_samples, EXP_fraction_particles_activated)
 # end
+default(show = true)
 println(EXP_fraction_particles_activated)
-display(plot(N_samples, PAPER_N_fraction_activated))
-display(plot!(N_samples, EXP_fraction_particles_activated))
+plot(N_samples, PAPER_N_fraction_activated)
+plot!(N_samples, EXP_fraction_particles_activated)
+
+
+

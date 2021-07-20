@@ -107,12 +107,26 @@ coarse_mode_seasalt_dust = mode(
     2,
 )
 
+zeroinitialN_accum_mode_seasalt = mode(
+    r_dry_accum,
+    stdev_accum,
+    0.0,
+    (1.0,),
+    (seasalt[d_mass_frac],),
+    (seasalt[d_osmotic_coeff],),
+    (seasalt[d_molar_mass],),
+    (seasalt[d_dissoc],),
+    (seasalt[d_density],),
+    1,
+)
+
 # 2) create aerosol models
 AM_1 = aerosol_model((accum_mode_seasalt,))
 AM_2 = aerosol_model((coarse_mode_seasalt,))
 AM_3 = aerosol_model((accum_mode_seasalt, coarse_mode_seasalt))
 AM_4 = aerosol_model((accum_mode_seasalt_dust,))
 AM_5 = aerosol_model((accum_mode_seasalt_dust, coarse_mode_seasalt_dust))
+AM_6 = aerosol_model((zeroinitialN_accum_mode_seasalt,))
 
 # 3) bundle them together
-AM_test_cases = [AM_1, AM_2, AM_3, AM_4, AM_5]
+AM_test_cases = [AM_1, AM_2, AM_3, AM_4, AM_5, AM_6]
