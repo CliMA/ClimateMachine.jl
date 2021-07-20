@@ -3,6 +3,12 @@ Text file format:
 material, molar mass, osmotic coefficient, density, mass fraction, dissociation
 """
 
+"""
+functionality: gathers the data about the aerosol particle material stored in another 
+          file
+parameters: string of the name of the material, path to the data file
+returns: list of the values associated with the aerosol particle material
+"""
 function get_data(material::String, path::String)
     line = []
     for r in eachline(path)
@@ -31,7 +37,7 @@ function get_data(material::String, path::String)
     return line[2:length(line)]
 end
 
-# data to value mapping
+# Indexing get_data returned list to value meanings
 d_molar_mass = 1
 d_osmotic_coeff = 2
 d_density = 3
@@ -42,6 +48,7 @@ d_dissoc = 5
 seasalt = get_data("seasalt", "/home/skadakia/clones/ClimateMachine.jl/src/Atmos/Parameterizations/CloudPhysics/particle_data.txt")
 dust = get_data("dust", "/home/skadakia/clones/ClimateMachine.jl/src/Atmos/Parameterizations/CloudPhysics/particle_data.txt")
 
+# START OF CREATING MODES
 # Accumulation mode
 r_dry_accum = 0.243 * 1e-6 # μm
 stdev_accum = 1.4          # -

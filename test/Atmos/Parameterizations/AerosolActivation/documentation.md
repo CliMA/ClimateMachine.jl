@@ -24,80 +24,81 @@ The structure of the pipeline is as follows:
         --Modes: Accumulation (ACC) and coarse (COA)
         --Components: Sea Salt (SS) and Dust (DUS)
 
+Assumptions:
+  - There are no kinetic limitations on the aerosol activation process.
+  - The particles are activated if their critical supersaturation is less than the maximum supersaturation in the numerical integration.
+  - Do not consider the effects of surfactants on surface tension.
+  - The solute is sufficiently soluble so its concentration does not increase as the droplet grows.
 
-# 1. Set Aerosol parameters: 
+Other notes about the parametrization:
+  - Using a lognormal aerosol size distribution to derive the parametrization that is naturally bounded at high updraft velocity.
+  - Worked with 2 broad aerosol modes rather than many more narrow ones. Each mode has an interal mixture of material and they all compete for water.
 
-# Sea Salt--universal parameters
-osmotic_coeff_seasalt = osmotic coefficient
-molar_mass_seasalt = sea salt molar mass; kg/mol
-rho_seasalt = sea salt density; kg/m^3
-dissoc_seasalt = sea salt dissociation                         
-mass_frac_seasalt = mass fraction                              TODO
-mass_mix_ratio_seasalt = mass mixing rati0                     TODO
+The following are equations used for the parametrization.
 
-# Sea Salt -- Accumulation mode
-dry_radius_seasalt_accum = mean particle radius (m)
-radius_stdev_seasalt_accum = mean particle stdev (m)
-particle_density_seasalt_accum = particle density (1/m^3)
+# MAIN FUNCTIONS
 
-# Sea Salt -- Coarse Mode
-dry_radius_seasalt_coarse = mean particle radius (m)
-radius_stdev_seasalt_coarse = mean particle stdev(m)
-particle_density_seasalt_coarse = particle density (1/m^3)
+1: Mean Hygroscopicity Paramter
+```math
+\bar{B_i} \equiv \frac{M_{w} \sum_{j = 1}^{J} r_{ij} v_{ij} \phi_{ij} \epsilon_{ij} /M_{aij}} {\rho_{w} \sum_{j = 1}^{J} r_{ij}/p_{aij}}
+```
+where
+  - ``\bar{B_i}`` is the mean hygroscopicity parameter of the aerosol material in the aerosol mode ``i``.
+  - ``v_{ij}`` is the number of ions that salt disassociates into when in water of aerosol component ``j`` and mode ``i``.
+  - ``\phi_{ij}`` is the osmotic coefficient of aerosol component ``j`` and mode ``i``.
+  - ``\epsilon_{ij}`` is the mass fraction of the soluble material of aerosol component ``j`` and mode ``i``.
+  - ``M_w`` is the molecular weight of water.
+  - ``\rho_{aij}`` is the density of the aerosol's component ``j`` and mode ``i``.
+  - ``M_{aij}`` is the molecular weight of aerosol component ``j`` and mode ``i``.
+  - ``\rho_{w}`` is the density of water.
+  - ``j`` is the component number. Min value is 1 and max value is ``J``.
+  - ``r_{ij}`` is the mass mixing ratio of component ``j`` and mode ``i``.
+  - ``i`` is the mode number.
 
-# TODO: Dust parameters (just copy and pasted seasalt values rn)
-# Dust--universal parameters
-osmotic_coeff_dust = osmotic coefficient
-molar_mass_dust = sea salt molar mass; kg/mol
-rho_dust = sea salt density; kg/m^3
-dissoc_dust = sea salt dissociation                         
-mass_frac_dust = mass fraction                              TODO
-mass_mix_ratio_dust = mass mixing rati0                     TODO
+2: Maximum Supersaturation
+```math
+S_{max} = \frac{1}{{\sum_{i=1}^{I} \frac{1}{S_{mi}^{2}} [f_i(\frac{\zeta}{\eta_{i}})^{\frac{3}{2}} + g_{i}(\frac{S_{mi}^{2}}{\eta_{i} + 3\zeta})^{\frac{3}{4}}}]^{\frac{1}{2}}}
 
-# Dust -- Accumulation mode
-dry_radius_dust_accum = mean particle radius (m)
-radius_stdev_dust_accum = mean particle stdev (m)
-particle_density_dust_accum = particle density (1/m^3)
+```
+where
+  - ``S_{mi} = \frac{2}{\sqrt{\bar{B_{i}}}}(\frac{A}{3a_{mi}})^{3/2}``
+  - ``\zeta \equiv \frac{2A}{3}(\frac{\alpha V}{G-})^{\frac{1}{2}}``
+  - ``f_i \equiv 0.5 \mathrm{exp} (2.5 \mathrm{ln}^{2} \sigma_{i})``
+  - ``\eta_{i} \equiv \frac{(\alpha V/G)^{\frac{3}{2}}}{2 \pi \rho_{w} \gamma N_{i}}``
+  - ``g_i \equiv 1 + 0.25 \mathrm{ln} \sigma_i``
+  - ``A`` is the surface tension effects in the Köhler equilibrium equation.
+  - ``V`` is the updraft velocity.
+  - ``G`` is the diffusion of heat and moisture to the particles.
+  - ``\alpha`` and ``\gamma`` are coefficients in the supersaturation balance equation.
 
-# Dust -- Coarse Mode
-dry_radius_dust_coarse = mean particle radius (m)
-radius_stdev_dust_coarse = mean particle stdev(m)
-particle_density_dust_coarse = particle density (1/m^3)
+3: Total Number of Activated Aerosols
+```math
+N = \sum_{i = 1}^{I} N_{i}\frac{1}{2}[1 - \mathrm{erf}(u_{i})]
+```
+where
+  - ``N_{i}`` is the total number concentration.
+  - ``u_{i} \equiv \frac{\mathrm{ln}(a_{ci}/a_{mi})}{\sqrt{2} \mathrm{ln} \sigma_{i}} = \frac{2 \mathrm{ln}(S_{mi}/S_{max})}{3\sqrt{2} \mathrm{ln} \sigma_{i}}``
+  - ``\sigma_{i}`` is the geometric standard deviation for aerosol mode ``i``.
 
-Functions:
+# HELPER FUNCTIONS
 
-# function total_mass(m::mode)
-    functionality: calculates the total mass in the mode
-    parameters: an aerosol mode
-    returns: a scalar of the total mass
+1: Critical Supersaturation Calculation
+```math
+S_mi = \frac{2}{\bar{B_i}}^{0.5} * \frac{3}{part_rds}^{3/2}
+```
+where
+  - ``S_mi`` is the supersaturation of the aerosol mode ``i``.
+  - ``\bar{B_i}`` is the mean hygroscopicity parameter of the aerosol material in the aerosol mode ``i``.
+  - ``part_rds`` is the mean radius of the particles.
 
-# function tp_mean_hygroscopicity(am::aerosol_model)
-    functionality: calculates the mean hygroscopicity for all the modes
-    parameters: an aerosol model
-    returns: tuple of the mean hygroscopicities for each mode
+2: Coefficient of Curvature Calculation
+```math
+A = \frac{2 * act_time .* wtr_mm}{wtr_ρ .* R .* temp}
+```
+where
+  - ``act_time`` is time that the aerosol gets activated. 
+  - ``water_molecular_mass`` is the molecular mass of water. 
+  - ``water_density`` is the density of water. 
+  - ``R`` is the universal gas constant. 
+  - ``temperature`` is the temperature.
 
-# function tp_max_super_sat(am::aerosol_model, temp::Float64, updraft_velocity::Float64, diffusion::Float64, 
-#                           activation_time::Float64)
-    functionality: calculates the maximum super saturation for each mode
-    parameters: aerosol model, temperature, updraft velocity, diffusion constant,
-                and the activation activation time
-    returns: a tuple with the max supersaturations for each mode
-
-# function tp_coeff_of_curve(temp::Float64, activation_time::Float64)
-    functionality: calculates the coefficient of curvature
-    parameters: temperature, and activation time
-    returns: scalar coefficeint of curvature
-
-# function tp_critical_supersaturation(am::aerosol_model, temp::Float64, activation_time::Float64)
-    functionality: calculates the critical supersaturation 
-    parameters: aerosol model
-    returns: a tuple of the critical supersaturations of each mode
-
-# function tp_total_N_Act(am::aerosol_model, temp::Float64, updraft_velocity::Float64, 
-#                         diffusion::Float64, activation_time::Float64)
-    functionality: calculates the total number of particles activated across all 
-                   modes and components
-    parameters: aerosol model, temperature, updraft velocity, diffusion, and
-                activation time
-    returns: a scalar of the total number of particles activated across all modes 
-             and components
