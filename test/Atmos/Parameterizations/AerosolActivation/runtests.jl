@@ -178,6 +178,25 @@ function η(
 end
 
 """    
+    functionality: calculates the critical supersaturation
+    parameters: parameter set, aerosol model, and temperature
+    returns: a tuple of the critical supersaturations of each mode
+"""
+
+function tp_critical_supersaturation(
+    param_set::EPS,
+    am::aerosol_model,
+    temp::Float64,
+)
+    mean_hygro = tp_mean_hygroscopicity(param_set, am)
+    return ntuple(am.N) do i
+        mode_i = am.modes[i]
+        num_of_comp = mode_i.n_components
+        2 /sqrt(mean_hygro[i]) * (tp_coeff_of_curve(param_set, temp) / (3 * mode_i.r_dry))^(3 / 2)
+    end
+end
+
+"""    
     functionality: calculates the maximum super saturation for each mode
     parameters: parameter set, aerosol model, temperature, pressure, and
                 updraft velocity
@@ -198,55 +217,23 @@ function tp_max_super_sat(param_set::EPS,
 
     L::FT = latent_heat_vapor(param_set, T)
     p_vs::FT = saturation_vapor_pressure(param_set, T, Liquid())
+
     G_diff::FT = G_func(param_set, T, Liquid())
-
-    mean_hygro = tp_mean_hygroscopicity(param_set, am)
-    return ntuple(am.N) do i
-        mode_i = am.modes[i]
-        num_of_comp = mode_i.n_components
-        a = sum(1:num_of_comp) do j
-            f = 0.5 * exp(2.5 * (log(mode_i.stdev))^2)
-            g = 1 + 0.25 * log(mode_i.stdev)
-            coeff_of_curve = tp_coeff_of_curve(param_set, temp)
-            surface_tension_effects = ζ(param_set,
-                                           temp,
-                                           mode_i.molar_mass[j],
+    critsat = tp_critical_supersaturation(param_set, am, temp)
+    coeff_of_curve = tp_coeff_of_curve(param_set, temp)
+    surface_tension_effects = ζ(param_set, temp,
+                                           _ρ_cloud_liq,
                                            updraft_velocity,
-                                           G_diff)                   
-            critsat =
-                2 / sqrt(mean_hygro[i]) *
-                (coeff_of_curve / (3 * mode_i.r_dry))^(3 / 2)
-            η_value = η(param_set, temp, mode_i.molar_mass[j], mode_i.N, G_diff, updraft_velocity, press)
-            1 / (critsat^2) * (f * (surface_tension_effects / η_value)^(3 / 2) + g * (critsat^2 / (η_value + 3 * surface_tension_effects))^(3 / 4))
-        end
-        1/sqrt(a)
-
-    end
-end
-
-"""    
-    functionality: calculates the critical supersaturation
-    parameters: parameter set, aerosol model, and temperature
-    returns: a tuple of the critical supersaturations of each mode
-"""
-function tp_critical_supersaturation(
-    param_set::EPS,
-    am::aerosol_model,
-    temp::Float64,
-)
-    mean_hygro = tp_mean_hygroscopicity(param_set, am)
-    return ntuple(am.N) do i
+                                           G_diff)
+    w = sum(1:am.N) do i
         mode_i = am.modes[i]
         num_of_comp = mode_i.n_components
-        a = sum(1:num_of_comp) do j
-            2 /
-            sqrt(mean_hygro[i]) *
-            (
-                tp_coeff_of_curve(param_set, temp) / (3 * mode_i.r_dry)
-            )^(3 / 2)
-        end
-        a
+        f = 0.5 * exp(2.5 * (log(mode_i.stdev))^2)
+        g = 1 + 0.25 * log(mode_i.stdev)                
+        η_value = η(param_set, temp, _ρ_cloud_liq, mode_i.N, G_diff, updraft_velocity, press)
+        1 / (critsat[i]^2) * (f * (surface_tension_effects / η_value)^(3 / 2) + g * (critsat[i]^2 / (η_value + 3 * surface_tension_effects))^(3 / 4))
     end
+    FT(1)/sqrt(w)
 end
 
 """    
@@ -257,80 +244,61 @@ end
     returns: a scalar of the total number of particles activated across all modes 
              and components
 """
-function tp_total_n_act(
-    param_set::EPS,
-    am::aerosol_model,
-    temp::FT,
-    press::FT,
-    updraft_velocity::FT, 
+function tp_total_n_act(param_set::EPS,am::aerosol_model,temp::FT,press::FT,updraft_velocity::FT, 
 ) where {FT <: Real}
-    G_diff::FT = G_func(param_set, T, Liquid())
-    critical_supersaturation = tp_critical_supersaturation(param_set, am, temp)
-    max_supersat =
-        tp_max_super_sat(param_set, am, temp, updraft_velocity, press)
-    values = ntuple(am.N) do i
-        mode_i = am.modes[i]
 
+    critical_supersaturation = tp_critical_supersaturation(param_set, am, temp)
+    max_supersat = tp_max_super_sat(param_set, am, temp, press, updraft_velocity)
+    
+    values = sum(1:am.N) do i
+        mode_i = am.modes[i]
         sigma = mode_i.stdev
-        u_top = 2 * log(critical_supersaturation[i] / max_supersat[i])
+        u_top = 2 * log(critical_supersaturation[i] / max_supersat)
         u_bottom = 3 * sqrt(2) * log(sigma)
         u = u_top / u_bottom
         mode_i.N *
         1 / 2 * (1 - erf(u))
     end
-    summation = 0.0
-    for i in range(1, length = length(values))
-        summation += values[i]
-    end
-    return summation
+    return values
 end
 
 
 # TESTS
 
-# @testset "mean_hygroscopicity" begin
+@testset "mean_hygroscopicity" begin
 
-#     println("----------")
-#     println("mean_hygroscopicity: ")
-#     println(tp_mean_hygroscopicity(param_set, AM_1))
-#     println(mean_hygroscopicity(param_set, AM_1))
+    println("----------")
+    println("mean_hygroscopicity: ")
 
-#     for AM in AM_test_cases
-#         @test all(
-#             tp_mean_hygroscopicity(param_set, AM) .≈
-#             mean_hygroscopicity(param_set, AM)
-#         )
-#     end
-#     println(" ")
-# end
+    for AM in AM_test_cases
+        @test all(
+            tp_mean_hygroscopicity(param_set, AM) .≈
+            mean_hygroscopicity(param_set, AM)
+        )
+    end
+    println(" ")
+end
 
-# @testset "max_supersaturation" begin
+@testset "max_supersaturation" begin
 
-#     println("----------")
-#     println("max_supersaturation: ")
-#     println(tp_max_super_sat(param_set, AM_1,  T, p, w))
-#     println(max_supersaturation(param_set, AM_1, T, p, w))
+    println("----------")
+    println("max_supersaturation: ")
 
-#     # TODO
-#     y = 1
-#     for AM in AM_test_cases
-#         println("heey: 1", y)
-#        @test all(
-#            tp_max_super_sat(param_set, AM, T, p, w) .≈
-#            max_supersaturation(param_set, AM, T, p, w)
-#        )
-#        y += 1
-#     end
+    # TODO
+    for AM in AM_test_cases
+       @test all(
+           tp_max_super_sat(param_set, AM, T, p, w) .≈
+           max_supersaturation(param_set, AM, T, p, w)
+       )
+    end
 
-#     println(" ")
-# end
+    println(" ")
+end
 
 @testset "total_n_act" begin
 
     println("----------")
     println("total_N_act: ")
-    println(tp_total_n_act(param_set, AM_1, T, p, w))
-    println(total_N_activated(param_set, AM_1, T, p, w))
 
     # TODO
     for AM in AM_test_cases

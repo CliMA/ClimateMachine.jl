@@ -126,11 +126,9 @@ function max_supersaturation(param_set::APS, am::aerosol_model, T::FT, p::FT, w:
             _grav * _molmass_dryair / _gas_constant / T
     γ::FT = _gas_constant * T / p_vs / _molmass_water +
             _molmass_water * L^2 / _cp_d / p / _molmass_dryair / T
-    # println("this is γ functions: ", γ)
-    # println("pressure2: ", p)
+    
     A::FT = coeff_of_curvature(param_set, T)
     ζ::FT = 2 * A / 3 * sqrt(α * w / G)
-    # println("this is ζ functions: ", ζ)
     Sm = critical_supersaturation(param_set, am, T) # TODO how to specify the type here?
     tmp::FT = sum(1:length(am.modes)) do i
         mode_i = am.modes[i]
