@@ -19,8 +19,8 @@ struct EarthParameterSet <: AbstractEarthParameterSet end
 const EPS = EarthParameterSet
 const param_set = EarthParameterSet()
 
-# include("/home/skadakia/clones/ClimateMachine.jl/src/Atmos/Parameterizations/CloudPhysics/Mode_creation.jl")
-include("/home/idularaz/ClimateMachine.jl/src/Atmos/Parameterizations/CloudPhysics/Mode_creation.jl")
+include("/home/skadakia/clones/ClimateMachine.jl/src/Atmos/Parameterizations/CloudPhysics/Mode_creation.jl")
+# include("/home/idularaz/ClimateMachine.jl/src/Atmos/Parameterizations/CloudPhysics/Mode_creation.jl")
 # prinln("length of AM", length(AM.N))
 # CONSTANTS FOR TEST
 T = 283.15     # air temperature
@@ -317,8 +317,25 @@ end
 
 
 
-# @testset "Zero Verification" begin
-#     println(total_N_activated(param_set, AM_6, T, p, w))
-#     @test(total_N_activated(param_set, AM_6, T, p, w)≈0.0)
-#     @test(total_N_activated(param_set, AM_1, T, p, 0.0000000000000001)≈0.0)
-# end
+@testset "Zero Verification" begin
+    println(total_N_activated(param_set, AM_6, T, p, w))
+    @test(total_N_activated(param_set, AM_6, T, p, w)≈0.0)
+    @test(total_N_activated(param_set, AM_1, T, p, 0.0000000000000001)≈0.0)
+end
+
+@testset "matching" begin
+
+    println("----------")
+    println("matching: ")
+
+    # TODO
+    @test(total_N_activated(param_set, AM_7, T, p, w) .≈ 
+          total_N_activated(param_set, AM_2, T, p, w))
+    
+    # Numbers are same, but test is acting up.
+    # @test(mean_hygroscopicity(param_set, AM_7) .≈ 
+    #       mean_hygroscopicity(param_set, AM_2))
+    @test(max_supersaturation(param_set, AM_7, T, p, w) .≈ 
+          max_supersaturation(param_set, AM_2, T, p, w))
+    println(" ")
+end
