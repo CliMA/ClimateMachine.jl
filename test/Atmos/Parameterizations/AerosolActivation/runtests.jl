@@ -260,11 +260,11 @@ end
 function tp_total_n_act(
     param_set::EPS,
     am::aerosol_model,
-    temp::Float64,
-    updraft_velocity::Float64,
-    G_diff::Float64,
-    press::Float64,
-)
+    temp::FT,
+    press::FT,
+    updraft_velocity::FT, 
+) where {FT <: Real}
+    G_diff::FT = G_func(param_set, T, Liquid())
     critical_supersaturation = tp_critical_supersaturation(param_set, am, temp)
     max_supersat =
         tp_max_super_sat(param_set, am, temp, updraft_velocity, press)
@@ -329,13 +329,13 @@ end
 
     println("----------")
     println("total_N_act: ")
-    println(tp_total_n_act(param_set, AM_1, 2.0, 3.0, 4.0, 1.0))
+    println(tp_total_n_act(param_set, AM_1, T, p, w))
     println(total_N_activated(param_set, AM_1, T, p, w))
 
     # TODO
     for AM in AM_test_cases
        @test all(
-           tp_total_n_act(param_set, AM, 2.0, 3.0, 4.0, 1.0) .≈
+           tp_total_n_act(param_set, AM, T, p, w) .≈
            total_N_activated(param_set, AM, T, p, w)
        )
     end
