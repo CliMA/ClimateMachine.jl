@@ -20,6 +20,9 @@ const EPS = EarthParameterSet
 const param_set = EarthParameterSet()
 
 include("/home/skadakia/clones/ClimateMachine.jl/src/Atmos/Parameterizations/CloudPhysics/Mode_creation.jl")
+include("/home/skadakia/clones/ClimateMachine.jl/src/Atmos/Parameterizations/CloudPhysics/save_data.jl")
+
+DATA_PATH = "/home/skadakia/clones/ClimateMachine.jl/src/Atmos/Parameterizations/CloudPhysics/saved_data.txt"
 # include("/home/idularaz/ClimateMachine.jl/src/Atmos/Parameterizations/CloudPhysics/Mode_creation.jl")
 # prinln("length of AM", length(AM.N))
 # CONSTANTS FOR TEST
@@ -262,6 +265,7 @@ function tp_total_n_act(param_set::EPS,am::aerosol_model,temp::FT,press::FT,updr
     return values
 end
 
+total_M_activated(param_set, AM_1, T, p, w)
 
 # TESTS
 
@@ -270,7 +274,19 @@ end
     println("----------")
     println("mean_hygroscopicity: ")
 
+    println(string(mean_hygroscopicity(param_set, AM_1)))
+    data_to_file(DATA_PATH, string(mean_hygroscopicity(param_set, AM_1)) * "a")
+    println(string(mean_hygroscopicity(param_set, AM_2)))
+    data_to_file(DATA_PATH, string(mean_hygroscopicity(param_set, AM_2)) * "b")
+    println(string(mean_hygroscopicity(param_set, AM_3)))
+    data_to_file(DATA_PATH, string(mean_hygroscopicity(param_set, AM_3)) * "c")
+    println(string(mean_hygroscopicity(param_set, AM_4)))
+    data_to_file(DATA_PATH, string(mean_hygroscopicity(param_set, AM_4)) * "d")
+    println(string(mean_hygroscopicity(param_set, AM_5)))
+    data_to_file(DATA_PATH, string(mean_hygroscopicity(param_set, AM_5)) * "e")
+
     for AM in AM_test_cases
+        
         @test all(
             tp_mean_hygroscopicity(param_set, AM) .≈
             mean_hygroscopicity(param_set, AM)
@@ -279,63 +295,64 @@ end
     println(" ")
 end
 
-@testset "max_supersaturation" begin
 
-    println("----------")
-    println("max_supersaturation: ")
+# @testset "max_supersaturation" begin
 
-    # TODO
-    for AM in AM_test_cases
-       @test all(
-           tp_max_super_sat(param_set, AM, T, p, w) .≈
-           max_supersaturation(param_set, AM, T, p, w)
-       )
-    end
+#     println("----------")
+#     println("max_supersaturation: ")
 
-    println(" ")
-end
+#     # TODO
+#     for AM in AM_test_cases
+#        @test all(
+#            tp_max_super_sat(param_set, AM, T, p, w) .≈
+#            max_supersaturation(param_set, AM, T, p, w)
+#        )
+#     end
 
-@testset "total_n_act" begin
+#     println(" ")
+# end
 
-    println("----------")
-    println("total_N_act: ")
+# @testset "total_n_act" begin
 
-    # TODO
-    for AM in AM_test_cases
-       @test all(
-           tp_total_n_act(param_set, AM, T, p, w) .≈
-           total_N_activated(param_set, AM, T, p, w)
-       )
-    end
+#     println("----------")
+#     println("total_N_act: ")
 
-    println(" ")
-end
+#     # TODO
+#     for AM in AM_test_cases
+#        @test all(
+#            tp_total_n_act(param_set, AM, T, p, w) .≈
+#            total_N_activated(param_set, AM, T, p, w)
+#        )
+#     end
 
-
-# println(tp_max_super_sat_prac(param_set, AM_5, 2.0, 3.0, 4.0, 1.0,))
-# println(max_supersaturation(param_set, AM_1, T, p, w))
+#     println(" ")
+# end
 
 
+# # println(tp_max_super_sat_prac(param_set, AM_5, 2.0, 3.0, 4.0, 1.0,))
+# # println(max_supersaturation(param_set, AM_1, T, p, w))
 
-@testset "Zero Verification" begin
-    println(total_N_activated(param_set, AM_6, T, p, w))
-    @test(total_N_activated(param_set, AM_6, T, p, w)≈0.0)
-    @test(total_N_activated(param_set, AM_1, T, p, 0.0000000000000001)≈0.0)
-end
 
-@testset "matching" begin
 
-    println("----------")
-    println("matching: ")
+# @testset "Zero Verification" begin
+#     println(total_N_activated(param_set, AM_6, T, p, w))
+#     @test(total_N_activated(param_set, AM_6, T, p, w)≈0.0)
+#     @test(total_N_activated(param_seyt, AM_1, T, p, 0.0000000000000001)≈0.0)
+# end
 
-    # TODO
-    @test(total_N_activated(param_set, AM_7, T, p, w) .≈ 
-          total_N_activated(param_set, AM_2, T, p, w))
+# @testset "matching" begin
+
+#     println("----------")
+#     println("matching: ")
+
+#     # TODO
+#     @test(total_N_activated(param_set, AM_7, T, p, w) .≈ 
+#           total_N_activated(param_set, AM_2, T, p, w))
     
-    # Numbers are same, but test is acting up.
-    # @test(mean_hygroscopicity(param_set, AM_7) .≈ 
-    #       mean_hygroscopicity(param_set, AM_2))
-    @test(max_supersaturation(param_set, AM_7, T, p, w) .≈ 
-          max_supersaturation(param_set, AM_2, T, p, w))
-    println(" ")
-end
+#     # Numbers are same, but test is acting up.
+#     # @test(mean_hygroscopicity(param_set, AM_7) .≈ 
+#     #       mean_hygroscopicity(param_set, AM_2))
+#     @test(max_supersaturation(param_set, AM_7, T, p, w) .≈ 
+#           max_supersaturation(param_set, AM_2, T, p, w))
+#     println(" ")
+# end
