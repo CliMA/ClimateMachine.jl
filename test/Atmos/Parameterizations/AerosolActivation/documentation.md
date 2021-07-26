@@ -1,4 +1,3 @@
-
 # Aerosol Activation 
 ### Isabella Dula and Shevali Kadakia
 
@@ -135,3 +134,7 @@ where
   - ``water_density`` is the density of water. 
   - ``R`` is the universal gas constant. 
   - ``temperature`` is the temperature.
+<<<<<<< HEAD
+=======
+
+>>>>>>> ca53418b9729cacde4ab66aeb21c1c8fced1751c
