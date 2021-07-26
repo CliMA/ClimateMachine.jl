@@ -1,4 +1,5 @@
-
+import Pkg; Pkg.add("Thermodynamics")
+import Pkg; Pkg.add("ClimateMachine")
 using SpecialFunctions
 using Test
 
@@ -296,49 +297,49 @@ total_M_activated(param_set, AM_1, T, p, w)
 end
 
 
-# @testset "max_supersaturation" begin
+@testset "max_supersaturation" begin
 
-#     println("----------")
-#     println("max_supersaturation: ")
+    println("----------")
+    println("max_supersaturation: ")
 
-#     # TODO
-#     for AM in AM_test_cases
-#        @test all(
-#            tp_max_super_sat(param_set, AM, T, p, w) .≈
-#            max_supersaturation(param_set, AM, T, p, w)
-#        )
-#     end
+    # TODO
+    for AM in AM_test_cases
+       @test all(
+           tp_max_super_sat(param_set, AM, T, p, w) .≈
+           max_supersaturation(param_set, AM, T, p, w)
+       )
+    end
 
-#     println(" ")
-# end
+    println(" ")
+end
 
-# @testset "total_n_act" begin
+@testset "total_n_act" begin
 
-#     println("----------")
-#     println("total_N_act: ")
+    println("----------")
+    println("total_N_act: ")
 
-#     # TODO
-#     for AM in AM_test_cases
-#        @test all(
-#            tp_total_n_act(param_set, AM, T, p, w) .≈
-#            total_N_activated(param_set, AM, T, p, w)
-#        )
-#     end
+    # TODO
+    for AM in AM_test_cases
+       @test all(
+           tp_total_n_act(param_set, AM, T, p, w) .≈
+           total_N_activated(param_set, AM, T, p, w)
+       )
+    end
 
-#     println(" ")
-# end
-
-
-# # println(tp_max_super_sat_prac(param_set, AM_5, 2.0, 3.0, 4.0, 1.0,))
-# # println(max_supersaturation(param_set, AM_1, T, p, w))
+    println(" ")
+end
 
 
+# println(tp_max_super_sat_prac(param_set, AM_5, 2.0, 3.0, 4.0, 1.0,))
+# println(max_supersaturation(param_set, AM_1, T, p, w))
 
-# @testset "Zero Verification" begin
-#     println(total_N_activated(param_set, AM_6, T, p, w))
-#     @test(total_N_activated(param_set, AM_6, T, p, w)≈0.0)
-#     @test(total_N_activated(param_seyt, AM_1, T, p, 0.0000000000000001)≈0.0)
-# end
+
+
+@testset "Zero Verification" begin
+    println(total_N_activated(param_set, AM_6, T, p, w))
+    @test(total_N_activated(param_set, AM_6, T, p, w)≈0.0)
+    @test(total_N_activated(param_seyt, AM_1, T, p, 0.0000000000000001)≈0.0)
+end
 
 # @testset "matching" begin
 
@@ -356,3 +357,8 @@ end
 #           max_supersaturation(param_set, AM_2, T, p, w))
 #     println(" ")
 # end
+
+@testset "mode structure edge cases" begin 
+    @test(total_N_activated(param_set, AM_8, T, p, w) ≈ 
+          total_N_activated(param_set, AM_1, T, p, w))
+end
