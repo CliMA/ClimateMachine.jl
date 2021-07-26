@@ -1,5 +1,5 @@
-import Pkg; Pkg.add("Thermodynamics")
-import Pkg; Pkg.add("ClimateMachine")
+# import Pkg; Pkg.add("Thermodynamics")
+# import Pkg; Pkg.add("ClimateMachine")
 using SpecialFunctions
 using Test
 
@@ -20,10 +20,19 @@ struct EarthParameterSet <: AbstractEarthParameterSet end
 const EPS = EarthParameterSet
 const param_set = EarthParameterSet()
 
-include("/home/skadakia/clones/ClimateMachine.jl/src/Atmos/Parameterizations/CloudPhysics/Mode_creation.jl")
-include("/home/skadakia/clones/ClimateMachine.jl/src/Atmos/Parameterizations/CloudPhysics/save_data.jl")
+# shevali's machine version: 
+# include("/home/skadakia/clones/ClimateMachine.jl/src/Atmos/Parameterizations/CloudPhysics/Mode_creation.jl")
+# include("/home/skadakia/clones/ClimateMachine.jl/src/Atmos/Parameterizations/CloudPhysics/save_data.jl")
 
-DATA_PATH = "/home/skadakia/clones/ClimateMachine.jl/src/Atmos/Parameterizations/CloudPhysics/saved_data.txt"
+# DATA_PATH = "/home/skadakia/clones/ClimateMachine.jl/src/Atmos/Parameterizations/CloudPhysics/saved_data.txt"
+
+# isabella's machine version: 
+include("/home/idularaz/ClimateMachine.jl/src/Atmos/Parameterizations/CloudPhysics/Mode_creation.jl")
+include("/home/idularaz/ClimateMachine.jl/src/Atmos/Parameterizations/CloudPhysics/save_data.jl")
+
+DATA_PATH = "/home/idularaz/ClimateMachine.jl/src/Atmos/Parameterizations/CloudPhysics/saved_data.txt"
+
+
 # include("/home/idularaz/ClimateMachine.jl/src/Atmos/Parameterizations/CloudPhysics/Mode_creation.jl")
 # prinln("length of AM", length(AM.N))
 # CONSTANTS FOR TEST
@@ -338,7 +347,7 @@ end
 @testset "Zero Verification" begin
     println(total_N_activated(param_set, AM_6, T, p, w))
     @test(total_N_activated(param_set, AM_6, T, p, w)≈0.0)
-    @test(total_N_activated(param_seyt, AM_1, T, p, 0.0000000000000001)≈0.0)
+    @test(total_N_activated(param_set, AM_1, T, p, 0.0000000000000001)≈0.0)
 end
 
 # @testset "matching" begin
