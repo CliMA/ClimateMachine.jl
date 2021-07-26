@@ -26,6 +26,7 @@ const APS = AbstractParameterSet
 export mean_hygroscopicity
 export max_supersaturation
 export total_N_activated
+export total_M_activated
 
 """
     coeff_of_curvature(param_set, T)
@@ -126,11 +127,9 @@ function max_supersaturation(param_set::APS, am::aerosol_model, T::FT, p::FT, w:
             _grav * _molmass_dryair / _gas_constant / T
     γ::FT = _gas_constant * T / p_vs / _molmass_water +
             _molmass_water * L^2 / _cp_d / p / _molmass_dryair / T
-    # println("this is γ functions: ", γ)
-    # println("pressure2: ", p)
+    
     A::FT = coeff_of_curvature(param_set, T)
     ζ::FT = 2 * A / 3 * sqrt(α * w / G)
-    # println("this is ζ functions: ", ζ)
     Sm = critical_supersaturation(param_set, am, T) # TODO how to specify the type here?
     tmp::FT = sum(1:length(am.modes)) do i
         mode_i = am.modes[i]
@@ -168,5 +167,32 @@ function total_N_activated(param_set::APS, am::aerosol_model, T::FT, p::FT, w::F
         mode_i.N * (1/2) * (1 - erf(u_i))
     end
 end
+
+"""
+    total_M_activated(param_set, am, T, p, w)
+
+  - `param_set` - abstract set with Earth's parameters
+  - `am` - aerosol model struct
+  - `T` - air temperature
+  - `p` - air pressure
+  - `w` - vertical velocity
+
+Returns the total mass of activated aerosol particles.
+"""
+
+function total_M_activated(param_set::APS, am::aerosol_model, T::FT, p::FT, w::FT) where {FT <: Real}
+	smax = max_supersaturation(param_set, am, T, p, w)
+	sm = critical_supersaturation(param_set, am, T)
+	
+	return sum(1:length(am.modes)) do i
+		mode_i = am.modes[i]
+		total_mass = sum(1:mode_i.n_components) do j
+			mode_i.molar_mass[j] * mode_i.N * mode_i.mass_mix_ratio[j]
+		end
+		u_i = 2 * log(sm[i] / smax) / 3 / sqrt(2) / log(mode_i.stdev)
+		total_mass * 1/2 * (1 - erf(u_i - 3 * sqrt(2) / 2 * log(mode_i.stdev)))
+    end
+end
+
 
 end # module AerosolActivation.jl
