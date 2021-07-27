@@ -4,14 +4,6 @@
 CurrentModule = ClimateMachine
 ```
 
-## [Artifact Wrappers](@id ArtifactWrappers-docs)
-
-```@docs
-ArtifactWrappers.ArtifactFile
-ArtifactWrappers.get_data_folder
-ArtifactWrappers.ArtifactWrapper
-```
-
 ## VTK
 
 ```@docs

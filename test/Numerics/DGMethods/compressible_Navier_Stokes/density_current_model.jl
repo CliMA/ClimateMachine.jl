@@ -20,8 +20,8 @@ using ClimateMachine.GenericCallbacks
 using ClimateMachine.Atmos
 using ClimateMachine.Orientations
 using ClimateMachine.VariableTemplates
-using ClimateMachine.TemperatureProfiles
-using ClimateMachine.Thermodynamics
+using Thermodynamics.TemperatureProfiles
+using Thermodynamics
 using ClimateMachine.TurbulenceClosures
 using ClimateMachine.VTK
 

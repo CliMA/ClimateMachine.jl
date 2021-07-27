@@ -15,7 +15,7 @@ using UnPack
 # ClimateMachine Modules
 using ClimateMachine
 
-using ClimateMachine.ArtifactWrappers
+using ArtifactWrappers
 using ClimateMachine.Atmos
 using ClimateMachine.ConfigTypes
 using ClimateMachine.GenericCallbacks
@@ -24,7 +24,7 @@ using ClimateMachine.Diagnostics
 using ClimateMachine.Mesh.Filters
 using ClimateMachine.Mesh.Grids
 using ClimateMachine.Orientations
-using ClimateMachine.Thermodynamics
+using Thermodynamics
 using ClimateMachine.BalanceLaws
 using ClimateMachine.TurbulenceClosures
 using ClimateMachine.ODESolvers

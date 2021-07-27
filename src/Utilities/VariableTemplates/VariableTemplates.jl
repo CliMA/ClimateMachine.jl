@@ -463,4 +463,14 @@ Base.@propagate_inbounds Base.getindex(v::AbstractVars, tup_chain::Tuple) =
 
 include("flattened_tup_chain.jl")
 
+function Base.show(io::IO, v::AbstractVars)
+    s = "$(nameof(typeof(v))) object:\n"
+    for tup in flattened_tup_chain(v, RetainArr())
+        name = join(tup, "_")
+        val = getproperty(v, wrap_val.(tup))
+        s *= "    $name = $val\n"
+    end
+    print(io, s)
+end
+
 end # module

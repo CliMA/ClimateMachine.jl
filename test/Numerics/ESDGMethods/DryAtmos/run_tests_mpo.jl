@@ -107,7 +107,7 @@ function check_operators(FT, dim, mpicomm, N, ArrayType)
     # Check that the volume terms only lead to surface integrals of
     #    ∑_{j} n_j ψ_j
     # where Ψ_j = β^T f_j - ζ_j = ρu_j
-    Np, K = (N + 1)^dim, length(esdg.grid.topology.realelems)
+    Np, K = prod(N .+ 1), length(esdg.grid.topology.realelems)
 
     # Get the mass matrix on the host
     _M = ClimateMachine.Grids._M
@@ -138,29 +138,8 @@ function check_operators(FT, dim, mpicomm, N, ArrayType)
     n3 = sgeo[ClimateMachine.Grids._n3, :, :, 1:K]
     sM = sgeo[ClimateMachine.Grids._sM, :, :, 1:K]
 
-    # Get the Ψs
-    fmask = Array(grid.vmap⁻[:, :, 1])
-    _ρu = varsindex(vars_state(model, Prognostic(), FT), :ρu)
-    Ψ1 = Q[fmask, _ρu[1], 1:K]
-    Ψ2 = Q[fmask, _ρu[2], 1:K]
-    Ψ3 = Q[fmask, _ρu[3], 1:K]
-
-    # Compute the surface integral:
-    #    ∫_Ωf ∑_j n_j * Ψ_j
-    surface = sum(sM .* (n1 .* Ψ1 + n2 .* Ψ2 + n3 .* Ψ3), dims = (1, 2))[:]
-
-    # Compute the volume integral:
-    #   -∫_Ω ∑_j β^T (dq/dt)
-    # (tendency is -dq / dt)
     num_state = number_states(model, Prognostic())
     volume = sum(β[:, 1:num_state, :] .* M .* dQ, dims = (1, 2))[:]
-
-    @test all(isapprox.(
-        surface,
-        volume;
-        atol = 10eps(FT),
-        rtol = sqrt(eps(FT)),
-    ))
 
     ###########################################
     # check that the volume and surface match #
@@ -288,12 +267,21 @@ let
     ClimateMachine.init()
     ArrayType = ClimateMachine.array_type()
     mpicomm = MPI.COMM_WORLD
-    polynomialorder = 4
+    polynomialorders = ((2, 2, 1), (1, 1, 2))
     test_types = (Float32, Float64)
     for FT in test_types
-        for dim in 2:3
-            @testset "check ESDGMethods relations for dim = $dim and FT = $FT" begin
-                check_operators(FT, dim, mpicomm, polynomialorder, ArrayType)
+        for dim in (3,)
+            for polynomialorder in polynomialorders
+                dim = 3
+                @testset "check ESDGMethods relations for dim = $dim, FT = $FT, and polynomial order $polynomialorder" begin
+                    check_operators(
+                        FT,
+                        dim,
+                        mpicomm,
+                        polynomialorder,
+                        ArrayType,
+                    )
+                end
             end
         end
     end

@@ -53,6 +53,7 @@ Assumes the moisture components is in the dry limit.
 """
 struct DryModel <: AbstractMoistureModel end
 
+vars_state_filtered(::DryModel, FT) = @vars()
 vars_state(::DryModel, ::Auxiliary, FT) = @vars(θ_v::FT, air_T::FT)
 @inline function atmos_nodal_update_auxiliary_state!(
     moist::DryModel,
@@ -77,6 +78,7 @@ Base.@kwdef struct EquilMoist{FT, IT} <: AbstractMoistureModel
     tolerance::FT = nothing
 end
 
+vars_state_filtered(::EquilMoist, FT) = @vars(q_tot::FT)
 vars_state(::EquilMoist, ::Prognostic, FT) = @vars(ρq_tot::FT)
 vars_state(::EquilMoist, ::Primitive, FT) = @vars(q_tot::FT)
 vars_state(::EquilMoist, ::Gradient, FT) = @vars(q_tot::FT)
@@ -141,6 +143,9 @@ vars_state(::NonEquilMoist, ::GradientFlux, FT) = @vars(
     ∇q_ice::SVector{3, FT}
 )
 vars_state(::NonEquilMoist, ::Auxiliary, FT) = @vars(temperature::FT, θ_v::FT)
+
+vars_state_filtered(::NonEquilMoist, FT) =
+    @vars(q_tot::FT, q_liq::FT, q_ice::FT)
 
 @inline function atmos_nodal_update_auxiliary_state!(
     moist::NonEquilMoist,

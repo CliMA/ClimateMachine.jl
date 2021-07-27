@@ -38,7 +38,7 @@ using ClimateMachine.Diagnostics
 using ClimateMachine.GenericCallbacks
 using ClimateMachine.ODESolvers
 using ClimateMachine.Mesh.Filters
-using ClimateMachine.Thermodynamics: PhaseEquil_pTq, internal_energy
+using Thermodynamics: PhaseEquil_pTq, internal_energy
 using ClimateMachine.TurbulenceClosures
 using ClimateMachine.VariableTemplates
 

@@ -15,9 +15,9 @@ using ClimateMachine.Mesh.Filters
 using ClimateMachine.Mesh.Grids
 using ClimateMachine.Mesh.Topologies
 using ClimateMachine.Mesh.Interpolation
-using ClimateMachine.TemperatureProfiles
+using Thermodynamics.TemperatureProfiles
 using ClimateMachine.VariableTemplates
-using ClimateMachine.Thermodynamics: air_density, total_energy
+using Thermodynamics: air_density, total_energy
 
 using LinearAlgebra
 using StaticArrays

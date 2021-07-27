@@ -551,8 +551,7 @@ where additional variable definitions are in:
 ## Temperature
 
 Note that, while temperature may be computed using different
-thermodynamic formulations, [`ThermodynamicState`](@ref
-ClimateMachine.Thermodynamics.ThermodynamicState)'s are immediately
+thermodynamic formulations, [ThermodynamicState](https://clima.github.io/Thermodynamics.jl/dev/API/#Thermodynamics.ThermodynamicState)'s are immediately
 converted to the ($\qt, \eint, \rhoRef{}$)-formulation.
 
 ### Dry temperature

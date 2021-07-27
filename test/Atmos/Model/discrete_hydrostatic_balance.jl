@@ -8,7 +8,7 @@ using ClimateMachine.ODESolvers
 using ClimateMachine.SystemSolvers: ManyColumnLU
 using ClimateMachine.DGMethods.NumericalFluxes
 using ClimateMachine.Mesh.Grids
-using ClimateMachine.TemperatureProfiles
+using Thermodynamics.TemperatureProfiles
 using ClimateMachine.TurbulenceClosures
 using ClimateMachine.VariableTemplates
 using ClimateMachine.Mesh.Geometry: LocalGeometry

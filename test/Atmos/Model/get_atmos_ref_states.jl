@@ -4,8 +4,8 @@ using ClimateMachine.Atmos
 using ClimateMachine.BalanceLaws
 using ClimateMachine.Checkpoint
 using ClimateMachine.Mesh.Grids
-using ClimateMachine.Thermodynamics
-using ClimateMachine.TemperatureProfiles
+using Thermodynamics
+using Thermodynamics.TemperatureProfiles
 using ClimateMachine.SingleStackUtils
 using ClimateMachine.VariableTemplates
 

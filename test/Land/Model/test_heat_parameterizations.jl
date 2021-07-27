@@ -47,13 +47,14 @@ using ClimateMachine.Land
     @test relative_saturation(0.25, 0.05, 0.4) == FT((0.25 + 0.05) / 0.4)
 
     # Test branching in kersten_number
-    soil_param_functions = SoilParamFunctions{FT}(
+    soil_param_functions = SoilParamFunctions(
+        FT;
         porosity = 0.2,
         ν_ss_gravel = 0.1,
         ν_ss_om = 0.1,
         ν_ss_quartz = 0.1,
         κ_solid = 0.1,
-        ρp = 1,
+        ρp = 1.0,
     )
     # ice fraction = 0
     @test kersten_number(0.0, 0.75, soil_param_functions) == FT(

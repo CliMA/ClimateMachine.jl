@@ -13,6 +13,7 @@ docs/build/
 docs/site/
 docs/src/tutorials/
 docs/src/generated/
+docs/transient_dir/generated/
 !docs/src/assets/*.png
 !docs/src/assets/*.svg
 

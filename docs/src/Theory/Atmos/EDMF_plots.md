@@ -23,7 +23,7 @@ using ClimateMachine
 const clima_dir = dirname(dirname(pathof(ClimateMachine)));
 using ClimateMachine.Atmos: AtmosModel
 using ClimateMachine.VariableTemplates
-using ClimateMachine.Thermodynamics
+using Thermodynamics
 using ClimateMachine.BalanceLaws
 using ClimateMachine.TurbulenceConvection
 using CLIMAParameters: AbstractEarthParameterSet

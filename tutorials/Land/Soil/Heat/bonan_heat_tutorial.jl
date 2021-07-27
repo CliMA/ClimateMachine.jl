@@ -111,7 +111,7 @@ using ClimateMachine.BalanceLaws:
     vars_state,
     parameter_set
 import ClimateMachine.DGMethods: calculate_dt
-using ClimateMachine.ArtifactWrappers
+using ArtifactWrappers
 
 # # Preliminary set-up
 # Get the parameter set, which holds constants used across CliMA models.
@@ -238,7 +238,8 @@ porosity = porosity_array[soil_type_index];
 # Finally, we store the soil-specific parameters and functions
 # in a place where they will be accessible to the model
 # during integration.
-soil_param_functions = SoilParamFunctions{FT}(
+soil_param_functions = SoilParamFunctions(
+    FT;
     porosity = porosity,
     ν_ss_gravel = ν_ss_gravel,
     ν_ss_om = ν_ss_om,

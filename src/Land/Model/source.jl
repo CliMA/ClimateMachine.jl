@@ -61,9 +61,9 @@ function precompute(source_type::PhaseChange, land::LandModel, args, tt::Source)
     κ = thermal_conductivity(κ_dry, kersten, κ_sat)
     ρc_ds = land.soil.param_functions.ρc_ds
     ρc_s = volumetric_heat_capacity(θ_l, θ_i, ρc_ds, land.param_set)
-    θ_r = land.soil.param_functions.θ_r
+    θ_r = land.soil.param_functions.water.θ_r(aux)
 
-    hydraulics = land.soil.water.hydraulics
+    hydraulics = land.soil.water.hydraulics(aux)
     θ_m = min(_ρice * θ_i / _ρliq + θ_l, ν)
     ψ0 = matric_potential(hydraulics, θ_m)
     ψT = _LH_f0 / _g / _Tfreeze * (T - _Tfreeze)

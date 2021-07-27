@@ -9,12 +9,15 @@ using ClimateMachine.BalanceLaws
 using ClimateMachine.MPIStateArrays: MPIStateArray
 using ClimateMachine.DGMethods: LocalGeometry, DGModel
 
+import ClimateMachine.Mesh.Filters: vars_state_filtered
+
 import ClimateMachine.BalanceLaws:
     vars_state,
     prognostic_vars,
     prognostic_to_primitive!,
     primitive_to_prognostic!,
     get_prog_state,
+    get_specific_state,
     flux,
     precompute,
     source,
@@ -30,7 +33,7 @@ import ClimateMachine.TurbulenceConvection:
     turbconv_boundary_state!,
     turbconv_normal_boundary_flux_second_order!
 
-using ClimateMachine.Thermodynamics: air_pressure, air_density
+using Thermodynamics: air_pressure, air_density
 
 
 include(joinpath("helper_funcs", "nondimensional_exchange_functions.jl"))
@@ -155,6 +158,25 @@ function vars_state(m::EDMF, st::GradientFlux, FT)
     )
 end
 
+function vars_state_filtered(::Updraft, FT)
+    @vars(a::FT, aw::FT, aθ_liq::FT, aq_tot::FT,)
+end
+
+function vars_state_filtered(m::NTuple{N, Updraft}, FT) where {N}
+    return Tuple{ntuple(i -> vars_state_filtered(m[i], FT), N)...}
+end
+
+function vars_state_filtered(::Environment, FT)
+    @vars(atke::FT, aθ_liq_cv::FT, aq_tot_cv::FT, aθ_liq_q_tot_cv::FT,)
+end
+
+function vars_state_filtered(m::EDMF, FT)
+    @vars(
+        environment::vars_state_filtered(m.environment, FT),
+        updraft::vars_state_filtered(m.updraft, FT)
+    )
+end
+
 abstract type EDMFPrognosticVariable <: AbstractPrognosticVariable end
 
 abstract type EnvironmentPrognosticVariable <: EDMFPrognosticVariable end
@@ -197,6 +219,23 @@ get_prog_state(state, ::up_ρaθ_liq{i}) where {i} =
     (state.turbconv.updraft[i], :ρaθ_liq)
 get_prog_state(state, ::up_ρaq_tot{i}) where {i} =
     (state.turbconv.updraft[i], :ρaq_tot)
+
+get_specific_state(state, ::en_ρatke) = (state.turbconv.environment, :atke)
+get_specific_state(state, ::en_ρaθ_liq_cv) =
+    (state.turbconv.environment, :aθ_liq_cv)
+get_specific_state(state, ::en_ρaq_tot_cv) =
+    (state.turbconv.environment, :aq_tot_cv)
+get_specific_state(state, ::en_ρaθ_liq_q_tot_cv) =
+    (state.turbconv.environment, :aθ_liq_q_tot_cv)
+
+get_specific_state(state, ::up_ρa{i}) where {i} =
+    (state.turbconv.updraft[i], :a)
+get_specific_state(state, ::up_ρaw{i}) where {i} =
+    (state.turbconv.updraft[i], :aw)
+get_specific_state(state, ::up_ρaθ_liq{i}) where {i} =
+    (state.turbconv.updraft[i], :aθ_liq)
+get_specific_state(state, ::up_ρaq_tot{i}) where {i} =
+    (state.turbconv.updraft[i], :aq_tot)
 
 struct EntrDetr{N_up} <: TendencyDef{Source} end
 struct PressSource{N_up} <: TendencyDef{Source} end
@@ -824,10 +863,18 @@ end
 
 function precompute(::EDMF, bl, args, ts, ::Flux{SecondOrder})
     @unpack state, aux, diffusive, t = args
-    ts_gm = ts
+    en_dif = diffusive.turbconv.environment
     up = state.turbconv.updraft
+    gm = state
+    ts_gm = ts
+    FT = eltype(state)
+    z = altitude(bl, aux)
+    param_set = parameter_set(bl)
     turbconv = turbconv_model(bl)
     N_up = n_updrafts(turbconv)
+    _grav::FT = grav(param_set)
+    ρ_inv = 1 / gm.ρ
+
     env = environment_vars(state, N_up)
     ts_en = new_thermo_state_en(bl, moisture_model(bl), state, aux, ts_gm)
     ts_up = new_thermo_state_up(bl, moisture_model(bl), state, aux, ts_gm)
@@ -859,6 +906,47 @@ function precompute(::EDMF, bl, args, ts, ::Flux{SecondOrder})
     K_h = K_m / Pr_t
     ρaw_up = vuntuple(i -> up[i].ρaw, N_up)
 
+    w_up = vuntuple(N_up) do i
+        fix_void_up(ρa_up[i], up[i].ρaw / ρa_up[i])
+    end
+
+    ρu_gm_tup = Tuple(gm.ρu)
+    ρa_en = gm.ρ * env.a
+    # TODO: Consider turbulent contribution:
+
+    e_kin_up =
+        FT(1 / 2) .* ntuple(N_up) do i
+            (ρu_gm_tup[1] * ρ_inv)^2 + (ρu_gm_tup[2] * ρ_inv)^2 + w_up[i]^2
+        end
+    e_kin_en =
+        FT(1 // 2) * ((gm.ρu[1] * ρ_inv)^2 + (gm.ρu[2] * ρ_inv)^2 + env.w)^2
+
+    e_tot_up = ntuple(i -> total_energy(e_kin_up[i], _grav * z, ts_up[i]), N_up)
+    h_tot_up = ntuple(i -> total_specific_enthalpy(ts_up[i], e_tot_up[i]), N_up)
+
+    e_tot_en = total_energy(e_kin_en, _grav * z, ts_en)
+    h_tot_en = total_specific_enthalpy(ts_en, e_tot_en)
+    h_tot_gm = total_specific_enthalpy(ts, gm.energy.ρe * ρ_inv)
+
+    massflux_h_tot = sum(
+        ntuple(N_up) do i
+            fix_void_up(
+                ρa_up[i],
+                ρa_up[i] *
+                (h_tot_gm - h_tot_up[i]) *
+                (gm.ρu[3] * ρ_inv - ρaw_up[i] / ρa_up[i]),
+            )
+        end,
+    )
+    massflux_h_tot +=
+        (ρa_en * (h_tot_gm - h_tot_en) * (ρu_gm_tup[3] * ρ_inv - env.w))
+
+    ρh_sgs_flux = SVector{3, FT}(
+        0,
+        0,
+        -gm.ρ * env.a * K_h * en_dif.∇h_tot[3] + massflux_h_tot,
+    )
+
     return (;
         env,
         ρa_up,
@@ -873,6 +961,7 @@ function precompute(::EDMF, bl, args, ts, ::Flux{SecondOrder})
         K_h,
         K_m,
         Pr_t,
+        ρh_sgs_flux,
     )
 end
 
@@ -995,52 +1084,8 @@ end
 function flux(::Energy, ::SGSFlux, atmos, args)
     @unpack state, aux, diffusive = args
     @unpack ts = args.precomputed
-    @unpack env, K_h, ρa_up, ρaw_up, ts_up, ts_en = args.precomputed.turbconv
-    FT = eltype(state)
-    param_set = parameter_set(atmos)
-    _grav::FT = grav(param_set)
-    z = altitude(atmos, aux)
-    en_dif = diffusive.turbconv.environment
-    up = state.turbconv.updraft
-    gm = state
-    ρ_inv = 1 / gm.ρ
-    N_up = n_updrafts(turbconv_model(atmos))
-    ρu_gm_tup = Tuple(gm.ρu)
-    ρa_en = gm.ρ * env.a
-    # TODO: Consider turbulent contribution:
-
-    e_kin_up = vuntuple(N_up) do i
-        FT(1 // 2) * (
-            (gm.ρu[1] * ρ_inv)^2 +
-            (gm.ρu[2] * ρ_inv)^2 +
-            (fix_void_up(up[i].ρa, up[i].ρaw / up[i].ρa))^2
-        )
-    end
-    e_kin_en =
-        FT(1 // 2) * ((gm.ρu[1] * ρ_inv)^2 + (gm.ρu[2] * ρ_inv)^2 + env.w)^2
-
-    e_tot_up = ntuple(i -> total_energy(e_kin_up[i], _grav * z, ts_up[i]), N_up)
-    h_tot_up = ntuple(i -> total_specific_enthalpy(ts_up[i], e_tot_up[i]), N_up)
-
-    e_tot_en = total_energy(e_kin_en, _grav * z, ts_en)
-    h_tot_en = total_specific_enthalpy(ts_en, e_tot_en)
-    h_tot_gm = total_specific_enthalpy(ts, gm.energy.ρe * ρ_inv)
-
-
-    massflux_h_tot = sum(
-        ntuple(N_up) do i
-            fix_void_up(
-                ρa_up[i],
-                ρa_up[i] *
-                (h_tot_gm - h_tot_up[i]) *
-                (gm.ρu[3] * ρ_inv - ρaw_up[i] / ρa_up[i]),
-            )
-        end,
-    )
-    massflux_h_tot +=
-        (ρa_en * (h_tot_gm - h_tot_en) * (ρu_gm_tup[3] * ρ_inv - env.w))
-    ρh_sgs_flux = -gm.ρ * env.a * K_h * en_dif.∇h_tot[3] + massflux_h_tot
-    return SVector{3, FT}(0, 0, ρh_sgs_flux)
+    @unpack ρh_sgs_flux = args.precomputed.turbconv
+    return ρh_sgs_flux
 end
 
 function flux(::TotalMoisture, ::SGSFlux, atmos, args)
@@ -1209,15 +1254,65 @@ end;
 
 
 # The boundary conditions for second-order unknowns
+# (here we prescribe a flux at state⁺ to match that at state⁻ so that the flux divergence is zero)
 function turbconv_normal_boundary_flux_second_order!(
     nf,
     bc::EDMFBottomBC,
     atmos::AtmosModel,
     fluxᵀn::Vars,
-    _...,
+    args,
 )
-    nothing
+    @unpack state⁻, aux⁻, diffusive⁻, hyperdiff⁻, t, n⁻ = args
+    en_flx = fluxᵀn.turbconv.environment
+    tend_type = Flux{SecondOrder}()
+    _args⁻ = (;
+        state = state⁻,
+        aux = aux⁻,
+        t,
+        diffusive = diffusive⁻,
+        hyperdiffusive = hyperdiff⁻,
+    )
+    pargs = merge(_args⁻, (precomputed = precompute(atmos, _args⁻, tend_type),))
+
+    total_flux = Σfluxes(
+        en_ρatke(),
+        eq_tends(en_ρatke(), atmos, tend_type),
+        atmos,
+        pargs,
+    )
+    nd_ρatke = dot(n⁻, total_flux)
+    en_flx.ρatke = nd_ρatke
+
+    total_flux = Σfluxes(
+        en_ρaθ_liq_cv(),
+        eq_tends(en_ρaθ_liq_cv(), atmos, tend_type),
+        atmos,
+        pargs,
+    )
+    nd_ρaθ_liq_cv = dot(n⁻, total_flux)
+    en_flx.ρaθ_liq_cv = nd_ρaθ_liq_cv
+
+    if !(moisture_model(atmos) isa DryModel)
+        total_flux = Σfluxes(
+            en_ρaq_tot_cv(),
+            eq_tends(en_ρaq_tot_cv(), atmos, tend_type),
+            atmos,
+            pargs,
+        )
+        nd_ρaq_tot_cv = dot(n⁻, total_flux)
+        en_flx.ρaq_tot_cv = nd_ρaq_tot_cv
+
+        total_flux = Σfluxes(
+            en_ρaθ_liq_q_tot_cv(),
+            eq_tends(en_ρaθ_liq_q_tot_cv(), atmos, tend_type),
+            atmos,
+            pargs,
+        )
+        nd_ρaθ_liq_q_tot_cv = dot(n⁻, total_flux)
+        en_flx.ρaθ_liq_q_tot_cv = nd_ρaθ_liq_q_tot_cv
+    end
 end;
+
 function turbconv_normal_boundary_flux_second_order!(
     nf,
     bc::EDMFTopBC,

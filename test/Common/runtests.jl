@@ -2,12 +2,7 @@ using Test, Pkg
 
 @testset "Common" begin
     all_tests = isempty(ARGS) || "all" in ARGS ? true : false
-    for submodule in [
-        "Thermodynamics",
-        "SurfaceFluxes",
-        "CartesianDomains",
-        "CartesianFields",
-    ]
+    for submodule in ["SurfaceFluxes", "CartesianDomains", "CartesianFields"]
         if all_tests ||
            "$submodule" in ARGS ||
            "Common/$submodule" in ARGS ||

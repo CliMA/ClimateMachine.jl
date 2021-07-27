@@ -42,6 +42,8 @@ function PrescribedWaterModel(
     return PrescribedWaterModel{typeof.(args)...}(args...)
 end
 
+
+
 """
     SoilWaterModel{FT, IF, VF, MF, HM, Fiϑl, Fiθi} <: AbstractWaterModel
 
@@ -80,7 +82,7 @@ end
         impedance_factor::AbstractImpedanceFactor{FT} = NoImpedance{FT}(),
         viscosity_factor::AbstractViscosityFactor{FT} = ConstantViscosity{FT}(),
         moisture_factor::AbstractMoistureFactor{FT} = MoistureIndependent{FT}(),
-        hydraulics::AbstractHydraulicsModel{FT} = vanGenuchten{FT}(),
+        hydraulics::AbstractHydraulicsModel{FT} = vanGenuchten(FT;),
         initialϑ_l = (aux) -> FT(NaN),
         initialθ_i = (aux) -> FT(0.0),
     ) where {FT}
@@ -92,10 +94,11 @@ function SoilWaterModel(
     impedance_factor::AbstractImpedanceFactor{FT} = NoImpedance{FT}(),
     viscosity_factor::AbstractViscosityFactor{FT} = ConstantViscosity{FT}(),
     moisture_factor::AbstractMoistureFactor{FT} = MoistureIndependent{FT}(),
-    hydraulics::AbstractHydraulicsModel{FT} = vanGenuchten{FT}(),
+    hydraulics::AbstractHydraulicsModel{FT} = vanGenuchten(FT;),
     initialϑ_l::Function = (aux) -> eltype(aux)(NaN),
     initialθ_i::Function = (aux) -> eltype(aux)(0.0),
 ) where {FT}
+
     args = (
         impedance_factor,
         viscosity_factor,
@@ -171,29 +174,27 @@ function soil_init_aux!(
 )
     FT = eltype(aux)
     T = get_initial_temperature(land.soil.heat, aux, FT(0.0))
-    S_l = effective_saturation(
-        soil.param_functions.porosity,
-        water.initialϑ_l(aux),
-        soil.param_functions.θ_r,
-    )
-    ψ = pressure_head(
-        water.hydraulics,
-        soil.param_functions,
-        water.initialϑ_l(aux),
-        water.initialθ_i(aux),
-    )
+    θ_r = soil.param_functions.water.θ_r(aux)
+    ν = soil.param_functions.porosity #(aux)
+    S_s = soil.param_functions.water.S_s(aux)
+    Ksat = soil.param_functions.water.Ksat(aux)
+
+    ϑ_l = water.initialϑ_l(aux)
+    θ_i = water.initialθ_i(aux)
+    θ_l = volumetric_liquid_fraction(ϑ_l, ν - θ_i)
+
+    S_l = effective_saturation(ν, ϑ_l, θ_r)
+    hydraulics = water.hydraulics(aux)
+    ψ = pressure_head(hydraulics, ν, S_s, θ_r, ϑ_l, θ_i)
     aux.soil.water.h = hydraulic_head(aux.z, ψ)
+
+    # compute conductivity
+    f_i = θ_i / (θ_l + θ_i)
+    impedance_f = impedance_factor(water.impedance_factor, f_i)
+    viscosity_f = viscosity_factor(water.viscosity_factor, T)
+    moisture_f = moisture_factor(water.moisture_factor, hydraulics, S_l)
     aux.soil.water.K =
-        soil.param_functions.Ksat * hydraulic_conductivity(
-            water.impedance_factor,
-            water.viscosity_factor,
-            water.moisture_factor,
-            water.hydraulics,
-            water.initialθ_i(aux),
-            soil.param_functions.porosity,
-            T,
-            S_l,
-        )
+        hydraulic_conductivity(Ksat, impedance_f, viscosity_f, moisture_f)
 end
 
 
@@ -205,30 +206,27 @@ function land_nodal_update_auxiliary_state!(
     aux::Vars,
     t::Real,
 )
+    ν = soil.param_functions.porosity #(aux)
+    S_s = soil.param_functions.water.S_s(aux)
+    Ksat = soil.param_functions.water.Ksat(aux)
+    θ_r = soil.param_functions.water.θ_r(aux)
+
+    ϑ_l = state.soil.water.ϑ_l
+    θ_i = state.soil.water.θ_i
+    θ_l = volumetric_liquid_fraction(ϑ_l, ν - θ_i)
+
     T = get_temperature(land.soil.heat, aux, t)
-    S_l = effective_saturation(
-        soil.param_functions.porosity,
-        state.soil.water.ϑ_l,
-        soil.param_functions.θ_r,
-    )
-    ψ = pressure_head(
-        water.hydraulics,
-        soil.param_functions,
-        state.soil.water.ϑ_l,
-        state.soil.water.θ_i,
-    )
+    S_l = effective_saturation(ν, ϑ_l, θ_r)
+    hydraulics = water.hydraulics(aux)
+    ψ = pressure_head(hydraulics, ν, S_s, θ_r, ϑ_l, θ_i)
     aux.soil.water.h = hydraulic_head(aux.z, ψ)
+
+    f_i = θ_i / (θ_l + θ_i)
+    impedance_f = impedance_factor(water.impedance_factor, f_i)
+    viscosity_f = viscosity_factor(water.viscosity_factor, T)
+    moisture_f = moisture_factor(water.moisture_factor, hydraulics, S_l)
     aux.soil.water.K =
-        soil.param_functions.Ksat * hydraulic_conductivity(
-            water.impedance_factor,
-            water.viscosity_factor,
-            water.moisture_factor,
-            water.hydraulics,
-            state.soil.water.θ_i,
-            soil.param_functions.porosity,
-            T,
-            S_l,
-        )
+        hydraulic_conductivity(Ksat, impedance_f, viscosity_f, moisture_f)
 end
 
 
@@ -241,18 +239,15 @@ function compute_gradient_argument!(
     aux::Vars,
     t::Real,
 )
+    ν = soil.param_functions.porosity #(aux)
+    S_s = soil.param_functions.water.S_s(aux)
+    θ_r = soil.param_functions.water.θ_r(aux)
+    ϑ_l = state.soil.water.ϑ_l
+    θ_i = state.soil.water.θ_i
 
-    S_l = effective_saturation(
-        soil.param_functions.porosity,
-        state.soil.water.ϑ_l,
-        soil.param_functions.θ_r,
-    )
-    ψ = pressure_head(
-        water.hydraulics,
-        soil.param_functions,
-        state.soil.water.ϑ_l,
-        state.soil.water.θ_i,
-    )
+    S_l = effective_saturation(ν, ϑ_l, θ_r)
+    hydraulics = water.hydraulics(aux)
+    ψ = pressure_head(hydraulics, ν, S_s, θ_r, ϑ_l, θ_i)
     transform.soil.water.h = hydraulic_head(aux.z, ψ)
 
 end

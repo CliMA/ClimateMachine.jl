@@ -8,13 +8,13 @@ using ClimateMachine.DGMethods
 using ClimateMachine.DGMethods.NumericalFluxes
 using ClimateMachine.Mesh.Grids
 using ClimateMachine.Mesh.Topologies
-using ClimateMachine.Thermodynamics
+using Thermodynamics
 using ClimateMachine.TurbulenceClosures
 using ClimateMachine.MPIStateArrays
 using ClimateMachine.ODESolvers
 using ClimateMachine.VariableTemplates
 
-import ClimateMachine.Thermodynamics: total_specific_enthalpy
+import Thermodynamics: total_specific_enthalpy
 import ClimateMachine.BalanceLaws: source, prognostic_vars
 
 using CLIMAParameters

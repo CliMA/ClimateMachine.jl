@@ -18,7 +18,7 @@ module SurfaceFluxes
 using NonlinearSolvers
 using KernelAbstractions: @print
 
-using ..Thermodynamics
+using Thermodynamics
 using DocStringExtensions
 using CLIMAParameters: AbstractEarthParameterSet
 using CLIMAParameters.Planet: molmass_ratio, grav

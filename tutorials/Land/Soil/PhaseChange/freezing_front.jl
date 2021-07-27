@@ -106,7 +106,7 @@ using ClimateMachine.VariableTemplates
 using ClimateMachine.SingleStackUtils
 using ClimateMachine.BalanceLaws:
     BalanceLaw, Prognostic, Auxiliary, Gradient, GradientFlux, vars_state
-using ClimateMachine.ArtifactWrappers
+using ArtifactWrappers
 
 # # Preliminary set-up
 
@@ -159,11 +159,9 @@ vg_n = 1.48;
 ρc_ds = FT((1 - ν) * 2.3e6);
 
 
-soil_param_functions = SoilParamFunctions{FT}(
+soil_param_functions = SoilParamFunctions(
+    FT;
     porosity = ν,
-    Ksat = Ksat,
-    S_s = S_s,
-    θ_r = θ_r,
     ν_ss_gravel = ν_ss_gravel,
     ν_ss_om = ν_ss_om,
     ν_ss_quartz = ν_ss_quartz,
@@ -172,16 +170,21 @@ soil_param_functions = SoilParamFunctions{FT}(
     κ_solid = κ_solid,
     κ_sat_unfrozen = κ_sat_unfrozen,
     κ_sat_frozen = κ_sat_frozen,
+    water = WaterParamFunctions(FT; Ksat = Ksat, S_s = S_s, θ_r = θ_r),
 );
+
 
 # # Build the model
 # Initial and Boundary conditions. The default initial condition for
 # `θ_i` is zero everywhere, so we don't modify that. Furthermore, since
 # the equation for `θ_i` does not involve spatial derivatives, we don't need
-# to supply boundary conditions for it.
+# to supply boundary conditions for it. Note that Neumann fluxes, when chosen,
+# are specified by giving the magnitude of the normal flux *into* the domain.
+# In this case, the normal vector at the surface n̂ = ẑ. Internally, we multiply
+# the flux magnitude by -n̂.
 zero_flux = (aux, t) -> eltype(aux)(0.0)
 surface_heat_flux =
-    (aux, t) -> eltype(aux)(28) * (aux.soil.heat.T - eltype(aux)(273.15 - 6))
+    (aux, t) -> eltype(aux)(-28) * (aux.soil.heat.T - eltype(aux)(273.15 - 6))
 T_init = aux -> eltype(aux)(279.85)
 ϑ_l0 = (aux) -> eltype(aux)(0.33);
 
@@ -210,7 +213,7 @@ soil_water_model = SoilWaterModel(
     viscosity_factor = TemperatureDependentViscosity{FT}(),
     moisture_factor = MoistureDependent{FT}(),
     impedance_factor = IceImpedance{FT}(Ω = 7.0),
-    hydraulics = vanGenuchten{FT}(α = vg_α, n = vg_n),
+    hydraulics = vanGenuchten(FT; α = vg_α, n = vg_n),
     initialϑ_l = ϑ_l0,
 )
 

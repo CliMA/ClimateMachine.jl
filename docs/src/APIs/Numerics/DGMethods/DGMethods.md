@@ -7,6 +7,7 @@ CurrentModule = ClimateMachine.DGMethods
 ```@docs
 SpaceDiscretization
 DGModel
+ESDGModel
 DGFVModel
 remainder_DGModel
 auxiliary_field_gradient!

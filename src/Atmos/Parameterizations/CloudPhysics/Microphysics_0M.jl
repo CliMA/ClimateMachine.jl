@@ -10,7 +10,7 @@ terminal velocity.
 """
 module Microphysics_0M
 
-using ..Thermodynamics
+using Thermodynamics
 
 using CLIMAParameters
 using CLIMAParameters.Atmos.Microphysics_0M

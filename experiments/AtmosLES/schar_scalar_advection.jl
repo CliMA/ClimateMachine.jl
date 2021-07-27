@@ -10,8 +10,8 @@ using ClimateMachine.ODESolvers
 using ClimateMachine.Mesh.Filters
 using ClimateMachine.Mesh.Topologies
 using ClimateMachine.Mesh.Grids
-using ClimateMachine.TemperatureProfiles
-using ClimateMachine.Thermodynamics
+using Thermodynamics.TemperatureProfiles
+using Thermodynamics
 using ClimateMachine.TurbulenceClosures
 using ClimateMachine.VariableTemplates
 using StaticArrays

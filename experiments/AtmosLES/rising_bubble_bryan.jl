@@ -8,8 +8,8 @@ using ClimateMachine.GenericCallbacks
 using ClimateMachine.ODESolvers
 using ClimateMachine.SystemSolvers
 using ClimateMachine.Mesh.Filters
-using ClimateMachine.Thermodynamics
-using ClimateMachine.TemperatureProfiles
+using Thermodynamics
+using Thermodynamics.TemperatureProfiles
 using ClimateMachine.TurbulenceClosures
 using ClimateMachine.VariableTemplates
 using ClimateMachine.NumericalFluxes

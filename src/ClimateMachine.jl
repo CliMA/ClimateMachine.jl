@@ -6,12 +6,9 @@ const CLIMATEMACHINE_VERSION =
     VersionNumber(TOML.parsefile(joinpath(dirname(@__DIR__), "Project.toml"))["version"])
 
 include(joinpath("Utilities", "TicToc", "TicToc.jl"))
-include(joinpath("InputOutput", "ArtifactWrappers", "ArtifactWrappers.jl"))
 include(joinpath("InputOutput", "Writers", "Writers.jl"))
 include(joinpath("Driver", "ConfigTypes", "ConfigTypes.jl"))
 include(joinpath("Utilities", "VariableTemplates", "VariableTemplates.jl"))
-include(joinpath("Common", "Thermodynamics", "Thermodynamics.jl"))
-include(joinpath("Atmos", "TemperatureProfiles", "TemperatureProfiles.jl"))
 include(joinpath(
     "Atmos",
     "Parameterizations",

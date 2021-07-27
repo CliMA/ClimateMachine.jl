@@ -9,7 +9,7 @@
 # gravitational head. Note that the [`SoilWaterModel`](@ref
 # ClimateMachine.Land.SoilWaterModel) includes
 # a prognostic equation for the volumetric ice fraction,
-# as ice is a form of water that must be accounted for to ensure
+# as ice is a form of water that must be accounted for to1 ensure
 # water mass conservation. If freezing and thawing are not turned on
 # (the default), the amount of ice in the model is zero for all space and time
 # (again by default). 
@@ -125,12 +125,14 @@ soil_heat_model = PrescribedTemperatureModel();
 
 # Define the porosity, Ksat, and specific storage values for the soil. Note
 # that all values must be given in mks units. The soil parameters chosen
-# roughly correspond to Yolo light clay.
-soil_param_functions = SoilParamFunctions{FT}(
-    porosity = 0.495,
-    Ksat = 0.0443 / (3600 * 100),
-    S_s = 1e-3,
-);
+# roughly correspond to Yolo light clay, and are stored in 
+# [`SoilParamFunctions`](@ref ClimateMachine.Land.SoilParamFunctions).
+# Hydrology specific parameters are further organized and stored in
+# [`WaterParamFunctions`](@ref ClimateMachine.Land.WaterParamFunctions),
+# with the exception of the hydraulic model and hydraulic conductivity model -
+# see the [`hydraulics`](./hydraulic_functions.md) tutorial.
+wpf = WaterParamFunctions(FT; Ksat = 0.0443 / (3600 * 100), S_s = 1e-3);
+soil_param_functions = SoilParamFunctions(FT; porosity = 0.495, water = wpf);
 
 # Define the boundary conditions. The user can specify two conditions,
 # either at the top or at the bottom, and they can either be Dirichlet
@@ -159,7 +161,7 @@ bc = LandDomainBC(
 soil_water_model = SoilWaterModel(
     FT;
     moisture_factor = MoistureDependent{FT}(),
-    hydraulics = vanGenuchten{FT}(n = 2.0),
+    hydraulics = vanGenuchten(FT; n = 2.0),
     initialϑ_l = ϑ_l0,
 );
 

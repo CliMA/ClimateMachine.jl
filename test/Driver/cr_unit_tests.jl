@@ -10,8 +10,8 @@ using ClimateMachine.Atmos
 using ClimateMachine.Orientations
 using ClimateMachine.Checkpoint
 using ClimateMachine.ConfigTypes
-using ClimateMachine.TemperatureProfiles
-using ClimateMachine.Thermodynamics
+using Thermodynamics.TemperatureProfiles
+using Thermodynamics
 using ClimateMachine.TurbulenceClosures
 using ClimateMachine.VariableTemplates
 using ClimateMachine.Grids

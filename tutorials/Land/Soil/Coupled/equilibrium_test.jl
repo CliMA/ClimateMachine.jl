@@ -175,13 +175,14 @@ vg_α = FT(7.5); # inverse meters
 # refers to soil that has no water content.
 ρc_ds = FT((1 - porosity) * 1.926e06); # J/m^3/K
 # We collect the majority of the parameters needed
-# for modeling heat and water flow in soil in `soil_param_functions`.
-# The van Genuchten parameters are stored in the water model, in an object
-# called `hydraulics`, however.
+# for modeling heat and water flow in soil in `soil_param_functions`,
+# an object of type [`SoilParamFunctions`](@ref ClimateMachine.Land.SoilParamFunctions).
+# Parameters used only for hydrology are stored in `water`, which
+# is of type
+# [`WaterParamFunctions`](@ref ClimateMachine.Land.WaterParamFunctions).
 
-soil_param_functions = SoilParamFunctions{FT}(
-    Ksat = Ksat,
-    S_s = S_s,
+soil_param_functions = SoilParamFunctions(
+    FT;
     porosity = porosity,
     ν_ss_gravel = ν_ss_gravel,
     ν_ss_om = ν_ss_om,
@@ -191,8 +192,8 @@ soil_param_functions = SoilParamFunctions{FT}(
     κ_solid = κ_solid,
     κ_sat_unfrozen = κ_sat_unfrozen,
     κ_sat_frozen = κ_sat_frozen,
+    water = WaterParamFunctions(FT; Ksat = Ksat, S_s = S_s),
 );
-
 
 # # Initial and Boundary conditions
 
@@ -283,13 +284,13 @@ end;
 
 
 # # Create the soil model structure
-# First, for water (this is where the van Genuchten parameters
+# First, for water (this is where the hydrology parameters
 # are supplied):
 soil_water_model = SoilWaterModel(
     FT;
     viscosity_factor = TemperatureDependentViscosity{FT}(),
     moisture_factor = MoistureDependent{FT}(),
-    hydraulics = vanGenuchten{FT}(α = vg_α, n = vg_n),
+    hydraulics = vanGenuchten(FT; α = vg_α, n = vg_n),
     initialϑ_l = ϑ_l0,
 );
 

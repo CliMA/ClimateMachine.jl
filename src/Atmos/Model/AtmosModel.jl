@@ -44,14 +44,14 @@ import ..Orientations:
     projection_tangential
 
 using ..VariableTemplates
-using ..Thermodynamics
-using ..TemperatureProfiles
+using Thermodynamics
+using Thermodynamics.TemperatureProfiles
 
 using ..TurbulenceClosures
 import ..TurbulenceClosures: turbulence_tensors
 using ..TurbulenceConvection
 
-import ..Thermodynamics: internal_energy, soundspeed_air
+import Thermodynamics: internal_energy, soundspeed_air
 using ..MPIStateArrays: MPIStateArray
 using ..Mesh.Grids:
     VerticalDirection,
@@ -59,6 +59,10 @@ using ..Mesh.Grids:
     min_node_distance,
     EveryDirection,
     Direction
+
+using ..Mesh.Filters: AbstractFilterTarget
+import ..Mesh.Filters:
+    vars_state_filtered, compute_filter_argument!, compute_filter_result!
 
 using ..BalanceLaws
 using ClimateMachine.Problems
@@ -69,6 +73,7 @@ import ..BalanceLaws:
     sub_model,
     prognostic_vars,
     get_prog_state,
+    get_specific_state,
     flux_first_order!,
     flux_second_order!,
     source!,
@@ -508,6 +513,17 @@ function vars_state(m::AtmosModel, st::DownwardIntegrals, FT)
         radiation::vars_state(radiation_model(m), st, FT)
     end
 end
+
+function vars_state_filtered(m::AtmosModel, FT)
+    @vars begin
+        ρ::FT
+        u::SVector{3, FT}
+        energy::vars_state_filtered(energy_model(m), FT)
+        moisture::vars_state_filtered(moisture_model(m), FT)
+        turbconv::vars_state_filtered(turbconv_model(m), FT)
+    end
+end
+
 
 ####
 #### Forward orientation methods

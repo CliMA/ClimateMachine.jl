@@ -106,7 +106,7 @@ using ClimateMachine.SingleStackUtils
 using ClimateMachine.BalanceLaws:
     BalanceLaw, Prognostic, Auxiliary, Gradient, GradientFlux, vars_state
 using SpecialFunctions
-using ClimateMachine.ArtifactWrappers
+using ArtifactWrappers
 
 # # Preliminary set-up
 
@@ -149,10 +149,9 @@ Ksat = 0.0
 κ_sat_frozen = ksat_frozen(κ_solid, porosity, κ_ice)
 κ_sat_unfrozen = ksat_unfrozen(κ_solid, porosity, κ_liq)
 ρc_ds = FT((1 - porosity) * 2.3e6)
-soil_param_functions = SoilParamFunctions{FT}(
+soil_param_functions = SoilParamFunctions(
+    FT;
     porosity = porosity,
-    Ksat = Ksat,
-    S_s = 1e-3,
     ν_ss_gravel = ν_ss_gravel,
     ν_ss_om = ν_ss_om,
     ν_ss_quartz = ν_ss_quartz,
@@ -161,6 +160,7 @@ soil_param_functions = SoilParamFunctions{FT}(
     κ_solid = κ_solid,
     κ_sat_unfrozen = κ_sat_unfrozen,
     κ_sat_frozen = κ_sat_frozen,
+    water = WaterParamFunctions(FT; Ksat = Ksat, S_s = 1e-3),
 );
 
 # # Build the model
@@ -192,7 +192,7 @@ bc = LandDomainBC(
 # hack for turning off water flow. 
 soil_water_model = SoilWaterModel(
     FT;
-    hydraulics = vanGenuchten{FT}(α = vg_α, n = vg_n),
+    hydraulics = vanGenuchten(FT; α = vg_α, n = vg_n),
     initialϑ_l = ϑ_l0,
 );
 

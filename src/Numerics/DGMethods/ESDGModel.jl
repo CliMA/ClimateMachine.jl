@@ -151,37 +151,37 @@ function (esdg::ESDGModel)(
 
     # volume tendency
     comp_stream = esdg_volume_tendency!(device, workgroup)(
-          balance_law,
-          Val(1),
-          Val(info),
-          esdg.volume_numerical_flux_first_order,
-          tendency.data,
-          state_prognostic.data,
-          state_auxiliary.data,
-          grid.vgeo,
-          grid.D[1],
-          α,
-          β,
-          true, # add_source
-          ndrange = ndrange,
-          dependencies = (comp_stream,),
-      )
-      comp_stream = esdg_volume_tendency!(device, workgroup)(
-          balance_law,
-          Val(2),
-          Val(info),
-          esdg.volume_numerical_flux_first_order,
-          tendency.data,
-          state_prognostic.data,
-          state_auxiliary.data,
-          grid.vgeo,
-          grid.D[2],
-          α,
-          true,
-          ndrange = ndrange,
-          dependencies = (comp_stream,),
-      )
-      if info.dim == 3
+        balance_law,
+        Val(1),
+        Val(info),
+        esdg.volume_numerical_flux_first_order,
+        tendency.data,
+        state_prognostic.data,
+        state_auxiliary.data,
+        grid.vgeo,
+        grid.D[1],
+        α,
+        β,
+        true, # add_source
+        ndrange = ndrange,
+        dependencies = (comp_stream,),
+    )
+    comp_stream = esdg_volume_tendency!(device, workgroup)(
+        balance_law,
+        Val(2),
+        Val(info),
+        esdg.volume_numerical_flux_first_order,
+        tendency.data,
+        state_prognostic.data,
+        state_auxiliary.data,
+        grid.vgeo,
+        grid.D[2],
+        α,
+        true,
+        ndrange = ndrange,
+        dependencies = (comp_stream,),
+    )
+    if info.dim == 3
         comp_stream = esdg_volume_tendency!(device, workgroup)(
             balance_law,
             Val(3),

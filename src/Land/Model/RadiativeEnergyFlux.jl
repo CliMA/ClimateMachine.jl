@@ -21,6 +21,7 @@ Structure which contains functions for shortwave albedo and
 shortwave fluxes. They are user-defined, constant across the domain
 and can be a function of time.
 
+All fluxes are assumed to be normal to the surface.
 # Fields
 $(DocStringExtensions.FIELDS)
 """
@@ -45,6 +46,7 @@ end
 Structure which contains net shortwave flux values. The function is
 user-defined, constant across the domain and can be a function of time.
 
+All fluxes are assumed to be normal to the surface.
 # Fields
 $(DocStringExtensions.FIELDS)
 """
@@ -65,7 +67,7 @@ end
         t::Real,
     ) where {FT}
 
-Computes the net shortwave flux as a function of time.
+Computes the net shortwave flux magnitude as a function of time.
 """
 function compute_net_sw_flux(
     nswf_model::PrescribedSwFluxAndAlbedo{FT},
@@ -81,7 +83,7 @@ end
         t::Real
     ) where {FT}
 
-Computes the net shortwave flux as a function of time.
+Computes the net shortwave flux magnitude as a function of time.
 """
 function compute_net_sw_flux(
     nswf_model::PrescribedNetSwFlux{FT},
@@ -97,8 +99,11 @@ end
         t::Real
     )
 
-Returns the net radiative energy flux as a function of time. Will
+Returns the net radiative energy flux magnitude as a function of time. Will
 include long wave fluxes in future version.
+
+The flux vector is this magnitude * -n̂, where n̂ is the normal vector pointing out
+of the domain at the surface.
 """
 function compute_net_radiative_energy_flux(
     nswf_model::AbstractNetSwFluxModel{FT},
