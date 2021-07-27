@@ -1,6 +1,8 @@
 # import Pkg; Pkg.add("Thermodynamics")
 # import Pkg; Pkg.add("ClimateMachine")
+import Statistics
 using SpecialFunctions
+using Statistics
 using Test
 
 using Thermodynamics
@@ -242,7 +244,8 @@ function tp_max_super_sat(param_set::EPS,
         mode_i = am.modes[i]
         num_of_comp = mode_i.n_components
         f = 0.5 * exp(2.5 * (log(mode_i.stdev))^2)
-        g = 1 + 0.25 * log(mode_i.stdev)                
+        g = 1 + 0.25 * log(mode_i.stdev)        
+        println("g ", g)        
         η_value = η(param_set, temp, _ρ_cloud_liq, mode_i.N, G_diff, updraft_velocity, press)
         1 / (critsat[i]^2) * (f * (surface_tension_effects / η_value)^(3 / 2) + g * (critsat[i]^2 / (η_value + 3 * surface_tension_effects))^(3 / 4))
     end
@@ -350,24 +353,42 @@ end
     @test(total_N_activated(param_set, AM_1, T, p, 0.0000000000000001)≈0.0)
 end
 
-# @testset "matching" begin
+@testset "matching" begin
 
-#     println("----------")
-#     println("matching: ")
+    println("----------")
+    println("matching: ")
 
-#     # TODO
-#     @test(total_N_activated(param_set, AM_7, T, p, w) .≈ 
-#           total_N_activated(param_set, AM_2, T, p, w))
+    # TODO
+    @test(total_N_activated(param_set, AM_7, T, p, w) .≈ 
+          total_N_activated(param_set, AM_2, T, p, w))
     
-#     # Numbers are same, but test is acting up.
-#     # @test(mean_hygroscopicity(param_set, AM_7) .≈ 
-#     #       mean_hygroscopicity(param_set, AM_2))
-#     @test(max_supersaturation(param_set, AM_7, T, p, w) .≈ 
-#           max_supersaturation(param_set, AM_2, T, p, w))
-#     println(" ")
-# end
-
+    # Numbers are same, but test is acting up.
+    # @test(mean_hygroscopicity(param_set, AM_7) .≈ 
+    #       mean_hygroscopicity(param_set, AM_2))
+    @test(max_supersaturation(param_set, AM_7, T, p, w) .≈ 
+          max_supersaturation(param_set, AM_2, T, p, w))
+    println(" ")
+end
+AM_8_Nact = total_N_activated(param_set, AM_8, T, p, w)
+AM_1_Nact = total_N_activated(param_set, AM_1, T, p, w)
+println("Some stats for Edge Case 2:")
+println("Variance between AM_1 and AM_8 activated particles:")
+println(var([AM_8_Nact, AM_1_Nact]))
+println("Percent difference between AM_1 and AM_8 activated particles: ")
+println((AM_8_Nact-AM_1_Nact)/AM_1_Nact)
 @testset "mode structure edge cases" begin 
+
+    println("Edge case 1: Same aerosol population, but one is spread across two components")
+    @test(total_N_activated(param_set, AM_7, T, p, w) .≈ 
+    total_N_activated(param_set, AM_2, T, p, w))
+
+    println("Edge case 2: Same aerosol population, but one is spread across two modes")
+    @test(mean_hygroscopicity(param_set, AM_1)[1] ≈ 
+          mean_hygroscopicity(param_set, AM_8)[1])
+    @test(mean_hygroscopicity(param_set, AM_1)[1] ≈ 
+          mean_hygroscopicity(param_set, AM_8)[2])
+    @test(max_supersaturation(param_set, AM_1, T, p, w) ≈ 
+          max_supersaturation(param_set, AM_8, T, p, w))
     @test(total_N_activated(param_set, AM_8, T, p, w) ≈ 
           total_N_activated(param_set, AM_1, T, p, w))
 end

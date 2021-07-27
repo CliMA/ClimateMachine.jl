@@ -24,6 +24,7 @@ using CLIMAParameters.Atmos.Microphysics: K_therm, D_vapor
 const APS = AbstractParameterSet
 
 export mean_hygroscopicity
+export critical_supersaturation
 export max_supersaturation
 export total_N_activated
 export total_M_activated
