@@ -1,8 +1,8 @@
 using Test
 
 
-@testset "PySDMCall" begin
-    include(joinpath("test1.jl"))
-    include(joinpath("test2.jl"))
-    include(joinpath("test3.jl"))
+@testset "PySDMCall tests" begin
+    include(joinpath("PySDMCallback_invocation.jl"))
+    include(joinpath("PyCall_invocation.jl"))
+    include(joinpath("PySDM_presence.jl"))
 end

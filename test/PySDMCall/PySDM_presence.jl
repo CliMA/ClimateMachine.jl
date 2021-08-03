@@ -5,7 +5,7 @@ using PyCall
 using Test
 
 function main()
-    println("PySDM presence test")
+    println("[TEST] PySDM presence test")
 
     pysdm = pyimport("PySDM")
 

@@ -5,8 +5,11 @@ include("../Atmos/Parameterizations/Microphysics/KinematicModel.jl")
 include("../../src/PySDMCall/PySDMCallback.jl")
 include("../../src/PySDMCall/PySDMCall.jl")
 
+
 using .PySDMCallbacks
 using .PySDMCall
+
+using PyCall
 
 using StaticArrays
 
@@ -175,17 +178,24 @@ end
 source!(::KinematicModel, _...) = nothing
 
 
-
 function GenericCallbacks.init!(cb::PySDMCallback, solver, Q, param, t)
+
+    py"""
+    def change_state_var(Q):
+        print(type(Q))
+        print(Q.shape)
+        Q.fill(-1.)
+    """
+
     println()
-    println("PySDMCallback init! ")
+    println("PySDMCallback init!")
     println(typeof(Q))
     println(size(Q.ρ))
     print("Time: ")
     println(t)
     println()
-    Q.ρ .= -1
 
+    py"change_state_var($(parent(Q.ρ)))"
 end
 
 
@@ -230,7 +240,7 @@ function main()
     idx_bc_bottom = 1
     idx_bc_top = 2
 
-    driver_config = config_kinematic_eddy(
+    driver_config, ode_solver_type = config_kinematic_eddy(
         FT,
         N,
         resolution,
@@ -257,6 +267,7 @@ function main()
         t_ini,
         t_end,
         driver_config;
+        ode_solver_type = ode_solver_type,
         ode_dt = dt,
         init_on_cpu = true,
         #Courant_number = CFL,
@@ -360,13 +371,13 @@ function main()
     # call solve! function for time-integrator
     result = ClimateMachine.invoke!(
         solver_config;
-        diagnostics_config = nothing,#dgn_config,
+        diagnostics_config = nothing, #dgn_config,
         user_callbacks = (cbvtk, testcb,),
         check_euclidean_distance = true,
     )
-    
-    println("PySDMCallback invocation test:")
 
+    println("[TEST] PyCall invocation test")
+    
     cb_test_max = maximum(solver_config.Q.ρ)
     cb_test_min = minimum(solver_config.Q.ρ)
     
