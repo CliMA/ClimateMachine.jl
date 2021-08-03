@@ -1,5 +1,10 @@
-using Test
+"""
 
+julia --project test/PySDMCall/runtests.jl will run the experiment from the main ClimateMachine.jl directory.
+
+"""
+
+using Test
 
 @testset "PySDMCall tests" begin
     include(joinpath("PySDMCallback_invocation.jl"))
