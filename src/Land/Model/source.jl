@@ -18,6 +18,8 @@ The function which computes the freeze/thaw source term for Richard's equation.
 Base.@kwdef struct PhaseChange{FT} <: TendencyDef{Source}
     "Typical resolution in the vertical"
     Δz::FT = FT(NaN)
+    "O(1) factor multiplying the thermal time"
+    γ_LTE::FT = FT(1)
 end
 
 prognostic_vars(::PhaseChange) =
@@ -61,6 +63,7 @@ function precompute(source_type::PhaseChange, land::LandModel, args, tt::Source)
     κ = thermal_conductivity(κ_dry, kersten, κ_sat)
     ρc_ds = land.soil.param_functions.ρc_ds
     ρc_s = volumetric_heat_capacity(θ_l, θ_i, ρc_ds, land.param_set)
+
     θ_r = land.soil.param_functions.water.θ_r(aux)
 
     hydraulics = land.soil.water.hydraulics(aux)
@@ -72,16 +75,13 @@ function precompute(source_type::PhaseChange, land::LandModel, args, tt::Source)
     else
         θstar = θ_l
     end
+    
     Δz = source_type.Δz
-    τLTE = FT(ρc_s * Δz^2 / κ)
-    ΔT = norm(diffusive.soil.heat.κ∇T) / κ * Δz
-    ρ_w = FT(0.5) * (_ρliq + _ρice)
+    γ_LTE = source_type.γ_LTE
+    τLTE = FT(ρc_s * Δz^2 / κ)*γ_LTE
 
-    τpt = τLTE * (ρ_w * _LH_f0 * (ν - θ_r)) / (ρc_s * ΔT)
-
-    τft = max(τLTE, τpt)
     freeze_thaw =
-        FT(1) / τft * (
+        FT(1) / τLTE * (
             _ρliq *
             (θ_l - θstar) *
             heaviside(_Tfreeze - T) *

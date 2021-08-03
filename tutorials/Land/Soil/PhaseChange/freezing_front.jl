@@ -128,7 +128,7 @@ nelem_vert = 20
 zmax = FT(0)
 zmin = FT(-0.2)
 t0 = FT(0)
-dt = FT(6)
+dt = FT(3)
 timeend = FT(3600 * 50)
 n_outputs = 50
 every_x_simulation_time = ceil(Int, timeend / n_outputs)
@@ -225,7 +225,7 @@ m_soil = SoilModel(soil_param_functions, soil_water_model, soil_heat_model);
 # knowledge of the vertical spacing, so we pass
 # that information in via an attribute of the
 # [`PhaseChange`](@ref ClimateMachine.Land.PhaseChange) structure.
-freeze_thaw_source = PhaseChange{FT}(Δz = Δ);
+freeze_thaw_source = PhaseChange{FT}(Δz = Δ, γ_LTE = 1);
 
 # Sources are added as elements of a list of sources. Here we just add freezing
 # and thawing.
@@ -367,8 +367,17 @@ plot!(
     dons_arr[13]["soil.water.θ_i"] .+ dons_arr[13]["soil.water.ϑ_l"],
     z,
     label = "",
-    color = "green",
+    lc = :green,
+    lw = 2,
 )
+plot!(
+    if_dons_arr[13]["soil.water.θ_i"] .+ if_dons_arr[13]["soil.water.ϑ_l"],
+    z,
+    label = "",
+    lc = :orange,
+    lw = 2,
+)
+
 plot!(title = "12h")
 plot!(xlim = [0.2, 0.55])
 plot!(xticks = [0.2, 0.3, 0.4, 0.5])
@@ -379,9 +388,19 @@ plot_24h =
 plot!(
     dons_arr[25]["soil.water.θ_i"] .+ dons_arr[25]["soil.water.ϑ_l"],
     z,
-    label = "Simulation",
-    color = "green",
+    label = "Sim, Ω = 7",
+    lc = :green,
+    lw = 2,
 )
+
+plot!(
+    if_dons_arr[25]["soil.water.θ_i"] .+ if_dons_arr[25]["soil.water.ϑ_l"],
+    z,
+    label = "Sim, Ω = 0",
+    lc = :orange,
+    lw = 2,
+)
+
 plot!(title = "24h")
 plot!(legend = :bottomright)
 plot!(xlim = [0.2, 0.55])
@@ -393,8 +412,18 @@ plot!(
     dons_arr[51]["soil.water.θ_i"] .+ dons_arr[51]["soil.water.ϑ_l"],
     z,
     label = "",
-    color = "green",
+    lc = :green,
+    lw = 2,
 )
+
+plot!(
+    if_dons_arr[51]["soil.water.θ_i"] .+ if_dons_arr[51]["soil.water.ϑ_l"],
+    z,
+    label = "",
+    lc = :orange,
+    lw = 2,
+)
+
 plot!(title = "50h")
 plot!(xlim = [0.2, 0.55])
 plot!(xticks = [0.2, 0.3, 0.4, 0.5]);

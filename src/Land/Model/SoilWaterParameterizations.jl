@@ -575,7 +575,7 @@ function pressure_head(
 ) where {FT}
     eff_porosity = ν - θ_i
     if ϑ_l < eff_porosity
-        S_l = effective_saturation(ν, ϑ_l, θ_r)
+        S_l = effective_saturation(eff_porosity, ϑ_l, θ_r)
         ψ = matric_potential(model, S_l)
     else
         ψ = (ϑ_l - eff_porosity) / S_s

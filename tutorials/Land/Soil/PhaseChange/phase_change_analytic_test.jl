@@ -409,8 +409,8 @@ ds2 = readdlm(ahc_data, ',');
 
 k = n_outputs
 f(k)
-plot!(ds[:, 2], ds[:, 1], label = "Excess Heat")
-plot!(ds2[:, 2], ds2[:, 1], label = "Apparent heat capacity")
+#plot!(ds[:, 2], ds[:, 1], label = "Excess Heat")
+#plot!(ds2[:, 2], ds2[:, 1], label = "Apparent heat capacity")
 plot!(legend = :bottomleft)
 savefig("analytic_comparison.png")
 # ![](analytic_comparison.png)
