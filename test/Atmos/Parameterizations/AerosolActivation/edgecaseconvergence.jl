@@ -43,7 +43,7 @@ DATA_PATH = "/home/idularaz/ClimateMachine.jl/src/Atmos/Parameterizations/CloudP
 T = 283.15     # air temperature
 p = 100000.0   # air pressure
 w = 5.0
-Ts = collect(LinRange(100, 300, 100))
+Ts = collect(LinRange(230, 320, 100))
 ws = collect(LinRange(.1, 100, 100))
 
 N_frac_AM1_w = zeros(length(ws))
