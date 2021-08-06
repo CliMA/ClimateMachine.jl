@@ -39,14 +39,14 @@ is modeled by instantly removing cloud condensate.
 This option, coupled with either of the moisture models, is a good start
 when running in moist `AtmosGCM` configuration.
 The parameterization of instantaneous precipitation removal is described by the
-[0-moment microphysics](https://clima.github.io/ClimateMachine.jl/latest/Theory/Atmos/Microphysics_0M/)
+[0-moment microphysics](https://clima.github.io/CloudMicrophysics.jl/dev/Microphysics_0M/)
 scheme.
 The `RainModel` encapsulates the "warm rain" processes, i.e.
 the formation of precipitation in temperatures above freezing.
 The `RainSnowModel` describes the full set of microphysical processes
 leading to the formation of precipitation.
 Both models are based on
-[1-moment microphysics](https://clima.github.io/ClimateMachine.jl/latest/Theory/Atmos/Microphysics/)
+[1-moment microphysics](https://clima.github.io/CloudMicrophysics.jl/dev/Microphysics_1M/)
 scheme, which is a simple representation of cloud microphysics.
 It is a good starting point for the moist `AtmosLES` configurations,
 coupling to the subgrid scale parameterizations, and testing the machine learning pipelines.
@@ -174,7 +174,7 @@ source terms (a true simulation without any representation of precipitation),
 or use the instant precipitation removal source term `RemovePrecipitation`.
 The boolean flag passed to it as argument chooses between two definitions
 of the threshold above which cloud condensate is removed,
-see [here](https://clima.github.io/ClimateMachine.jl/latest/Theory/Atmos/Microphysics_0M/#Moisture-sink-due-to-precipitation).
+see [here](https://clima.github.io/CloudMicrophysics.jl/dev/Microphysics_0M/#Moisture-sink-due-to-precipitation).
 The flag set to `true` results in cloud condensate based threshold.
 The flag set to `false` results in saturation excess threshold.
 

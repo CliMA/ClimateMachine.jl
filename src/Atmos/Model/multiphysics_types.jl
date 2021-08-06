@@ -2,8 +2,8 @@
 
 using CLIMAParameters.Planet: T_freeze, cv_l
 
-using ..Microphysics_0M
-using ..Microphysics
+using CloudMicrophysics.Microphysics_0M
+using CloudMicrophysics.Microphysics_1M
 
 export RainSnow_1M
 export WarmRain_1M
@@ -34,7 +34,7 @@ struct MoistureDiffusion <: TendencyDef{Flux{SecondOrder}} end
 A sink to `q_tot` when cloud condensate is exceeding a threshold.
 The threshold is defined either in terms of condensate or supersaturation.
 The removal rate is implemented as a relaxation term
-in the Microphysics_0M module.
+in the CloudMicrophysics.jl Microphysics_0M module.
 The default thresholds and timescale are defined in CLIMAParameters.jl.
 """
 struct RemovePrecipitation <: TendencyDef{Source}
@@ -82,6 +82,8 @@ end
     WarmRain_1M <: TendencyDef{Source}
 
 A collection of source/sink terms related to 1-moment warm rain microphysics.
+The microphysics process rates are implemented
+in the CloudMicrophysics.jl Microphysics_1M module.
 """
 struct WarmRain_1M <: TendencyDef{Source} end
 
@@ -138,6 +140,8 @@ end
     RainSnow_1M <: TendencyDef{Source}
 
 A collection of source/sink terms related to 1-moment rain and snow microphysics
+The microphysics process rates are implemented
+in the CloudMicrophysics.jl Microphysics_1M module.
 """
 struct RainSnow_1M <: TendencyDef{Source} end
 

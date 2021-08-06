@@ -8,11 +8,7 @@ apis = [
         "Top level interface" => "APIs/Driver/index.md",
         "Checkpoint" => "APIs/Driver/Checkpoint.md",
     ],
-    "Atmos" => [
-        "AtmosModel" => "APIs/Atmos/AtmosModel.md",
-        "Microphysics_0M" => "APIs/Atmos/Microphysics_0M.md",
-        "Microphysics" => "APIs/Atmos/Microphysics.md",
-    ],
+    "Atmos" => ["AtmosModel" => "APIs/Atmos/AtmosModel.md"],
     "Ocean" => "APIs/Ocean/Ocean.md",
     "Land" => [
         "Land Model" => "APIs/Land/LandModel.md",

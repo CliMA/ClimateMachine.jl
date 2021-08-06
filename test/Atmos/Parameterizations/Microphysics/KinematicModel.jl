@@ -41,11 +41,13 @@ using Thermodynamics:
     supersaturation,
     vapor_specific_humidity
 
-using ClimateMachine.Microphysics
 using ClimateMachine.MPIStateArrays
 using ClimateMachine.ODESolvers
 using ClimateMachine.VariableTemplates
 using ClimateMachine.VTK
+
+using CloudMicrophysics.Microphysics_0M
+using CloudMicrophysics.Microphysics_1M
 
 using CLIMAParameters
 using CLIMAParameters.Planet:
