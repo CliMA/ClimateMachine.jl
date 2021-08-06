@@ -27,6 +27,8 @@ function vars_state(m::KinematicModel, ::Auxiliary, FT)
         e_pot::FT
         e_int::FT
         T::FT
+        theta_liq_ice::FT
+        theta_dry::FT
         S_liq::FT
         RH::FT
     end
@@ -96,6 +98,8 @@ function nodal_update_auxiliary_state!(
         q = PhasePartition(ts)
 
         aux.T = ts.T
+        aux.theta_liq_ice = liquid_ice_pottemp(param_set, ts.T, state.ρ, q)
+        aux.theta_dry = dry_pottemp(param_set, ts.T, state.ρ)
         aux.q_vap = vapor_specific_humidity(q)
         aux.q_liq = q.liq
         aux.q_ice = q.ice
