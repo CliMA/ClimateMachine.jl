@@ -81,12 +81,12 @@ function precompute(source_type::PhaseChange, land::LandModel, args, tt::Source)
     τLTE = FT(ρc_s * Δz^2 / κ)*γ_LTE
 
     freeze_thaw =
-        FT(1) / τLTE * (
+        FT(1) / τLTE * 
             _ρliq *
-            (θ_l - θstar) *
-            heaviside(_Tfreeze - T) *
-            heaviside(θ_l - θstar) - _ρice * θ_i * heaviside(T - _Tfreeze)
-        )
+            (θ_l - θstar) #*
+            #heaviside(_Tfreeze - T) #*
+            #heaviside(θ_l - θstar) - _ρice * θ_i * heaviside(T - _Tfreeze)
+        #)
     return (; freeze_thaw)
 end
 

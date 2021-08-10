@@ -212,7 +212,7 @@ soil_water_model = SoilWaterModel(
     FT;
     viscosity_factor = TemperatureDependentViscosity{FT}(),
     moisture_factor = MoistureDependent{FT}(),
-    impedance_factor = IceImpedance{FT}(Ω = 7.0),
+#    impedance_factor = IceImpedance{FT}(Ω = 7.0),
     hydraulics = vanGenuchten(FT; α = vg_α, n = vg_n),
     initialϑ_l = ϑ_l0,
 )
