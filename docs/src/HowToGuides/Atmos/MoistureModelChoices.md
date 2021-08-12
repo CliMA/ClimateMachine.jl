@@ -36,7 +36,7 @@ The `NonEquilMoist` assumes that water is present in the air,
 At each time step, the cloud liquid water and cloud ice source/sink terms
   are obtained as relaxation towards equilibrium over time scale
   that may eventually depend on factors such as the number of cloud condensation nuclei.
-  (for details see [here](https://clima.github.io/ClimateMachine.jl/latest/Theory/Atmos/Microphysics/#Cloud-water-condensation/evaporation).)
+  (for details see [here](https://clima.github.io/CloudMicrophysics.jl/dev/Microphysics_1M/#Cloud-water-condensation/evaporation).)
 This approach does not require employing iterative algorithm and
   allows for supersaturation to be present in the computational domain.
 It adds `ρ q_tot`, `ρ q_liq` and `ρ q_ice` to the state variables

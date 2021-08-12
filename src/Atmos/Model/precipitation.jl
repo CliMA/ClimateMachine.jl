@@ -5,8 +5,6 @@ export PrecipitationModel, NoPrecipitation, RainModel, RainSnowModel
 
 eq_tends(pv::PV, m::PrecipitationModel, ::Flux{O}) where {PV, O} = ()
 
-using ..Microphysics
-
 vars_state(::PrecipitationModel, ::AbstractStateType, FT) = @vars()
 
 function atmos_nodal_update_auxiliary_state!(
