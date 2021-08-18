@@ -8,7 +8,7 @@ class ClimateMachine:
 
     def __init__(self, clima_fields):
         self.fields = {}
-        self.fields['qv'] = clima_fields['q_v']
+        self.fields['qv'] = clima_fields['qv']
         self.fields['th'] = clima_fields['th']
         self.core = None
 

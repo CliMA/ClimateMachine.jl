@@ -216,7 +216,7 @@ function main()
     idx_bc_bottom = 1
     idx_bc_top = 2
 
-    driver_config = config_kinematic_eddy(
+    driver_config, ode_solver_type = config_kinematic_eddy(
         FT,
         N,
         resolution,
@@ -243,6 +243,7 @@ function main()
         t_ini,
         t_end,
         driver_config;
+        ode_solver_type = ode_solver_type,
         ode_dt = dt,
         init_on_cpu = true,
         #Courant_number = CFL,
@@ -309,7 +310,8 @@ function main()
 
     
     # configuring PySDM
-    # TODO kernel here !!!!!!!! done?
+    pkg_pysdm = import_PySDM()
+
     krnl = PySDMKernels()
 
     spectra = PySDMSpectra()
@@ -317,38 +319,29 @@ function main()
     rho_STP = 1.2252141358659048
     micrometre = 1e-6
     centimetre = 0.01
-    spectrum_per_mass_of_dry_air = spectra.Lognormal(
-                                                norm_factor=60 / centimetre ^ 3 / rho_STP,
-                                                m_mode=0.04 * micrometre,
-                                                s_geom=1.4
-                                            )
+    spectrum_per_mass_of_dry_air = spectra.Lognormal(norm_factor=60 / centimetre ^ 3 / rho_STP,
+                                                     m_mode=0.04 * micrometre,
+                                                     s_geom=1.4
+                                                    )
 
-    pysdmconf = PySDMConf(
-                        (xmax, zmax), 
-                        (Δx, Δz), 
-                        t_end, 
-                        solver_config.dt, 
-                        25, 
-                        1, 
-                        krnl.Geometric(collection_efficiency=1), 
-                        spectrum_per_mass_of_dry_air
-                    ) #???? 
+    pysdmconf = PySDMConf((xmax, zmax), 
+                          (Δx, Δz), 
+                          t_end, 
+                          solver_config.dt, 
+                          25, 
+                          1, 
+                          krnl.Geometric(collection_efficiency=1), 
+                          spectrum_per_mass_of_dry_air
+                         )
 
-    testcb = GenericCallbacks.EveryXSimulationSteps(PySDMCallback("PySDMCallback", 
-                                                                  solver_config.dg, 
-                                                                  interpol, 
-                                                                  mpicomm, 
-                                                                  pysdmconf
-                                                                  ), 1)
+    pysdm_cb = GenericCallbacks.EveryXSimulationSteps(PySDMCallback("PySDMCallback", 
+                                                                    solver_config.dg, 
+                                                                    interpol, 
+                                                                    mpicomm, 
+                                                                    pysdmconf
+                                                                   ), 1)
 
-    #testcb = GenericCallbacks.EveryXSimulationSteps(PySDMCallback("PySDMCallback", 
-    #                                                              solver_config.dg, 
-    #                                                              interpol, 
-    #                                                              mpicomm, 
-    #                                                              solver_config.dt, 
-    #                                                              Δx,
-    #                                                              t_end,
-    #                                                              nothing), 1)
+
 
     # get aux variables indices for testing
     q_tot_ind = varsindex(vars_state(model, Auxiliary(), FT), :q_tot)
@@ -361,7 +354,7 @@ function main()
     result = ClimateMachine.invoke!(
         solver_config;
         diagnostics_config = dgn_config,
-        user_callbacks = (cbvtk, testcb,),
+        user_callbacks = (cbvtk, pysdm_cb,),
         check_euclidean_distance = true,
     )
 

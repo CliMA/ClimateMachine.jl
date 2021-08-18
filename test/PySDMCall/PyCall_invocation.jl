@@ -2,12 +2,6 @@ using Dates: print, isequal
 # former KM_saturation_adjustment
 
 include("../Atmos/Parameterizations/Microphysics/KinematicModel.jl")
-include("../../src/PySDMCall/PySDMCallback.jl")
-include("../../src/PySDMCall/PySDMCall.jl")
-
-
-using .PySDMCallbacks
-using .PySDMCall
 
 using PyCall
 
@@ -178,7 +172,14 @@ end
 source!(::KinematicModel, _...) = nothing
 
 
-function GenericCallbacks.init!(cb::PySDMCallback, solver, Q, param, t)
+mutable struct MyCallback
+    initialized::Bool
+    calls::Int
+    finished::Bool
+end
+
+
+function GenericCallbacks.init!(cb::MyCallback, solver, Q, param, t)
 
     py"""
     def change_state_var(Q):
@@ -188,7 +189,7 @@ function GenericCallbacks.init!(cb::PySDMCallback, solver, Q, param, t)
     """
 
     println()
-    println("PySDMCallback init!")
+    println("MyCallback init!")
     println(typeof(Q))
     println(size(Q.ρ))
     print("Time: ")
@@ -197,6 +198,9 @@ function GenericCallbacks.init!(cb::PySDMCallback, solver, Q, param, t)
 
     py"change_state_var($(parent(Q.ρ)))"
 end
+
+GenericCallbacks.call!(cb::MyCallback, _...) = (cb.calls += 1; nothing)
+GenericCallbacks.fini!(cb::MyCallback, _...) = cb.finished = true
 
 
 
@@ -332,40 +336,8 @@ function main()
     ]
     dgn_config = ClimateMachine.DiagnosticsConfiguration(dgngrps)
 
-    
-    # configuring PySDM
-    # TODO kernel here !!!!!!!! done?
-    krnl = PySDMKernels()
 
-    spectra = PySDMSpectra()
-
-    rho_STP = 1.2252141358659048
-    micrometre = 1e-6
-    centimetre = 0.01
-    spectrum_per_mass_of_dry_air = spectra.Lognormal(
-                                                norm_factor=60 / centimetre ^ 3 / rho_STP,
-                                                m_mode=0.04 * micrometre,
-                                                s_geom=1.4
-                                            )
-
-    pysdmconf = PySDMConf(
-                        (Int(xmax/Δx), Int(zmax/Δz)), 
-                        (xmax, zmax), 
-                        (Δx, Δz), 
-                        t_end, 
-                        solver_config.dt, 
-                        25, 
-                        1, 
-                        krnl.Geometric(collection_efficiency=1), 
-                        spectrum_per_mass_of_dry_air
-                    ) #???? 
-
-    testcb = GenericCallbacks.EveryXSimulationSteps(PySDMCallback("PySDMCallback", 
-                                                                  solver_config.dg, 
-                                                                  interpol, 
-                                                                  mpicomm, 
-                                                                  pysdmconf
-                                                                  ), 1)
+    testcb = GenericCallbacks.EveryXSimulationSteps(MyCallback(false, 0, false), 1)
 
 
     # call solve! function for time-integrator
