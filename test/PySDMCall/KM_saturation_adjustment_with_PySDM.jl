@@ -310,8 +310,6 @@ function main()
 
     
     # configuring PySDM
-    pkg_pysdm = import_PySDM()
-
     krnl = PySDMKernels()
 
     spectra = PySDMSpectra()
