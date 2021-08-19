@@ -1,9 +1,10 @@
-using Dates: print, isequal
-# former KM_saturation_adjustment
 
 include("../Atmos/Parameterizations/Microphysics/KinematicModel.jl")
+include("../../src/PySDMCall/PySDMCallback.jl")
+include("../../src/PySDMCall/PySDMCall.jl")
 
-using PyCall
+using .PySDMCallbacks
+using .PySDMCall
 
 using StaticArrays
 
@@ -34,6 +35,8 @@ function vars_state(m::KinematicModel, ::Auxiliary, FT)
         e_pot::FT
         e_int::FT
         T::FT
+        theta_liq_ice::FT
+        theta_dry::FT
         S_liq::FT
         RH::FT
     end
@@ -107,6 +110,8 @@ function nodal_update_auxiliary_state!(
         q = PhasePartition(ts)
 
         aux.T = ts.T
+        aux.theta_liq_ice = liquid_ice_pottemp(param_set, ts.T, state.ρ, q)
+        aux.theta_dry = dry_pottemp(param_set, ts.T, state.ρ)
         aux.q_vap = vapor_specific_humidity(q) # zmienne w przestrzeni 
         aux.q_liq = q.liq
         aux.q_ice = q.ice
@@ -171,44 +176,11 @@ end
 
 source!(::KinematicModel, _...) = nothing
 
-
-mutable struct MyCallback
-    initialized::Bool
-    calls::Int
-    finished::Bool
-end
-
-
-function GenericCallbacks.init!(cb::MyCallback, solver, Q, param, t)
-
-    py"""
-    def change_state_var(Q):
-        print(type(Q))
-        print(Q.shape)
-        Q.fill(-1.)
-    """
-
-    println()
-    println("MyCallback init!")
-    println(typeof(Q))
-    println(size(Q.ρ))
-    print("Time: ")
-    println(t)
-    println()
-
-    py"change_state_var($(parent(Q.ρ)))"
-end
-
-GenericCallbacks.call!(cb::MyCallback, _...) = (cb.calls += 1; nothing)
-GenericCallbacks.fini!(cb::MyCallback, _...) = cb.finished = true
-
-
-
 function main()
     # Working precision
     FT = Float64
     # DG polynomial order
-    N = 1 # 1 2 regular cells
+    N = 4 # 1 2 regular cells
     # Domain resolution and size
     Δx = FT(20)
     Δy = FT(1)
@@ -228,7 +200,7 @@ function main()
 
     # time stepping
     t_ini = FT(0)
-    t_end = FT(0)#FT(60 * 30)
+    t_end = FT(60 * 30)
     dt = 10 # was 40
     output_freq = 9
     interval = "90steps"
@@ -336,25 +308,81 @@ function main()
     ]
     dgn_config = ClimateMachine.DiagnosticsConfiguration(dgngrps)
 
+    
+    # configuring PySDM
+    krnl = PySDMKernels()
 
-    testcb = GenericCallbacks.EveryXSimulationSteps(MyCallback(false, 0, false), 1)
+    spectra = PySDMSpectra()
 
+    rho_STP = 1.2252141358659048
+    micrometre = 1e-6
+    centimetre = 0.01
+    spectrum_per_mass_of_dry_air = spectra.Lognormal(norm_factor=60 / centimetre ^ 3 / rho_STP,
+                                                     m_mode=0.04 * micrometre,
+                                                     s_geom=1.4
+                                                    )
+
+    pysdmconf = PySDMConf((xmax, zmax), 
+                          (Δx, Δz), 
+                          t_end, 
+                          solver_config.dt, 
+                          25, 
+                          1, 
+                          krnl.Geometric(collection_efficiency=1), 
+                          spectrum_per_mass_of_dry_air
+                         )
+
+    pysdm_cb = GenericCallbacks.EveryXSimulationSteps(PySDMCallback("PySDMCallback", 
+                                                                    solver_config.dg, 
+                                                                    interpol, 
+                                                                    mpicomm, 
+                                                                    pysdmconf
+                                                                   ), 1)
+
+
+
+    # get aux variables indices for testing
+    q_tot_ind = varsindex(vars_state(model, Auxiliary(), FT), :q_tot)
+    q_vap_ind = varsindex(vars_state(model, Auxiliary(), FT), :q_vap)
+    q_liq_ind = varsindex(vars_state(model, Auxiliary(), FT), :q_liq)
+    q_ice_ind = varsindex(vars_state(model, Auxiliary(), FT), :q_ice)
+    S_liq_ind = varsindex(vars_state(model, Auxiliary(), FT), :S_liq)
 
     # call solve! function for time-integrator
     result = ClimateMachine.invoke!(
         solver_config;
-        diagnostics_config = nothing, #dgn_config,
-        user_callbacks = (cbvtk, testcb,),
+        diagnostics_config = dgn_config,
+        user_callbacks = (cbvtk, pysdm_cb,),
         check_euclidean_distance = true,
     )
 
-    println("[TEST] PyCall invocation test")
-    
-    cb_test_max = maximum(solver_config.Q.ρ)
-    cb_test_min = minimum(solver_config.Q.ρ)
-    
-    @test isequal(cb_test_max, FT(-1)) && isequal(cb_test_min, FT(-1))
-    
+    # no supersaturation
+    max_S_liq = maximum(abs.(solver_config.dg.state_auxiliary[:, S_liq_ind, :]))
+    @test isequal(max_S_liq, FT(0))
+
+    # qt is conserved
+    max_q_tot = maximum(abs.(solver_config.dg.state_auxiliary[:, q_tot_ind, :]))
+    min_q_tot = minimum(abs.(solver_config.dg.state_auxiliary[:, q_tot_ind, :]))
+    @test isapprox(max_q_tot, qt_0; rtol = 1e-3)
+    @test isapprox(min_q_tot, qt_0; rtol = 1e-3)
+
+    # q_vap + q_liq = q_tot
+    max_water_diff = maximum(abs.(
+        solver_config.dg.state_auxiliary[:, q_tot_ind, :] .-
+        solver_config.dg.state_auxiliary[:, q_vap_ind, :] .-
+        solver_config.dg.state_auxiliary[:, q_liq_ind, :],
+    ))
+    @test isequal(max_water_diff, FT(0))
+
+    # no ice
+    max_q_ice = maximum(abs.(solver_config.dg.state_auxiliary[:, q_ice_ind, :]))
+    @test isequal(max_q_ice, FT(0))
+
+    # q_liq ∈ reference range
+    max_q_liq = maximum(solver_config.dg.state_auxiliary[:, q_liq_ind, :])
+    min_q_liq = minimum(solver_config.dg.state_auxiliary[:, q_liq_ind, :])
+    @test max_q_liq < FT(1e-3)
+    @test isequal(min_q_liq, FT(0))
 end
 
 main()

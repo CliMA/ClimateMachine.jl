@@ -39,7 +39,9 @@ using Thermodynamics:
     Liquid,
     Ice,
     supersaturation,
-    vapor_specific_humidity
+    vapor_specific_humidity,
+    liquid_ice_pottemp,
+    dry_pottemp
 
 using ClimateMachine.Microphysics
 using ClimateMachine.MPIStateArrays
