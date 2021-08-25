@@ -97,6 +97,12 @@ git-tree-sha1 = "dfbf58e0e470c2fd70020ae2c34e2f17b9fd1e4c"
 uuid = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"
 version = "1.2.0"
 
+[[CloudMicrophysics]]
+deps = ["CLIMAParameters", "DocStringExtensions", "KernelAbstractions", "SpecialFunctions", "Thermodynamics"]
+git-tree-sha1 = "6dd52328ea12893d689bc896aead154e104529d9"
+uuid = "6a9e3e04-43cd-43ba-94b9-e8782df3c71b"
+version = "0.1.0"
+
 [[CodecZlib]]
 deps = ["TranscodingStreams", "Zlib_jll"]
 git-tree-sha1 = "ded953804d019afa9a3f98981d99b33e3db7b6da"
@@ -156,6 +162,12 @@ version = "1.3.0"
 git-tree-sha1 = "3f71217b538d7aaee0b69ab47d9b7724ca8afa0d"
 uuid = "a8cc5b0e-0ffa-5ad4-8c14-923d3ee1735f"
 version = "4.0.4"
+
+[[CubedSphere]]
+deps = ["Elliptic", "Printf", "Requires", "Rotations", "TaylorSeries", "Test"]
+git-tree-sha1 = "b7df0c21789cb6adf5f1e2eb7a52accae5b867f6"
+uuid = "7445602f-e544-4518-8976-18f8e8ae6cdb"
+version = "0.1.0"
 
 [[DataAPI]]
 git-tree-sha1 = "ee400abb2298bd13bfc3df1c412ed228061a2385"
@@ -248,6 +260,11 @@ version = "1.1.23"
 deps = ["ArgTools", "LibCURL", "NetworkOptions"]
 git-tree-sha1 = "5de8c54d269fd7ab430656c27de73e63eb07a979"
 uuid = "f43a241f-c20a-4ad4-852c-f6b1247861c6"
+
+[[Elliptic]]
+git-tree-sha1 = "71c79e77221ab3a29918aaf6db4f217b89138608"
+uuid = "b305315f-e792-5b7a-8f41-49f472929428"
+version = "1.0.1"
 
 [[ExponentialUtilities]]
 deps = ["ArrayInterface", "LinearAlgebra", "Printf", "Requires", "SparseArrays"]
@@ -841,6 +858,12 @@ git-tree-sha1 = "0e5b394adc5c6fb39b3964bce2a259a44cc312d3"
 uuid = "7181ea78-2dcb-4de3-ab41-2b8ab5a31e74"
 version = "0.2.0"
 
+[[Rotations]]
+deps = ["LinearAlgebra", "StaticArrays", "Statistics"]
+git-tree-sha1 = "2ed8d8a16d703f900168822d83699b8c3c1a5cd8"
+uuid = "6038ab10-8711-5258-84ad-4b1120ba62dc"
+version = "1.0.2"
+
 [[SHA]]
 uuid = "ea8e919c-243c-51af-8825-aaa63cd721ce"
 
@@ -974,6 +997,12 @@ version = "1.5.0"
 [[Tar]]
 deps = ["ArgTools", "SHA"]
 uuid = "a4e569a6-e804-4fa4-b0f3-eef7a1d5b13e"
+
+[[TaylorSeries]]
+deps = ["InteractiveUtils", "LinearAlgebra", "Markdown", "Requires", "SparseArrays"]
+git-tree-sha1 = "66f4d1993bae49eeba21a1634b5f65782585a42c"
+uuid = "6aa5eb33-94cf-58f4-a9d0-e4b2c4fc25ea"
+version = "0.10.13"
 
 [[Test]]
 deps = ["InteractiveUtils", "Logging", "Random", "Serialization"]

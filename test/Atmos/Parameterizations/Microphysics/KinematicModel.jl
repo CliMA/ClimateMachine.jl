@@ -43,11 +43,13 @@ using Thermodynamics:
     liquid_ice_pottemp,
     dry_pottemp
 
-using ClimateMachine.Microphysics
 using ClimateMachine.MPIStateArrays
 using ClimateMachine.ODESolvers
 using ClimateMachine.VariableTemplates
 using ClimateMachine.VTK
+
+using CloudMicrophysics.Microphysics_0M
+using CloudMicrophysics.Microphysics_1M
 
 using CLIMAParameters
 using CLIMAParameters.Planet:
