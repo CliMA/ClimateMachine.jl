@@ -105,21 +105,27 @@ function nodal_update_auxiliary_state!(
         aux.e_pot = _grav * aux.z_coord
         aux.e_int = aux.e_tot - aux.e_kin - aux.e_pot
 
-        # saturation adjustment happens here
-        ts = PhaseEquil(param_set, aux.e_int, state.ρ, aux.q_tot)
-        q = PhasePartition(ts)
+        # saturation adjustment happens here 
 
-        aux.T = ts.T
-        aux.theta_liq_ice = liquid_ice_pottemp(param_set, ts.T, state.ρ, q)
-        aux.theta_dry = dry_pottemp(param_set, ts.T, state.ρ)
+        # no saturation adjustment
+
+        #ts = PhaseEquil(param_set, aux.e_int, state.ρ, aux.q_tot)
+        #q = PhasePartition(ts)
+        q = PhasePartition(aux.q_tot, .0, .0)
+        aux.T = air_temperature(param_set, aux.e_int, q)
+
+        #aux.T = ts.T
+        
+        aux.theta_liq_ice = liquid_ice_pottemp(param_set, aux.T, state.ρ, q) #ts.T, state.ρ, q)
+        aux.theta_dry = dry_pottemp(param_set, aux.T, state.ρ) #ts.T, state.ρ)
         aux.q_vap = vapor_specific_humidity(q) # zmienne w przestrzeni 
         aux.q_liq = q.liq
         aux.q_ice = q.ice
 
         # TODO: add super_saturation method in moist thermo
         #aux.S = max(0, aux.q_vap / q_vap_saturation(ts) - FT(1)) * FT(100)
-        aux.S_liq = max(0, supersaturation(ts, Liquid()))
-        aux.RH = relative_humidity(ts)
+        #aux.S_liq = max(0, supersaturation(ts, Liquid()))
+        #aux.RH = relative_humidity(ts)
     end
 end
 
@@ -332,12 +338,12 @@ function main()
                           spectrum_per_mass_of_dry_air
                          )
 
-    pysdm_cb = GenericCallbacks.EveryXSimulationSteps(PySDMCallback("PySDMCallback", 
+    pysdm_cb = GenericCallbacks.AtInit(PySDMCallback("PySDMCallback", 
                                                                     solver_config.dg, 
                                                                     interpol, 
                                                                     mpicomm, 
                                                                     pysdmconf
-                                                                   ), 1)
+                                                                   ))#, 1)
 
 
 

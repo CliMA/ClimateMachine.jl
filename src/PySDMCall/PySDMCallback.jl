@@ -6,6 +6,7 @@ export PySDMCallback
 
 include("PySDMCall.jl")
 #include("src/PySDMCall/PySDMCall.jl")
+include("../../test/Atmos/Parameterizations/Microphysics/KinematicModel.jl") #param_set
 
 using .PySDMCall
 
@@ -24,12 +25,14 @@ using ClimateMachine.BalanceLaws
 using ClimateMachine.Mesh.Interpolation
 using ClimateMachine.VariableTemplates
 using ClimateMachine.DGMethods: SpaceDiscretization
+import Thermodynamics
+const THDS = Thermodynamics
 
 using CLIMAParameters
 
 import ClimateMachine.GenericCallbacks
 
-
+using PyCall
 
 
 
@@ -48,7 +51,7 @@ function PySDMCallback(name, dg, interpol, mpicomm, pysdmconf)
         dg,
         interpol,
         mpicomm,
-        PySDM(pysdmconf, nothing, nothing, nothing)
+        PySDM(pysdmconf, nothing, nothing, nothing, nothing)
     )
 end    
 
@@ -75,18 +78,39 @@ function GenericCallbacks.call!(cb::PySDMCallback, solver, Q, param, t)
     println(t)
     println()
 
+    export_particles_to_vtk(cb.pysdm)
+
     vals = vals_interpol(cb, Q)
 
-    update_pysdm_fields!(cb, vals)
+    println(keys(cb.pysdm.core.dynamics))
+    dynamics = cb.pysdm.core.dynamics
+
+    #run Displacement
+    #TODO: add Displacement 2 times: 1 for Condensation and 1 for Advection
+    dynamics["Displacement"]()
+    #delete!(dynamics, "Displacement")
+
+    update_pysdm_fields!(cb, vals, t)
 
     cb.pysdm.core.env.sync()
-    cb.pysdm.core.run(1)
+    #cb.pysdm.core.run(1)
 
+    dynamics["ClimateMachine"]()
+    dynamics["Condensation"]()
+
+"""
+    for (key, value) in dynamics
+        # TODO: insert if in here
+        println(key)
+        value()
+    end
+"""
     #env.sync() # take data from CliMA
     #cb.pysdm.run(1) # dynamic in dynamics
     # upd CliMa state vars
     return nothing
 end
+
 function GenericCallbacks.fini!(cb::PySDMCallback, solver, Q, param, t)
     println()
     println("PySDMCallback fini")
@@ -96,10 +120,10 @@ function GenericCallbacks.fini!(cb::PySDMCallback, solver, Q, param, t)
 end
 
 
-function update_pysdm_fields!(cb::PySDMCallback, vals)
+function update_pysdm_fields!(cb::PySDMCallback, vals, t)
 
     println("theta_dry, q_vap")
-
+"""
     pysdm_th = vals["theta_dry"][:, 1, :]
     @assert size(pysdm_th) == (76, 76)
     pysdm_th = bilinear_interpol(pysdm_th)
@@ -109,13 +133,113 @@ function update_pysdm_fields!(cb::PySDMCallback, vals)
     @assert size(pysdm_qv) == (76, 76)
     pysdm_qv = bilinear_interpol(pysdm_qv)
     @assert size(pysdm_qv) == (75, 75)
+"""
+
+    # set frequency of plotting 
+    n_steps = 10
+
+    n_simtime = n_steps * 10 # dt = 10, simtime 100 = steps 10
+
+    # water_mixing_ratio = get product 3 moment objentosci kropel (get water mixing ratio product)
+    #liquid_water_mixing_ratio = pysdm.get_product(water_mixing_ratio)
+    liquid_water_mixing_ratio = cb.pysdm.core.products["qc"].get()
+    println(typeof(liquid_water_mixing_ratio))
+    println(size(liquid_water_mixing_ratio))
 
 
+    if t % n_simtime == 0
+        export_plt(liquid_water_mixing_ratio, "liquid_water_mixing_ratio", t)
+    end
+
+    #liquid_water_specific_humidity = some_f(liquid_water_mixing_ratio) # Sylwester podesli na Slacku
+    liquid_water_specific_humidity = liquid_water_mixing_ratio
+
+    #q = THDS.PhasePartition(q_tot, liquid_water_mixing_ratio, .0) # instead of liquid_water_mixing_ratio should be liquid_water_specific_humidity
+    q_tot = vals["q_tot"][:, 1, :]
+    q_tot = bilinear_interpol(q_tot)
+
+    if t % n_simtime == 0
+        export_plt(q_tot, "q_tot", t)
+    end
+    
+    q = THDS.PhasePartition.(q_tot, liquid_water_specific_humidity, .0)
+
+    println("q")
+    println(size(q))
+    println(typeof(q))
+
+    # q is Matrix of PhasePartition objects, thus not plottable
+    
+    #qv = THDS.vapor_specific_humidity(q)
+    qv = THDS.vapor_specific_humidity.(q)
+
+    if t % n_simtime == 0
+        export_plt(qv, "qv", t)
+    end
+
+    println(typeof(qv))
+
+    #T = THDS.air_temperature(param_set, e_int, q) # CLIMAParameters: param_set
+    e_int = vals["e_int"][:, 1, :]
+    e_int = bilinear_interpol(e_int)
+
+    if t % n_simtime == 0
+        export_plt(e_int, "e_int", t)
+    end
+
+    T = THDS.air_temperature.(param_set, e_int, q)
+
+    if t % n_simtime == 0
+        export_plt(T, "T", t)
+    end
+
+    #thd = THDS.dry_pottemp(param_set, T, ρ) # rho has to be rhod (dry)
+    ρ = cb.pysdm.rhod
+    thd = THDS.dry_pottemp.(param_set, T, ρ)
+
+    if t % n_simtime == 0    
+        export_plt(thd, "thd", t)
+    end
+    
+    println("new qv and thd")
+    println(size(qv))
+    println(size(thd))
+
+    pysdm_th = thd
+    pysdm_qv = qv
 
     cb.pysdm.core.dynamics["ClimateMachine"].set_th(pysdm_th)
     cb.pysdm.core.dynamics["ClimateMachine"].set_qv(pysdm_qv)
-    
+
+    #run dynamics (except Displacement)
+    # passing effective_radius to ClimateMachine (Auxiliary)
     return nothing
+end
+
+
+
+function export_plt(var, title, t)
+    py"""
+    from matplotlib.pyplot import cm
+    import numpy as np
+    import matplotlib.pyplot as plt
+
+    def plot_vars(A, title=None):
+        # Contour Plot
+        X, Y = np.mgrid[0:A.shape[0], 0:A.shape[1]]
+        Z = A
+        cp = plt.contourf(X, Y, Z)
+        cb = plt.colorbar(cp)
+        if title:
+            plt.title(title)
+
+        plt.show()
+        return plt
+    """
+
+    println(string(title, "plot"))
+    plt = py"plot_vars($var, title=$title)"
+    plt.savefig(string(title, t, ".png"))
 end
 
 
@@ -150,7 +274,7 @@ function vals_interpol(cb::PySDMCallback, Q)
     all_state_data = accumulate_interpolated_data(mpicomm, interpol, istate)
     all_aux_data = accumulate_interpolated_data(mpicomm, interpol, iaux)
 
-    pysdm_vars = ["ρ", "ρu[1]", "ρu[3]", "q_vap", "theta_dry"]
+    pysdm_vars = ["ρ", "ρu[1]", "ρu[3]", "q_vap", "theta_dry", "q_tot", "e_int"]
 
 
     varvals = nothing
