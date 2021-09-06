@@ -267,33 +267,33 @@ function main()
 
     # output for paraview
     # initialize base prefix directory from rank 0
-    vtkdir = abspath(joinpath(ClimateMachine.Settings.output_dir, "vtk"))
-    if MPI.Comm_rank(mpicomm) == 0
-        mkpath(vtkdir)
-    end
+    #vtkdir = abspath(joinpath(ClimateMachine.Settings.output_dir, "vtk"))
+    #if MPI.Comm_rank(mpicomm) == 0
+    #    mkpath(vtkdir)
+    #end
     MPI.Barrier(mpicomm)
 
-    model = driver_config.bl
-    vtkstep = [0]
-    cbvtk = GenericCallbacks.EveryXSimulationSteps(output_freq) do
-        out_dirname = @sprintf(
-            "new_ex_1_mpirank%04d_step%04d",
-            MPI.Comm_rank(mpicomm),
-            vtkstep[1]
-        )
-        out_path_prefix = joinpath(vtkdir, out_dirname)
-        @info "doing VTK output" out_path_prefix
-        writevtk(
-            out_path_prefix,
-            solver_config.Q,
-            solver_config.dg,
-            flattenednames(vars_state(model, Prognostic(), FT)),
-            solver_config.dg.state_auxiliary,
-            flattenednames(vars_state(model, Auxiliary(), FT)),
-        )
-        vtkstep[1] += 1
-        nothing
-    end
+    #model = driver_config.bl
+    #vtkstep = [0]
+    #cbvtk = GenericCallbacks.EveryXSimulationSteps(output_freq) do
+    #    out_dirname = @sprintf(
+    #        "new_ex_1_mpirank%04d_step%04d",
+    #        MPI.Comm_rank(mpicomm),
+    #        vtkstep[1]
+    #    )
+    #    out_path_prefix = joinpath(vtkdir, out_dirname)
+    #    @info "doing VTK output" out_path_prefix
+    #    writevtk(
+    #        out_path_prefix,
+    #        solver_config.Q,
+    #        solver_config.dg,
+    #        flattenednames(vars_state(model, Prognostic(), FT)),
+    #        solver_config.dg.state_auxiliary,
+    #        flattenednames(vars_state(model, Auxiliary(), FT)),
+    #    )
+    #    vtkstep[1] += 1
+    #    nothing
+    #end
 
     # output for netcdf
     boundaries = [
@@ -362,7 +362,7 @@ function main()
     result = ClimateMachine.invoke!(
         solver_config;
         diagnostics_config = nothing,#dgn_config,
-        user_callbacks = (cbvtk, testcb,),
+        user_callbacks = (testcb,),
         check_euclidean_distance = true,
     )
     

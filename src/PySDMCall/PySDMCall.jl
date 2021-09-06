@@ -4,7 +4,7 @@ module PySDMCall
 
 using PyCall
 
-export PySDM, pysdm_init, PySDMConf, PySDMKernels, PySDMSpectra, bilinear_interpol
+export PySDM, pysdm_init, PySDMConf, PySDMKernels, PySDMSpectra, bilinear_interpol, export_particles_to_vtk
 
 
 mutable struct PySDM
@@ -12,6 +12,7 @@ mutable struct PySDM
     core
     rhod # <class 'numpy.ndarray'> czy ρ to to ??? - nie, ale bierzemy go
     field_values # 
+    exporter
 end
 
 
@@ -93,7 +94,7 @@ function pysdm_init!(pysdm, varvals)
     builder = pkg_builder.Builder(n_sd=pysdm.conf.n_sd, backend=pkg_backend.CPU, formulae=formulae)
 
     
-    pysdm.rhod = varvals["ρ"][:, 1, :] # pysdm rhod differs a little bit from CliMa rhod
+    pysdm.rhod = varvals["ρ"][:, 1, :] # pysdm rhod differs a little bit from CliMa rho
     u1 = varvals["ρu[1]"][:, 1, :] ./ pysdm.rhod
     u3 = varvals["ρu[3]"][:, 1, :] ./ pysdm.rhod
 
@@ -151,7 +152,7 @@ function pysdm_init!(pysdm, varvals)
     
     builder.add_dynamic(pkg_dynamics.Displacement(courant_field=courant_field,
                                                   # scheme="FTBS",
-                                                  enable_sedimentation=true))
+                                                  enable_sedimentation=false)) # enable_sedimentation=true
 
     builder.add_dynamic(pkg_dynamics.Coalescence(kernel=pysdm.conf.kernel))
 
@@ -162,7 +163,17 @@ function pysdm_init!(pysdm, varvals)
                                              ),
                                              kappa=pysdm.conf.kappa)
 
-    pysdm.core = builder.build(attributes, products=[])
+
+    pkg_PySDM_produts = pyimport("PySDM.products")
+    liquid_water_mixing_ratio_product = pkg_PySDM_produts.WaterMixingRatio(name="qc", description_prefix="liquid", radius_range=(.5, 25))
+
+    pysdm.core = builder.build(attributes, products=[liquid_water_mixing_ratio_product])
+
+    ####
+    pkg_vtkexp = pyimport("PySDM.exporters.vtk_exporter")
+    pysdm.exporter = pkg_vtkexp.VTKExporter(verbose=true)
+
+    
     return nothing
 end
 
@@ -176,7 +187,7 @@ function bilinear_interpol(A)
     @assert size(A) == (array_size[1]-1, array_size[2]-1)
 
     return A
-end 
+end
 
 function PySDMKernels()
     pyimport("PySDM.physics.coalescence_kernels")
@@ -184,6 +195,12 @@ end
 
 function PySDMSpectra()
     pyimport("PySDM.physics.spectra")
+end
+
+function export_particles_to_vtk(pysdm)
+    if !isnothing(pysdm.exporter)
+        pysdm.exporter.export_particles(pysdm.core)
+    end
 end
 
 end # module PySDMCall
