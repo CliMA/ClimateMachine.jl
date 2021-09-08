@@ -57,10 +57,10 @@ function init_kinematic_eddy!(eddy_model, state, aux, localgeo, t)
         T::FT = dc.θ_0 * (aux.p / dc.p_1000)^(R_m / cp_m)
         ρ::FT = aux.p / R_m / T
         state.ρ = ρ
-        
+
 
         # R_m 288.31131120772176
-        
+
 
         # moisture
         state.ρq_tot = ρ * dc.qt_0
@@ -105,7 +105,7 @@ function nodal_update_auxiliary_state!(
         aux.e_pot = _grav * aux.z_coord
         aux.e_int = aux.e_tot - aux.e_kin - aux.e_pot
 
-        # saturation adjustment happens here 
+        # saturation adjustment happens here
 
         # no saturation adjustment
 
@@ -115,10 +115,10 @@ function nodal_update_auxiliary_state!(
         aux.T = air_temperature(param_set, aux.e_int, q)
 
         #aux.T = ts.T
-        
+
         aux.theta_liq_ice = liquid_ice_pottemp(param_set, aux.T, state.ρ, q) #ts.T, state.ρ, q)
         aux.theta_dry = dry_pottemp(param_set, aux.T, state.ρ) #ts.T, state.ρ)
-        aux.q_vap = vapor_specific_humidity(q) # zmienne w przestrzeni 
+        aux.q_vap = vapor_specific_humidity(q) # zmienne w przestrzeni
         aux.q_liq = q.liq
         aux.q_ice = q.ice
 
@@ -310,11 +310,11 @@ function main()
             driver_config.name,
             interpol = interpol,
         ),
-        
+
     ]
     dgn_config = ClimateMachine.DiagnosticsConfiguration(dgngrps)
 
-    
+
     # configuring PySDM
     krnl = PySDMKernels()
 
@@ -328,20 +328,20 @@ function main()
                                                      s_geom=1.4
                                                     )
 
-    pysdmconf = PySDMConf((xmax, zmax), 
-                          (Δx, Δz), 
-                          t_end, 
-                          solver_config.dt, 
-                          25, 
-                          1, 
-                          krnl.Geometric(collection_efficiency=1), 
+    pysdmconf = PySDMConf((xmax, zmax),
+                          (Δx, Δz),
+                          t_end,
+                          solver_config.dt,
+                          25,
+                          1,
+                          krnl.Geometric(collection_efficiency=1),
                           spectrum_per_mass_of_dry_air
                          )
 
-    pysdm_cb = GenericCallbacks.AtInit(PySDMCallback("PySDMCallback", 
-                                                                    solver_config.dg, 
-                                                                    interpol, 
-                                                                    mpicomm, 
+    pysdm_cb = GenericCallbacks.AtInit(PySDMCallback("PySDMCallback",
+                                                                    solver_config.dg,
+                                                                    interpol,
+                                                                    mpicomm,
                                                                     pysdmconf
                                                                    ))#, 1)
 

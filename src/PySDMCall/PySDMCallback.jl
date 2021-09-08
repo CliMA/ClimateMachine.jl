@@ -53,7 +53,7 @@ function PySDMCallback(name, dg, interpol, mpicomm, pysdmconf)
         mpicomm,
         PySDM(pysdmconf, nothing, nothing, nothing, nothing)
     )
-end    
+end
 
 
 function GenericCallbacks.init!(cb::PySDMCallback, solver, Q, param, t)
@@ -64,7 +64,7 @@ function GenericCallbacks.init!(cb::PySDMCallback, solver, Q, param, t)
     println()
 
     varvals = vals_interpol(cb, Q)
- 
+
 
     PySDMCall.pysdm_init!(cb.pysdm, varvals)
 
@@ -135,7 +135,7 @@ function update_pysdm_fields!(cb::PySDMCallback, vals, t)
     @assert size(pysdm_qv) == (75, 75)
 """
 
-    # set frequency of plotting 
+    # set frequency of plotting
     n_steps = 10
 
     n_simtime = n_steps * 10 # dt = 10, simtime 100 = steps 10
@@ -145,7 +145,6 @@ function update_pysdm_fields!(cb::PySDMCallback, vals, t)
     liquid_water_mixing_ratio = cb.pysdm.core.products["qc"].get()
     println(typeof(liquid_water_mixing_ratio))
     println(size(liquid_water_mixing_ratio))
-
 
     if t % n_simtime == 0
         export_plt(liquid_water_mixing_ratio, "liquid_water_mixing_ratio", t)
@@ -161,7 +160,7 @@ function update_pysdm_fields!(cb::PySDMCallback, vals, t)
     if t % n_simtime == 0
         export_plt(q_tot, "q_tot", t)
     end
-    
+
     q = THDS.PhasePartition.(q_tot, liquid_water_specific_humidity, .0)
 
     println("q")
@@ -169,7 +168,7 @@ function update_pysdm_fields!(cb::PySDMCallback, vals, t)
     println(typeof(q))
 
     # q is Matrix of PhasePartition objects, thus not plottable
-    
+
     #qv = THDS.vapor_specific_humidity(q)
     qv = THDS.vapor_specific_humidity.(q)
 
@@ -187,6 +186,7 @@ function update_pysdm_fields!(cb::PySDMCallback, vals, t)
         export_plt(e_int, "e_int", t)
     end
 
+    # TODO - AJ shouldnt we compute new e_int and new T based on new pp?
     T = THDS.air_temperature.(param_set, e_int, q)
 
     if t % n_simtime == 0
@@ -197,10 +197,22 @@ function update_pysdm_fields!(cb::PySDMCallback, vals, t)
     ρ = cb.pysdm.rhod
     thd = THDS.dry_pottemp.(param_set, T, ρ)
 
-    if t % n_simtime == 0    
+    if t % n_simtime == 0
         export_plt(thd, "thd", t)
     end
-    
+
+    RH_machine = THDS.supersaturation.(param_set, q, ρ, T, THDS.Liquid()) .+ 1.0
+
+    println(cb.pysdm.core.products.keys)
+
+    RH_pysdm = cb.pysdm.core.products["RH_env"].get() ./ 100.0
+
+    if t % n_simtime == 0
+        export_plt(RH_machine, "RH_machine", t)
+        export_plt(RH_pysdm, "RH_pysdm", t)
+        export_plt((RH_pysdm .- RH_machine)./RH_machine, "RH_rel_diff", t)
+    end
+
     println("new qv and thd")
     println(size(qv))
     println(size(thd))
@@ -240,6 +252,7 @@ function export_plt(var, title, t)
     println(string(title, "plot"))
     plt = py"plot_vars($var, title=$title)"
     plt.savefig(string(title, t, ".png"))
+    plt.clf()
 end
 
 
@@ -254,7 +267,7 @@ function vals_interpol(cb::PySDMCallback, Q)
     mpirank = MPI.Comm_rank(mpicomm)
 
     istate = similar(Q.data, interpol.Npl, number_states(bl, Prognostic()))
-    
+
     interpolate_local!(interpol, Q.data, istate)
 
     if interpol isa InterpolationCubedSphere
@@ -282,7 +295,7 @@ function vals_interpol(cb::PySDMCallback, Q)
     if mpirank == 0
         statenames = flattenednames(vars_state(bl, Prognostic(), FT))
         auxnames = flattenednames(vars_state(bl, Auxiliary(), FT))
-        
+
         #println("CUSTOM CALLBACK PYSDM STATENAMES")
         #println(statenames)
 
@@ -294,16 +307,16 @@ function vals_interpol(cb::PySDMCallback, Q)
             if varname in pysdm_vars
 
                 varvals[varname] = all_state_data[:, :, :, vari]
-            
-            end    
+
+            end
         end
 
         for (vari, varname) in enumerate(auxnames)
             if varname in pysdm_vars
-                
+
                 varvals[varname] = all_aux_data[:, :, :, vari]
-                
-            end  
+
+            end
         end
 
     end
@@ -314,7 +327,7 @@ function vals_interpol(cb::PySDMCallback, Q)
 end
 
 
-  
+
 """
 example of use:
 testcb = GenericCallbacks.EveryXSimulationSteps(PySDMCallback("PySDMCallback", solver_config.dg, interpol, mpicomm), 1)

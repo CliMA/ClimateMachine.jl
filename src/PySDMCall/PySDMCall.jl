@@ -11,7 +11,7 @@ mutable struct PySDM
     conf
     core
     rhod # <class 'numpy.ndarray'> czy ρ to to ??? - nie, ale bierzemy go
-    field_values # 
+    field_values #
     exporter
 end
 
@@ -26,19 +26,19 @@ mutable struct PySDMConf
     n_sd
     kappa # 1 hygroscopicity
     kernel # Geometric from PySDM
-    spectrum_per_mass_of_dry_air # 
+    spectrum_per_mass_of_dry_air #
 end
 
 function PySDMConf(
  # grid (75, 75)
     size,  # (1500, 1500)
-    dxdz, # (dx, dz)  
+    dxdz, # (dx, dz)
     simtime, # 1800
     dt,
     n_sd_per_gridbox,
     kappa, # 1
     kernel,
-    spectrum_per_mass_of_dry_air # 
+    spectrum_per_mass_of_dry_air #
 )
     grid = (Int(size[1]/dxdz[1]), Int(size[2]/dxdz[2]))
 
@@ -52,7 +52,7 @@ function PySDMConf(
 
     dt_si = py"$dt * $physics_constants.si.second"
     dxdz_si = (py"$dxdz[0] * $physics_constants.si.metres", py"$dxdz[1] * $physics_constants.si.metres")
-    
+
 
     PySDMConf(
         grid,
@@ -65,15 +65,15 @@ function PySDMConf(
         kernel,
         spectrum_per_mass_of_dry_air
     )
-end    
+end
 
 
 # CMStepper # coś co ma metodę wait & step # https://github.com/atmos-cloud-sim-uj/PySDM-examples/blob/main/PySDM_examples/Arabas_et_al_2015/mpdata.py
 
-        
+
 
 function __init__()
-    # adds current directory in the Python search path. 
+    # adds current directory in the Python search path.
     pushfirst!(PyVector(pyimport("sys")."path"), "")
     pushfirst!(PyVector(pyimport("sys")."path"), "./src/PySDMCall/")
 end
@@ -93,7 +93,7 @@ function pysdm_init!(pysdm, varvals)
     formulae = pkg_formulae.Formulae() # TODO: state_variable_triplet="TODO")
     builder = pkg_builder.Builder(n_sd=pysdm.conf.n_sd, backend=pkg_backend.CPU, formulae=formulae)
 
-    
+
     pysdm.rhod = varvals["ρ"][:, 1, :] # pysdm rhod differs a little bit from CliMa rho
     u1 = varvals["ρu[1]"][:, 1, :] ./ pysdm.rhod
     u3 = varvals["ρu[3]"][:, 1, :] ./ pysdm.rhod
@@ -128,9 +128,9 @@ function pysdm_init!(pysdm, varvals)
 
     builder.set_environment(environment)
     println(environment.mesh.__dict__)
-  
+
     # builder.add_dynamic(pkg_dynamics.AmbientThermodynamics()) # override env.sync()   # sync in fields from CM  w tym miejscu pobieramy pola z CliMa
-    
+
     builder.add_dynamic(pkg_dynamics.Condensation(kappa=pysdm.conf.kappa))
 
 
@@ -144,12 +144,12 @@ function pysdm_init!(pysdm, varvals)
     pysdm_qv = bilinear_interpol(pysdm_qv)
     @assert size(pysdm_qv) == (75, 75)
 
-    
+
     builder.add_dynamic(pkg_clima.ClimateMachine(py"{'qv': $pysdm_qv, 'th': $pysdm_th}"))
 
     # has sense only for multithreading
     # builder.add_dynamic(pkg_dynamics.EulerianAdvection(solver = CMStepper())) # sync out field to CM and launch CM advection
-    
+
     builder.add_dynamic(pkg_dynamics.Displacement(courant_field=courant_field,
                                                   # scheme="FTBS",
                                                   enable_sedimentation=false)) # enable_sedimentation=true
@@ -164,16 +164,18 @@ function pysdm_init!(pysdm, varvals)
                                              kappa=pysdm.conf.kappa)
 
 
-    pkg_PySDM_produts = pyimport("PySDM.products")
-    liquid_water_mixing_ratio_product = pkg_PySDM_produts.WaterMixingRatio(name="qc", description_prefix="liquid", radius_range=(.5, 25))
+    pkg_PySDM_products = pyimport("PySDM.products")
+    # pass in in meters
+    liquid_water_mixing_ratio_product = pkg_PySDM_products.WaterMixingRatio(name="qc", description_prefix="liquid", radius_range=(0.0, Inf))
+    relative_humidity_product = pkg_PySDM_products.RelativeHumidity()
 
-    pysdm.core = builder.build(attributes, products=[liquid_water_mixing_ratio_product])
+    pysdm.core = builder.build(attributes, products=[liquid_water_mixing_ratio_product, relative_humidity_product])
 
     ####
     pkg_vtkexp = pyimport("PySDM.exporters.vtk_exporter")
     pysdm.exporter = pkg_vtkexp.VTKExporter(verbose=true)
 
-    
+
     return nothing
 end
 
