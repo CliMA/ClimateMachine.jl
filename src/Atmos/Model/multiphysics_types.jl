@@ -4,6 +4,9 @@ using CLIMAParameters.Planet: T_freeze, cv_l
 
 using CloudMicrophysics.Microphysics_0M
 using CloudMicrophysics.Microphysics_1M
+import CloudMicrophysics
+
+const CM1M = CloudMicrophysics.Microphysics_1M
 
 export RainSnow_1M
 export WarmRain_1M
@@ -103,12 +106,12 @@ function warm_rain_sources(atmos, args, ts)
     param_set = parameter_set(atmos)
 
     # autoconversion
-    src_q_rai_acnv = conv_q_liq_to_q_rai(param_set.microphys.rai, q.liq)
+    src_q_rai_acnv = conv_q_liq_to_q_rai(param_set, q.liq)
     # accretion
     src_q_rai_accr = accretion(
         param_set,
-        param_set.microphys.liq,
-        param_set.microphys.rai,
+        CM1M.LiquidType(),
+        CM1M.RainType(),
         q.liq,
         q_rai,
         state.ρ,
@@ -116,7 +119,7 @@ function warm_rain_sources(atmos, args, ts)
     # rain evaporation
     src_q_rai_evap = evaporation_sublimation(
         param_set,
-        param_set.microphys.rai,
+        CM1M.RainType(),
         q,
         q_rai,
         state.ρ,
@@ -183,13 +186,13 @@ function rain_snow_sources(atmos, args, ts)
     S_e::FT = FT(0)
 
     # source of rain via autoconversion
-    tmp = conv_q_liq_to_q_rai(param_set.microphys.rai, q.liq)
+    tmp = conv_q_liq_to_q_rai(param_set, q.liq)
     S_qr += tmp
     S_ql -= tmp
     S_e -= tmp * (I_l + Φ)
 
     # source of snow via autoconversion
-    tmp = conv_q_ice_to_q_sno(param_set, param_set.microphys.ice, q, state.ρ, T)
+    tmp = conv_q_ice_to_q_sno(param_set, q, state.ρ, T)
     S_qs += tmp
     S_qi -= tmp
     S_e -= tmp * (I_i + Φ)
@@ -197,8 +200,8 @@ function rain_snow_sources(atmos, args, ts)
     # source of rain water via accretion cloud water - rain
     tmp = accretion(
         param_set,
-        param_set.microphys.liq,
-        param_set.microphys.rai,
+        CM1M.LiquidType(),
+        CM1M.RainType(),
         q.liq,
         q_rai,
         state.ρ,
@@ -210,8 +213,8 @@ function rain_snow_sources(atmos, args, ts)
     # source of snow via accretion cloud ice - snow
     tmp = accretion(
         param_set,
-        param_set.microphys.ice,
-        param_set.microphys.sno,
+        CM1M.IceType(),
+        CM1M.SnowType(),
         q.ice,
         q_sno,
         state.ρ,
@@ -223,8 +226,8 @@ function rain_snow_sources(atmos, args, ts)
     # sink of cloud water via accretion cloud water - snow
     tmp = accretion(
         param_set,
-        param_set.microphys.liq,
-        param_set.microphys.sno,
+        CM1M.LiquidType(),
+        CM1M.SnowType(),
         q.liq,
         q_sno,
         state.ρ,
@@ -244,21 +247,14 @@ function rain_snow_sources(atmos, args, ts)
     # sink of cloud ice via accretion cloud ice - rain
     tmp1 = accretion(
         param_set,
-        param_set.microphys.ice,
-        param_set.microphys.rai,
+        CM1M.IceType(),
+        CM1M.RainType(),
         q.ice,
         q_rai,
         state.ρ,
     )
     # sink of rain via accretion cloud ice - rain
-    tmp2 = accretion_rain_sink(
-        param_set,
-        param_set.microphys.ice,
-        param_set.microphys.rai,
-        q.ice,
-        q_rai,
-        state.ρ,
-    )
+    tmp2 = accretion_rain_sink(param_set, q.ice, q_rai, state.ρ)
     S_qi -= tmp1
     S_e -= tmp1 * (I_i + Φ)
     S_qr -= tmp2
@@ -269,8 +265,8 @@ function rain_snow_sources(atmos, args, ts)
     if T < _T_freeze
         tmp = accretion_snow_rain(
             param_set,
-            param_set.microphys.sno,
-            param_set.microphys.rai,
+            CM1M.SnowType(),
+            CM1M.RainType(),
             q_sno,
             q_rai,
             state.ρ,
@@ -281,8 +277,8 @@ function rain_snow_sources(atmos, args, ts)
     else
         tmp = accretion_snow_rain(
             param_set,
-            param_set.microphys.rai,
-            param_set.microphys.sno,
+            CM1M.RainType(),
+            CM1M.SnowType(),
             q_rai,
             q_sno,
             state.ρ,
@@ -295,7 +291,7 @@ function rain_snow_sources(atmos, args, ts)
     # rain evaporation sink (it already has negative sign for evaporation)
     tmp = evaporation_sublimation(
         param_set,
-        param_set.microphys.rai,
+        CM1M.RainType(),
         q,
         q_rai,
         state.ρ,
@@ -307,7 +303,7 @@ function rain_snow_sources(atmos, args, ts)
     # snow sublimation/deposition source/sink
     tmp = evaporation_sublimation(
         param_set,
-        param_set.microphys.sno,
+        CM1M.SnowType(),
         q,
         q_sno,
         state.ρ,
@@ -317,7 +313,7 @@ function rain_snow_sources(atmos, args, ts)
     S_e -= tmp * (I_i + Φ)
 
     # snow melt
-    tmp = snow_melt(param_set, param_set.microphys.sno, q_sno, state.ρ, T)
+    tmp = snow_melt(param_set, q_sno, state.ρ, T)
     S_qs -= tmp
     S_qr += tmp
     S_e -= tmp * _L_f

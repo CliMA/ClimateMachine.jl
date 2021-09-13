@@ -13,12 +13,8 @@ function flux(::Rain, ::PrecipitationFlux, atmos, args)
     v_term_rai::FT = FT(0)
     param_set = parameter_set(atmos)
     if q_rai > FT(0)
-        v_term_rai = terminal_velocity(
-            param_set,
-            param_set.microphys.rai,
-            state.ρ,
-            q_rai,
-        )
+        v_term_rai =
+            terminal_velocity(param_set, CM1M.RainType(), state.ρ, q_rai)
     end
 
     k̂ = vertical_unit_vector(atmos, aux)
@@ -33,12 +29,8 @@ function flux(::Snow, ::PrecipitationFlux, atmos, args)
     param_set = parameter_set(atmos)
     v_term_sno::FT = FT(0)
     if q_sno > FT(0)
-        v_term_sno = terminal_velocity(
-            param_set,
-            param_set.microphys.sno,
-            state.ρ,
-            q_sno,
-        )
+        v_term_sno =
+            terminal_velocity(param_set, CM1M.SnowType(), state.ρ, q_sno)
     end
 
     k̂ = vertical_unit_vector(atmos, aux)

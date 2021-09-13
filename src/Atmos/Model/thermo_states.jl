@@ -73,7 +73,7 @@ function new_thermo_state(
 )
     param_set = parameter_set(atmos)
     e_int = internal_energy(atmos, state, aux)
-    return PhaseDry(param_set, e_int, state.ρ)
+    return TD.PhaseDry(param_set, e_int, state.ρ)
 end
 
 function new_thermo_state(
@@ -85,10 +85,10 @@ function new_thermo_state(
 )
     e_int = internal_energy(atmos, state, aux)
     param_set = parameter_set(atmos)
-    return PhaseEquil(
+    return TD.PhaseEquil_ρeq(
         param_set,
-        e_int,
         state.ρ,
+        e_int,
         state.moisture.ρq_tot / state.ρ,
         moist.maxiter,
         moist.tolerance,
@@ -104,13 +104,13 @@ function new_thermo_state(
 )
     param_set = parameter_set(atmos)
     e_int = internal_energy(atmos, state, aux)
-    q = PhasePartition(
+    q = TD.PhasePartition(
         state.moisture.ρq_tot / state.ρ,
         state.moisture.ρq_liq / state.ρ,
         state.moisture.ρq_ice / state.ρ,
     )
 
-    return PhaseNonEquil{eltype(state), typeof(param_set)}(
+    return TD.PhaseNonEquil{eltype(state), typeof(param_set)}(
         param_set,
         e_int,
         state.ρ,
@@ -127,7 +127,7 @@ function new_thermo_state(
 )
     param_set = parameter_set(atmos)
     θ_liq_ice = state.energy.ρθ_liq_ice / state.ρ
-    return PhaseDry_ρθ(param_set, state.ρ, θ_liq_ice)
+    return TD.PhaseDry_ρθ(param_set, state.ρ, θ_liq_ice)
 end
 
 function new_thermo_state(
@@ -139,7 +139,7 @@ function new_thermo_state(
 )
     param_set = parameter_set(atmos)
     θ_liq_ice = state.energy.ρθ_liq_ice / state.ρ
-    return PhaseEquil_ρθq(
+    return TD.PhaseEquil_ρθq(
         param_set,
         state.ρ,
         θ_liq_ice,
@@ -158,13 +158,13 @@ function new_thermo_state(
 )
     param_set = parameter_set(atmos)
     θ_liq_ice = state.energy.ρθ_liq_ice / state.ρ
-    q = PhasePartition(
+    q = TD.PhasePartition(
         state.moisture.ρq_tot / state.ρ,
         state.moisture.ρq_liq / state.ρ,
         state.moisture.ρq_ice / state.ρ,
     )
 
-    return PhaseNonEquil{eltype(state), typeof(param_set)}(
+    return TD.PhaseNonEquil{eltype(state), typeof(param_set)}(
         param_set,
         state.ρ,
         θ_liq_ice,

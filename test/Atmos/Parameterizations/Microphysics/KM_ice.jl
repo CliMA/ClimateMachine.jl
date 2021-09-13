@@ -3,9 +3,8 @@ using Dierckx
 include("KinematicModel.jl")
 
 # speed up the relaxation timescales for cloud water and cloud ice
-CLIMAParameters.Atmos.Microphysics.τ_cond_evap(::AbstractLiquidParameterSet) =
-    0.5
-CLIMAParameters.Atmos.Microphysics.τ_sub_dep(::AbstractIceParameterSet) = 0.5
+CLIMAParameters.Atmos.Microphysics.τ_cond_evap(::AbstractParameterSet) = 0.5
+CLIMAParameters.Atmos.Microphysics.τ_sub_dep(::AbstractParameterSet) = 0.5
 
 function vars_state(m::KinematicModel, ::Prognostic, FT)
     @vars begin
@@ -190,68 +189,63 @@ function nodal_update_auxiliary_state!(
         aux.RH = relative_humidity(ts_neq) * FT(100)
 
         aux.rain_w =
-            terminal_velocity(param_set, rain_param_set, state.ρ, aux.q_rai)
+            terminal_velocity(param_set, CM1M.RainType(), state.ρ, aux.q_rai)
         aux.snow_w =
-            terminal_velocity(param_set, snow_param_set, state.ρ, aux.q_sno)
+            terminal_velocity(param_set, CM1M.SnowType(), state.ρ, aux.q_sno)
 
         # more diagnostics
         ts_eq = PhaseEquil_ρTq(param_set, state.ρ, aux.T, aux.q_tot)
         q_eq = PhasePartition(ts_eq)
 
-        aux.src_cloud_liq = conv_q_vap_to_q_liq_ice(liquid_param_set, q_eq, q)
-        aux.src_cloud_ice = conv_q_vap_to_q_liq_ice(ice_param_set, q_eq, q)
+        aux.src_cloud_liq =
+            conv_q_vap_to_q_liq_ice(param_set, CM1M.LiquidType(), q_eq, q)
+        aux.src_cloud_ice =
+            conv_q_vap_to_q_liq_ice(param_set, CM1M.IceType(), q_eq, q)
 
-        aux.src_rain_acnv = conv_q_liq_to_q_rai(rain_param_set, aux.q_liq)
-        aux.src_snow_acnv =
-            conv_q_ice_to_q_sno(param_set, ice_param_set, q, state.ρ, aux.T)
+        aux.src_rain_acnv = conv_q_liq_to_q_rai(param_set, aux.q_liq)
+        aux.src_snow_acnv = conv_q_ice_to_q_sno(param_set, q, state.ρ, aux.T)
 
         aux.src_liq_rain_accr = accretion(
             param_set,
-            liquid_param_set,
-            rain_param_set,
+            CM1M.LiquidType(),
+            CM1M.RainType(),
             aux.q_liq,
             aux.q_rai,
             state.ρ,
         )
         aux.src_liq_snow_accr = accretion(
             param_set,
-            liquid_param_set,
-            snow_param_set,
+            CM1M.LiquidType(),
+            CM1M.SnowType(),
             aux.q_liq,
             aux.q_sno,
             state.ρ,
         )
         aux.src_ice_snow_accr = accretion(
             param_set,
-            ice_param_set,
-            snow_param_set,
+            CM1M.IceType(),
+            CM1M.SnowType(),
             aux.q_ice,
             aux.q_sno,
             state.ρ,
         )
         aux.src_ice_rain_accr = accretion(
             param_set,
-            ice_param_set,
-            rain_param_set,
+            CM1M.IceType(),
+            CM1M.RainType(),
             aux.q_ice,
             aux.q_rai,
             state.ρ,
         )
 
-        aux.src_rain_accr_sink = accretion_rain_sink(
-            param_set,
-            ice_param_set,
-            rain_param_set,
-            aux.q_ice,
-            aux.q_rai,
-            state.ρ,
-        )
+        aux.src_rain_accr_sink =
+            accretion_rain_sink(param_set, aux.q_ice, aux.q_rai, state.ρ)
 
         if aux.T < _T_freeze
             aux.src_snow_rain_accr = accretion_snow_rain(
                 param_set,
-                snow_param_set,
-                rain_param_set,
+                CM1M.SnowType(),
+                CM1M.RainType(),
                 aux.q_sno,
                 aux.q_rai,
                 state.ρ,
@@ -259,8 +253,8 @@ function nodal_update_auxiliary_state!(
         else
             aux.src_snow_rain_accr = accretion_snow_rain(
                 param_set,
-                rain_param_set,
-                snow_param_set,
+                CM1M.RainType(),
+                CM1M.SnowType(),
                 aux.q_rai,
                 aux.q_sno,
                 state.ρ,
@@ -269,7 +263,7 @@ function nodal_update_auxiliary_state!(
 
         aux.src_rain_evap = evaporation_sublimation(
             param_set,
-            rain_param_set,
+            CM1M.RainType(),
             q,
             aux.q_rai,
             state.ρ,
@@ -277,15 +271,14 @@ function nodal_update_auxiliary_state!(
         )
         aux.src_snow_subl = evaporation_sublimation(
             param_set,
-            snow_param_set,
+            CM1M.SnowType(),
             q,
             aux.q_sno,
             state.ρ,
             aux.T,
         )
 
-        aux.src_snow_melt =
-            snow_melt(param_set, snow_param_set, aux.q_sno, state.ρ, aux.T)
+        aux.src_snow_melt = snow_melt(param_set, aux.q_sno, state.ρ, aux.T)
 
         aux.flag_cloud_liq = FT(0)
         aux.flag_cloud_ice = FT(0)
@@ -364,8 +357,8 @@ end
         u = state.ρu / state.ρ
         q_rai::FT = state.ρq_rai / state.ρ
         q_sno::FT = state.ρq_sno / state.ρ
-        rain_w = terminal_velocity(param_set, rain_param_set, state.ρ, q_rai)
-        snow_w = terminal_velocity(param_set, snow_param_set, state.ρ, q_sno)
+        rain_w = terminal_velocity(param_set, CM1M.RainType(), state.ρ, q_rai)
+        snow_w = terminal_velocity(param_set, CM1M.SnowType(), state.ρ, q_sno)
 
         nu =
             nM[1] * u[1] +
@@ -386,8 +379,8 @@ end
     @inbounds begin
         q_rai::FT = state.ρq_rai / state.ρ
         q_sno::FT = state.ρq_sno / state.ρ
-        rain_w = terminal_velocity(param_set, rain_param_set, state.ρ, q_rai)
-        snow_w = terminal_velocity(param_set, snow_param_set, state.ρ, q_sno)
+        rain_w = terminal_velocity(param_set, CM1M.RainType(), state.ρ, q_rai)
+        snow_w = terminal_velocity(param_set, CM1M.SnowType(), state.ρ, q_sno)
 
         # advect moisture ...
         flux.ρ = SVector(state.ρu[1], FT(0), state.ρu[3])
@@ -478,19 +471,21 @@ function source!(
         source.ρe = FT(0)
 
         # vapour -> cloud liquid water
-        source.ρq_liq += ρ * conv_q_vap_to_q_liq_ice(liquid_param_set, q_eq, q)
+        source.ρq_liq +=
+            ρ * conv_q_vap_to_q_liq_ice(param_set, CM1M.LiquidType(), q_eq, q)
         # vapour -> cloud ice
-        source.ρq_ice += ρ * conv_q_vap_to_q_liq_ice(ice_param_set, q_eq, q)
+        source.ρq_ice +=
+            ρ * conv_q_vap_to_q_liq_ice(param_set, CM1M.IceType(), q_eq, q)
 
         ## cloud liquid water -> rain
-        acnv = ρ * conv_q_liq_to_q_rai(rain_param_set, q_liq)
+        acnv = ρ * conv_q_liq_to_q_rai(param_set, q_liq)
         source.ρq_liq -= acnv
         source.ρq_tot -= acnv
         source.ρq_rai += acnv
         source.ρe -= acnv * (_cv_l - _cv_d) * (T - _T_0)
 
         ## cloud ice -> snow
-        acnv = ρ * conv_q_ice_to_q_sno(param_set, ice_param_set, q, state.ρ, T)
+        acnv = ρ * conv_q_ice_to_q_sno(param_set, q, state.ρ, T)
         source.ρq_ice -= acnv
         source.ρq_tot -= acnv
         source.ρq_sno += acnv
@@ -500,8 +495,8 @@ function source!(
         accr =
             ρ * accretion(
                 param_set,
-                liquid_param_set,
-                rain_param_set,
+                CM1M.LiquidType(),
+                CM1M.RainType(),
                 q_liq,
                 q_rai,
                 state.ρ,
@@ -515,8 +510,8 @@ function source!(
         accr =
             ρ * accretion(
                 param_set,
-                ice_param_set,
-                snow_param_set,
+                CM1M.IceType(),
+                CM1M.SnowType(),
                 q_ice,
                 q_sno,
                 state.ρ,
@@ -530,8 +525,8 @@ function source!(
         accr =
             ρ * accretion(
                 param_set,
-                liquid_param_set,
-                snow_param_set,
+                CM1M.LiquidType(),
+                CM1M.SnowType(),
                 q_liq,
                 q_sno,
                 state.ρ,
@@ -554,21 +549,14 @@ function source!(
         accr =
             ρ * accretion(
                 param_set,
-                ice_param_set,
-                rain_param_set,
+                CM1M.IceType(),
+                CM1M.RainType(),
                 q_ice,
                 q_rai,
                 state.ρ,
             )
         accr_rain_sink =
-            ρ * accretion_rain_sink(
-                param_set,
-                ice_param_set,
-                rain_param_set,
-                q_ice,
-                q_rai,
-                state.ρ,
-            )
+            ρ * accretion_rain_sink(param_set, q_ice, q_rai, state.ρ)
         source.ρq_ice -= accr
         source.ρq_tot -= accr
         source.ρq_rai -= accr_rain_sink
@@ -582,8 +570,8 @@ function source!(
             accr =
                 ρ * accretion_snow_rain(
                     param_set,
-                    snow_param_set,
-                    rain_param_set,
+                    CM1M.SnowType(),
+                    CM1M.RainType(),
                     q_sno,
                     q_rai,
                     state.ρ,
@@ -595,8 +583,8 @@ function source!(
             accr =
                 ρ * accretion_snow_rain(
                     param_set,
-                    rain_param_set,
-                    snow_param_set,
+                    CM1M.RainType(),
+                    CM1M.SnowType(),
                     q_rai,
                     q_sno,
                     state.ρ,
@@ -610,7 +598,7 @@ function source!(
         evap =
             ρ * evaporation_sublimation(
                 param_set,
-                rain_param_set,
+                CM1M.RainType(),
                 q,
                 q_rai,
                 state.ρ,
@@ -624,7 +612,7 @@ function source!(
         subl =
             ρ * evaporation_sublimation(
                 param_set,
-                snow_param_set,
+                CM1M.SnowType(),
                 q,
                 q_sno,
                 state.ρ,
@@ -635,7 +623,7 @@ function source!(
         source.ρe -= subl * ((_cv_i - _cv_d) * (T - _T_0) - _e_int_i0)
 
         # snow -> rain
-        melt = ρ * snow_melt(param_set, snow_param_set, q_sno, state.ρ, T)
+        melt = ρ * snow_melt(param_set, q_sno, state.ρ, T)
 
         source.ρq_sno -= melt
         source.ρq_rai += melt

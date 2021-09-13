@@ -52,7 +52,7 @@ function init_state_prognostic!(
         ts = PhaseDry(param_set, e_int, state.ρ)
     else
         ρq_tot = gm.moisture.ρq_tot
-        ts = PhaseEquil(param_set, e_int, state.ρ, ρq_tot / state.ρ)
+        ts = PhaseEquil_ρeq(param_set, state.ρ, e_int, ρq_tot / state.ρ)
     end
     T = air_temperature(ts)
     p = air_pressure(ts)

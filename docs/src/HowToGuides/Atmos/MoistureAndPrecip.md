@@ -56,40 +56,18 @@ In the future, a more sophisticated 2-moment microphysics scheme will most likel
 ## Using CLIMAParameters.jl
 
 The microphysics parameterizations used to compute the sources and sinks for
-moisture and precipitation variables assume certain structure
-in the physical parameters used.
-This is done in order to leverage the dynamic dispatch mechanism and re-use
-the internal microphysics functions on different microphysics species
-based on their type.
-This structure has to be created when using different parameters from
+moisture and precipitation variables depends on
 [CLIMAParameters.jl](https://github.com/CliMA/CLIMAParameters.jl).
+A set with all the parameter values needs to be created and passed in as one
+of the arguments.
 
 ```julia
 using CLIMAParameters
 using CLIMAParameters.Planet
 using CLIMAParameters.Atmos.Microphysics
 
-struct LiquidParameterSet <: AbstractLiquidParameterSet end
-struct IceParameterSet <: AbstractIceParameterSet end
-struct RainParameterSet <: AbstractRainParameterSet end
-struct SnowParameterSet <: AbstractSnowParameterSet end
-struct MicropysicsParameterSet{L, I, R, S} <: AbstractMicrophysicsParameterSet
-    liq::L
-    ice::I
-    rai::R
-    sno::S
-end
-struct EarthParameterSet{M} <: AbstractEarthParameterSet
-    microphys::M
-end
-
-const microphys = MicropysicsParameterSet(
-    LiquidParameterSet(),
-    IceParameterSet(),
-    RainParameterSet(),
-    SnowParameterSet(),
-)
-const param_set = EarthParameterSet(microphys)
+struct EarthParameterSet <: AbstractEarthParameterSet end
+const param_set = EarthParameterSet()
 ```
 
 After this is done, the created `param_set` should be passed

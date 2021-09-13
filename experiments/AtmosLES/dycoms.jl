@@ -40,30 +40,8 @@ using CLIMAParameters.Planet: cp_d, MSLP, grav, LH_v0
 
 using CLIMAParameters.Atmos.Microphysics
 
-struct LiquidParameterSet <: AbstractLiquidParameterSet end
-struct IceParameterSet <: AbstractIceParameterSet end
-struct RainParameterSet <: AbstractRainParameterSet end
-struct SnowParameterSet <: AbstractSnowParameterSet end
-
-struct MicropysicsParameterSet{L, I, R, S} <: AbstractMicrophysicsParameterSet
-    liq::L
-    ice::I
-    rai::R
-    sno::S
-end
-
-struct EarthParameterSet{M} <: AbstractEarthParameterSet
-    microphys::M
-end
-
-microphys = MicropysicsParameterSet(
-    LiquidParameterSet(),
-    IceParameterSet(),
-    RainParameterSet(),
-    SnowParameterSet(),
-)
-
-const param_set = EarthParameterSet(microphys)
+struct EarthParameterSet <: AbstractEarthParameterSet end
+const param_set = EarthParameterSet()
 
 # ------------------------ Begin Radiation Model ---------------------- #
 

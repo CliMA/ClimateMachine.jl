@@ -81,9 +81,9 @@ version = "0.1.1"
 
 [[CLIMAParameters]]
 deps = ["Test"]
-git-tree-sha1 = "d8fc52a3631cc954b5445c7920eda46da650c9e7"
+git-tree-sha1 = "0801216ee1670a1e5280cdb0e5fda60cc4b992ca"
 uuid = "6eacf6c3-8458-43b9-ae03-caf5306d3d53"
-version = "0.1.11"
+version = "0.2.0"
 
 [[CUDA]]
 deps = ["AbstractFFTs", "Adapt", "BFloat16s", "CEnum", "CompilerSupportLibraries_jll", "DataStructures", "ExprTools", "GPUArrays", "GPUCompiler", "LLVM", "Libdl", "LinearAlgebra", "Logging", "MacroTools", "NNlib", "Pkg", "Printf", "Random", "Reexport", "Requires", "SparseArrays", "Statistics", "TimerOutputs"]
@@ -103,10 +103,10 @@ uuid = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"
 version = "0.9.34"
 
 [[CloudMicrophysics]]
-deps = ["CLIMAParameters", "DocStringExtensions", "KernelAbstractions", "SpecialFunctions", "Thermodynamics"]
-git-tree-sha1 = "6dd52328ea12893d689bc896aead154e104529d9"
+deps = ["CLIMAParameters", "DocStringExtensions", "SpecialFunctions", "Thermodynamics"]
+git-tree-sha1 = "57ed5a70e80986774bc356c8a957e388186ca34e"
 uuid = "6a9e3e04-43cd-43ba-94b9-e8782df3c71b"
-version = "0.1.0"
+version = "0.2.1"
 
 [[CodecZlib]]
 deps = ["TranscodingStreams", "Zlib_jll"]
@@ -977,10 +977,10 @@ uuid = "b718987f-49a8-5099-9789-dcd902bef87d"
 version = "1.0.1"
 
 [[Thermodynamics]]
-deps = ["CLIMAParameters", "DocStringExtensions", "KernelAbstractions", "Random", "RootSolvers"]
-git-tree-sha1 = "81462a8bad7d2fdf7e30136e42bfec92dd2439c5"
+deps = ["CLIMAParameters", "DocStringExtensions", "ExprTools", "KernelAbstractions", "Random", "RootSolvers"]
+git-tree-sha1 = "386354fe65dea8a68aa88f5658ae7390ccd43159"
 uuid = "b60c26fb-14c3-4610-9d3e-2d17fe7ff00c"
-version = "0.3.2"
+version = "0.4.1"
 
 [[ThreadingUtilities]]
 deps = ["VectorizationBase"]
