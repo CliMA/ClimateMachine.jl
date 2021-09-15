@@ -29,27 +29,8 @@ using CLIMAParameters
 using CLIMAParameters.Planet
 using CLIMAParameters.Atmos.Microphysics
 
-struct LiquidParameterSet <: AbstractLiquidParameterSet end
-struct IceParameterSet <: AbstractIceParameterSet end
-struct RainParameterSet <: AbstractRainParameterSet end
-struct SnowParameterSet <: AbstractSnowParameterSet end
-struct MicropysicsParameterSet{L, I, R, S} <: AbstractMicrophysicsParameterSet
-    liq::L
-    ice::I
-    rai::R
-    sno::S
-end
-struct EarthParameterSet{M} <: AbstractEarthParameterSet
-    microphys::M
-end
-
-const microphys = MicropysicsParameterSet(
-    LiquidParameterSet(),
-    IceParameterSet(),
-    RainParameterSet(),
-    SnowParameterSet(),
-)
-const param_set = EarthParameterSet(microphys)
+struct EarthParameterSet <: AbstractEarthParameterSet end
+const param_set = EarthParameterSet()
 
 """
   Define initial conditions based on sounding data

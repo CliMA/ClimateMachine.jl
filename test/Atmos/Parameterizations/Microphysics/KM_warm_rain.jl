@@ -123,26 +123,28 @@ function nodal_update_auxiliary_state!(
         aux.RH = relative_humidity(ts_neq) * FT(100)
 
         aux.rain_w =
-            terminal_velocity(param_set, rain_param_set, state.ρ, aux.q_rai)
+            terminal_velocity(param_set, CM1M.RainType(), state.ρ, aux.q_rai)
 
         # more diagnostics
         ts_eq = PhaseEquil_ρTq(param_set, state.ρ, aux.T, aux.q_tot)
         q_eq = PhasePartition(ts_eq)
 
-        aux.src_cloud_liq = conv_q_vap_to_q_liq_ice(liquid_param_set, q_eq, q)
-        aux.src_cloud_ice = conv_q_vap_to_q_liq_ice(ice_param_set, q_eq, q)
-        aux.src_acnv = conv_q_liq_to_q_rai(rain_param_set, aux.q_liq)
+        aux.src_cloud_liq =
+            conv_q_vap_to_q_liq_ice(param_set, CM1M.LiquidType(), q_eq, q)
+        aux.src_cloud_ice =
+            conv_q_vap_to_q_liq_ice(param_set, CM1M.IceType(), q_eq, q)
+        aux.src_acnv = conv_q_liq_to_q_rai(param_set, aux.q_liq)
         aux.src_accr = accretion(
             param_set,
-            liquid_param_set,
-            rain_param_set,
+            CM1M.LiquidType(),
+            CM1M.RainType(),
             aux.q_liq,
             aux.q_rai,
             state.ρ,
         )
         aux.src_rain_evap = evaporation_sublimation(
             param_set,
-            rain_param_set,
+            CM1M.RainType(),
             q,
             aux.q_rai,
             state.ρ,
@@ -198,7 +200,7 @@ end
         u = state.ρu / state.ρ
         q_rai::FT = state.ρq_rai / state.ρ
 
-        rain_w = terminal_velocity(param_set, rain_param_set, state.ρ, q_rai)
+        rain_w = terminal_velocity(param_set, CM1M.RainType(), state.ρ, q_rai)
         nu = nM[1] * u[1] + nM[3] * max(u[3], rain_w, u[3] - rain_w)
     end
     return abs(nu)
@@ -216,7 +218,7 @@ end
 
     @inbounds begin
         q_rai::FT = state.ρq_rai / state.ρ
-        rain_w = terminal_velocity(param_set, rain_param_set, state.ρ, q_rai)
+        rain_w = terminal_velocity(param_set, CM1M.RainType(), state.ρ, q_rai)
 
         # advect moisture ...
         flux.ρq_tot = SVector(
@@ -290,23 +292,25 @@ function source!(
 
         # cloud water and ice condensation/evaporation
         source.ρq_liq +=
-            state.ρ * conv_q_vap_to_q_liq_ice(liquid_param_set, q_eq, q)
+            state.ρ *
+            conv_q_vap_to_q_liq_ice(param_set, CM1M.LiquidType(), q_eq, q)
         source.ρq_ice +=
-            state.ρ * conv_q_vap_to_q_liq_ice(ice_param_set, q_eq, q)
+            state.ρ *
+            conv_q_vap_to_q_liq_ice(param_set, CM1M.IceType(), q_eq, q)
 
         # tendencies from rain
-        src_q_rai_acnv = conv_q_liq_to_q_rai(rain_param_set, q_liq)
+        src_q_rai_acnv = conv_q_liq_to_q_rai(param_set, q_liq)
         src_q_rai_accr = accretion(
             param_set,
-            liquid_param_set,
-            rain_param_set,
+            CM1M.LiquidType(),
+            CM1M.RainType(),
             q_liq,
             q_rai,
             state.ρ,
         )
         src_q_rai_evap = evaporation_sublimation(
             param_set,
-            rain_param_set,
+            CM1M.RainType(),
             q,
             q_rai,
             state.ρ,

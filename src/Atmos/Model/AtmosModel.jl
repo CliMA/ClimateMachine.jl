@@ -52,6 +52,7 @@ import ..TurbulenceClosures: turbulence_tensors
 using ..TurbulenceConvection
 
 import Thermodynamics: internal_energy, soundspeed_air
+const TD = Thermodynamics
 using ..MPIStateArrays: MPIStateArray
 using ..Mesh.Grids:
     VerticalDirection,
@@ -1286,10 +1287,10 @@ function numerical_flux_first_order!(
     e_int⁻ = internal_energy(ts⁻)
     e_int⁺ = internal_energy(ts⁺)
     e_int = roe_average(ρ⁻, ρ⁺, e_int⁻, e_int⁺)
-    ts = PhaseEquil(
+    ts = TD.PhaseEquil_ρeq(
         param_set,
-        e_int,
         ρ,
+        e_int,
         qt,
         moisture_model(balance_law).maxiter,
         moisture_model(balance_law).tolerance,

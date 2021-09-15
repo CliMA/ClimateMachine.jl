@@ -92,7 +92,7 @@ function source(::LiquidMoisture, s::CreateClouds, m, args)
     q_eq = PhasePartition(ts_eq)
 
     # cloud condensate as relaxation source terms
-    S_q_liq = conv_q_vap_to_q_liq_ice(param_set.microphys.liq, q_eq, q)
+    S_q_liq = conv_q_vap_to_q_liq_ice(param_set, CM1M.LiquidType(), q_eq, q)
 
     return state.ρ * S_q_liq
 end
@@ -112,7 +112,7 @@ function source(::IceMoisture, s::CreateClouds, m, args)
     q_eq = PhasePartition(ts_eq)
 
     # cloud condensate as relaxation source terms
-    S_q_ice = conv_q_vap_to_q_liq_ice(param_set.microphys.ice, q_eq, q)
+    S_q_ice = conv_q_vap_to_q_liq_ice(param_set, CM1M.IceType(), q_eq, q)
 
     return state.ρ * S_q_ice
 end

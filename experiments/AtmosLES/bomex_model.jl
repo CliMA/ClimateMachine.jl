@@ -54,21 +54,8 @@ using CLIMAParameters
 using CLIMAParameters.Planet: e_int_v0, grav, day
 using CLIMAParameters.Atmos.Microphysics
 
-struct LiquidParameterSet <: AbstractLiquidParameterSet end
-struct IceParameterSet <: AbstractIceParameterSet end
-
-struct MicropysicsParameterSet{L, I} <: AbstractMicrophysicsParameterSet
-    liq::L
-    ice::I
-end
-
-struct EarthParameterSet{M} <: AbstractEarthParameterSet
-    microphys::M
-end
-
-microphys = MicropysicsParameterSet(LiquidParameterSet(), IceParameterSet())
-
-const param_set = EarthParameterSet(microphys)
+struct EarthParameterSet <: AbstractEarthParameterSet end
+const param_set = EarthParameterSet()
 
 import ClimateMachine.BalanceLaws: source, prognostic_vars
 using ClimateMachine.Atmos: altitude, recover_thermo_state

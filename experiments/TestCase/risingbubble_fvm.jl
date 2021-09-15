@@ -71,7 +71,7 @@ function init_risingbubble!(problem, bl, state, aux, localgeo, t)
 
     if moisture_model(bl) isa EquilMoist
         e_int = internal_energy(param_set, T, q_pt)
-        ts = PhaseEquil(param_set, e_int, ρ, Δq_tot)
+        ts = PhaseEquil_ρeq(param_set, ρ, e_int, Δq_tot)
     else
         e_int = internal_energy(param_set, T)
         ts = PhaseDry(param_set, e_int, ρ)
