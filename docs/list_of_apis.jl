@@ -26,7 +26,6 @@ apis = [
         "Cartesian Domains" => "APIs/Common/CartesianDomains.md",
         "Cartesian Fields" => "APIs/Common/CartesianFields.md",
         "Spectra" => "APIs/Common/Spectra.md",
-        "Surface Fluxes" => "APIs/Common/SurfaceFluxes.md",
         "Turbulence Closures" => "APIs/Common/TurbulenceClosures.md",
         "Turbulence Convection" => "APIs/Common/TurbulenceConvection.md",
     ],

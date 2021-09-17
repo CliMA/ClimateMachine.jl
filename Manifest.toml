@@ -567,9 +567,9 @@ version = "0.11.2"
 
 [[MKL_jll]]
 deps = ["Artifacts", "IntelOpenMP_jll", "JLLWrappers", "LazyArtifacts", "Libdl", "Pkg"]
-git-tree-sha1 = "c253236b0ed414624b083e6b72bfe891fbd2c7af"
+git-tree-sha1 = "5455aef09b40e5020e1520f551fa3135040d4ed0"
 uuid = "856f044c-d86e-5d09-b602-aeab76dc8ba7"
-version = "2021.1.1+1"
+version = "2021.1.1+2"
 
 [[MPI]]
 deps = ["Distributed", "DocStringExtensions", "Libdl", "MPICH_jll", "MicrosoftMPI_jll", "OpenMPI_jll", "Pkg", "Random", "Requires", "Serialization", "Sockets"]
@@ -948,6 +948,12 @@ version = "0.9.7"
 [[SuiteSparse]]
 deps = ["Libdl", "LinearAlgebra", "Serialization", "SparseArrays"]
 uuid = "4607b0f0-06f3-5cda-b6b1-a6196a1729e9"
+
+[[SurfaceFluxes]]
+deps = ["CLIMAParameters", "DocStringExtensions", "KernelAbstractions", "NonlinearSolvers", "StaticArrays", "Thermodynamics"]
+git-tree-sha1 = "d62adb290289f3dcebb1e5199d0aa7ff426139f9"
+uuid = "49b00bb7-8bd4-4f2b-b78c-51cd0450215f"
+version = "0.1.0"
 
 [[TableTraits]]
 deps = ["IteratorInterfaceExtensions"]

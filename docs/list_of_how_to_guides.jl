@@ -3,7 +3,6 @@
 ####
 
 how_to_guides = Any[
-    "Common" => Any["Universal Functions" => "HowToGuides/Common/UniversalFunctions.md",],
     "Balance Laws" => Any["How to make a balance law" => "HowToGuides/BalanceLaws/how_to_make_a_balance_law.md",],
     "Atmos" => Any[
         "Reference profiles" => "HowToGuides/Atmos/AtmosReferenceState.md",

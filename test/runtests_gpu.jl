@@ -5,8 +5,6 @@ ENV["JULIA_LOG_LEVEL"] = "WARN"
 @test CUDA.functional()
 
 for submodule in [
-    #"Common/Thermodynamics",
-    #"Common/SurfaceFluxes",
     "Arrays",
     #"Numerics/Mesh",
     #"Numerics/DGMethods",
