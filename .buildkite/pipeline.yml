@@ -743,25 +743,6 @@ steps:
       slurm_ntasks: 1
       slurm_gres: "gpu:1"
 
-  - label: "gpu_surface_fluxes"
-    key: "gpu_surface_fluxes"
-    command:
-      - "mpiexec julia --color=yes --project test/Common/SurfaceFluxes/runtests.jl --fix-rng-seed"
-    agents:
-      config: gpu
-      queue: central
-      slurm_ntasks: 1
-      slurm_gres: "gpu:1"
-
-  - label: "cpu_surface_fluxes"
-    key: "cpu_surface_fluxes"
-    command:
-      - "mpiexec julia --color=yes --project test/Common/SurfaceFluxes/runtests.jl"
-    agents:
-      config: cpu
-      queue: central
-      slurm_ntasks: 1
-
   - label: "cpu_land_overland_flow_vcatchment"
     key: "cpu_land_overland_flow_vcatchment"
     command:

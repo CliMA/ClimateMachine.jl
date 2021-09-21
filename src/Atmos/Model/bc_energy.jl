@@ -1,8 +1,7 @@
 abstract type EnergyBC end
 
 using ..TurbulenceClosures
-using ClimateMachine.SurfaceFluxes:
-    get_energy_flux, surface_conditions, DGScheme
+using SurfaceFluxes: get_energy_flux, surface_conditions, DGScheme
 
 """
     Insulating() :: EnergyBC
