@@ -212,7 +212,7 @@ soil_water_model = SoilWaterModel(
     FT;
     viscosity_factor = TemperatureDependentViscosity{FT}(),
     moisture_factor = MoistureDependent{FT}(),
-#    impedance_factor = IceImpedance{FT}(Ω = 7.0),
+    impedance_factor = IceImpedance{FT}(Ω = 7.0),
     hydraulics = vanGenuchten(FT; α = vg_α, n = vg_n),
     initialϑ_l = ϑ_l0,
 )
@@ -430,7 +430,7 @@ plot!(xticks = [0.2, 0.3, 0.4, 0.5]);
 
 plot(plot_12h, plot_24h, plot_50h, layout = (1, 3))
 plot!(xlabel = "θ_l+θ_i")
-savefig("mizoguchi_data_comparison.png")
+savefig("mizoguchi_data_comparison_092821.png")
 # ![](mizoguchi_data_comparison.png)
 
 # # Discussion and Model Explanation
