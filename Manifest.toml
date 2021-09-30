@@ -104,9 +104,9 @@ version = "0.9.34"
 
 [[CloudMicrophysics]]
 deps = ["CLIMAParameters", "DocStringExtensions", "SpecialFunctions", "Thermodynamics"]
-git-tree-sha1 = "f612e14d03263fe37b5b54b78bea7f79cf0efa2f"
+git-tree-sha1 = "52c85d99a842a1d9ebf6f36e8dd34d55e903b0b5"
 uuid = "6a9e3e04-43cd-43ba-94b9-e8782df3c71b"
-version = "0.3.0"
+version = "0.3.1"
 
 [[CodecZlib]]
 deps = ["TranscodingStreams", "Zlib_jll"]
@@ -950,10 +950,10 @@ deps = ["Libdl", "LinearAlgebra", "Serialization", "SparseArrays"]
 uuid = "4607b0f0-06f3-5cda-b6b1-a6196a1729e9"
 
 [[SurfaceFluxes]]
-deps = ["CLIMAParameters", "DocStringExtensions", "KernelAbstractions", "NonlinearSolvers", "StaticArrays", "Thermodynamics"]
-git-tree-sha1 = "d62adb290289f3dcebb1e5199d0aa7ff426139f9"
+deps = ["CLIMAParameters", "DocStringExtensions", "KernelAbstractions", "NonlinearSolvers", "StaticArrays"]
+git-tree-sha1 = "0f2685b633ebf751e50842ee3525880f7d043162"
 uuid = "49b00bb7-8bd4-4f2b-b78c-51cd0450215f"
-version = "0.1.0"
+version = "0.1.1"
 
 [[TableTraits]]
 deps = ["IteratorInterfaceExtensions"]
@@ -984,9 +984,9 @@ version = "1.0.1"
 
 [[Thermodynamics]]
 deps = ["CLIMAParameters", "DocStringExtensions", "ExprTools", "KernelAbstractions", "Random", "RootSolvers"]
-git-tree-sha1 = "386354fe65dea8a68aa88f5658ae7390ccd43159"
+git-tree-sha1 = "c7d73eae235caffdab85778d8b6c371691ad1b3e"
 uuid = "b60c26fb-14c3-4610-9d3e-2d17fe7ff00c"
-version = "0.4.1"
+version = "0.5.1"
 
 [[ThreadingUtilities]]
 deps = ["VectorizationBase"]
