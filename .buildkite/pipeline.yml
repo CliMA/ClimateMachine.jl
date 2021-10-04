@@ -2025,7 +2025,6 @@ steps:
   - label: "cpu_pysdmachine_tests"
     key: "cpu_pysdmachine_tests"
     command:
-      - "julia --project='test/Atmos/Parameterizations/Microphysics/KM_PySDMachine' -e 'using Pkg; Pkg.instantiate()'"
       - "julia --color=yes julia --project='test/Atmos/Parameterizations/Microphysics/KM_PySDMachine' test/Atmos/Parameterizations/Microphysics/KM_PySDMachine/test/runtests.jl"
     agents:
       config: cpu
