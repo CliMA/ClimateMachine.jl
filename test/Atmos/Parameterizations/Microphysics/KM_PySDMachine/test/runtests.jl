@@ -4,8 +4,7 @@ julia --project="test/Atmos/Parameterizations/Microphysics/KM_PySDMachine" test/
 
 """
 
-using Test, Pkg, Conda
-
+using Pkg
 
 begin
     root_folder_index = findlast("ClimateMachine.jl", pwd())
@@ -19,7 +18,11 @@ begin
     end
 
     Pkg.add(url = path)
+end
 
+using Test, Conda
+
+begin
     Conda.pip_interop(true)
     Conda.pip("install", "PySDM==1.16")
 end
