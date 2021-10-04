@@ -42,9 +42,9 @@ jobs:
         with:
           python-version: 3.8
       
-      - run: |
-          cd test/Atmos/Parameterizations/Microphysics/KM_PySDMachine
-          julia --project -e 'using Pkg; Pkg.instantiate()'
+#      - run: |
+#          cd test/Atmos/Parameterizations/Microphysics/KM_PySDMachine
+#          julia --project -e 'using Pkg; Pkg.instantiate()'
           
 #      - name: Add local version of ClimateMachine
 #        run: |
