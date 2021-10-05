@@ -8,6 +8,11 @@ using Pkg
 
 begin
     root_folder_index = findlast("ClimateMachine.jl", pwd())
+
+    if isnothing(root_folder_index)
+        root_folder_index = findlast("climatemachine-ci", pwd())
+    end
+
     tmp_path = pwd()[root_folder_index[1]:end]
     n = length(splitpath(tmp_path)) - 1
 
