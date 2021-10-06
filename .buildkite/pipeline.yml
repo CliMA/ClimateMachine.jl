@@ -2025,8 +2025,9 @@ steps:
   - label: "cpu_pysdmachine_tests"
     key: "cpu_pysdmachine_tests"
     command:
-      - "python --version"
-      - "julia --project -e 'using PyCall; a = pyimport(\"sys\"); println(a.version); println(a.path); println(a.executable)'"
+      - "python3 --version"
+      - "julia --project='test/Atmos/Parameterizations/Microphysics/KM_PySDMachine' -e 'using Pkg; Pkg.add(url=\".\")'"
+      - "julia --project='test/Atmos/Parameterizations/Microphysics/KM_PySDMachine' -e 'using PyCall; a = pyimport(\"sys\"); println(a.version); println(a.path); println(a.executable)'"
       - "julia --color=yes --project='test/Atmos/Parameterizations/Microphysics/KM_PySDMachine' test/Atmos/Parameterizations/Microphysics/KM_PySDMachine/test/runtests.jl"
     agents:
       config: cpu
