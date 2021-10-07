@@ -4,13 +4,17 @@ julia --project="test/Atmos/Parameterizations/Microphysics/KM_PySDMachine" test/
 
 """
 
+function is_buildkite_pipeline()
+    return "BUILDKITE" in keys(ENV) && ENV["BUILDKITE"] == "true"
+end
+
 using Pkg
 
 begin
     root_folder_index = findlast("ClimateMachine.jl", pwd())
 
-    if isnothing(root_folder_index)
-        root_folder_index = findlast("climatemachine-ci", pwd())
+    if isnothing(root_folder_index) && is_buildkite_pipeline()
+        root_folder_index = findlast(ENV["BUILDKITE_PIPELINE_SLUG"], pwd())
     end
 
     tmp_path = pwd()[root_folder_index[1]:end]
@@ -28,6 +32,11 @@ end
 using Test, Conda
 
 begin
+    if is_buildkite_pipeline()
+        ENV["PYTHON"] = string(Conda.PYTHONDIR, "/python")
+        Pkg.build("PyCall")
+    end
+
     Conda.pip_interop(true)
     Conda.pip("install", "PySDM==1.16")
 end
