@@ -204,6 +204,28 @@ end
     end
 end
 
+@testset "Conformal cubed_sphere_unwarp tests" begin
+    import ClimateMachine.Mesh.Topologies:
+        conformal_cubed_sphere_warp, conformal_cubed_sphere_unwarp
+
+    # Create function aliases for shorter formatting
+    ccsw = conformal_cubed_sphere_warp
+    ccsu = conformal_cubed_sphere_unwarp
+
+    for u in permutations([3.0, 2.999999999, 1.3])
+        @test all(ccsu(ccsw(u...)...) .≈ u)
+    end
+    for u in permutations([3.0, -2.999999999, 1.3])
+        @test all(ccsu(ccsw(u...)...) .≈ u)
+    end
+    for u in permutations([-3.0, 2.999999999, 1.3])
+        @test all(ccsu(ccsw(u...)...) .≈ u)
+    end
+    for u in permutations([-3.0, -2.999999999, 1.3])
+        @test all(ccsu(ccsw(u...)...) .≈ u)
+    end
+end
+
 @testset "grid1d" begin
     g = grid1d(0, 10, nelem = 10)
     @test eltype(g) == Float64

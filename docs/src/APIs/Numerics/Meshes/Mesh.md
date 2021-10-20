@@ -44,6 +44,7 @@ Topologies.equiangular_cubed_sphere_unwarp
 Topologies.equidistant_cubed_sphere_warp
 Topologies.equidistant_cubed_sphere_unwarp
 Topologies.conformal_cubed_sphere_warp
+Topologies.conformal_cubed_sphere_unwarp
 Topologies.hasboundary
 Topologies.compute_lat_long
 Topologies.cubed_sphere_topo_warp
