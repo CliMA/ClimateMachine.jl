@@ -3,8 +3,6 @@ module PySDMTest
 using PyCall
 using Test
 
-println("[TEST] PySDM presence test")
-
 pysdm = pyimport("PySDM")
 
 @test pysdm isa PyObject

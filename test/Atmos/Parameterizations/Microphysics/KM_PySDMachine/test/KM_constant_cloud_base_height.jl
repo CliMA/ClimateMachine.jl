@@ -10,7 +10,6 @@ end
 
 function test_cloud_base_height(pysdm, varvals, t)
     do_step!(pysdm, varvals, t)
-    println("[TEST] Cloud base test")
     @test test_height_diff(pysdm.particulator.products["radius_m1"].get(), 30)
 end
 
@@ -119,6 +118,16 @@ function main()
         user_callbacks = (cbvtk, pysdm_cb),
         check_euclidean_distance = true,
     )
+
+    # PySDM vtk files are generated
+    files_list = readdir("output")
+
+    f(x) = endswith(x, ".vtu")
+    @test length(filter(f, files_list)) > 0
+    f(x) = endswith(x, ".vts")
+    @test length(filter(f, files_list)) > 0
+    f(x) = endswith(x, ".pvd")
+    @test length(filter(f, files_list)) == 2
 
     # qt is conserved
     max_q_tot = maximum(abs.(solver_config.dg.state_auxiliary[:, q_tot_ind, :]))

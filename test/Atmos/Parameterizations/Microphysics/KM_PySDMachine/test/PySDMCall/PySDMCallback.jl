@@ -45,11 +45,6 @@ end
 
 
 function GenericCallbacks.init!(cb::PySDMCallback, solver, Q, param, t)
-    println()
-    println("PySDMCallback init")
-    println(t)
-    println()
-
     if !isnothing(cb.pysdmcw.init!)
         varvals = vals_interpol(cb, Q)
         cb.pysdmcw.init!(cb.pysdmcw.pysdm, varvals)
@@ -59,11 +54,6 @@ function GenericCallbacks.init!(cb::PySDMCallback, solver, Q, param, t)
 end
 
 function GenericCallbacks.call!(cb::PySDMCallback, solver, Q, param, t)
-    println()
-    println("PySDMCallback call")
-    println(t)
-    println()
-
     if !isnothing(cb.pysdmcw.do_step!)
         vals = vals_interpol(cb, Q)
         cb.pysdmcw.do_step!(cb.pysdmcw.pysdm, vals, t)
@@ -73,11 +63,6 @@ function GenericCallbacks.call!(cb::PySDMCallback, solver, Q, param, t)
 end
 
 function GenericCallbacks.fini!(cb::PySDMCallback, solver, Q, param, t)
-    println()
-    println("PySDMCallback fini")
-    println(t)
-    println()
-
     if !isnothing(cb.pysdmcw.fini!)
         vals = vals_interpol(cb, Q)
         cb.pysdmcw.fini!(cb.pysdmcw.pysdm, vals, t)

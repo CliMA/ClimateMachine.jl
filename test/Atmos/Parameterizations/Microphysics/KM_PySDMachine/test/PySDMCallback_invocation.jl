@@ -6,13 +6,6 @@ include("./utils/KM_PySDM.jl")
 
 
 function GenericCallbacks.init!(cb::PySDMCallback, solver, Q, param, t)
-    println()
-    println("PySDMCallback init! ")
-    println(typeof(Q))
-    println(size(Q.ρ))
-    print("Time: ")
-    println(t)
-    println()
     Q.ρ .= -1
 
 end
@@ -70,8 +63,6 @@ function main()
         user_callbacks = (pysdm_cb,),
         check_euclidean_distance = true,
     )
-
-    println("[TEST] PySDMCallback invocation test")
 
     cb_test_max = maximum(solver_config.Q.ρ)
     cb_test_min = minimum(solver_config.Q.ρ)

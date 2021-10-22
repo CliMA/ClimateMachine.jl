@@ -13,21 +13,10 @@ end
 
 
 function GenericCallbacks.init!(cb::MyCallback, solver, Q, param, t)
-
     py"""
     def change_state_var(Q):
-        print(type(Q))
-        print(Q.shape)
         Q.fill(-1.)
     """
-
-    println()
-    println("MyCallback init!")
-    println(typeof(Q))
-    println(size(Q.ρ))
-    print("Time: ")
-    println(t)
-    println()
 
     py"change_state_var($(parent(Q.ρ)))"
 end
@@ -68,8 +57,6 @@ function main()
         user_callbacks = (testcb,),
         check_euclidean_distance = true,
     )
-
-    println("[TEST] PyCall invocation test")
 
     cb_test_max = maximum(solver_config.Q.ρ)
     cb_test_min = minimum(solver_config.Q.ρ)

@@ -64,15 +64,11 @@ function init!(pysdm, varvals)
     pkg_backend = pyimport("PySDM.backends")
     pkg_vtk_exp = pyimport("PySDM.exporters")
 
-    print("pysdm.config.n_sd: ")
-    println(pysdm.config.n_sd)
-
     formulae = pkg_formulae.Formulae()
     backend = pkg_backend.CPU(formulae)
     builder = pkg_builder.Builder(n_sd = pysdm.config.n_sd, backend = backend)
 
     pysdm.rhod = varvals["ρ"][:, 1, :]
-    println(typeof(pysdm.rhod))
     u1 = varvals["ρu[1]"][:, 1, :] ./ pysdm.rhod
     u3 = varvals["ρu[3]"][:, 1, :] ./ pysdm.rhod
 
@@ -104,7 +100,6 @@ function init!(pysdm, varvals)
     )
 
     builder.set_environment(environment)
-    println(environment.mesh.__dict__)
 
     builder.add_dynamic(pkg_dynamics.Condensation())
 
@@ -164,12 +159,6 @@ function init!(pysdm, varvals)
     displacement.upload_courant_field(courant_field)
 
     pysdm.exporter = pkg_vtk_exp.VTKExporter(verbose = true)
-
-    print("Products keys: ")
-    println(pysdm.particulator.products.keys)
-
-    print("PySDM Dynamics: ")
-    println(keys(pysdm.particulator.dynamics))
 
     return nothing
 end
@@ -279,7 +268,6 @@ function export_plt(var, title, t)
         return plt
     """
 
-    println(string("Exporting ", title, " plot"))
     plt = py"plot_vars($var, title=$title)"
     plt.savefig(string(title, t, ".png"))
 end

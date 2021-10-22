@@ -64,8 +64,6 @@ function main()
         check_euclidean_distance = true,
     )
 
-    println("[TEST] PySDM constants test")
-
     pkg_constants = pyimport("PySDM.physics.constants")
     @test pkg_constants.Mv == CP.Planet.molmass_water(param_set)
 end
