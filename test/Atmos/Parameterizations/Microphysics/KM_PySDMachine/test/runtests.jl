@@ -38,7 +38,7 @@ begin
     end
 
     Conda.pip_interop(true)
-    Conda.pip("install", "PySDM==1.16")
+    Conda.pip("install", "PySDM==1.19")
 end
 
 @testset "PySDMCall tests" begin

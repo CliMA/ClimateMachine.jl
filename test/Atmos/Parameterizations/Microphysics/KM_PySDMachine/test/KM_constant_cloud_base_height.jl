@@ -103,7 +103,7 @@ function main()
         (Δx, Δz),
         init!,
         test_cloud_base_height,
-        nothing,
+        fini!,
     )
 
     # get aux variables indices for testing

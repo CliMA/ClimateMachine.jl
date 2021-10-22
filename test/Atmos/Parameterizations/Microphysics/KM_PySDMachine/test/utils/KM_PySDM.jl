@@ -189,7 +189,8 @@ function do_step!(pysdm, varvals, t)
 
     pysdm.particulator._notify_observers()
 
-    export_particles_to_vtk(pysdm)
+    export_attributes_to_vtk(pysdm)
+    export_products_to_vtk(pysdm)
 
     pysdm.particulator.n_steps += 1
 end
@@ -222,6 +223,9 @@ function update_pysdm_fields!(pysdm, vals, t)
     return nothing
 end
 
+function fini!(pysdm, varvals, t)
+    write_pvd(pysdm)
+end
 
 function bilinear_interpol(A)
     A = [(A[y, x - 1] + A[y, x]) / 2 for y in 1:size(A)[1], x in 2:size(A)[2]]
@@ -237,9 +241,21 @@ function PySDMSpectra()
     pyimport("PySDM.physics.spectra")
 end
 
-function export_particles_to_vtk(pysdm)
+function export_attributes_to_vtk(pysdm)
     if !isnothing(pysdm.exporter)
-        pysdm.exporter.export_particles(pysdm.particulator)
+        pysdm.exporter.export_attributes(pysdm.particulator)
+    end
+end
+
+function export_products_to_vtk(pysdm)
+    if !isnothing(pysdm.exporter)
+        pysdm.exporter.export_products(pysdm.particulator)
+    end
+end
+
+function write_pvd(pysdm)
+    if !isnothing(pysdm.exporter)
+        pysdm.exporter.write_pvd()
     end
 end
 
