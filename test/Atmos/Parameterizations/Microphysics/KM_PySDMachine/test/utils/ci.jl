@@ -13,7 +13,7 @@ function find_path_to_climatemachine_project()
     n = length(splitpath(tmp_path)) - 1
 
     if n == 0
-        path = "."
+        path = "./"
     else
         path = repeat("../", n)
     end
