@@ -1,6 +1,8 @@
 
 module PySDMCall
 
+include("./../utils/ci.jl")
+
 using PyCall
 import Thermodynamics
 const THDS = Thermodynamics
@@ -102,11 +104,13 @@ end
 Adds directories to the Python search path.
 """
 function __init__()
-    pushfirst!(PyVector(pyimport("sys")."path"), "")
-    pushfirst!(PyVector(pyimport("sys")."path"), "test/PySDMCall/")
+    path = find_path_to_climatemachine_project()
     pushfirst!(
         PyVector(pyimport("sys")."path"),
-        "test/Atmos/Parameterizations/Microphysics/KM_PySDMachine/test/PySDMCall/",
+        string(
+            path,
+            "test/Atmos/Parameterizations/Microphysics/KM_PySDMachine/test/PySDMCall/",
+        ),
     )
 end
 
