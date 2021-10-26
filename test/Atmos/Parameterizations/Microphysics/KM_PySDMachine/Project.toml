@@ -1,0 +1,11 @@
+[deps]
+CLIMAParameters = "6eacf6c3-8458-43b9-ae03-caf5306d3d53"
+ClimateMachine = "777c4786-024f-11e9-21a3-85d5d4106250"
+CloudMicrophysics = "6a9e3e04-43cd-43ba-94b9-e8782df3c71b"
+Conda = "8f4d0f93-b110-5947-807f-2305c1781a2d"
+DocStringExtensions = "ffbed154-4ef7-542d-bbb7-c09d3a79fcae"
+MPI = "da04e1cc-30fd-572f-bb4f-1f8673147195"
+OrderedCollections = "bac558e1-5e72-5ebc-8fee-abe8a469f55d"
+PyCall = "438e738f-606a-5dbb-bf0a-cddfbfd45ab0"
+StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
+Thermodynamics = "b60c26fb-14c3-4610-9d3e-2d17fe7ff00c"
