@@ -1,0 +1,48 @@
+name: PySDMachine
+
+env: 
+  PYTHON: "" 
+      
+defaults:
+  run:
+    shell: bash
+    working-directory: .
+    
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        platform: [ubuntu-latest, windows-latest]  # TODO: macos-latest
+    runs-on: ${{ matrix.platform }}
+
+    steps:
+      - name: Cancel Previous Runs
+        uses: styfle/cancel-workflow-action@0.4.0
+        with:
+          access_token: ${{ github.token }}
+          
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+            fetch-depth: 0
+      
+      - name: Set up Julia
+        uses: julia-actions/setup-julia@latest
+        with:
+          version: 1.6.0
+          
+      - name: Set up Python
+        uses: actions/setup-python@v1
+        with:
+          python-version: 3.8
+      
+      - name: Run PySDMachine Tests
+        run: |
+          cd test/Atmos/Parameterizations/Microphysics/KM_PySDMachine/
+          julia --project test/runtests.jl
