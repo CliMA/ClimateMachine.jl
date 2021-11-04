@@ -20,11 +20,11 @@ function set_up_pysdm(
 
     spectra = PySDMSpectra()
 
-    rho_STP = 1.2252141358659048
+    rho_spectrum = 1
     micrometre = 1e-6
     centimetre = 0.01
     spectrum_per_mass_of_dry_air = spectra.Lognormal(
-        norm_factor = 60 / centimetre^3 / rho_STP,
+        norm_factor = 60 / centimetre^3 / rho_spectrum,
         m_mode = 0.04 * micrometre,
         s_geom = 1.4,
     )
