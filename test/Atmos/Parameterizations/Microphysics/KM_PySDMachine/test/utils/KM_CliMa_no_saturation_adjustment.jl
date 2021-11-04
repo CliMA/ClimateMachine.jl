@@ -62,7 +62,6 @@ function init_kinematic_eddy!(eddy_model, state, aux, localgeo, t)
         state.ρ = ρ
 
 
-        # R_m 288.31131120772176
 
 
         # moisture
