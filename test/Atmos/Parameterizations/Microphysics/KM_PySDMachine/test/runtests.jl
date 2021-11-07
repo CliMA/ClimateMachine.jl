@@ -1,8 +1,8 @@
-"""
+#=
 
 julia --project="test/Atmos/Parameterizations/Microphysics/KM_PySDMachine" test/Atmos/Parameterizations/Microphysics/KM_PySDMachine/test/runtests.jl will run tests from the main ClimateMachine.jl directory.
 
-"""
+=#
 
 include("./utils/ci.jl")
 
