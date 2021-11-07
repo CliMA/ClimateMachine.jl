@@ -1,6 +1,6 @@
 module CloudBaseHeightTest
 
-include("./utils/KM_CliMa_no_saturation_adjustment.jl")
+include("./utils/KM_CliMA_no_saturation_adjustment.jl")
 include("./utils/KM_PySDM.jl")
 
 function test_height_diff(A, tolerance)

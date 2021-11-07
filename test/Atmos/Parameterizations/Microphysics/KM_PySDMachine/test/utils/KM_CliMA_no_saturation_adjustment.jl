@@ -112,8 +112,8 @@ function nodal_update_auxiliary_state!(
         q = PhasePartition(aux.q_tot, 0.0, 0.0)
         aux.T = air_temperature(param_set, aux.e_int, q)
 
-        aux.theta_liq_ice = liquid_ice_pottemp(param_set, aux.T, state.ρ, q) #ts.T, state.ρ, q)
-        aux.theta_dry = dry_pottemp(param_set, aux.T, state.ρ) #ts.T, state.ρ)
+        aux.theta_liq_ice = liquid_ice_pottemp(param_set, aux.T, state.ρ, q)
+        aux.theta_dry = dry_pottemp(param_set, aux.T, state.ρ)
         aux.q_vap = vapor_specific_humidity(q) #changes in space
         aux.q_liq = q.liq
         aux.q_ice = q.ice
