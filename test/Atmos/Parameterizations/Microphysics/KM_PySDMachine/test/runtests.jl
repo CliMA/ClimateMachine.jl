@@ -4,20 +4,11 @@ julia --project="test/Atmos/Parameterizations/Microphysics/KM_PySDMachine" test/
 
 =#
 
-include("./utils/ci.jl")
-
 using Pkg
-
-begin
-    path = find_path_to_climatemachine_project()
-
-    Pkg.add(url = path)
-end
-
 using Test, Conda
 
 begin
-    if is_buildkite_pipeline()
+    if "BUILDKITE" in keys(ENV) && ENV["BUILDKITE"] == "true"
         ENV["PYTHON"] = string(Conda.PYTHONDIR, "/python")
         Pkg.build("PyCall")
     end

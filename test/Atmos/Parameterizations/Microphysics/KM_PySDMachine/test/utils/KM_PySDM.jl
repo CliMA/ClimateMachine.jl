@@ -24,7 +24,7 @@ function set_up_pysdm(
     cm = 1e-2
     nm = 1e-9
     spectrum_per_mass_of_dry_air = spectra.Lognormal(
-        norm_factor = 60 / cm^3 / rho_STP,
+        norm_factor = 60 / cm^3 / rho_spectrum,
         m_mode = 40 * nm,
         s_geom = 1.4,
     )
