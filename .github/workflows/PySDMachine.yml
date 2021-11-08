@@ -45,4 +45,5 @@ jobs:
       - name: Run PySDMachine Tests
         run: |
           cd test/Atmos/Parameterizations/Microphysics/KM_PySDMachine/
+          julia --project -e 'using Pkg; Pkg.instantiate()'
           julia --project test/runtests.jl
