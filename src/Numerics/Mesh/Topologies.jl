@@ -26,7 +26,8 @@ export AbstractTopology,
     equiangular_cubed_sphere_unwarp,
     equidistant_cubed_sphere_warp,
     equidistant_cubed_sphere_unwarp,
-    conformal_cubed_sphere_warp
+    conformal_cubed_sphere_warp,
+    conformal_cubed_sphere_unwarp
 
 export grid1d, SingleExponentialStretching, InteriorStretching
 
@@ -1480,6 +1481,103 @@ ConformalCubedSphere type
 """
 conformal_cubed_sphere_warp(a, b, c, R = max(abs(a), abs(b), abs(c))) =
     cubed_sphere_warp(ConformalCubedSphere(), a, b, c, R)
+
+"""
+    cubed_sphere_unwarp(::ConformalCubedSphere, a, b, c, R = max(abs(a), abs(b), abs(c)))
+
+The inverse of [`cubed_sphere_warp`](@ref). This function projects
+a given point `(x_1, x_2, x_3)` from the surface of a sphere onto a cube
+[Rancic1996](@cite)
+"""
+function cubed_sphere_unwarp(::ConformalCubedSphere, x1, x2, x3)
+
+    # Auxuliary function that flips coordinates, if needed, to prepare input
+    # arguments in the correct quadrant for the `conformal_cubed_sphere_inverse_mapping`
+    # function. Then, flips the output of `conformal_cubed_sphere_inverse_mapping`
+    # back to original face and scales the coordinates so that result is on the cube
+    function flip_unwarp_scale(x1, x2, x3)
+        R = hypot(x1, x2, x3)
+        flipx1, flipx2 = false, false
+        if x1 < 0 # flip the point around x2 axis
+            x1 = -x1
+            flipx1 = true
+        end
+        if x2 < 0 # flip the point around x1 axis
+            x2 = -x2
+            flipx2 = true
+        end
+        a, b = conformal_cubed_sphere_inverse_mapping(x1 / R, x2 / R, x3 / R)
+        if flipx1 == true
+            a = -a
+        end
+        if flipx2 == true
+            b = -b
+        end
+
+        # Rescale to desired length
+        a *= R
+        b *= R
+        # Since we were trating coordinates on top face of the cube, the c
+        # coordinate must have the top-face z value (z = R)
+        c = R
+
+        return a, b, c
+    end
+
+    fdim = argmax(abs.((x1, x2, x3)))
+    if fdim == 1 && x1 < 0 # left face
+        # rotate to align with top face
+        x1, x2, x3 = RotY(π / 2) * RotX(-π / 2) * [x1, x2, x3]
+        # call the unwarp function, with appropriate flipping and scaling
+        a, b, c = flip_unwarp_scale(x1, x2, x3)
+        # rotate back
+        a, b, c = RotX(π / 2) * RotY(-π / 2) * [a, b, c]
+    elseif fdim == 2 && x2 < 0 # front face
+        # rotate to align with top face
+        x1, x2, x3 = RotX(-π / 2) * [x1, x2, x3]
+        # call the unwarp function, with appropriate flipping and scaling
+        a, b, c = flip_unwarp_scale(x1, x2, x3)
+        # rotate back
+        a, b, c = RotX(π / 2) * [a, b, c]
+    elseif fdim == 1 && x1 > 0 # right face
+        # rotate to align with top face
+        x1, x2, x3 = RotZ(-π / 2) * RotY(-π / 2) * [x1, x2, x3]
+        # call the unwarp function, with appropriate flipping and scaling
+        a, b, c = flip_unwarp_scale(x1, x2, x3)
+        # rotate back
+        a, b, c = RotY(π / 2) * RotZ(π / 2) * [a, b, c]
+    elseif fdim == 2 && x2 > 0 # back face
+        # rotate to align with top face
+        x1, x2, x3 = RotZ(π) * RotX(π / 2) * [x1, x2, x3]
+        # call the unwarp function, with appropriate flipping and scaling
+        a, b, c = flip_unwarp_scale(x1, x2, x3)
+        # rotate back
+        a, b, c = RotX(-π / 2) * RotZ(-π) * [a, b, c]
+    elseif fdim == 3 && x3 > 0 # top face
+        # already on top face, no need to rotate
+        a, b, c = flip_unwarp_scale(x1, x2, x3)
+    elseif fdim == 3 && x3 < 0 # bottom face
+        # rotate to align with top face
+        x1, x2, x3 = RotX(π) * [x1, x2, x3]
+        # call the unwarp function, with appropriate flipping and scaling
+        a, b, c = flip_unwarp_scale(x1, x2, x3)
+        # rotate back
+        a, b, c = RotX(-π) * [a, b, c]
+    else
+        error("invalid case for cubed_sphere_unwarp(::ConformalCubedSphere): $a, $b, $c")
+    end
+
+    return a, b, c
+end
+
+"""
+    conformal_cubed_sphere_unwarp(x1, x2, x3)
+
+A wrapper function for the cubed_sphere_unwarp function, when called with the
+ConformalCubedSphere type
+"""
+conformal_cubed_sphere_unwarp(x1, x2, x3) =
+    cubed_sphere_unwarp(ConformalCubedSphere(), x1, x2, x3)
 
 """
    StackedCubedSphereTopology(mpicomm, Nhorz, Rrange;
