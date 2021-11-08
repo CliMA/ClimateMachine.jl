@@ -166,10 +166,10 @@ uuid = "a8cc5b0e-0ffa-5ad4-8c14-923d3ee1735f"
 version = "4.0.4"
 
 [[CubedSphere]]
-deps = ["Elliptic", "Printf", "Requires", "Rotations", "TaylorSeries", "Test"]
-git-tree-sha1 = "b7df0c21789cb6adf5f1e2eb7a52accae5b867f6"
+deps = ["Elliptic", "Printf", "Rotations", "TaylorSeries", "Test"]
+git-tree-sha1 = "f66fabd1ee5df59a7ba47c7873a6332c19e0c03f"
 uuid = "7445602f-e544-4518-8976-18f8e8ae6cdb"
-version = "0.1.0"
+version = "0.2.0"
 
 [[DataAPI]]
 git-tree-sha1 = "dfb3b7e89e395be1e25c2ad6d7690dc29cc53b1d"
