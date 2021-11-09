@@ -1483,7 +1483,7 @@ conformal_cubed_sphere_warp(a, b, c, R = max(abs(a), abs(b), abs(c))) =
     cubed_sphere_warp(ConformalCubedSphere(), a, b, c, R)
 
 """
-    cubed_sphere_unwarp(::ConformalCubedSphere, a, b, c, R = max(abs(a), abs(b), abs(c)))
+    cubed_sphere_unwarp(::ConformalCubedSphere, x1, x2, x3)
 
 The inverse of [`cubed_sphere_warp`](@ref). This function projects
 a given point `(x_1, x_2, x_3)` from the surface of a sphere onto a cube
