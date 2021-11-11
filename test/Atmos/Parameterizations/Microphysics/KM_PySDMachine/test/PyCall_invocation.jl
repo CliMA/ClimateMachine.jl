@@ -1,8 +1,3 @@
-module PyCallTest
-
-
-include("./utils/KM_CliMA_no_saturation_adjustment.jl")
-
 using PyCall
 
 mutable struct MyCallback
@@ -65,5 +60,3 @@ function main()
 end
 
 main()
-
-end #module

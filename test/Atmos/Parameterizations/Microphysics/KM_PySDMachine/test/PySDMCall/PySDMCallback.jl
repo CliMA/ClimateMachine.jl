@@ -2,22 +2,20 @@ module PySDMCallbacks
 
 export PySDMCallback
 
-include("PySDMCall.jl")
-include("../../../KinematicModel.jl")
-
-using .PySDMCall
-
 using MPI
 using OrderedCollections
 using PyCall
 
 using ClimateMachine.BalanceLaws
 using ClimateMachine.Mesh.Interpolation
+using ClimateMachine.VariableTemplates
 using ClimateMachine.DGMethods: SpaceDiscretization
 
 import Thermodynamics
 const THDS = Thermodynamics
 import ClimateMachine.GenericCallbacks
+
+using ..PySDMCall
 
 
 """

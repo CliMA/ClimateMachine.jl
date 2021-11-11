@@ -1,15 +1,10 @@
-module PySDMCallbackTest
-
-
-include("./utils/KM_CliMA_no_saturation_adjustment.jl")
-include("./utils/KM_PySDM.jl")
-
-
+# overrides GenericCallbacks.init!(cb::PySDMCallback...) from PySDMCallbacks module
 function GenericCallbacks.init!(cb::PySDMCallback, solver, Q, param, t)
     Q.ρ .= -1
 
 end
 
+# overrides GenericCallbacks.call!(cb::PySDMCallback...) from PySDMCallbacks module
 function GenericCallbacks.call!(cb::PySDMCallback, solver, Q, param, t) end
 
 function main()
@@ -72,5 +67,3 @@ function main()
 end
 
 main()
-
-end #module

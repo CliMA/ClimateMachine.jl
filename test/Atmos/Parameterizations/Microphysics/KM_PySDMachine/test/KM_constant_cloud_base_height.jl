@@ -1,8 +1,3 @@
-module CloudBaseHeightTest
-
-include("./utils/KM_CliMA_no_saturation_adjustment.jl")
-include("./utils/KM_PySDM.jl")
-
 function test_height_diff(A, tolerance)
     row_means = var(A, corrected = false, dims = 1)
     return maximum(row_means) < tolerance
@@ -155,5 +150,3 @@ function main()
 end
 
 main()
-
-end #module

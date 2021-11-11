@@ -1,5 +1,6 @@
-
 module PySDMCall
+
+export PySDM, PySDMConfig, PySDMCallWrapper, __init__
 
 using PyCall
 import ClimateMachine
@@ -7,7 +8,6 @@ const src_dir = dirname(dirname(pathof(ClimateMachine)))
 import Thermodynamics
 const THDS = Thermodynamics
 
-export PySDM, PySDMConfig, PySDMCallWrapper, __init__
 
 """
     PySDMConfig
@@ -106,18 +106,20 @@ Adds directories to the Python search path.
 function __init__()
     path_to_python_files = joinpath(
         src_dir,
-        "test", "Atmos", "Parameterizations", "Microphysics", 
-        "KM_PySDMachine", "test", "PySDMCall",
+        "test",
+        "Atmos",
+        "Parameterizations",
+        "Microphysics",
+        "KM_PySDMachine",
+        "test",
+        "PySDMCall",
     )
 
     python_sys_path = PyVector(pyimport("sys")."path")
 
     if path_to_python_files ∉ python_sys_path
-        pushfirst!(
-            python_sys_path,
-            path_to_python_files,
-        )
-    end    
+        pushfirst!(python_sys_path, path_to_python_files)
+    end
 end
 
 end # module PySDMCall

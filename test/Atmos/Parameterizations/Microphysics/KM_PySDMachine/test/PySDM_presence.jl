@@ -1,5 +1,3 @@
-module PySDMTest
-
 using PyCall
 using Test
 
@@ -14,5 +12,3 @@ module_content = py"dir($pysdm)"
       "builder" in module_content &&
       "initialisation" in module_content &&
       "backends" in module_content
-
-end

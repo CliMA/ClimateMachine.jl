@@ -1,8 +1,3 @@
-module PySDMConstantsTest
-
-include("./utils/KM_PySDM.jl")
-include("./utils/KM_CliMA_no_saturation_adjustment.jl")
-
 function init_constants!(pysdm, varvals)
     pkg_constants = pyimport("PySDM.physics.constants")
     pkg_constants.Mv = CP.Planet.molmass_water(param_set)
@@ -69,5 +64,3 @@ function main()
 end
 
 main()
-
-end # module

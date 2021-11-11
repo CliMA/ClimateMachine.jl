@@ -1,13 +1,10 @@
-
-include("../../../KinematicModel.jl")
-include("../PySDMCall/PySDMCallback.jl")
-
-using .PySDMCallbacks
-using .PySDMCallbacks.PySDMCall
-
 using StaticArrays
 using Statistics
 using Test
+
+using ..PySDMCallbacks
+using ..PySDMCall
+
 
 __init__()
 
