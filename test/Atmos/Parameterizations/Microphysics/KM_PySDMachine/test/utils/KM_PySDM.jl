@@ -88,7 +88,7 @@ function init!(pysdm, varvals)
 
     courant_field = (arkw_u1, arkw_u3)
 
-    pysdm.rhod = bilinear_interpol(pysdm.rhod)
+    pysdm.rhod = cell_center_mean(pysdm.rhod)
 
     pkg_env = pyimport("Kinematic2DMachine")
 
@@ -105,10 +105,10 @@ function init!(pysdm, varvals)
 
 
     pysdm_thd = varvals["theta_dry"][:, 1, :]
-    pysdm_thd = bilinear_interpol(pysdm_thd)
+    pysdm_thd = cell_center_mean(pysdm_thd)
 
     pysdm_qv = varvals["q_vap"][:, 1, :]
-    pysdm_qv = bilinear_interpol(pysdm_qv)
+    pysdm_qv = cell_center_mean(pysdm_qv)
 
     environment.set_thd(pysdm_thd)
     environment.set_qv(pysdm_qv)
@@ -192,14 +192,14 @@ function update_pysdm_fields!(pysdm, vals, t)
     liquid_water_specific_humidity = liquid_water_mixing_ratio
 
     q_tot = vals["q_tot"][:, 1, :]
-    q_tot = bilinear_interpol(q_tot)
+    q_tot = cell_center_mean(q_tot)
 
     q = THDS.PhasePartition.(q_tot, liquid_water_specific_humidity, 0.0)
 
     qv = THDS.vapor_specific_humidity.(q)
 
     e_int = vals["e_int"][:, 1, :]
-    e_int = bilinear_interpol(e_int)
+    e_int = cell_center_mean(e_int)
 
     T = THDS.air_temperature.(param_set, e_int, q)
 
@@ -216,7 +216,7 @@ function fini!(pysdm, varvals, t)
     write_pvd(pysdm)
 end
 
-function bilinear_interpol(A)
+function cell_center_mean(A)
     A = [(A[y, x - 1] + A[y, x]) / 2 for y in 1:size(A)[1], x in 2:size(A)[2]]
     A = [(A[y - 1, x] + A[y, x]) / 2 for y in 2:size(A)[1], x in 1:size(A)[2]]
     return A
