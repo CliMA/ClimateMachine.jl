@@ -8,6 +8,7 @@ The Climate Machine is a new Earth system model that leverages recent advances i
 | **Unit tests**       | [![unit tests][unit-tests-img]][unit-tests-url]  |
 | **Code Coverage**    | [![codecov][codecov-img]][codecov-url]           |
 | **Bors**             | [![Bors enabled][bors-img]][bors-url]            |
+| **DOI**              | [![Zenodo][zenodo-img]][zenodo-url]              |
 
 [docs-bld-img]: https://github.com/CliMA/ClimateMachine.jl/workflows/Documentation/badge.svg
 [docs-bld-url]: https://github.com/CliMA/ClimateMachine.jl/actions?query=workflow%3ADocumentation
@@ -23,5 +24,8 @@ The Climate Machine is a new Earth system model that leverages recent advances i
 
 [bors-img]: https://bors.tech/images/badge_small.svg
 [bors-url]: https://app.bors.tech/repositories/11521
+
+[zenodo-img]: https://zenodo.org/badge/162166244.svg
+[zenodo-url]: https://zenodo.org/badge/latestdoi/162166244
 
 For installation instructions and explanations on how to use the Climate Machine, please look at the [Documentation](https://clima.github.io/ClimateMachine.jl/latest/GettingStarted/Installation/).
