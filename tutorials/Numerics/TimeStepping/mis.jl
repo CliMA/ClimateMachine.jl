@@ -8,7 +8,7 @@
 # we will only run the experiment for a total of 500 simulation seconds.
 
 using ClimateMachine
-const clima_dir = dirname(dirname(pathof(ClimateMachine)));
+const clima_dir = pkgdir(ClimateMachine);
 include(joinpath(
     clima_dir,
     "tutorials",

@@ -39,7 +39,7 @@ import ClimateMachine.BalanceLaws:
     wavespeed
 
 ClimateMachine.init(; disable_gpu = true, log_level = "warn");
-const clima_dir = dirname(dirname(pathof(ClimateMachine)));
+const clima_dir = pkgdir(ClimateMachine);
 include(joinpath(clima_dir, "docs", "plothelpers.jl"));
 
 Base.@kwdef struct Box1D{FT, _init_q, _amplitude, _velo} <: BalanceLaw

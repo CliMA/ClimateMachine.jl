@@ -9,7 +9,7 @@
 # Details on this test case can be found in Sec. 4.3 of [Giraldo2013](@cite).
 
 using ClimateMachine
-const clima_dir = dirname(dirname(pathof(ClimateMachine)));
+const clima_dir = pkgdir(ClimateMachine);
 include(joinpath(
     clima_dir,
     "tutorials",

@@ -130,7 +130,7 @@ ClimateMachine.init()
 const FT = Float64;
 
 # Load plot helpers:
-const clima_dir = dirname(dirname(pathof(ClimateMachine)));
+const clima_dir = pkgdir(ClimateMachine);
 include(joinpath(clima_dir, "docs", "plothelpers.jl"));
 
 # Set soil parameters to be consistent with sand.

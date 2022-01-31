@@ -21,7 +21,7 @@ bib = CitationBibliography(joinpath(@__DIR__, "bibliography.bib"))
 @everywhere using ClimateMachine
 @everywhere using Documenter, Literate
 
-@everywhere const clima_dir = dirname(dirname(pathof(ClimateMachine)));
+@everywhere const clima_dir = pkgdir(ClimateMachine);
 
 @everywhere GENERATED_DIR = joinpath(source_dir, "generated") # generated files directory
 rm(GENERATED_DIR, force = true, recursive = true)

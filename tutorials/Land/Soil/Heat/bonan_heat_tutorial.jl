@@ -121,7 +121,7 @@ const param_set = EarthParameterSet();
 ClimateMachine.init()
 const FT = Float32;
 # Load functions that will help with plotting
-const clima_dir = dirname(dirname(pathof(ClimateMachine)));
+const clima_dir = pkgdir(ClimateMachine);
 include(joinpath(clima_dir, "docs", "plothelpers.jl"));
 
 # # Determine soil parameters
