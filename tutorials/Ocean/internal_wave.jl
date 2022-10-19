@@ -237,4 +237,4 @@ animation = @animate for (i, state) in enumerate(fetched_states)
     )
 end
 
-gif(animation, "internal_wave.mp4", fps = 5) # hide
+mp4(animation, "internal_wave.mp4", fps = 5) # hide

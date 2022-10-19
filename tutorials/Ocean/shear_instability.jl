@@ -136,4 +136,4 @@ animation = @animate for (i, state) in enumerate(fetched_states)
     plot(u_plot, θ_plot, title = [u_title θ_title], size = (600, 250))
 end
 
-gif(animation, "shear_instability.mp4", fps = 5)
+mp4(animation, "shear_instability.mp4", fps = 5)

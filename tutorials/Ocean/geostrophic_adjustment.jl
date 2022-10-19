@@ -221,4 +221,4 @@ animation = @animate for p in movie_plots
     )
 end
 
-gif(animation, "geostrophic_adjustment.mp4", fps = 5) # hide
+mp4(animation, "geostrophic_adjustment.mp4", fps = 5) # hide
