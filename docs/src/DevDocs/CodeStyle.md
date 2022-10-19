@@ -110,13 +110,13 @@ $ ln -s ../../.dev/hooks/pre-commit.sysimage .git/hooks/pre-commit
 
 !!! tip
 
-  Putting the system image in `.git/hooks` protects it from calls to `git clean -x`.
+    Putting the system image in `.git/hooks` protects it from calls to `git clean -x`.
 
 !!! Note
 
-  The script `.dev/clima_formatter_image.jl` can also take a second arguement
-  with will specify a different path for the system image. If this is used along
-  with the `git hook` the path in `pre-commet.sysimage` will need to be updated.
+    The script `.dev/clima_formatter_image.jl` can also take a second arguement
+    with will specify a different path for the system image. If this is used along
+    with the `git hook` the path in `pre-commet.sysimage` will need to be updated.
 
 !!! warning
 
