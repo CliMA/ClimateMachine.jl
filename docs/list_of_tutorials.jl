@@ -41,7 +41,9 @@ if generate_tutorials
                 "Atmos/agnesi_nh_lin.jl",
         ],
         "Land" => [
-            "Heat" => ["Heat Equation" => "Land/Heat/heat_equation.jl"],
+            "Heat" => ["Heat Equation" => "Land/Heat/heat_equation.jl",
+                "Heat Equation - Compare steppers" =>
+                    "Land/Heat/compare_steppers.jl"],
             "Soil" => [
                 "Hydraulic Functions" =>
                     "Land/Soil/Water/hydraulic_functions.jl",
