@@ -6,7 +6,7 @@ using ClimateMachine.SingleStackUtils
 using ClimateMachine.Checkpoint
 using ClimateMachine.BalanceLaws: vars_state
 using JLD2, FileIO
-const clima_dir = dirname(dirname(pathof(ClimateMachine)));
+const clima_dir = pkgdir(ClimateMachine);
 
 include(joinpath(clima_dir, "experiments", "AtmosLES", "stable_bl_model.jl"))
 include("edmf_model.jl")

@@ -4,7 +4,7 @@
 # See [Filters API](https://clima.github.io/ClimateMachine.jl/latest/APIs/Numerics/Meshes/Mesh/#Filters-1) for filters interface details.
 
 using ClimateMachine
-const clima_dir = dirname(dirname(pathof(ClimateMachine)));
+const clima_dir = pkgdir(ClimateMachine);
 include(joinpath(clima_dir, "tutorials", "Numerics", "DGMethods", "Box1D.jl"))
 
 const FT = Float64

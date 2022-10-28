@@ -31,7 +31,7 @@ using StaticArrays
 using Test
 using UnPack
 
-const clima_dir = dirname(dirname(pathof(ClimateMachine)));
+const clima_dir = pkgdir(ClimateMachine);
 include(joinpath(
     clima_dir,
     "test",

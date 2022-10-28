@@ -123,7 +123,7 @@ const FT = Float64;
 # Initialize ClimateMachine for CPU.
 ClimateMachine.init(; disable_gpu = true);
 
-const clima_dir = dirname(dirname(pathof(ClimateMachine)));
+const clima_dir = pkgdir(ClimateMachine);
 
 # Load some helper functions for plotting
 include(joinpath(clima_dir, "docs", "plothelpers.jl"));

@@ -6,7 +6,7 @@ using ClimateMachine.BalanceLaws: vars_state
 import ClimateMachine.BalanceLaws: projection
 import ClimateMachine.DGMethods
 using ClimateMachine.Atmos
-const clima_dir = dirname(dirname(pathof(ClimateMachine)));
+const clima_dir = pkgdir(ClimateMachine);
 import CLIMAParameters
 
 include(joinpath(clima_dir, "experiments", "AtmosLES", "stable_bl_model.jl"))

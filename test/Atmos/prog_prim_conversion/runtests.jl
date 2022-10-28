@@ -10,7 +10,7 @@ using ClimateMachine
 ClimateMachine.init()
 const ArrayType = ClimateMachine.array_type()
 
-const clima_dir = dirname(dirname(pathof(ClimateMachine)))
+const clima_dir = pkgdir(ClimateMachine)
 
 using ClimateMachine.BalanceLaws
 using ClimateMachine.ConfigTypes

@@ -20,7 +20,7 @@ to one of the EDMF profile constructors.
 ```@example
 using UnPack
 using ClimateMachine
-const clima_dir = dirname(dirname(pathof(ClimateMachine)));
+const clima_dir = pkgdir(ClimateMachine);
 using ClimateMachine.Atmos: AtmosModel
 using ClimateMachine.VariableTemplates
 using Thermodynamics

@@ -17,7 +17,7 @@ using ClimateMachine.SingleStackUtils
 using ClimateMachine.Checkpoint
 using ClimateMachine.BalanceLaws: vars_state
 using ClimateMachine.Atmos
-const clima_dir = dirname(dirname(pathof(ClimateMachine)));
+const clima_dir = pkgdir(ClimateMachine);
 import CLIMAParameters
 import ClimateMachine.DGMethods.FVReconstructions: FVLinear
 

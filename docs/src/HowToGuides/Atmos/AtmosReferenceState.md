@@ -4,7 +4,7 @@ Here, we plot the atmospheric reference state profiles for a few different polyn
 
 ```@example
 using ClimateMachine
-const clima_dir = dirname(dirname(pathof(ClimateMachine)));
+const clima_dir = pkgdir(ClimateMachine);
 using Plots
 include(joinpath(clima_dir, "docs", "plothelpers.jl"));
 include(joinpath(clima_dir, "test", "Atmos", "Model", "get_atmos_ref_states.jl"));

@@ -1,5 +1,5 @@
 using ClimateMachine
-const clima_dir = dirname(dirname(pathof(ClimateMachine)));
+const clima_dir = pkgdir(ClimateMachine);
 
 if parse(Bool, get(ENV, "CLIMATEMACHINE_PLOT_EDMF_COMPARISON", "false"))
     plot_dir = joinpath(clima_dir, "output", "sbl_edmf", "pycles_comparison")

@@ -25,7 +25,7 @@ using ClimateMachine.GenericCallbacks:
 using ClimateMachine.VTK: writevtk, writepvtu
 
 using ClimateMachine
-const clima_dir = dirname(dirname(pathof(ClimateMachine)))
+const clima_dir = pkgdir(ClimateMachine)
 
 if !@isdefined integration_testing
     const integration_testing = parse(

@@ -7,7 +7,7 @@ import ClimateMachine.DGMethods: custom_filter!
 using ClimateMachine.Mesh.Filters: apply!
 using ClimateMachine.BalanceLaws: vars_state
 using JLD2, FileIO
-const clima_dir = dirname(dirname(pathof(ClimateMachine)));
+const clima_dir = pkgdir(ClimateMachine);
 
 include(joinpath(clima_dir, "experiments", "AtmosLES", "bomex_model.jl"))
 include(joinpath("helper_funcs", "diagnostics_configuration.jl"))
