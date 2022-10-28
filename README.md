@@ -1,5 +1,7 @@
 # ClimateMachine.jl
 
+***NOTE THAT THIS REPO IS NOT CURRENTLY BEING MAINTAINED. PLEASE GO OVER AT*** [CliMA/ClimaCore.jl](http://github.com/CliMA/ClimaCore.jl)
+
 The Climate Machine is a new Earth system model that leverages recent advances in the computational and data sciences to learn directly from a wealth of Earth observations from space and the ground. The Climate Machine will harness more data than ever before, providing a new level of accuracy to predictions of droughts, heat waves, and rainfall extremes.
 
 | **Documentation**    | [![dev][docs-latest-img]][docs-latest-url]       |
