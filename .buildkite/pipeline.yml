@@ -2021,3 +2021,13 @@ steps:
       queue: central
       slurm_ntasks: 1
       slurm_gres: "gpu:1"
+      
+  - label: "cpu_pysdmachine_tests"
+    key: "cpu_pysdmachine_tests"
+    command:
+      - "julia --project='test/Atmos/Parameterizations/Microphysics/KM_PySDMachine' -e 'using Pkg; Pkg.instantiate()'"
+      - "julia --color=yes --project='test/Atmos/Parameterizations/Microphysics/KM_PySDMachine' test/Atmos/Parameterizations/Microphysics/KM_PySDMachine/test/runtests.jl"
+    agents:
+      config: cpu
+      queue: central
+      slurm_ntasks: 1
