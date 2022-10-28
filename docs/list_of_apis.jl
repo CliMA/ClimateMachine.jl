@@ -21,6 +21,7 @@ apis = [
         "Radiative Boundary Conditions" =>
             "APIs/Land/RadiativeEnergyFlux.md",
     ],
+    "Coupling" => "APIs/Coupling/Coupling.md",
     "Common" => [
         "Orientations" => "APIs/Common/Orientations.md",
         "Cartesian Domains" => "APIs/Common/CartesianDomains.md",
